@@ -1,4 +1,3 @@
-from numpy.testing._private.utils import assert_equal
 import pytest
 import numpy
 from hypothesis import given, settings
@@ -201,6 +200,154 @@ def test_seq2col_window_one(ops, X):
     target = base_ops.seq2col(base_ops.asarray(baseX), nW=1)
     predicted = ops.seq2col(X, nW=1)
     ops.xp.testing.assert_allclose(target, predicted, atol=0.001, rtol=0.001)
+
+
+@pytest.mark.parametrize("ops", XP_OPS)
+def test_seq2col_lengths_all_zero(ops):
+    # Empty batch
+    ops.xp.testing.assert_allclose(
+        ops.alloc((0, 0)),
+        ops.seq2col(ops.alloc((0, 0)), 1, lengths=ops.xp.zeros((0,), dtype="int32")),
+    )
+
+    ops.xp.testing.assert_allclose(
+        ops.alloc((0, 0)),
+        ops.backprop_seq2col(
+            ops.alloc((0, 0)), 1, lengths=ops.xp.zeros((0,), dtype="int32")
+        ),
+    )
+
+    # Zero-length sequence
+    ops.xp.testing.assert_allclose(
+        ops.alloc((0, 0)), ops.seq2col(ops.alloc((0, 0)), 1, lengths=ops.asarray1i([0]))
+    )
+
+    ops.xp.testing.assert_allclose(
+        ops.alloc((0, 0)),
+        ops.backprop_seq2col(ops.alloc((0, 0)), 1, lengths=ops.asarray1i([0])),
+    )
+
+    # Multiple zero-length sequences
+    ops.xp.testing.assert_allclose(
+        ops.alloc((0, 0)),
+        ops.seq2col(ops.alloc((0, 0)), 1, lengths=ops.asarray1i([0, 0])),
+    )
+
+    ops.xp.testing.assert_allclose(
+        ops.alloc((0, 0)),
+        ops.backprop_seq2col(ops.alloc((0, 0)), 1, lengths=ops.asarray1i([0, 0])),
+    )
+
+
+@pytest.mark.parametrize("ops", XP_OPS)
+def test_seq2col_lengths_zero_first_last(ops):
+    cols_check = ops.asarray2f(
+        [
+            [0, 0, 0, 1, 2, 3, 4, 5, 6],
+            [1, 2, 3, 4, 5, 6, 7, 8, 9],
+            [4, 5, 6, 7, 8, 9, 10, 11, 12],
+            [7, 8, 9, 10, 11, 12, 13, 14, 15],
+            [10, 11, 12, 13, 14, 15, 0, 0, 0],
+        ]
+    )
+
+    grad_check = ops.asarray2f(
+        [[2, 4, 6], [12, 15, 18], [21, 24, 27], [30, 33, 36], [26, 28, 30]]
+    )
+
+    # Initial zero-length sequence
+    ops.xp.testing.assert_allclose(
+        cols_check,
+        ops.seq2col(
+            ops.xp.arange(1.0, 16.0, dtype="float32").reshape(5, 3),
+            1,
+            lengths=ops.asarray1i([0, 5]),
+        ),
+    )
+
+    ops.xp.testing.assert_allclose(
+        grad_check,
+        ops.backprop_seq2col(
+            cols_check,
+            1,
+            lengths=ops.asarray1i([0, 5]),
+        ),
+    )
+
+    # Final zero-length sequence.
+    ops.xp.testing.assert_allclose(
+        cols_check,
+        ops.seq2col(
+            ops.xp.arange(1.0, 16.0, dtype="float32").reshape(5, 3),
+            1,
+            lengths=ops.asarray1i([5, 0]),
+        ),
+    )
+
+
+@pytest.mark.parametrize("ops", XP_OPS)
+def test_seq2col_lengths_zero_between(ops):
+    cols_check = ops.asarray2f(
+        [
+            [0, 0, 0, 1, 2, 3, 4, 5, 6],
+            [1, 2, 3, 4, 5, 6, 7, 8, 9],
+            [4, 5, 6, 7, 8, 9, 10, 11, 12],
+            [7, 8, 9, 10, 11, 12, 13, 14, 15],
+            [10, 11, 12, 13, 14, 15, 0, 0, 0],
+            [0, 0, 0, 16, 17, 18, 19, 20, 21],
+            [16, 17, 18, 19, 20, 21, 0, 0, 0],
+        ]
+    )
+
+    grad_check = ops.asarray2f(
+        [
+            [2, 4, 6],
+            [12, 15, 18],
+            [21, 24, 27],
+            [30, 33, 36],
+            [26, 28, 30],
+            [32, 34, 36],
+            [38, 40, 42],
+        ]
+    )
+
+    # Zero-length between.
+    ops.xp.testing.assert_allclose(
+        cols_check,
+        ops.seq2col(
+            ops.xp.arange(1.0, 22.0, dtype="float32").reshape(7, 3),
+            1,
+            lengths=ops.asarray1i([5, 0, 2]),
+        ),
+    )
+
+    ops.xp.testing.assert_allclose(
+        grad_check,
+        ops.backprop_seq2col(
+            cols_check,
+            1,
+            lengths=ops.asarray1i([5, 0, 2]),
+        ),
+    )
+
+    # Zero-length between twice.
+    ops.xp.testing.assert_allclose(
+        cols_check,
+        ops.seq2col(
+            ops.xp.arange(1.0, 22.0, dtype="float32").reshape(7, 3),
+            1,
+            lengths=ops.asarray1i([5, 0, 0, 2]),
+        ),
+    )
+
+    ops.xp.testing.assert_allclose(
+        grad_check,
+        ops.backprop_seq2col(
+            cols_check,
+            1,
+            lengths=ops.asarray1i([5, 0, 0, 2]),
+        ),
+    )
 
 
 @pytest.mark.parametrize("ops", XP_OPS)

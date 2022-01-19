@@ -78,7 +78,12 @@ def seq2col(X, nW, *, lengths=None, out=None, threads_per_block=128, num_blocks=
 
     if out is None:
         out = cupy.zeros((B, I * nF), dtype="f")
-    seq2col_kernel((num_blocks,), (threads_per_block,), (out, X, lengths, nW, B, I, nL))
+
+    if X.size != 0 and lengths.size != 0:
+        seq2col_kernel(
+            (num_blocks,), (threads_per_block,), (out, X, lengths, nW, B, I, nL)
+        )
+
     return out
 
 
@@ -157,9 +162,11 @@ def backprop_seq2col(
             out.dtype == "float32"
         ), "CUDA backprop_seq2col kernel can only handle float32"
 
-    backprop_seq2col_kernel(
-        (num_blocks,), (threads_per_block,), (out, dY, lengths, nW, B, I, nL)
-    )
+    if dY.size != 0 and lengths.size != 0:
+        backprop_seq2col_kernel(
+            (num_blocks,), (threads_per_block,), (out, dY, lengths, nW, B, I, nL)
+        )
+
     return out
 
 

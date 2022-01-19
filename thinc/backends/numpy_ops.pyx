@@ -195,7 +195,10 @@ class NumpyOps(Ops):
         cdef int nL = lengths.shape[0]
 
         cdef np.ndarray cols = self.alloc((B, (2*nW + 1) * I), dtype="float32")
-        seq2col(<float*>cols.data, &seq[0,0], &lengths[0], nW, B, I, nL)
+
+        if seq.size != 0 and lengths.size != 0:
+            seq2col(<float*>cols.data, &seq[0,0], &lengths[0], nW, B, I, nL)
+
         return cols
 
     def backprop_seq2col(self, const float[:, ::1] dY, int nW, *, const int[::1] lengths=None):
@@ -207,7 +210,8 @@ class NumpyOps(Ops):
         cdef int nL = lengths.shape[0]
 
         cdef np.ndarray dX = self.alloc((B, I), dtype='float32')
-        backprop_seq2col(<float*>dX.data, &dY[0,0], &lengths[0], B, I, nW, nL)
+        if dY.size != 0 and lengths.size != 0:
+            backprop_seq2col(<float*>dX.data, &dY[0,0], &lengths[0], B, I, nW, nL)
         return dX
 
     @cython.boundscheck(False)
