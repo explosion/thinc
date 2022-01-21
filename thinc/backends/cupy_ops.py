@@ -46,7 +46,7 @@ class CupyOps(Ops):
             return super().gelu(X, inplace=inplace)
 
     def backprop_gelu(self, dY, X, inplace=False):
-        if X.dtype == "float32":
+        if X.dtype == "float32" and dY.dtype == "float32":
             return _custom_kernels.backprop_gelu(dY, X, inplace=inplace, threshold=6.0)
         else:
             return super().backprop_gelu(dY, X, inplace=inplace)
@@ -140,7 +140,7 @@ class CupyOps(Ops):
         max_val: float = 1.0,
         inplace: bool = False,
     ):
-        if X.dtype == "float32":
+        if X.dtype == "float32" and dY.dtype == "float32":
             return _custom_kernels.backprop_clipped_linear(
                 dY=dY,
                 X=X,
@@ -162,13 +162,13 @@ class CupyOps(Ops):
             )
 
     def backprop_hard_swish(self, dY, X, inplace: bool = False):
-        if X.dtype == "float32":
+        if X.dtype == "float32" and dY.dtype == "float32":
             return _custom_kernels.backprop_hard_swish(dY, X, inplace=inplace)
         else:
             return super().backprop_hard_swish(dY, X, inplace=inplace)
 
     def backprop_hard_swish_mobilenet(self, dY, X, inplace: bool = False):
-        if X.dtype == "float32":
+        if X.dtype == "float32" and dY.dtype == "float32":
             return _custom_kernels.backprop_hard_swish_mobilenet(dY, X, inplace=inplace)
         else:
             return super().backprop_hard_swish_mobilenet(dY, X, inplace=inplace)
@@ -192,7 +192,7 @@ class CupyOps(Ops):
             return super().swish(X, inplace=inplace)
 
     def backprop_swish(self, dY, X, Y, inplace=False):
-        if X.dtype == "float32":
+        if X.dtype == "float32" and dY.dtype == "float32":
             return _custom_kernels.backprop_swish(
                 dY, X, Y, inplace=inplace, threshold=17.0
             )
