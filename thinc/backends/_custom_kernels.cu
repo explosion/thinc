@@ -340,7 +340,6 @@ void backprop_hard_swish(float* dX, const float* dY, const float* X, int N)
 
     for (int i = _loop_start; i < N; i += _loop_stride)
     {
-
         if (X[i] > 2.5) {
             dX[i] = dY[i];
         } else if (X[i] < -2.5) {
@@ -359,7 +358,6 @@ void backprop_hard_swish_mobilenet(float* dX, const float* dY, const float* X, i
 
     for (int i = _loop_start; i < N; i += _loop_stride)
     {
-
         if (X[i] > 3.0) {
             dX[i] = dY[i];
         } else if (X[i] < -3.0) {
