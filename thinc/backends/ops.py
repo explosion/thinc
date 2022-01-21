@@ -149,14 +149,17 @@ class Ops:
             i += output[-1]
         return output
 
-    def seq2col(self, seq: Floats2d, nW: int) -> Floats2d:
+    def seq2col(
+        self, seq: Floats2d, nW: int, *, lengths: Optional[Ints1d] = None
+    ) -> Floats2d:
         """Given an (M, N) sequence of vectors, return an (M, N*(nW*2+1))
         sequence. The new sequence is constructed by concatenating nW preceding
         and succeeding vectors onto each column in the sequence, to extract a
         window of features.
         """
-        # This is a test implementation that only supports nW=1
+        # This is a test implementation that only supports nW=1 and lengths=None
         assert nW == 1
+        assert lengths == None
         B = seq.shape[0]
         I = seq.shape[1]
         cols = self.alloc3f(B, (nW * 2 + 1), I)
@@ -166,13 +169,16 @@ class Ops:
         cols[:-nW, nW + 1 :] = self.reshape3f(seq[nW:], -1, nW, I)
         return self.reshape2f(cols, B, I * (2 * nW + 1))
 
-    def backprop_seq2col(self, dY: Floats2d, nW: int) -> Floats2d:
+    def backprop_seq2col(
+        self, dY: Floats2d, nW: int, *, lengths: Optional[Ints1d] = None
+    ) -> Floats2d:
         """The reverse/backward operation of the `seq2col` function: calculate
         the gradient of the original `(M, N)` sequence, as a function of the
         gradient of the output `(M, N*(nW*2+1))` sequence.
         """
-        # This is a test implementation that only supports nW=1
+        # This is a test implementation that only supports nW=1 and lengths=None
         assert nW == 1
+        assert lengths == None
         nF = nW * 2 + 1
         B = dY.shape[0]
         I = dY.shape[1] // nF

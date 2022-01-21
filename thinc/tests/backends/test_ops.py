@@ -202,6 +202,192 @@ def test_seq2col_window_one(ops, X):
     ops.xp.testing.assert_allclose(target, predicted, atol=0.001, rtol=0.001)
 
 
+@pytest.mark.parametrize("ops", XP_OPS)
+def test_seq2col_lengths_all_zero(ops):
+    # Empty batch
+    ops.xp.testing.assert_allclose(
+        ops.alloc((0, 0)),
+        ops.seq2col(ops.alloc((0, 0)), 1, lengths=ops.xp.zeros((0,), dtype="int32")),
+    )
+
+    ops.xp.testing.assert_allclose(
+        ops.alloc((0, 0)),
+        ops.backprop_seq2col(
+            ops.alloc((0, 0)), 1, lengths=ops.xp.zeros((0,), dtype="int32")
+        ),
+    )
+
+    # Zero-length sequence
+    ops.xp.testing.assert_allclose(
+        ops.alloc((0, 0)), ops.seq2col(ops.alloc((0, 0)), 1, lengths=ops.asarray1i([0]))
+    )
+
+    ops.xp.testing.assert_allclose(
+        ops.alloc((0, 0)),
+        ops.backprop_seq2col(ops.alloc((0, 0)), 1, lengths=ops.asarray1i([0])),
+    )
+
+    # Multiple zero-length sequences
+    ops.xp.testing.assert_allclose(
+        ops.alloc((0, 0)),
+        ops.seq2col(ops.alloc((0, 0)), 1, lengths=ops.asarray1i([0, 0])),
+    )
+
+    ops.xp.testing.assert_allclose(
+        ops.alloc((0, 0)),
+        ops.backprop_seq2col(ops.alloc((0, 0)), 1, lengths=ops.asarray1i([0, 0])),
+    )
+
+
+@pytest.mark.parametrize("ops", XP_OPS)
+def test_seq2col_lengths_zero_first_last(ops):
+    cols_check = ops.asarray2f(
+        [
+            [0, 0, 0, 1, 2, 3, 4, 5, 6],
+            [1, 2, 3, 4, 5, 6, 7, 8, 9],
+            [4, 5, 6, 7, 8, 9, 10, 11, 12],
+            [7, 8, 9, 10, 11, 12, 13, 14, 15],
+            [10, 11, 12, 13, 14, 15, 0, 0, 0],
+        ]
+    )
+
+    grad_check = ops.asarray2f(
+        [[2, 4, 6], [12, 15, 18], [21, 24, 27], [30, 33, 36], [26, 28, 30]]
+    )
+
+    # Initial zero-length sequence
+    ops.xp.testing.assert_allclose(
+        cols_check,
+        ops.seq2col(
+            ops.xp.arange(1.0, 16.0, dtype="float32").reshape(5, 3),
+            1,
+            lengths=ops.asarray1i([0, 5]),
+        ),
+    )
+
+    ops.xp.testing.assert_allclose(
+        grad_check,
+        ops.backprop_seq2col(
+            cols_check,
+            1,
+            lengths=ops.asarray1i([0, 5]),
+        ),
+    )
+
+    # Final zero-length sequence.
+    ops.xp.testing.assert_allclose(
+        cols_check,
+        ops.seq2col(
+            ops.xp.arange(1.0, 16.0, dtype="float32").reshape(5, 3),
+            1,
+            lengths=ops.asarray1i([5, 0]),
+        ),
+    )
+
+
+@pytest.mark.parametrize("ops", XP_OPS)
+def test_seq2col_lengths_zero_between(ops):
+    cols_check = ops.asarray2f(
+        [
+            [0, 0, 0, 1, 2, 3, 4, 5, 6],
+            [1, 2, 3, 4, 5, 6, 7, 8, 9],
+            [4, 5, 6, 7, 8, 9, 10, 11, 12],
+            [7, 8, 9, 10, 11, 12, 13, 14, 15],
+            [10, 11, 12, 13, 14, 15, 0, 0, 0],
+            [0, 0, 0, 16, 17, 18, 19, 20, 21],
+            [16, 17, 18, 19, 20, 21, 0, 0, 0],
+        ]
+    )
+
+    grad_check = ops.asarray2f(
+        [
+            [2, 4, 6],
+            [12, 15, 18],
+            [21, 24, 27],
+            [30, 33, 36],
+            [26, 28, 30],
+            [32, 34, 36],
+            [38, 40, 42],
+        ]
+    )
+
+    # Zero-length between.
+    ops.xp.testing.assert_allclose(
+        cols_check,
+        ops.seq2col(
+            ops.xp.arange(1.0, 22.0, dtype="float32").reshape(7, 3),
+            1,
+            lengths=ops.asarray1i([5, 0, 2]),
+        ),
+    )
+
+    ops.xp.testing.assert_allclose(
+        grad_check,
+        ops.backprop_seq2col(
+            cols_check,
+            1,
+            lengths=ops.asarray1i([5, 0, 2]),
+        ),
+    )
+
+    # Zero-length between twice.
+    ops.xp.testing.assert_allclose(
+        cols_check,
+        ops.seq2col(
+            ops.xp.arange(1.0, 22.0, dtype="float32").reshape(7, 3),
+            1,
+            lengths=ops.asarray1i([5, 0, 0, 2]),
+        ),
+    )
+
+    ops.xp.testing.assert_allclose(
+        grad_check,
+        ops.backprop_seq2col(
+            cols_check,
+            1,
+            lengths=ops.asarray1i([5, 0, 0, 2]),
+        ),
+    )
+
+
+@pytest.mark.parametrize("ops", XP_OPS)
+def test_seq2col_window_one_lengths(ops):
+    X = ops.xp.arange(1.0, 16.0, dtype="float32").reshape(5, 3)
+    lengths = ops.asarray1i([1, 3, 1])
+    cols = ops.seq2col(X, 1, lengths=lengths)
+    ops.xp.testing.assert_allclose(
+        ops.asarray2f(
+            [
+                [0, 0, 0, 1, 2, 3, 0, 0, 0],
+                [0, 0, 0, 4, 5, 6, 7, 8, 9],
+                [4, 5, 6, 7, 8, 9, 10, 11, 12],
+                [7, 8, 9, 10, 11, 12, 0, 0, 0],
+                [0, 0, 0, 13, 14, 15, 0, 0, 0],
+            ]
+        ),
+        cols,
+    )
+
+
+@pytest.mark.parametrize("ops", XP_OPS)
+def test_seq2col_window_two_lengths(ops):
+    X = ops.xp.arange(1.0, 16.0, dtype="float32").reshape(5, 3)
+    lengths = ops.asarray1i([1, 3, 1])
+    cols = ops.seq2col(X, 2, lengths=lengths)
+    ops.xp.testing.assert_allclose(
+        ops.asarray2f(
+            [
+                [0, 0, 0, 0, 0, 0, 1, 2, 3, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+                [0, 0, 0, 4, 5, 6, 7, 8, 9, 10, 11, 12, 0, 0, 0],
+                [4, 5, 6, 7, 8, 9, 10, 11, 12, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 13, 14, 15, 0, 0, 0, 0, 0, 0],
+            ]
+        ),
+        cols,
+    )
+
+
 @pytest.mark.parametrize("ops", ALL_OPS)
 def test_backprop_seq2col_window_one_small(ops):
     cols = ops.asarray(
@@ -237,6 +423,27 @@ def test_backprop_seq2col_window_one(ops, X):
 
 
 @pytest.mark.parametrize("ops", XP_OPS)
+def test_backprop_seq2col_window_one_lengths(ops):
+    d_y = ops.xp.arange(0.1, 4.6, step=0.1, dtype="float32").reshape(5, 9)
+    lengths = ops.asarray1i([1, 3, 1])
+    d_seqs = ops.backprop_seq2col(d_y, 1, lengths=lengths)
+
+    ops.xp.testing.assert_allclose(
+        ops.asarray2f(
+            [
+                [0.4, 0.5, 0.6],
+                [3.2, 3.4, 3.6],
+                [6.6, 6.9, 7.2],
+                [5.6, 5.8, 6.0],
+                [4.0, 4.1, 4.2],
+            ]
+        ),
+        d_seqs,
+        atol=1e-6,
+    )
+
+
+@pytest.mark.parametrize("ops", XP_OPS)
 def test_seq2col_window_two(ops):
     seq = ops.asarray([[1.0], [2.0], [3.0], [4]], dtype="float32")
     cols = ops.seq2col(seq, 2)
@@ -246,6 +453,26 @@ def test_seq2col_window_two(ops):
     assert_allclose(cols[1], [0.0, 1.0, 2.0, 3.0, 4.0])
     assert_allclose(cols[2], [1.0, 2.0, 3.0, 4.0, 0.0])
     assert_allclose(cols[3], [2.0, 3.0, 4.0, 0.0, 0.0])
+
+
+@pytest.mark.parametrize("ops", XP_OPS)
+def test_backprop_seq2col_window_two_lengths(ops):
+    d_y = ops.xp.arange(0.1, 7.6, step=0.1, dtype="float32").reshape(5, 15)
+    lengths = ops.asarray1i([1, 3, 1])
+    d_seqs = ops.backprop_seq2col(d_y, 2, lengths=lengths)
+
+    ops.xp.testing.assert_allclose(
+        ops.asarray2f(
+            [
+                [0.7, 0.8, 0.9],
+                [10.2, 10.5, 10.8],
+                [11.1, 11.4, 11.7],
+                [12.0, 12.3, 12.6],
+                [6.7, 6.8, 6.9],
+            ]
+        ),
+        d_seqs,
+    )
 
 
 @pytest.mark.parametrize("ops", XP_OPS)
@@ -274,6 +501,53 @@ def test_backprop_seq2col_window_two(ops):
     )
     seq = ops.backprop_seq2col(cols, 2)
     ops.xp.testing.assert_allclose(seq, expected, atol=0.001, rtol=0.001)
+
+
+@pytest.mark.skipif(CupyOps.xp is None, reason="needs GPU/CuPy")
+@pytest.mark.parametrize("nW", [1, 2])
+def test_large_seq2col_gpu_against_cpu(nW):
+    cupy_ops = CupyOps()
+    numpy_ops = NumpyOps()
+
+    # Use array with a large enough batch to require multiple
+    # CUDA grids.
+    batch_size = 128 * 128 * 2  # threads per block * blocks * 2
+    X = numpy_ops.xp.random.randn(batch_size * 2).astype("float32").reshape(-1, 2)
+    X_gpu = cupy_ops.asarray2f(X)
+
+    # Use somewhat interesting sequence lengths.
+    lengths = numpy_ops.asarray1i([1, 4, 2, 1] * (batch_size // 8))
+    lengths_gpu = cupy_ops.asarray1i(lengths)
+
+    cols = numpy_ops.seq2col(X, nW=nW, lengths=lengths)
+    cols_gpu = cupy_ops.seq2col(X_gpu, nW=nW, lengths=lengths_gpu)
+
+    assert_allclose(cols, cols_gpu.get())
+
+
+@pytest.mark.skipif(CupyOps.xp is None, reason="needs GPU/CuPy")
+@pytest.mark.parametrize("nW", [1, 2])
+def test_large_backprop_seq2col_gpu_against_cpu(nW):
+    cupy_ops = CupyOps()
+    numpy_ops = NumpyOps()
+
+    # Use array with a large enough batch to require multiple
+    # CUDA grids.
+    batch_size = 128 * 128 * 2  # threads per block * blocks * 2
+    nF = 2 * nW + 1
+    d_cols = (
+        numpy_ops.xp.random.randn(batch_size * nF).astype("float32").reshape(-1, nF)
+    )
+    d_cols_gpu = cupy_ops.asarray2f(d_cols)
+
+    # Use somewhat interesting sequence lengths.
+    lengths = numpy_ops.asarray1i([1, 4, 2, 1] * (batch_size // 8))
+    lengths_gpu = cupy_ops.asarray1i(lengths)
+
+    d_seqs = numpy_ops.backprop_seq2col(d_cols, nW=nW, lengths=lengths)
+    d_seqs_gpu = cupy_ops.backprop_seq2col(d_cols_gpu, nW=nW, lengths=lengths_gpu)
+
+    assert_allclose(d_seqs, d_seqs_gpu.get())
 
 
 @pytest.mark.parametrize("ops", ALL_OPS)

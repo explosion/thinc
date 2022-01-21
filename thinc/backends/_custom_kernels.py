@@ -55,12 +55,35 @@ backprop_reduce_max_kernel = KERNELS["backprop_reduce_max"]
 hash_data_kernel = compile_mmh(MMH_SRC)
 
 
-def seq2col(X, nW, out=None, threads_per_block=128, num_blocks=128):
-    if out is None:
-        out = cupy.zeros((X.shape[0], X.shape[1] * ((nW * 2) + 1)), dtype="f")
+def check_seq2col_lengths(lengths, B):
+    if lengths is None:
+        lengths = cupy.array([B], dtype="int32")
+    else:
+        lengths = lengths.astype("int32")
+        assert cupy.all(lengths >= 0), "All sequence lengths must be >= 0"
+        assert cupy.sum(lengths) == B, "The lengths must sum up to the batch length"
+
+    return lengths
+
+
+def seq2col(X, nW, *, lengths=None, out=None, threads_per_block=128, num_blocks=128):
     B = X.shape[0]
+    nF = nW * 2 + 1
     I = X.shape[1]
-    seq2col_kernel((num_blocks,), (threads_per_block,), (out, X, nW, B, I))
+
+    assert X.dtype == "float32", "CUDA seq2col kernel can only handle float32"
+
+    lengths = check_seq2col_lengths(lengths, B)
+    nL = lengths.shape[0]
+
+    if out is None:
+        out = cupy.zeros((B, I * nF), dtype="f")
+
+    if X.size != 0 and lengths.size != 0:
+        seq2col_kernel(
+            (num_blocks,), (threads_per_block,), (out, X, lengths, nW, B, I, nL)
+        )
+
     return out
 
 
@@ -120,13 +143,30 @@ def reduce_max(X, lengths, out=None, threads_per_block=128, num_blocks=128):
     return maxes, which
 
 
-def backprop_seq2col(dY, nW, out=None, threads_per_block=128, num_blocks=128):
+def backprop_seq2col(
+    dY, nW, *, lengths=None, out=None, threads_per_block=128, num_blocks=128
+):
     B = dY.shape[0]
     nF = nW * 2 + 1
     I = dY.shape[1] // nF
+
+    assert dY.dtype == "float32", "CUDA backprop_seq2col kernel can only handle float32"
+
+    lengths = check_seq2col_lengths(lengths, B)
+    nL = lengths.shape[0]
+
     if out is None:
         out = cupy.zeros((B, I), dtype="f")
-    backprop_seq2col_kernel((num_blocks,), (threads_per_block,), (out, dY, nW, B, I))
+    else:
+        assert (
+            out.dtype == "float32"
+        ), "CUDA backprop_seq2col kernel can only handle float32"
+
+    if dY.size != 0 and lengths.size != 0:
+        backprop_seq2col_kernel(
+            (num_blocks,), (threads_per_block,), (out, dY, lengths, nW, B, I, nL)
+        )
+
     return out
 
 
