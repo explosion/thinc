@@ -39,6 +39,9 @@ def create_pytorch_funcs():
     def torch_hard_tanh(x):
         return torch.nn.functional.hardtanh(x)
 
+    def torch_mish(x):
+        return torch.nn.functional.mish(x)
+
     def torch_swish(x):
         return torch.nn.functional.silu(x)
 
@@ -68,6 +71,7 @@ def create_pytorch_funcs():
         ("relu_k", torch_relu_k),
         ("hard_sigmoid", torch_hard_sigmoid),
         ("hard_tanh", torch_hard_tanh),
+        ("mish", torch_mish),
         ("swish", torch_swish),
         ("hard_swish", torch_hard_swish),
         ("hard_swish_mobilenet", torch_hard_swish_mobilenet),
@@ -959,7 +963,7 @@ def test_compare_activations_to_torch(ops, dtype, x, torch_func):
     y_thinc = forward(x_thinc)
     y.backward()
     assert x_thinc.dtype == y_thinc.dtype
-    assert ops.xp.isclose(y_thinc, forward(x_thinc, inplace=True))
+    assert ops.xp.isclose(y_thinc, forward(x_thinc, inplace=True), atol=1e-06)
     assert ops.xp.isclose(y_thinc, y.detach().numpy(), atol=1e-06)
     x_thinc = ops.asarray([x], dtype=dtype)
     dY_thinc = ops.asarray([1.0], dtype=dtype)
