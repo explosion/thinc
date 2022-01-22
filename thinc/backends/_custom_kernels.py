@@ -182,12 +182,10 @@ def backprop_maxout(dY, which, P, out=None, threads_per_block=128, num_blocks=12
 
 
 def backprop_mish(dY, X, out=None, threshold=5, threads_per_block=128, num_blocks=128):
-    B = dY.shape[0]
-    I = dY.shape[1]
     if out is None:
-        out = cupy.zeros((B, I), dtype="f")
+        out = cupy.empty_like(X)
     backprop_mish_kernel(
-        (num_blocks,), (threads_per_block,), (out, dY, X, threshold, B * I)
+        (num_blocks,), (threads_per_block,), (out, dY, X, threshold, dY.size)
     )
     return out
 

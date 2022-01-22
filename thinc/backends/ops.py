@@ -878,23 +878,19 @@ class Ops:
             return dY
         return dY * dX
 
-    def mish(self, X: Floats2d, threshold: float = 20.0) -> Floats2d:
-        Y = self.alloc2f(*X.shape, dtype=X.dtype)
+    def mish(
+        self, X: FloatsXd, threshold: float = 20.0, inplace: bool = False
+    ) -> Floats2d:
         tmp = X * self.xp.tanh(self.xp.log(1.0 + self.xp.exp(X)))
-        for i in range(X.shape[0]):
-            for j in range(X.shape[1]):
-                if X[i, j] >= threshold:
-                    Y[i, j] = X[i, j]
-                else:
-                    Y[i, j] = tmp[i, j]
-        return Y
+        Y = self.xp.where(X >= threshold, X, tmp)
+        if inplace:
+            X[:] = Y
+            return X
+        else:
+            return Y
 
     def backprop_mish(
-        self,
-        dY: Floats2d,
-        X: Floats2d,
-        threshold: float = 20.0,
-        out: Optional[Floats2d] = None,
+        self, dY: Floats2d, X: Floats2d, threshold: float = 20.0, inplace: bool = False
     ) -> Floats2d:
         xp = get_array_module(X)
         indices = X < threshold
@@ -902,15 +898,18 @@ class Ops:
         dYsub = dY[indices]
         omega = 4.0 * (Xsub + 1.0)
         omega += 4.0 * xp.exp(2.0 * Xsub)
+        omega += xp.exp(3.0 * Xsub)
         omega += xp.exp(Xsub) * ((4.0 * Xsub) + 6.0)
         delta = 2.0 * xp.exp(Xsub)
         delta += xp.exp(2.0 * Xsub)
         delta += 2.0
         dXsub = dYsub * ((xp.exp(Xsub) * omega) / (delta ** 2))
-        if out is None:
-            out = xp.zeros(dY.shape, dtype="f")
+        if inplace:
+            out = dY
+        else:
+            out = xp.empty_like(dY)
         # Gradient when above threshold will ignore softplus.
-        out[:] = dY + dY * self.dtanh(X)
+        out[:] = dY
         out[indices] = dXsub
         return out
 
