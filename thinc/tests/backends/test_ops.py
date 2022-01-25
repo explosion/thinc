@@ -185,8 +185,14 @@ def test_maxout(ops, X):
     ops.xp.testing.assert_allclose(
         expected_best, predicted_best, rtol=0.001, atol=0.001
     )
-    # Can't compare 'which' directly, as sort order might be different
-    # We could check that using the 'which', we get the right results?
+
+    # Can't compare 'which' directly, as sort order might be different.
+    # So, instead we use 'which' to extract elements from X and then
+    # check the result against the expected output.
+    ops.xp.testing.assert_allclose(
+        ops.xp.take_along_axis(X, ops.xp.expand_dims(which, -1), axis=-1),
+        ops.xp.expand_dims(expected_best, -1),
+    )
 
 
 @pytest.mark.parametrize("ops", ALL_OPS)
