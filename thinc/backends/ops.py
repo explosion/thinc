@@ -879,8 +879,8 @@ class Ops:
         return dY * dX
 
     def mish(
-        self, X: FloatsXd, threshold: float = 20.0, inplace: bool = False
-    ) -> Floats2d:
+        self, X: FloatsType, threshold: float = 20.0, inplace: bool = False
+    ) -> FloatsType:
         tmp = X * self.xp.tanh(self.xp.log(1.0 + self.xp.exp(X)))
         Y = self.xp.where(X >= threshold, X, tmp)
         if inplace:
@@ -890,8 +890,12 @@ class Ops:
             return Y
 
     def backprop_mish(
-        self, dY: Floats2d, X: Floats2d, threshold: float = 20.0, inplace: bool = False
-    ) -> Floats2d:
+        self,
+        dY: FloatsType,
+        X: Floats2d,
+        threshold: float = 20.0,
+        inplace: bool = False,
+    ) -> FloatsType:
         xp = get_array_module(X)
         indices = X < threshold
         Xsub = X[indices]
@@ -904,12 +908,11 @@ class Ops:
         delta += xp.exp(2.0 * Xsub)
         delta += 2.0
         dXsub = dYsub * ((xp.exp(Xsub) * omega) / (delta ** 2))
+        # Gradient when above threshold will ignore softplus.
         if inplace:
             out = dY
         else:
-            out = xp.empty_like(dY)
-        # Gradient when above threshold will ignore softplus.
-        out[:] = dY
+            out = xp.copy(dY)
         out[indices] = dXsub
         return out
 
