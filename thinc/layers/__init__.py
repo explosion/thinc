@@ -3,6 +3,7 @@ from .cauchysimilarity import CauchySimilarity
 from .dropout import Dropout
 from .embed import Embed
 from .expand_window import expand_window
+from .expand_window_v2 import expand_window_ragged
 from .hashembed import HashEmbed
 from .layernorm import LayerNorm
 from .linear import Linear
@@ -79,6 +80,7 @@ __all__ = [
     "Dropout",
     "Embed",
     "expand_window",
+    "expand_window_ragged",
     "HashEmbed",
     "LayerNorm",
     "LSTM",

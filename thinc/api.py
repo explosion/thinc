@@ -28,7 +28,7 @@ from .layers import ClippedLinear, ReluK, HardTanh, HardSigmoid
 from .layers import HardSwish, HardSwishMobilenet, Swish, Gelu
 from .layers import PyTorchWrapper, PyTorchRNNWrapper, PyTorchLSTM
 from .layers import TensorFlowWrapper, keras_subclass, MXNetWrapper
-from .layers import PyTorchWrapper_v2
+from .layers import PyTorchWrapper_v2, expand_window_ragged
 
 from .layers import add, bidirectional, chain, clone, concatenate, noop
 from .layers import residual, uniqued, siamese, list2ragged, ragged2list
