@@ -442,12 +442,13 @@ between 0 and 1, so each vector can be interpreted as a probability
 distribution.
 
 | Argument       | Type                               | Description                                                                                              |
-| -------------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------- |
+|----------------|------------------------------------|----------------------------------------------------------------------------------------------------------|
 | `nO`           | <tt>Optional[int]</tt>             | The size of the output vectors.                                                                          |
 | `nI`           | <tt>Optional[int]</tt>             | The size of the input vectors.                                                                           |
 | _keyword-only_ |                                    |                                                                                                          |
 | `init_W`       | <tt>Callable</tt>                  | A function to initialize the weights matrix. Defaults to [`zero_init`](/docs/api-initializers#zero_init) |
 | `init_b`       | <tt>Callable</tt>                  | A function to initialize the bias vector. Defaults to [`zero_init`](/docs/api-initializers#zero_init).   |
+| `normalize`    | <tt>bool</tt>                      | Return normalized probabilities during inference. Defaults to `True`.                                    |
 | **RETURNS**    | <tt>Model[Floats2d, Floats2d]</tt> | The created softmax layer.                                                                               |
 
 ```python
