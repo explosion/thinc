@@ -43,10 +43,14 @@ def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Call
         model.inc_grad("W", model.ops.gemm(dY, X, trans1=True))
         return model.ops.gemm(dY, W)
 
+    def backprop_unnormalized(dY: InT):
+        msg = "backprop is not supported for an unnormalized Softmax layer"
+        raise ValueError(msg)
+
     if normalized:
         return Y, backprop
     else:
-        return Y, lambda dY: []
+        return Y, backprop_unnormalized
 
 
 def init(
