@@ -1,6 +1,6 @@
 import pytest
 
-from hypothesis import given
+from hypothesis import given, settings
 from hypothesis.strategies import lists, one_of, tuples
 from thinc.util import has_torch, has_torch_gpu, is_torch_array
 from thinc.api import PyTorchGradScaler
@@ -23,6 +23,7 @@ def tensors():
 @pytest.mark.skipif(not has_torch, reason="needs PyTorch")
 @pytest.mark.skipif(not has_torch_gpu, reason="needs a GPU")
 @given(X=one_of(tensors(), lists(tensors()), tuples(tensors())))
+@settings(deadline=None)
 def test_scale_random_inputs(X):
     import torch
 
