@@ -33,11 +33,13 @@ class CupyOps(Ops):
         self.device_type = device_type
         self.device_id = device_id
 
-    def to_numpy(self, data):
-        if isinstance(data, numpy.ndarray):
-            return data
-        else:
-            return data.get()
+    def to_numpy(self, data, *, byteorder=None):
+        if not isinstance(data, numpy.ndarray):
+            data = data.get()
+        if byteorder:
+            dtype = data.dtype.newbyteorder(byteorder)
+            data = numpy.asarray(data, dtype=dtype)
+        return data
 
     def gemm(self, x, y, out=None, trans1=False, trans2=False):
         if isinstance(x, numpy.ndarray) or isinstance(y, numpy.ndarray):

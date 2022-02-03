@@ -31,8 +31,11 @@ class Ops:
         self.device_type = device_type
         self.device_id = device_id
 
-    def to_numpy(self, data):  # pragma: no cover
+    def to_numpy(self, data, *, byteorder=None):  # pragma: no cover
         if isinstance(data, numpy.ndarray):
+            if byteorder:
+                dtype = data.dtype.newbyteorder(byteorder)
+                data = numpy.asarray(data, dtype=dtype)
             return data
         else:
             raise ValueError("Cannot convert non-numpy from base Ops class")
