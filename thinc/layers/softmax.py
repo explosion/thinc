@@ -31,11 +31,11 @@ def Softmax(
 
 
 def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Callable]:
-    normalized = model.attrs["normalize_softmax"] or is_train
+    normalize = model.attrs["normalize_softmax"] or is_train
     W = cast(Floats2d, model.get_param("W"))
     b = cast(Floats1d, model.get_param("b"))
     Y = model.ops.affine(X, W, b)
-    if normalized:
+    if normalize:
         Y = model.ops.softmax(Y)
 
     def backprop(dY: InT) -> OutT:
@@ -47,7 +47,7 @@ def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Call
         msg = "backprop is not supported for an unnormalized Softmax layer"
         raise ValueError(msg)
 
-    if normalized:
+    if normalize:
         return Y, backprop
     else:
         return Y, backprop_unnormalized
