@@ -39,7 +39,9 @@ def _expand_window_floats(
     return Y, backprop
 
 
-def _expand_window_ragged(model: Model[Ragged, Ragged], Xr: Ragged):
+def _expand_window_ragged(
+    model: Model[Ragged, Ragged], Xr: Ragged
+) -> Tuple[Ragged, Callable]:
     nW = model.attrs["window_size"]
     Y = Ragged(
         model.ops.seq2col(cast(Floats2d, Xr.data), nW, lengths=Xr.lengths), Xr.lengths
