@@ -18,7 +18,7 @@ def Softmax(
     *,
     init_W: Callable = zero_init,
     init_b: Callable = zero_init,
-    normalize: bool = True,
+    normalize_outputs: bool = True,
 ) -> Model[InT, OutT]:
     return Model(
         "softmax",
@@ -26,7 +26,7 @@ def Softmax(
         init=partial(init, init_W, init_b),
         dims={"nO": nO, "nI": nI},
         params={"W": None, "b": None},
-        attrs={"normalize_softmax": normalize},
+        attrs={"normalize_softmax": normalize_outputs},
     )
 
 

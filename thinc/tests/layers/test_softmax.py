@@ -16,7 +16,7 @@ outputs = OPS.xp.asarray(
 
 
 def test_unnormalized_softmax_backprop():
-    model = Softmax(normalize=False)
+    model = Softmax(normalize_outputs=False)
     model.initialize(inputs, outputs)
     _, backprop = model(inputs, is_train=False)
     with pytest.raises(ValueError, match="backprop is not supported"):
