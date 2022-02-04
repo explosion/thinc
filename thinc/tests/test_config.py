@@ -819,7 +819,7 @@ def test_resolve_prefilled_values():
 
 
 def test_fill_config_dict_return_type():
-    """Test that a registered function returning a dict is hanlded correctly."""
+    """Test that a registered function returning a dict is handled correctly."""
 
     @my_registry.cats.register("catsie_with_dict.v1")
     def catsie_with_dict(evil: StrictBool) -> Dict[str, bool]:

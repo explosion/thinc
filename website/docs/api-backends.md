@@ -448,7 +448,7 @@ purposes**. They do **not** change the data type of the array. For example,
 `Ops.reshape2f` expects an array of floats and expects to return an array of
 floats – but it won't convert an array of ints to an array of floats. However,
 using the specific method will tell the static type checker what array to
-expect, and passing in an array thats _typed_ as an int array will result in a
+expect, and passing in an array that's _typed_ as an int array will result in a
 type error.
 
 </infobox>

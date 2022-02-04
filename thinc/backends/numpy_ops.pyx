@@ -553,7 +553,7 @@ cdef void _adam_momentum(weight_t* gradient, weight_t* mom1, weight_t* mom2,
         int nr_weight, weight_t beta1, weight_t beta2, weight_t eps,
         weight_t learn_rate) nogil:
     # Calculate Adam on CPU, fused.
-    # Assumes the learning rate adustment is calculated by the caller;
+    # Assumes the learning rate adjustment is calculated by the caller;
     # a_t = learn_rate * sqrt(1-beta2**timestep) / (1-beta1**timestep)
     cdef weight_t one_minus_beta1 = 1-beta1
     cdef weight_t one_minus_beta2 = 1-beta2
