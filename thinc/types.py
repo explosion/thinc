@@ -841,7 +841,7 @@ class Ragged:
     data: Array2d
     lengths: Ints1d
     data_shape: Tuple[int, ...]
-    cumsums: Optional[Ints1d] = None
+    starts_ends: Optional[Ints1d] = None
 
     def __init__(self, data: _Array, lengths: Ints1d):
         self.lengths = lengths
@@ -874,8 +874,7 @@ class Ragged:
             return Ragged(self.data[s:e], self.lengths[index : index + 1])
         elif isinstance(index, slice):
             lengths = self.lengths[index]
-            cumsums = self._get_cumsums()
-            start = cumsums[index.start - 1] if index.start >= 1 else 0
+            start = ends[index.start - 1] if index.start >= 1 else 0
             end = start + lengths.sum()
             return Ragged(self.data[start:end].reshape(self.data_shape), lengths)
         else:
@@ -884,19 +883,19 @@ class Ragged:
             data = xp.vstack([self[int(i)].data for i in index])
             return Ragged(data.reshape(self.data_shape), self.lengths[index])
 
-    def _get_cumsums(self) -> Ints1d:
-        if self.cumsums is None:
-            self.cumsums = self.lengths.cumsum()
-        return self.cumsums
+    def _get_starts_ends(self) -> Ints1d:
+        if self.starts_ends is None:
+            xp = get_array_module(self.lengths)
+            self.starts_ends = xp.empty(self.lengths.size + 1, dtype="i")
+            self.starts_ends[0] = 0
+            self.lengths.cumsum(out=self.starts_ends[1:])
+        return self.starts_ends
 
     def _get_starts(self) -> Ints1d:
-        cumsums = self._get_cumsums()
-        xp = get_array_module(cumsums)
-        zero = xp.array([0], dtype="i")
-        return xp.concatenate((zero, cumsums[:-1]))
+        return self._get_starts_ends()[:-1]
 
     def _get_ends(self) -> Ints1d:
-        return self._get_cumsums()
+        return self._get_starts_ends()[1:]
 
 
 _P = TypeVar("_P", bound=Sequence)

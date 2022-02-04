@@ -1363,7 +1363,7 @@ def test_config_dataclasses():
     config = {"cfg": {"@cats": "catsie.ragged", "arg": ragged}}
     result = my_registry.resolve(config)["cfg"]
     assert isinstance(result, Ragged)
-    assert list(result._get_cumsums()) == [4, 6, 14, 15, 19]
+    assert list(result._get_starts_ends()) == [0, 4, 6, 14, 15, 19]
 
 
 @pytest.mark.parametrize(
