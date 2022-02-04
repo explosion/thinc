@@ -1,4 +1,4 @@
-// Use grid strided loops, descriped here:
+// Use grid strided loops, described here:
 // https://devblogs.nvidia.com/cuda-pro-tip-write-flexible-kernels-grid-stride-loops/
 // This pattern ensures that all of the loop values are visited once, no matter
 // what grid parameters are used for the function.

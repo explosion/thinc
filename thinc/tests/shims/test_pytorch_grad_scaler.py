@@ -72,7 +72,7 @@ def test_grad_scaler():
     # Check that infinity was found.
     assert scaler.unscale(g)
 
-    # Check whether unscale was succesful.
+    # Check whether unscale was successful.
     assert g[0] == torch.tensor([1.0]).cuda()
 
     scaler.update()
