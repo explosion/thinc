@@ -874,7 +874,7 @@ class Ragged:
             return Ragged(self.data[s:e], self.lengths[index : index + 1])
         elif isinstance(index, slice):
             lengths = self.lengths[index]
-            start = ends[index.start - 1] if index.start >= 1 else 0
+            start = starts[index.start]
             end = start + lengths.sum()
             return Ragged(self.data[start:end].reshape(self.data_shape), lengths)
         else:
