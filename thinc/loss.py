@@ -118,13 +118,14 @@ class CategoricalCrossentropy(Loss):
 
     def get_grad(self, guesses: Floats2d, truths: IntsOrFloatsOrStrs) -> Floats2d:
         target, mask = self.convert_truths(truths, guesses)
+        xp = get_array_module(target)
         if guesses.shape != target.shape:  # pragma: no cover
             err = f"Cannot calculate CategoricalCrossentropy loss: mismatched shapes: {guesses.shape} vs {target.shape}."
             raise ValueError(err)
-        if guesses.any() > 1 or guesses.any() < 0:  # pragma: no cover
+        if xp.any(guesses > 1) or xp.any(guesses < 0):  # pragma: no cover
             err = f"Cannot calculate CategoricalCrossentropy loss with guesses outside the [0,1] interval."
             raise ValueError(err)
-        if target.any() > 1 or target.any() < 0:  # pragma: no cover
+        if xp.any(target > 1) or xp.any(target < 0):  # pragma: no cover
             err = f"Cannot calculate CategoricalCrossentropy loss with truth values outside the [0,1] interval."
             raise ValueError(err)
         difference = guesses - target
