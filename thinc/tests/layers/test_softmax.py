@@ -21,3 +21,8 @@ def test_unnormalized_softmax_backprop():
     _, backprop = model(inputs, is_train=False)
     with pytest.raises(ValueError, match="backprop is not supported"):
         backprop(OPS.xp.zeros_like(outputs))
+
+    # Backprop should not fail when training.
+    _, backprop = model(inputs, is_train=True)
+    dX = backprop(OPS.xp.zeros_like(outputs))
+    assert OPS.xp.all(dX == 0.0)
