@@ -904,9 +904,9 @@ class Ops:
         omega += 4.0 * xp.exp(2.0 * Xsub)
         omega += xp.exp(3.0 * Xsub)
         omega += xp.exp(Xsub) * ((4.0 * Xsub) + 6.0)
-        delta = 2.0 * xp.exp(Xsub)
-        delta += xp.exp(2.0 * Xsub)
-        delta += 2.0
+        delta = xp.exp(Xsub) + 1.0
+        delta *= delta
+        delta += 1.0
         dXsub = dYsub * ((xp.exp(Xsub) * omega) / (delta ** 2))
         # Gradient when above threshold will ignore softplus.
         if inplace:
