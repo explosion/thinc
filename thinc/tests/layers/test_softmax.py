@@ -1,6 +1,6 @@
 import numpy
 import pytest
-from thinc.api import NumpyOps, Softmax
+from thinc.api import NumpyOps, Softmax_v2
 
 OPS = NumpyOps()
 
@@ -16,7 +16,7 @@ outputs = OPS.xp.asarray(
 
 
 def test_unnormalized_softmax_backprop():
-    model = Softmax(normalize_outputs=False)
+    model = Softmax_v2(normalize_outputs=False)
     model.initialize(inputs, outputs)
     _, backprop = model(inputs, is_train=False)
     with pytest.raises(ValueError, match="backprop is not supported"):

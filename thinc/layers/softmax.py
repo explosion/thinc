@@ -18,6 +18,24 @@ def Softmax(
     *,
     init_W: Callable = zero_init,
     init_b: Callable = zero_init,
+) -> Model[InT, OutT]:
+    return Model(
+        "softmax",
+        forward,
+        init=partial(init, init_W, init_b),
+        dims={"nO": nO, "nI": nI},
+        params={"W": None, "b": None},
+        attrs={"normalize_softmax": True},
+    )
+
+
+@registry.layers("Softmax.v2")
+def Softmax_v2(
+    nO: Optional[int] = None,
+    nI: Optional[int] = None,
+    *,
+    init_W: Callable = zero_init,
+    init_b: Callable = zero_init,
     normalize_outputs: bool = True,
 ) -> Model[InT, OutT]:
     return Model(
