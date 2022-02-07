@@ -468,8 +468,13 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/softmax.py
 A dense layer with a softmax activation. This is usually used as a prediction
 layer. Vectors produced by the softmax function sum to 1, and have values
 between 0 and 1, so each vector can be interpreted as a probability
-distribution. In contrast to the `Softmax` function, `Softmax_v2` also supports
-outputting unnormalized probabilities during inference.
+distribution.
+
+In contrast to the `Softmax` function, `Softmax_v2` also supports outputting
+unnormalized probabilities during inference by using `normalize_outputs=False`
+as an argument. This is useful when we are only interested in finding the top-k
+classes, but not their probabilities. Computing unnormalized probabilities is
+faster, because it skips the expensive normalization step.
 
 | Argument            | Type                               | Description                                                                                              |
 | ------------------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------- |
