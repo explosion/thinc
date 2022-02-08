@@ -16,10 +16,12 @@ def reduce_mean() -> Model[InT, OutT]:
 
 def forward(model: Model[InT, OutT], Xr: InT, is_train: bool) -> Tuple[OutT, Callable]:
     Y = model.ops.reduce_mean(cast(Floats2d, Xr.data), Xr.lengths)
+    y_shape = Y.shape
     lengths = Xr.lengths
 
     def backprop(dY: OutT) -> InT:
-        assert dY.shape == Y.shape, "Shape mismatch in backprop"
+        if dY.shape != y_shape:
+            raise ValueError(f"Shape mismatch in backprop. Y: {y_shape}, dY: {dY.shape}")
         return Ragged(model.ops.backprop_reduce_mean(dY, lengths), lengths)
 
     return Y, backprop

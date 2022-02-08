@@ -18,9 +18,12 @@ def forward(model: Model[Ragged, OutT], Xr: Ragged, is_train: bool) -> Tuple[Out
     X = cast(OutT, Xr.dataXd)
     Y = cast(OutT, X[starts]) # type: ignore
     x_shape = Xr.dataXd.shape
+    y_shape = Y.shape
     lengths = Xr.lengths
 
     def backprop(dY: OutT) -> Ragged:
+        if dY.shape != y_shape:
+            raise ValueError(f"Shape mismatch in backprop. Y: {y_shape}, dY: {dY.shape}")
         dX = cast(OutT, model.ops.alloc(x_shape, dtype=dY.dtype))
         dX[starts] = dY # type: ignore
         return Ragged(dX, lengths)
