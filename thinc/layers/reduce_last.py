@@ -3,6 +3,7 @@ from typing import Callable, Tuple, cast, TypeVar
 from ..model import Model
 from ..config import registry
 from ..types import Ragged, ArrayXd
+from ..util import consistent_backprop
 
 OutT = TypeVar("OutT", bound=ArrayXd)
 
@@ -16,12 +17,10 @@ def forward(model: Model[Ragged, OutT], Xr: Ragged, is_train: bool) -> Tuple[Out
     ends = Xr.lengths.cumsum() - 1
     Y = cast(OutT, Xr.dataXd[ends]) # type: ignore
     x_shape = Xr.dataXd.shape
-    y_shape = Y.shape
     lengths = Xr.lengths
 
+    @consistent_backprop(Y.shape)
     def backprop(dY: OutT) -> Ragged:
-        if dY.shape != y_shape:
-            raise ValueError(f"Shape mismatch in backprop. Y: {y_shape}, dY: {dY.shape}")
         dX = cast(OutT, model.ops.alloc(x_shape, dtype=dY.dtype))
         dX[ends] = dY # type: ignore
         return Ragged(dX, lengths)

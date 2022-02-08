@@ -510,6 +510,17 @@ def set_torch_tensor_type_for_ops(ops):
     except ImportError:
         pass
 
+def consistent_backprop(y_shape):
+    """Decorator to check that backprop input is consistent."""
+    def inner(func):
+        @functools.wraps(func)
+        def wrapped(dY):
+            if dY.shape != y_shape:
+                raise ValueError(f"Shape mismatch in backprop. Y: {y_shape}, dY: {dY.shape}")
+            return func(dY)
+        return wrapped
+    return inner
+
 
 __all__ = [
     "get_array_module",

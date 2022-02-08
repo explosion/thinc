@@ -4,7 +4,7 @@ from ..model import Model
 from ..config import registry
 from ..types import Floats2d, Floats1d
 from ..initializers import zero_init
-from ..util import get_width, partial
+from ..util import get_width, partial, consistent_backprop
 
 
 InT = Floats2d
@@ -33,11 +33,9 @@ def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Call
     b = cast(Floats1d, model.get_param("b"))
     Y = model.ops.affine(X, W, b)
     Y = model.ops.softmax(Y)
-    y_shape = Y.shape
 
+    @consistent_backprop(Y.shape)
     def backprop(dY: InT) -> OutT:
-        if dY.shape != y_shape:
-            raise ValueError(f"Shape mismatch in backprop. Y: {y_shape}, dY: {dY.shape}")
         model.inc_grad("b", dY.sum(axis=0))
         model.inc_grad("W", model.ops.gemm(dY, X, trans1=True))
         return model.ops.gemm(dY, W)

@@ -3,6 +3,7 @@ from typing import Tuple, Callable, cast
 from ..types import Floats2d, Ragged
 from ..model import Model
 from ..config import registry
+from ..util import consistent_backprop
 
 
 InT = Ragged
@@ -16,12 +17,10 @@ def reduce_mean() -> Model[InT, OutT]:
 
 def forward(model: Model[InT, OutT], Xr: InT, is_train: bool) -> Tuple[OutT, Callable]:
     Y = model.ops.reduce_mean(cast(Floats2d, Xr.data), Xr.lengths)
-    y_shape = Y.shape
     lengths = Xr.lengths
 
+    @consistent_backprop(Y.shape)
     def backprop(dY: OutT) -> InT:
-        if dY.shape != y_shape:
-            raise ValueError(f"Shape mismatch in backprop. Y: {y_shape}, dY: {dY.shape}")
         return Ragged(model.ops.backprop_reduce_mean(dY, lengths), lengths)
 
     return Y, backprop
