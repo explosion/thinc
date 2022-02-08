@@ -45,3 +45,13 @@ def test_reduce_last(Xs):
     assert list(Y[1]) == list(Xs[1][-1])
     dX = backprop(Y)
     assert dX.dataXd.shape == X.dataXd.shape
+
+def test_size_mismatch(Xs):
+    model = reduce_last()
+    lengths = model.ops.asarray([x.shape[0] for x in Xs], dtype="i")
+    X = Ragged(model.ops.flatten(Xs), lengths)
+    Y, backprop = model(X, is_train=True)
+
+    Y_bad = Y[:-1]
+    with pytest.raises(ValueError):
+        backprop(Y_bad)
