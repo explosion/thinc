@@ -15,11 +15,11 @@ def reduce_sum() -> Model[InT, OutT]:
     return Model("reduce_sum", forward)
 
 
+@consistent_backprop
 def forward(model: Model[InT, OutT], Xr: InT, is_train: bool) -> Tuple[OutT, Callable]:
     Y = model.ops.reduce_sum(cast(Floats2d, Xr.data), Xr.lengths)
     lengths = Xr.lengths
 
-    @consistent_backprop(Y.shape)
     def backprop(dY: OutT) -> InT:
         return Ragged(model.ops.backprop_reduce_sum(dY, lengths), lengths)
 

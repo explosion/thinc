@@ -13,13 +13,13 @@ def reduce_last() -> Model[Ragged, OutT]:
     return Model("reduce_last", forward)
 
 
+@consistent_backprop
 def forward(model: Model[Ragged, OutT], Xr: Ragged, is_train: bool) -> Tuple[OutT, Callable]:
     ends = Xr.lengths.cumsum() - 1
     Y = cast(OutT, Xr.dataXd[ends]) # type: ignore
     x_shape = Xr.dataXd.shape
     lengths = Xr.lengths
 
-    @consistent_backprop(Y.shape)
     def backprop(dY: OutT) -> Ragged:
         dX = cast(OutT, model.ops.alloc(x_shape, dtype=dY.dtype))
         dX[ends] = dY # type: ignore

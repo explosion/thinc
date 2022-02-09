@@ -28,13 +28,13 @@ def Softmax(
     )
 
 
+@consistent_backprop
 def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Callable]:
     W = cast(Floats2d, model.get_param("W"))
     b = cast(Floats1d, model.get_param("b"))
     Y = model.ops.affine(X, W, b)
     Y = model.ops.softmax(Y)
 
-    @consistent_backprop(Y.shape)
     def backprop(dY: InT) -> OutT:
         model.inc_grad("b", dY.sum(axis=0))
         model.inc_grad("W", model.ops.gemm(dY, X, trans1=True))

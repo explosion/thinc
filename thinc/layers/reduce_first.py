@@ -13,6 +13,7 @@ def reduce_first() -> Model[Ragged, OutT]:
     return Model("reduce_first", forward)
 
 
+@consistent_backprop
 def forward(model: Model[Ragged, OutT], Xr: Ragged, is_train: bool) -> Tuple[OutT, Callable]:
     starts = model.ops.alloc1i(Xr.lengths.shape[0])
     starts[1:] += Xr.lengths.cumsum()[:-1]
@@ -21,7 +22,6 @@ def forward(model: Model[Ragged, OutT], Xr: Ragged, is_train: bool) -> Tuple[Out
     x_shape = Xr.dataXd.shape
     lengths = Xr.lengths
 
-    @consistent_backprop(Y.shape)
     def backprop(dY: OutT) -> Ragged:
         dX = cast(OutT, model.ops.alloc(x_shape, dtype=dY.dtype))
         dX[starts] = dY # type: ignore

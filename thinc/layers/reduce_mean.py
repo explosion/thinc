@@ -15,11 +15,11 @@ def reduce_mean() -> Model[InT, OutT]:
     return Model("reduce_mean", forward)
 
 
+@consistent_backprop
 def forward(model: Model[InT, OutT], Xr: InT, is_train: bool) -> Tuple[OutT, Callable]:
     Y = model.ops.reduce_mean(cast(Floats2d, Xr.data), Xr.lengths)
     lengths = Xr.lengths
 
-    @consistent_backprop(Y.shape)
     def backprop(dY: OutT) -> InT:
         return Ragged(model.ops.backprop_reduce_mean(dY, lengths), lengths)
 
