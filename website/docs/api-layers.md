@@ -470,11 +470,16 @@ layer. Vectors produced by the softmax function sum to 1, and have values
 between 0 and 1, so each vector can be interpreted as a probability
 distribution.
 
-In contrast to the `Softmax` function, `Softmax_v2` also supports outputting
-unnormalized probabilities during inference by using `normalize_outputs=False`
-as an argument. This is useful when we are only interested in finding the top-k
-classes, but not their probabilities. Computing unnormalized probabilities is
-faster, because it skips the expensive normalization step.
+`Softmax_v2` supports outputting unnormalized probabilities during inference by
+using `normalize_outputs=False` as an argument. This is useful when we are only
+interested in finding the top-k classes, but not their probabilities. Computing
+unnormalized probabilities is faster, because it skips the expensive
+normalization step.
+
+The `temperature` argument of `Softmax_v2` provides control of the softmax
+distribution. Values larger than 1 increase entropy and values between 0 and 1
+(exclusive) decrease entropy of the distribution. The default temperature of 1
+will calculate the unmodified softmax distribution.
 
 | Argument            | Type                               | Description                                                                                              |
 | ------------------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------- |
@@ -484,6 +489,7 @@ faster, because it skips the expensive normalization step.
 | `init_W`            | <tt>Callable</tt>                  | A function to initialize the weights matrix. Defaults to [`zero_init`](/docs/api-initializers#zero_init) |
 | `init_b`            | <tt>Callable</tt>                  | A function to initialize the bias vector. Defaults to [`zero_init`](/docs/api-initializers#zero_init).   |
 | `normalize_outputs` | <tt>bool</tt>                      | Return normalized probabilities during inference. Defaults to `True`.                                    |
+| `temperature`       | <tt>float</tt>                     | Temperature to divide logits by. Defaults to `1.0`.                                                      |
 | **RETURNS**         | <tt>Model[Floats2d, Floats2d]</tt> | The created softmax layer.                                                                               |
 
 ```python

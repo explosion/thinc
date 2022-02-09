@@ -25,7 +25,7 @@ def Softmax(
         init=partial(init, init_W, init_b),
         dims={"nO": nO, "nI": nI},
         params={"W": None, "b": None},
-        attrs={"normalize_softmax": True},
+        attrs={"normalize_softmax": True, "softmax_temperature": 1.0},
     )
 
 
@@ -37,6 +37,7 @@ def Softmax_v2(
     init_W: Callable = zero_init,
     init_b: Callable = zero_init,
     normalize_outputs: bool = True,
+    temperature=1.0,
 ) -> Model[InT, OutT]:
     return Model(
         "softmax",
@@ -44,19 +45,30 @@ def Softmax_v2(
         init=partial(init, init_W, init_b),
         dims={"nO": nO, "nI": nI},
         params={"W": None, "b": None},
-        attrs={"normalize_softmax": normalize_outputs},
+        attrs={
+            "normalize_softmax": normalize_outputs,
+            "softmax_temperature": temperature,
+        },
     )
 
 
 def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Callable]:
     normalize = model.attrs["normalize_softmax"] or is_train
+    temperature = model.attrs["softmax_temperature"]
     W = cast(Floats2d, model.get_param("W"))
     b = cast(Floats1d, model.get_param("b"))
     Y = model.ops.affine(X, W, b)
+
+    if temperature != 1.0:
+        Y /= temperature
+
     if normalize:
         Y = model.ops.softmax(Y)
 
     def backprop(dY: InT) -> OutT:
+        if temperature != 1.0:
+            dY /= temperature
+
         model.inc_grad("b", dY.sum(axis=0))
         model.inc_grad("W", model.ops.gemm(dY, X, trans1=True))
         return model.ops.gemm(dY, W)
