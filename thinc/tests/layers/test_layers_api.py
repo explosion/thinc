@@ -91,6 +91,8 @@ TEST_CASES_SUMMABLE = [
     ("softmax_activation.v1", {}, array2d, array2d),
     ("Softmax.v1", {}, array2d, array2d),
     ("Softmax.v1", {"nO": 4, "nI": 4}, array2d, array2d),
+    ("Softmax.v2", {}, array2d, array2d),
+    ("Softmax.v2", {"nO": 4, "nI": 4}, array2d, array2d),
     # fmt: off
     # List to list
     ("LSTM.v1", {"bi": False}, [array2d, array2d], [array2d, array2d]),
