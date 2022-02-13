@@ -65,6 +65,20 @@ def test_categorical_crossentropy(guesses, labels):
     assert loss == pytest.approx(0.239375, eps)
 
 
+def test_crossentropy_incorrect_scores():
+    labels = numpy.asarray([2])
+
+    guesses_neg = numpy.asarray([[-0.1, 0.5, 0.6]])
+    with pytest.raises(ValueError, match=r"Cannot calculate"):
+        CategoricalCrossentropy(normalize=True).get_grad(guesses_neg, labels)
+
+    guesses_larger_than_one = numpy.asarray([[1.1, 0.5, 0.6]])
+    with pytest.raises(ValueError, match=r"Cannot calculate"):
+        CategoricalCrossentropy(normalize=True).get_grad(
+            guesses_larger_than_one, labels
+        )
+
+
 @pytest.mark.parametrize(
     "guesses, labels",
     [(guesses1, [2, 1, 0, 2])],
