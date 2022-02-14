@@ -479,7 +479,8 @@ normalization step.
 The `temperature` argument of `Softmax_v2` provides control of the softmax
 distribution. Values larger than 1 increase entropy and values between 0 and 1
 (exclusive) decrease entropy of the distribution. The default temperature of 1
-will calculate the unmodified softmax distribution.
+will calculate the unmodified softmax distribution. `temperature` is not used
+during inference when `normalize_outputs=False`.
 
 | Argument            | Type                               | Description                                                                                              |
 | ------------------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------- |

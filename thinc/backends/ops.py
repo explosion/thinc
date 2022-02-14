@@ -602,7 +602,16 @@ class Ops:
         else:
             return 1 - Y ** 2
 
-    def softmax(self, x: FloatsT, *, inplace: bool = False, axis: int = -1) -> FloatsT:
+    def softmax(
+        self,
+        x: FloatsT,
+        *,
+        inplace: bool = False,
+        axis: int = -1,
+        temperature: float = 1.0,
+    ) -> FloatsT:
+        if temperature != 1.0:
+            x = x / temperature
         maxes = self.xp.max(x, axis=axis, keepdims=True)
         shifted = x - maxes
         new_x = self.xp.exp(shifted)
@@ -622,7 +631,12 @@ class Ops:
         new_x /= summed
         return new_x
 
-    def backprop_softmax(self, Y: FloatsT, dY: FloatsT, *, axis: int = -1) -> FloatsT:
+    def backprop_softmax(
+        self, Y: FloatsT, dY: FloatsT, *, axis: int = -1, temperature: float = 1.0
+    ) -> FloatsT:
+        if temperature != 1.0:
+            dY = dY / temperature
+
         dX = Y * dY
         dX -= Y * dX.sum(axis=axis, keepdims=True)
         return dX

@@ -59,11 +59,8 @@ def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Call
     b = cast(Floats1d, model.get_param("b"))
     Y = model.ops.affine(X, W, b)
 
-    if temperature != 1.0:
-        Y /= temperature
-
     if normalize:
-        Y = model.ops.softmax(Y)
+        Y = model.ops.softmax(Y, temperature=temperature)
 
     def backprop(dY: InT) -> OutT:
         if temperature != 1.0:
