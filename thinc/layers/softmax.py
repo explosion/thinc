@@ -25,7 +25,7 @@ def Softmax(
         init=partial(init, init_W, init_b),
         dims={"nO": nO, "nI": nI},
         params={"W": None, "b": None},
-        attrs={"normalize_softmax": True, "softmax_temperature": 1.0},
+        attrs={"softmax_normalize": True, "softmax_temperature": 1.0},
     )
 
 
@@ -46,14 +46,14 @@ def Softmax_v2(
         dims={"nO": nO, "nI": nI},
         params={"W": None, "b": None},
         attrs={
-            "normalize_softmax": normalize_outputs,
+            "softmax_normalize": normalize_outputs,
             "softmax_temperature": temperature,
         },
     )
 
 
 def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Callable]:
-    normalize = model.attrs["normalize_softmax"] or is_train
+    normalize = model.attrs["softmax_normalize"] or is_train
     temperature = model.attrs["softmax_temperature"]
     W = cast(Floats2d, model.get_param("W"))
     b = cast(Floats1d, model.get_param("b"))
