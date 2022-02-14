@@ -517,8 +517,6 @@ def consistent_backprop(forward):
     that takes a single Array2D input.
     """
 
-    print("HERE", forward)
-
     @functools.wraps(forward)
     def wrapped_forward(*args, **kwargs):
         Y, backprop = forward(*args, **kwargs)
