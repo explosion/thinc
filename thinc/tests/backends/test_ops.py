@@ -5,6 +5,7 @@ from hypothesis.strategies import composite, integers
 from numpy.testing import assert_allclose
 from thinc.api import NumpyOps, CupyOps, Ops, get_ops
 from thinc.api import get_current_ops, use_ops
+from thinc.util import has_torch
 from thinc.api import fix_random_seed
 from thinc.api import LSTM
 import inspect
@@ -23,6 +24,62 @@ XP_OPS = [NUMPY_OPS]
 if CupyOps.xp is not None:
     XP_OPS.append(CupyOps())
 ALL_OPS = XP_OPS + [VANILLA_OPS]
+
+
+def create_pytorch_funcs():
+    import torch
+    import math
+
+    def torch_relu_k(x):
+        return torch.nn.functional.relu6(x)
+
+    def torch_hard_sigmoid(x):
+        return torch.clip(x * 0.2 + 0.5, 0, 1)
+
+    def torch_hard_tanh(x):
+        return torch.nn.functional.hardtanh(x)
+
+    def torch_swish(x):
+        return torch.nn.functional.silu(x)
+
+    def torch_hard_swish(x):
+        return x * torch_hard_sigmoid(x)
+
+    def torch_hard_swish_mobilenet(x):
+        return torch.nn.functional.hardswish(x)
+
+    # https://github.com/huggingface/transformers/blob/master/src/transformers/activations.py#L37
+    def torch_gelu_approx(x):
+        return (
+            0.5
+            * x
+            * (
+                1.0
+                + torch.tanh(
+                    math.sqrt(2.0 / math.pi) * (x + 0.044715 * torch.pow(x, 3.0))
+                )
+            )
+        )
+
+    def torch_gelu(x):
+        return torch.nn.functional.gelu(x)
+
+    return [
+        ("relu_k", torch_relu_k),
+        ("hard_sigmoid", torch_hard_sigmoid),
+        ("hard_tanh", torch_hard_tanh),
+        ("swish", torch_swish),
+        ("hard_swish", torch_hard_swish),
+        ("hard_swish_mobilenet", torch_hard_swish_mobilenet),
+        ("gelu_approx", torch_gelu_approx),
+        ("gelu", torch_gelu),
+    ]
+
+
+if has_torch:
+    TORCH_FUNCS = create_pytorch_funcs()
+else:
+    TORCH_FUNCS = []
 
 
 @pytest.mark.parametrize("op", [NumpyOps, CupyOps])
@@ -128,8 +185,14 @@ def test_maxout(ops, X):
     ops.xp.testing.assert_allclose(
         expected_best, predicted_best, rtol=0.001, atol=0.001
     )
-    # Can't compare 'which' directly, as sort order might be different
-    # We could check that using the 'which', we get the right results?
+
+    # Can't compare 'which' directly, as sort order might be different.
+    # So, instead we use 'which' to extract elements from X and then
+    # check the result against the expected output.
+    ops.xp.testing.assert_allclose(
+        ops.xp.take_along_axis(X, ops.xp.expand_dims(which, -1), axis=-1),
+        ops.xp.expand_dims(expected_best, -1),
+    )
 
 
 @pytest.mark.parametrize("ops", ALL_OPS)
@@ -143,6 +206,192 @@ def test_seq2col_window_one(ops, X):
     target = base_ops.seq2col(base_ops.asarray(baseX), nW=1)
     predicted = ops.seq2col(X, nW=1)
     ops.xp.testing.assert_allclose(target, predicted, atol=0.001, rtol=0.001)
+
+
+@pytest.mark.parametrize("ops", XP_OPS)
+def test_seq2col_lengths_all_zero(ops):
+    # Empty batch
+    ops.xp.testing.assert_allclose(
+        ops.alloc((0, 0)),
+        ops.seq2col(ops.alloc((0, 0)), 1, lengths=ops.xp.zeros((0,), dtype="int32")),
+    )
+
+    ops.xp.testing.assert_allclose(
+        ops.alloc((0, 0)),
+        ops.backprop_seq2col(
+            ops.alloc((0, 0)), 1, lengths=ops.xp.zeros((0,), dtype="int32")
+        ),
+    )
+
+    # Zero-length sequence
+    ops.xp.testing.assert_allclose(
+        ops.alloc((0, 0)), ops.seq2col(ops.alloc((0, 0)), 1, lengths=ops.asarray1i([0]))
+    )
+
+    ops.xp.testing.assert_allclose(
+        ops.alloc((0, 0)),
+        ops.backprop_seq2col(ops.alloc((0, 0)), 1, lengths=ops.asarray1i([0])),
+    )
+
+    # Multiple zero-length sequences
+    ops.xp.testing.assert_allclose(
+        ops.alloc((0, 0)),
+        ops.seq2col(ops.alloc((0, 0)), 1, lengths=ops.asarray1i([0, 0])),
+    )
+
+    ops.xp.testing.assert_allclose(
+        ops.alloc((0, 0)),
+        ops.backprop_seq2col(ops.alloc((0, 0)), 1, lengths=ops.asarray1i([0, 0])),
+    )
+
+
+@pytest.mark.parametrize("ops", XP_OPS)
+def test_seq2col_lengths_zero_first_last(ops):
+    cols_check = ops.asarray2f(
+        [
+            [0, 0, 0, 1, 2, 3, 4, 5, 6],
+            [1, 2, 3, 4, 5, 6, 7, 8, 9],
+            [4, 5, 6, 7, 8, 9, 10, 11, 12],
+            [7, 8, 9, 10, 11, 12, 13, 14, 15],
+            [10, 11, 12, 13, 14, 15, 0, 0, 0],
+        ]
+    )
+
+    grad_check = ops.asarray2f(
+        [[2, 4, 6], [12, 15, 18], [21, 24, 27], [30, 33, 36], [26, 28, 30]]
+    )
+
+    # Initial zero-length sequence
+    ops.xp.testing.assert_allclose(
+        cols_check,
+        ops.seq2col(
+            ops.xp.arange(1.0, 16.0, dtype="float32").reshape(5, 3),
+            1,
+            lengths=ops.asarray1i([0, 5]),
+        ),
+    )
+
+    ops.xp.testing.assert_allclose(
+        grad_check,
+        ops.backprop_seq2col(
+            cols_check,
+            1,
+            lengths=ops.asarray1i([0, 5]),
+        ),
+    )
+
+    # Final zero-length sequence.
+    ops.xp.testing.assert_allclose(
+        cols_check,
+        ops.seq2col(
+            ops.xp.arange(1.0, 16.0, dtype="float32").reshape(5, 3),
+            1,
+            lengths=ops.asarray1i([5, 0]),
+        ),
+    )
+
+
+@pytest.mark.parametrize("ops", XP_OPS)
+def test_seq2col_lengths_zero_between(ops):
+    cols_check = ops.asarray2f(
+        [
+            [0, 0, 0, 1, 2, 3, 4, 5, 6],
+            [1, 2, 3, 4, 5, 6, 7, 8, 9],
+            [4, 5, 6, 7, 8, 9, 10, 11, 12],
+            [7, 8, 9, 10, 11, 12, 13, 14, 15],
+            [10, 11, 12, 13, 14, 15, 0, 0, 0],
+            [0, 0, 0, 16, 17, 18, 19, 20, 21],
+            [16, 17, 18, 19, 20, 21, 0, 0, 0],
+        ]
+    )
+
+    grad_check = ops.asarray2f(
+        [
+            [2, 4, 6],
+            [12, 15, 18],
+            [21, 24, 27],
+            [30, 33, 36],
+            [26, 28, 30],
+            [32, 34, 36],
+            [38, 40, 42],
+        ]
+    )
+
+    # Zero-length between.
+    ops.xp.testing.assert_allclose(
+        cols_check,
+        ops.seq2col(
+            ops.xp.arange(1.0, 22.0, dtype="float32").reshape(7, 3),
+            1,
+            lengths=ops.asarray1i([5, 0, 2]),
+        ),
+    )
+
+    ops.xp.testing.assert_allclose(
+        grad_check,
+        ops.backprop_seq2col(
+            cols_check,
+            1,
+            lengths=ops.asarray1i([5, 0, 2]),
+        ),
+    )
+
+    # Zero-length between twice.
+    ops.xp.testing.assert_allclose(
+        cols_check,
+        ops.seq2col(
+            ops.xp.arange(1.0, 22.0, dtype="float32").reshape(7, 3),
+            1,
+            lengths=ops.asarray1i([5, 0, 0, 2]),
+        ),
+    )
+
+    ops.xp.testing.assert_allclose(
+        grad_check,
+        ops.backprop_seq2col(
+            cols_check,
+            1,
+            lengths=ops.asarray1i([5, 0, 0, 2]),
+        ),
+    )
+
+
+@pytest.mark.parametrize("ops", XP_OPS)
+def test_seq2col_window_one_lengths(ops):
+    X = ops.xp.arange(1.0, 16.0, dtype="float32").reshape(5, 3)
+    lengths = ops.asarray1i([1, 3, 1])
+    cols = ops.seq2col(X, 1, lengths=lengths)
+    ops.xp.testing.assert_allclose(
+        ops.asarray2f(
+            [
+                [0, 0, 0, 1, 2, 3, 0, 0, 0],
+                [0, 0, 0, 4, 5, 6, 7, 8, 9],
+                [4, 5, 6, 7, 8, 9, 10, 11, 12],
+                [7, 8, 9, 10, 11, 12, 0, 0, 0],
+                [0, 0, 0, 13, 14, 15, 0, 0, 0],
+            ]
+        ),
+        cols,
+    )
+
+
+@pytest.mark.parametrize("ops", XP_OPS)
+def test_seq2col_window_two_lengths(ops):
+    X = ops.xp.arange(1.0, 16.0, dtype="float32").reshape(5, 3)
+    lengths = ops.asarray1i([1, 3, 1])
+    cols = ops.seq2col(X, 2, lengths=lengths)
+    ops.xp.testing.assert_allclose(
+        ops.asarray2f(
+            [
+                [0, 0, 0, 0, 0, 0, 1, 2, 3, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+                [0, 0, 0, 4, 5, 6, 7, 8, 9, 10, 11, 12, 0, 0, 0],
+                [4, 5, 6, 7, 8, 9, 10, 11, 12, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 13, 14, 15, 0, 0, 0, 0, 0, 0],
+            ]
+        ),
+        cols,
+    )
 
 
 @pytest.mark.parametrize("ops", ALL_OPS)
@@ -180,6 +429,27 @@ def test_backprop_seq2col_window_one(ops, X):
 
 
 @pytest.mark.parametrize("ops", XP_OPS)
+def test_backprop_seq2col_window_one_lengths(ops):
+    d_y = ops.xp.arange(0.1, 4.6, step=0.1, dtype="float32").reshape(5, 9)
+    lengths = ops.asarray1i([1, 3, 1])
+    d_seqs = ops.backprop_seq2col(d_y, 1, lengths=lengths)
+
+    ops.xp.testing.assert_allclose(
+        ops.asarray2f(
+            [
+                [0.4, 0.5, 0.6],
+                [3.2, 3.4, 3.6],
+                [6.6, 6.9, 7.2],
+                [5.6, 5.8, 6.0],
+                [4.0, 4.1, 4.2],
+            ]
+        ),
+        d_seqs,
+        atol=1e-6,
+    )
+
+
+@pytest.mark.parametrize("ops", XP_OPS)
 def test_seq2col_window_two(ops):
     seq = ops.asarray([[1.0], [2.0], [3.0], [4]], dtype="float32")
     cols = ops.seq2col(seq, 2)
@@ -189,6 +459,26 @@ def test_seq2col_window_two(ops):
     assert_allclose(cols[1], [0.0, 1.0, 2.0, 3.0, 4.0])
     assert_allclose(cols[2], [1.0, 2.0, 3.0, 4.0, 0.0])
     assert_allclose(cols[3], [2.0, 3.0, 4.0, 0.0, 0.0])
+
+
+@pytest.mark.parametrize("ops", XP_OPS)
+def test_backprop_seq2col_window_two_lengths(ops):
+    d_y = ops.xp.arange(0.1, 7.6, step=0.1, dtype="float32").reshape(5, 15)
+    lengths = ops.asarray1i([1, 3, 1])
+    d_seqs = ops.backprop_seq2col(d_y, 2, lengths=lengths)
+
+    ops.xp.testing.assert_allclose(
+        ops.asarray2f(
+            [
+                [0.7, 0.8, 0.9],
+                [10.2, 10.5, 10.8],
+                [11.1, 11.4, 11.7],
+                [12.0, 12.3, 12.6],
+                [6.7, 6.8, 6.9],
+            ]
+        ),
+        d_seqs,
+    )
 
 
 @pytest.mark.parametrize("ops", XP_OPS)
@@ -217,6 +507,53 @@ def test_backprop_seq2col_window_two(ops):
     )
     seq = ops.backprop_seq2col(cols, 2)
     ops.xp.testing.assert_allclose(seq, expected, atol=0.001, rtol=0.001)
+
+
+@pytest.mark.skipif(CupyOps.xp is None, reason="needs GPU/CuPy")
+@pytest.mark.parametrize("nW", [1, 2])
+def test_large_seq2col_gpu_against_cpu(nW):
+    cupy_ops = CupyOps()
+    numpy_ops = NumpyOps()
+
+    # Use array with a large enough batch to require multiple
+    # CUDA grids.
+    batch_size = 128 * 128 * 2  # threads per block * blocks * 2
+    X = numpy_ops.xp.random.randn(batch_size * 2).astype("float32").reshape(-1, 2)
+    X_gpu = cupy_ops.asarray2f(X)
+
+    # Use somewhat interesting sequence lengths.
+    lengths = numpy_ops.asarray1i([1, 4, 2, 1] * (batch_size // 8))
+    lengths_gpu = cupy_ops.asarray1i(lengths)
+
+    cols = numpy_ops.seq2col(X, nW=nW, lengths=lengths)
+    cols_gpu = cupy_ops.seq2col(X_gpu, nW=nW, lengths=lengths_gpu)
+
+    assert_allclose(cols, cols_gpu.get())
+
+
+@pytest.mark.skipif(CupyOps.xp is None, reason="needs GPU/CuPy")
+@pytest.mark.parametrize("nW", [1, 2])
+def test_large_backprop_seq2col_gpu_against_cpu(nW):
+    cupy_ops = CupyOps()
+    numpy_ops = NumpyOps()
+
+    # Use array with a large enough batch to require multiple
+    # CUDA grids.
+    batch_size = 128 * 128 * 2  # threads per block * blocks * 2
+    nF = 2 * nW + 1
+    d_cols = (
+        numpy_ops.xp.random.randn(batch_size * nF).astype("float32").reshape(-1, nF)
+    )
+    d_cols_gpu = cupy_ops.asarray2f(d_cols)
+
+    # Use somewhat interesting sequence lengths.
+    lengths = numpy_ops.asarray1i([1, 4, 2, 1] * (batch_size // 8))
+    lengths_gpu = cupy_ops.asarray1i(lengths)
+
+    d_seqs = numpy_ops.backprop_seq2col(d_cols, nW=nW, lengths=lengths)
+    d_seqs_gpu = cupy_ops.backprop_seq2col(d_cols_gpu, nW=nW, lengths=lengths_gpu)
+
+    assert_allclose(d_seqs, d_seqs_gpu.get())
 
 
 @pytest.mark.parametrize("ops", ALL_OPS)
@@ -348,6 +685,92 @@ def test_mish(ops, X):
 @pytest.mark.parametrize("ops", ALL_OPS)
 @settings(max_examples=MAX_EXAMPLES, deadline=None)
 @given(X=strategies.arrays_BI())
+def test_relu_k(ops, X):
+    X = ops.asarray(X)
+    Y = ops.relu_k(X)
+    assert Y.shape == X.shape
+    assert not ops.xp.isnan(Y).any()
+    assert (Y >= 0).sum() == Y.size
+    assert (Y <= 6.0).sum() == Y.size
+
+
+@pytest.mark.parametrize("ops", ALL_OPS)
+@settings(max_examples=MAX_EXAMPLES, deadline=None)
+@given(X=strategies.arrays_BI())
+def test_swish(ops, X):
+    X = ops.asarray(X)
+    Y = ops.swish(X)
+    assert Y.shape == X.shape
+    assert not ops.xp.isnan(Y).any()
+
+
+@pytest.mark.parametrize("ops", ALL_OPS)
+@settings(max_examples=MAX_EXAMPLES, deadline=None)
+@given(X=strategies.arrays_BI())
+def test_hard_sigmoid(ops, X):
+    X = ops.asarray(X)
+    Y = ops.hard_sigmoid(X)
+    assert Y.shape == X.shape
+    assert not ops.xp.isnan(Y).any()
+    assert (Y >= 0).sum() == Y.size
+    assert (Y <= 1.0).sum() == Y.size
+
+
+@pytest.mark.parametrize("ops", ALL_OPS)
+@settings(max_examples=MAX_EXAMPLES, deadline=None)
+@given(X=strategies.arrays_BI())
+def test_hard_tanh(ops, X):
+    X = ops.asarray(X)
+    Y = ops.hard_tanh(X)
+    assert Y.shape == X.shape
+    assert not ops.xp.isnan(Y).any()
+    assert (Y >= -1.0).sum() == Y.size
+    assert (Y <= 1.0).sum() == Y.size
+
+
+@pytest.mark.parametrize("ops", ALL_OPS)
+@settings(max_examples=MAX_EXAMPLES, deadline=None)
+@given(X=strategies.arrays_BI())
+def test_hard_swish(ops, X):
+    X = ops.asarray(X)
+    Y = ops.hard_swish(X)
+    assert Y.shape == X.shape
+    assert not ops.xp.isnan(Y).any()
+
+
+@pytest.mark.parametrize("ops", ALL_OPS)
+@settings(max_examples=MAX_EXAMPLES, deadline=None)
+@given(X=strategies.arrays_BI())
+def test_hard_swish_mobilenet(ops, X):
+    X = ops.asarray(X)
+    Y = ops.hard_swish_mobilenet(X)
+    assert Y.shape == X.shape
+    assert not ops.xp.isnan(Y).any()
+
+
+@pytest.mark.parametrize("ops", ALL_OPS)
+@settings(max_examples=MAX_EXAMPLES, deadline=None)
+@given(X=strategies.arrays_BI())
+def test_gelu_approx(ops, X):
+    X = ops.asarray(X)
+    Y = ops.gelu_approx(X)
+    assert Y.shape == X.shape
+    assert not ops.xp.isnan(Y).any()
+
+
+@pytest.mark.parametrize("ops", ALL_OPS)
+@settings(max_examples=MAX_EXAMPLES, deadline=None)
+@given(X=strategies.arrays_BI())
+def test_gelu(ops, X):
+    X = ops.asarray(X)
+    Y = ops.gelu(X)
+    assert Y.shape == X.shape
+    assert not ops.xp.isnan(Y).any()
+
+
+@pytest.mark.parametrize("ops", ALL_OPS)
+@settings(max_examples=MAX_EXAMPLES, deadline=None)
+@given(X=strategies.arrays_BI())
 def test_backprop_mish(ops, X):
     X = ops.asarray(X)
     # Test zero gradients result in 0 dX
@@ -438,7 +861,16 @@ def test_get_ops():
     # NumpyOps otherwise.
     try:
         from thinc_apple_ops import AppleOps
+
         assert isinstance(get_ops("cpu"), AppleOps)
+    except ImportError:
+        assert isinstance(get_ops("cpu"), NumpyOps)
+    # If BigEndian ops are available, "cpu" should return BigEndianOps or
+    # NumpyOps otherwise.
+    try:
+        from thinc_bigendian_ops import BigEndianOps
+
+        assert isinstance(get_ops("cpu"), BigEndianOps)
     except ImportError:
         assert isinstance(get_ops("cpu"), NumpyOps)
     with pytest.raises(ValueError):
@@ -508,3 +940,69 @@ def test_ngrams():
         assert len(ops.ngrams(n, arr1)) == max(0, arr1.shape[0] - (n - 1))
     assert len(ops.ngrams(-1, arr1)) == 0
     assert len(ops.ngrams(arr1.shape[0] + 1, arr1)) == 0
+
+
+@pytest.mark.skipif(not has_torch, reason="needs PyTorch")
+@pytest.mark.parametrize("ops", ALL_OPS)
+@pytest.mark.parametrize("dtype", ["float32", "float64"])
+@pytest.mark.parametrize("torch_func", TORCH_FUNCS)
+@settings(max_examples=MAX_EXAMPLES, deadline=None)
+@given(x=strategies.floats(min_value=-5, max_value=5))
+def test_compare_activations_to_torch(ops, dtype, x, torch_func):
+    import torch
+
+    def cast_torch(scalar: float):
+        return torch.tensor([scalar], requires_grad=True)
+
+    func_name, pytorch_func = torch_func
+    forward = getattr(ops, func_name)
+    backward = getattr(ops, "backprop_" + func_name)
+    # The tolerance of isclose is set to 1e-06 instead of
+    # the default 1e-08 due to the GELU
+    x_thinc = ops.asarray([x], dtype=dtype)
+    x_torch = cast_torch(x)
+    y = pytorch_func(x_torch)
+    y_thinc = forward(x_thinc)
+    y.backward()
+    assert x_thinc.dtype == y_thinc.dtype
+    assert ops.xp.isclose(y_thinc, forward(x_thinc, inplace=True))
+    assert ops.xp.isclose(y_thinc, y.detach().numpy(), atol=1e-06)
+    x_thinc = ops.asarray([x], dtype=dtype)
+    dY_thinc = ops.asarray([1.0], dtype=dtype)
+    dY_thinc_inplace = dY_thinc.copy()
+    if backward.__name__ == "backprop_swish":
+        dx_thinc = backward(dY_thinc, Y=y_thinc, X=x_thinc)
+        assert dx_thinc.dtype == x_thinc.dtype
+        assert ops.xp.isclose(
+            dx_thinc,
+            backward(dY=dY_thinc_inplace, Y=y_thinc, X=x_thinc, inplace=True),
+        )
+        assert ops.xp.isclose(x_torch.grad.item(), float(dx_thinc), atol=1e-06)
+    else:
+        dx_thinc = backward(dY_thinc, X=x_thinc)
+        assert dx_thinc.dtype == x_thinc.dtype
+        assert ops.xp.isclose(
+            dx_thinc, backward(dY=dY_thinc_inplace, X=x_thinc, inplace=True)
+        )
+        assert ops.xp.isclose(
+            x_torch.grad.item(), float(backward(dY_thinc, X=x_thinc)), atol=1e-06
+        )
+
+
+@pytest.mark.parametrize("ops", ALL_OPS)
+@settings(max_examples=MAX_EXAMPLES, deadline=None)
+@given(x=strategies.floats(min_value=-10, max_value=10))
+def test_clipped_linear(ops, x):
+    x_thinc = ops.xp.asarray([x])
+    assert ops.xp.isclose(ops.clipped_linear(x_thinc, max_val=6.0), ops.relu_k(x_thinc))
+    assert ops.xp.isclose(
+        ops.backprop_clipped_linear(1.0, x_thinc, max_val=6.0),
+        ops.backprop_relu_k(1.0, x_thinc),
+    )
+    assert ops.xp.isclose(
+        ops.clipped_linear(x_thinc, slope=0.2, offset=0.5), ops.hard_sigmoid(x_thinc)
+    )
+    assert ops.xp.isclose(
+        ops.backprop_clipped_linear(1.0, x_thinc, slope=0.2, offset=0.5),
+        ops.backprop_hard_sigmoid(1.0, x_thinc),
+    )

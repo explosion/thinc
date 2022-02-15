@@ -556,7 +556,7 @@ class ConfigValidationError(ValueError):
         ATTRIBUTES:
         config (Union[Config, Dict[str, Dict[str, Any]], str]): The config.
         errors (Iterable[Dict[str, Any]]): The errors.
-        error_types (Set[str]): All "type" values defined in the erorrs, if
+        error_types (Set[str]): All "type" values defined in the errors, if
             available. This is most relevant for the pydantic errors that define
             types like "type_error.integer". This attribute makes it easy to
             check if a config validation error includes errors of a certain

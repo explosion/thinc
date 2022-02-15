@@ -130,7 +130,7 @@ def get_reducers_type(ctx: FunctionContext) -> Type:
 
     # Check if the `Model`'s output type parameter is one of the "special
     # type variables" defined to represent model composition (chaining) and
-    # homogenous reduction
+    # homogeneous reduction
     assert isinstance(out_type, TypeVarType)
     assert out_type.fullname
     if out_type.fullname not in {intoin_outtoout_out_fullname, chained_out_fullname}:

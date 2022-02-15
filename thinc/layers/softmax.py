@@ -17,7 +17,7 @@ def Softmax(
     nI: Optional[int] = None,
     *,
     init_W: Callable = zero_init,
-    init_b: Callable = zero_init
+    init_b: Callable = zero_init,
 ) -> Model[InT, OutT]:
     return Model(
         "softmax",
@@ -25,21 +25,50 @@ def Softmax(
         init=partial(init, init_W, init_b),
         dims={"nO": nO, "nI": nI},
         params={"W": None, "b": None},
+        attrs={"normalize_softmax": True},
+    )
+
+
+@registry.layers("Softmax.v2")
+def Softmax_v2(
+    nO: Optional[int] = None,
+    nI: Optional[int] = None,
+    *,
+    init_W: Callable = zero_init,
+    init_b: Callable = zero_init,
+    normalize_outputs: bool = True,
+) -> Model[InT, OutT]:
+    return Model(
+        "softmax",
+        forward,
+        init=partial(init, init_W, init_b),
+        dims={"nO": nO, "nI": nI},
+        params={"W": None, "b": None},
+        attrs={"normalize_softmax": normalize_outputs},
     )
 
 
 def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Callable]:
+    normalize = model.attrs["normalize_softmax"] or is_train
     W = cast(Floats2d, model.get_param("W"))
     b = cast(Floats1d, model.get_param("b"))
     Y = model.ops.affine(X, W, b)
-    Y = model.ops.softmax(Y)
+    if normalize:
+        Y = model.ops.softmax(Y)
 
     def backprop(dY: InT) -> OutT:
         model.inc_grad("b", dY.sum(axis=0))
         model.inc_grad("W", model.ops.gemm(dY, X, trans1=True))
         return model.ops.gemm(dY, W)
 
-    return Y, backprop
+    def backprop_unnormalized(dY: InT):
+        msg = "backprop is not supported for an unnormalized Softmax layer"
+        raise ValueError(msg)
+
+    if normalize:
+        return Y, backprop
+    else:
+        return Y, backprop_unnormalized
 
 
 def init(

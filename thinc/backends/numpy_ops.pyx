@@ -182,7 +182,7 @@ class NumpyOps(Ops):
         else:
             return dX
 
-    def seq2col(self, const float[:, ::1] seq, int nW):
+    def seq2col(self, const float[:, ::1] seq, int nW, *, const int[::1] lengths=None):
         """Given an (M, N) sequence of vectors, return an (M, N*(nW*2+1))
         sequence. The new sequence is constructed by concatenating nW preceding
         and succeeding vectors onto each column in the sequence, to extract a
@@ -190,16 +190,28 @@ class NumpyOps(Ops):
         """
         cdef int B = seq.shape[0]
         cdef int I = seq.shape[1]
+
+        lengths = check_seq2col_lengths(self, lengths, B)
+        cdef int nL = lengths.shape[0]
+
         cdef np.ndarray cols = self.alloc((B, (2*nW + 1) * I), dtype="float32")
-        seq2col(<float*>cols.data, &seq[0,0], nW, B, I)
+
+        if seq.size != 0 and lengths.size != 0:
+            seq2col(<float*>cols.data, &seq[0,0], &lengths[0], nW, B, I, nL)
+
         return cols
 
-    def backprop_seq2col(self, const float[:, ::1] dY, int nW):
+    def backprop_seq2col(self, const float[:, ::1] dY, int nW, *, const int[::1] lengths=None):
         cdef int B = dY.shape[0]
         cdef int nF = nW*2+1
         cdef int I = dY.shape[1] / nF
+
+        lengths = check_seq2col_lengths(self, lengths, B)
+        cdef int nL = lengths.shape[0]
+
         cdef np.ndarray dX = self.alloc((B, I), dtype='float32')
-        backprop_seq2col(<float*>dX.data, &dY[0,0], B, I, nW)
+        if dY.size != 0 and lengths.size != 0:
+            backprop_seq2col(<float*>dX.data, &dY[0,0], &lengths[0], B, I, nW, nL)
         return dX
 
     @cython.boundscheck(False)
@@ -361,7 +373,17 @@ class NumpyOps(Ops):
         return out_
 
 
-cdef void seq2col(float* output, const float* X, int nW, int B, int I) nogil:
+def check_seq2col_lengths(ops, lengths, B):
+    if lengths is None:
+        lengths = ops.asarray1i([B])
+    else:
+        assert ops.xp.all(ops.xp.array(lengths) >= 0), "All sequence lengths must be >= 0"
+        assert ops.xp.sum(lengths) == B, "The lengths must sum up to the batch length"
+
+    return lengths
+
+
+cdef void seq2col(float* output, const float* X, const int* L, int nW, int B, int I, int nL) nogil:
     '''
     Let's say nW is 1 (it usually is). Then we want to take:
 
@@ -393,23 +415,41 @@ cdef void seq2col(float* output, const float* X, int nW, int B, int I) nogil:
     * x_start=-3, x_end=13 : (1-2) * 3, (1+2+1) * 3
     * x_start=0, x_end=16 : (2-2) * 3, (2+2+1) * 3
 
+    If lengths > 1, then the sequence lengths dictate
+    the boundaries/padding rather than the begin/end
+    of X.
     '''
+
     nF = nW * 2 + 1
-    for i in range(B):
-        o_start = i * I * nF
-        x_start = (i-nW) * I
-        x_end = (i+nW+1) * I
-        if x_start < 0:
-            o_start += -x_start
-            x_start = 0
-        if x_end >= B * I:
-            x_end = B * I
-        memcpy(&output[o_start],
-            &X[x_start], (x_end-x_start) * sizeof(output[0]))
+
+    seq_start = 0
+    for i in range(nL):
+        # Calculate the bounds of the next sequence.
+        seq_end = seq_start + L[i]
+
+        # Four-argument range loop only works with constant step.
+        for j in range(seq_start, seq_end):
+            # Find the unconstrained window around b, which
+            # may be out of the sequence bounds.
+            window_start = j - nW
+            window_end = j + nW + 1
+
+            # Find the sequence-constrained window around b.
+            x_start = max(seq_start, window_start)
+            x_end = min(seq_end, window_end)
+            n_elems = x_end - x_start
+
+            out_offset = x_start - window_start
+
+            memcpy(output + (j * nF * I) + (out_offset * I),
+                   X + (x_start * I),
+                   n_elems * I * sizeof(output[0]))
+
+        seq_start += L[i]
 
 
 cdef void backprop_seq2col(float* d_seqs,
-        const float* d_cols, int B, int I, int nW) nogil:
+        const float* d_cols, const int* L, int B, int I, int nW, int nL) nogil:
     # Here's what we're doing, if we had 2d indexing.
     #for i in range(B):
     #    d_seq[i] += d_cols[i-2, 4]
@@ -417,19 +457,34 @@ cdef void backprop_seq2col(float* d_seqs,
     #    d_seq[i] += d_cols[i, 2]
     #    d_seq[i] += d_cols[i+1, 1]
     #    d_seq[i] += d_cols[i+2, 0]
-    cdef int col_feat
+
     nF = nW * 2 + 1
-    for i in range(B):
-        seq_row = i * I
-        col_feat = nF * I
-        for f in range(-nW, nW+1):
-            col_row = (i+f) * (I * nF)
-            col_feat -= I
-            if col_row >= 0 and (col_row < (B*I*nF)):
-                j = col_row + col_feat
-                if j >= 0 and (j+I) < (B*I*nF):
-                    VecVec.add_i(&d_seqs[seq_row],
-                        &d_cols[j], 1., I)
+
+    seq_start = 0
+    for i in range(nL):
+        # Calculate the bounds of the next sequence.
+        seq_end = seq_start + L[i]
+
+        for j in range(seq_start, seq_end):
+            # Find the unconstrained window around b, which
+            # may be out of the sequence bounds.
+            window_begin = j - nW
+            window_end = j + nW + 1
+
+            # Find the sequence-constrained window around b.
+            d_seqs_begin = max(seq_start, window_begin)
+            d_seqs_end = min(seq_end, window_end)
+            n_elems = d_seqs_end - d_seqs_begin
+
+            # If the left window is cut short, we want to
+            # start by the same amount in the output.
+            out_offset = d_seqs_begin - window_begin
+
+            VecVec.add_i(&d_seqs[d_seqs_begin * I],
+                         &d_cols[(j * nF * I) + (out_offset * I)],
+                         1., n_elems * I)
+
+        seq_start += L[i]
 
 
 cdef void cpu_maxout(float* best__bo, int* which__bo,
@@ -498,7 +553,7 @@ cdef void _adam_momentum(weight_t* gradient, weight_t* mom1, weight_t* mom2,
         int nr_weight, weight_t beta1, weight_t beta2, weight_t eps,
         weight_t learn_rate) nogil:
     # Calculate Adam on CPU, fused.
-    # Assumes the learning rate adustment is calculated by the caller;
+    # Assumes the learning rate adjustment is calculated by the caller;
     # a_t = learn_rate * sqrt(1-beta2**timestep) / (1-beta1**timestep)
     cdef weight_t one_minus_beta1 = 1-beta1
     cdef weight_t one_minus_beta2 = 1-beta2
