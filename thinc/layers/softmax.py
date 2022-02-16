@@ -39,6 +39,7 @@ def Softmax_v2(
     normalize_outputs: bool = True,
     temperature: float = 1.0,
 ) -> Model[InT, OutT]:
+    validate_temperature(temperature)
     return Model(
         "softmax",
         forward,
@@ -54,7 +55,10 @@ def Softmax_v2(
 
 def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Callable]:
     normalize = model.attrs["softmax_normalize"] or is_train
+
     temperature = model.attrs["softmax_temperature"]
+    validate_temperature(temperature)
+
     W = cast(Floats2d, model.get_param("W"))
     b = cast(Floats1d, model.get_param("b"))
     Y = model.ops.affine(X, W, b)
@@ -94,3 +98,9 @@ def init(
     model.set_param("W", init_W(model.ops, (model.get_dim("nO"), model.get_dim("nI"))))
     model.set_param("b", init_b(model.ops, (model.get_dim("nO"),)))
     return model
+
+
+def validate_temperature(temperature):
+    if temperature <= 0.0:
+        msg = "softmax temperature must not be zero or negative"
+        raise ValueError(msg)

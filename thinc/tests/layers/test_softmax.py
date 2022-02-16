@@ -79,3 +79,14 @@ def test_softmax_temperature(temperature):
 
     assert_allclose(Y, Yt, atol=1e-4)
     assert_allclose(dX, dXt, atol=1e-4)
+
+
+def test_reject_incorrect_temperature():
+    with pytest.raises(ValueError, match=r"softmax temperature.*zero"):
+        Softmax_v2(normalize_outputs=False, temperature=0.0)
+
+    model = Softmax_v2(normalize_outputs=False)
+    model.attrs["softmax_temperature"] = 0.0
+    model.initialize(inputs, outputs)
+    with pytest.raises(ValueError, match=r"softmax temperature.*zero"):
+        model(inputs, is_train=False)
