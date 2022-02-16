@@ -37,7 +37,7 @@ def Softmax_v2(
     init_W: Callable = zero_init,
     init_b: Callable = zero_init,
     normalize_outputs: bool = True,
-    temperature=1.0,
+    temperature: float = 1.0,
 ) -> Model[InT, OutT]:
     return Model(
         "softmax",
