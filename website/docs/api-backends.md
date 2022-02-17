@@ -353,7 +353,7 @@ overfitting.
 | ----------- | ------------------------ | ---------------------------------------------------------- |
 | `shape`     | <tt>Shape</tt>           | The input shape.                                           |
 | `drop`      | <tt>Optional[float]</tt> | The dropout rate.                                          |
-| **RETURNS** | <tt>Floats</tt>          | A mask specifying a 0 were a neuron should be deactivated. |
+| **RETURNS** | <tt>Floats</tt>          | A mask specifying a 0 where a neuron should be deactivated.|
 
 ### Ops.alloc {#alloc tag="method"}
 
