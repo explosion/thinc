@@ -1,5 +1,5 @@
 from typing import Union, Dict, Any, Optional, List, Tuple, Callable, Type
-from typing import Iterable, Sequence
+from typing import Iterable, Sequence, cast
 from types import GeneratorType
 from dataclasses import dataclass
 from configparser import ConfigParser, ExtendedInterpolation, MAX_INTERPOLATION_DEPTH
@@ -459,11 +459,11 @@ class Config(dict):
         return self.from_str(text, interpolate=interpolate, overrides=overrides)
 
 
-def mask_positional_args(name: str) -> List[str]:
+def mask_positional_args(name: str) -> List[Optional[str]]:
     """Create a section name representation that masks names
     of positional arguments to retain their order in sorts."""
 
-    stable_name = name.split(".")
+    stable_name = cast(List[Optional[str]], name.split("."))
 
     # Remove names of sections that are a positional arugment.
     for i in range(1, len(stable_name)):
