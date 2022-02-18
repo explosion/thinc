@@ -90,11 +90,17 @@ class CupyOps(Ops):
         dY *= Y > 0
         return dY
 
-    def mish(self, X, threshold=20.0):
-        return _custom_kernels.mish(X, threshold=threshold, out=None)
+    def mish(self, X, threshold=20.0, inplace=False):
+        if X.dtype == "float32" and not inplace:
+            return _custom_kernels.mish(X, threshold=threshold, out=None)
+        else:
+            return super().mish(X, threshold, inplace)
 
-    def backprop_mish(self, dY, X, threshold=20.0, out=None):
-        return _custom_kernels.backprop_mish(dY, X, threshold=threshold, out=out)
+    def backprop_mish(self, dY, X, threshold=20.0, inplace=False):
+        if dY.dtype == "float32" and X.dtype == "float32" and not inplace:
+            return _custom_kernels.backprop_mish(dY, X, threshold=threshold)
+        else:
+            return super().backprop_mish(dY, X, threshold, inplace)
 
     def clip_gradient(self, gradient, threshold):
         # We do not use CuPy's linalg.norm, since it uses scalar reductions

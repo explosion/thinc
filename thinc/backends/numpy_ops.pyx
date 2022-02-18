@@ -163,24 +163,29 @@ class NumpyOps(Ops):
             &dY[0, 0], &which[0, 0], B, O, P)
         return dX
 
-    def mish(self, const float[:, ::1] X, threshold=20.0):
-        shape = [X.shape[i] for i in range(X.ndim)]
-        cdef np.ndarray Y = self.alloc(tuple(shape), dtype="f")
-        cpu_mish(<float*>Y.data,
-            &X[0, 0], threshold, X.size)
-        return Y
-
-    def backprop_mish(self, const float[:, ::1] dY, const float[:, ::1] X,
-            threshold=20.0, out=None):
-        shape = [X.shape[i] for i in range(X.ndim)]
-        cdef np.ndarray dX = self.alloc(tuple(shape), dtype="f")
-        cpu_backprop_mish(<float*>dX.data,
-            &dY[0, 0], &X[0, 0], threshold, X.size)
-        if out is not None:
-            out[:] = dX
-            return out
+    def mish(self, np.ndarray X, threshold=20.0, inplace: bool = False):
+        cdef np.ndarray Y
+        if X.dtype == "float32":
+            if inplace:
+                Y = X
+            else:
+                Y = self.xp.empty_like(X)
+            cpu_mish(<float*>Y.data, <float *>X.data, threshold, X.size)
+            return Y
         else:
+            return super().mish(X, threshold, inplace)
+
+    def backprop_mish(self, np.ndarray dY, np.ndarray X, threshold=20.0, inplace=False):
+        cdef np.ndarray dX
+        if dY.dtype == "float32" and X.dtype == "float32":
+            if inplace:
+                dX = dY
+            else:
+                dX = self.xp.empty_like(X)
+            cpu_backprop_mish(<float*>dX.data, <float*>dY.data, <float*>X.data, threshold, X.size)
             return dX
+        else:
+            return super().backprop_mish(dY, X, threshold, inplace)
 
     def seq2col(self, const float[:, ::1] seq, int nW, *, const int[::1] lengths=None):
         """Given an (M, N) sequence of vectors, return an (M, N*(nW*2+1))
