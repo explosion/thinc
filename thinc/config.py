@@ -340,7 +340,10 @@ class Config(dict):
         account for subsections, which should always follow their parent.
         """
         sort_map = {section: i for i, section in enumerate(self.section_order)}
-        sort_key = lambda x: (sort_map.get(x[0].split(".")[0], len(sort_map)), x[0])
+        sort_key = lambda x: (
+            sort_map.get(x[0].split(".")[0], len(sort_map)),
+            mask_positional_args(x[0]),
+        )
         return dict(sorted(data.items(), key=sort_key))
 
     def _set_overrides(self, config: "ConfigParser", overrides: Dict[str, Any]) -> None:
@@ -454,6 +457,20 @@ class Config(dict):
         with path.open("r", encoding="utf8") as file_:
             text = file_.read()
         return self.from_str(text, interpolate=interpolate, overrides=overrides)
+
+
+def mask_positional_args(name: str) -> List[str]:
+    """Create a section name representation that masks names
+    of positional arguments to retain their order in sorts."""
+
+    stable_name = name.split(".")
+
+    # Remove names of sections that are a positional arugment.
+    for i in range(1, len(stable_name)):
+        if stable_name[i - 1] == "*":
+            stable_name[i] = None
+
+    return stable_name
 
 
 def try_load_json(value: str) -> Any:

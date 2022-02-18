@@ -1437,3 +1437,29 @@ def test_config_overrides(greeting, value, expected):
     assert "${vars.a}" in str_cfg
     cfg = Config().from_str(str_cfg, overrides=overrides)
     assert expected in str(cfg)
+
+
+def test_arg_order_is_preserved():
+    str_cfg = """
+    [model]
+
+    [model.chain]
+    @layers = "chain.v1"
+
+    [model.chain.*.hashembed]
+    @layers = "HashEmbed.v1"
+    nO = 8
+    nV = 8
+
+    [model.chain.*.expand_window]
+    @layers = "expand_window.v1"
+    window_size = 1
+    """
+
+    cfg = Config().from_str(str_cfg)
+    resolved = my_registry.resolve(cfg)
+    model = resolved["model"]["chain"]
+
+    # Fails when arguments are sorted, because expand_window
+    # is sorted before hashembed.
+    assert model.name == "hashembed>>expand_window"
