@@ -342,7 +342,7 @@ class Config(dict):
         sort_map = {section: i for i, section in enumerate(self.section_order)}
         sort_key = lambda x: (
             sort_map.get(x[0].split(".")[0], len(sort_map)),
-            mask_positional_args(x[0]),
+            _mask_positional_args(x[0]),
         )
         return dict(sorted(data.items(), key=sort_key))
 
@@ -459,7 +459,7 @@ class Config(dict):
         return self.from_str(text, interpolate=interpolate, overrides=overrides)
 
 
-def mask_positional_args(name: str) -> List[Optional[str]]:
+def _mask_positional_args(name: str) -> List[Optional[str]]:
     """Create a section name representation that masks names
     of positional arguments to retain their order in sorts."""
 
