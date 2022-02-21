@@ -465,7 +465,7 @@ def mask_positional_args(name: str) -> List[Optional[str]]:
 
     stable_name = cast(List[Optional[str]], name.split("."))
 
-    # Remove names of sections that are a positional arugment.
+    # Remove names of sections that are a positional argument.
     for i in range(1, len(stable_name)):
         if stable_name[i - 1] == "*":
             stable_name[i] = None
