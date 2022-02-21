@@ -1,3 +1,5 @@
+from typing import Tuple, cast
+
 import pytest
 import numpy
 from hypothesis import given, settings
@@ -5,9 +7,10 @@ from hypothesis.strategies import composite, integers
 from numpy.testing import assert_allclose
 from thinc.api import NumpyOps, CupyOps, Ops, get_ops
 from thinc.api import get_current_ops, use_ops
-from thinc.util import has_torch
+from thinc.util import has_torch, torch2xp, xp2torch
 from thinc.api import fix_random_seed
 from thinc.api import LSTM
+from thinc.types import Floats2d
 import inspect
 
 from .. import strategies
@@ -595,6 +598,38 @@ def test_softmax_works_inplace(ops, X):
     X = ops.softmax(X, inplace=True)
     for row in X:
         assert 0.99999 <= row.sum() <= 1.00001
+
+
+def torch_softmax_with_temperature(
+    X: Floats2d, dY: Floats2d, temperature: float
+) -> Tuple[Floats2d, Floats2d]:
+    import torch
+
+    Xt = xp2torch(X, requires_grad=True)
+    dYt = xp2torch(dY)
+
+    Xt_temp = Xt / temperature
+
+    Yt = torch.nn.functional.softmax(Xt_temp, dim=-1)
+    Yt.backward(dYt)
+
+    return cast(Floats2d, torch2xp(Yt)), cast(Floats2d, torch2xp(Xt.grad))
+
+
+@pytest.mark.skipif(not has_torch, reason="needs PyTorch")
+@pytest.mark.parametrize("ops", ALL_OPS)
+@pytest.mark.parametrize("temperature", [0.5, 1.0, 2.0])
+def test_softmax_temperature(ops, temperature):
+    X = ops.xp.arange(-10, 10, 0.2, dtype="f").reshape(10, 10)
+    dY = ops.xp.eye(10, dtype="f")
+
+    Y = ops.softmax(X, temperature=temperature)
+    dX = ops.backprop_softmax(Y, dY, temperature=temperature)
+
+    Yt, dXt = torch_softmax_with_temperature(X, dY, temperature)
+
+    assert_allclose(Y, Yt, atol=1e-6)
+    assert_allclose(dX, dXt, atol=1e-6)
 
 
 @pytest.mark.parametrize("cpu_ops", [*CPU_OPS, BLIS_OPS])

@@ -17,6 +17,18 @@ def ragged():
     return Ragged(data, lengths)
 
 
+def test_ragged_empty():
+    data = numpy.zeros((0, 4), dtype="f")
+    lengths = numpy.array([], dtype="i")
+    ragged = Ragged(data, lengths)
+    assert_allclose(ragged[0:0].data, ragged.data)
+    assert_allclose(ragged[0:0].lengths, ragged.lengths)
+    assert_allclose(ragged[0:2].data, ragged.data)
+    assert_allclose(ragged[0:2].lengths, ragged.lengths)
+    assert_allclose(ragged[1:2].data, ragged.data)
+    assert_allclose(ragged[1:2].lengths, ragged.lengths)
+
+
 def test_ragged_starts_ends(ragged):
     starts = ragged._get_starts()
     ends = ragged._get_ends()

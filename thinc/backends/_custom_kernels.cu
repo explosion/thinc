@@ -109,6 +109,41 @@ void maxout(float* best, int* which,
 }
 
 extern "C" __global__
+void clipped_linear(float* Y, const float* X, double slope, double offset, double min_val, double max_val, int N)
+{
+    int _loop_start = blockIdx.x * blockDim.x + threadIdx.x;
+    int _loop_stride = blockDim.x * gridDim.x;
+
+    for (int i = _loop_start; i < N; i += _loop_stride)
+    {
+        float y = X[i] * slope + offset;
+        Y[i] = min(max(y, min_val), max_val);
+    }
+}
+
+extern "C" __global__
+void gelu(float* Y, const float* X, double threshold, int N)
+{
+    const float INV_SQRT_2 = 0.7071067811865475;
+
+    int _loop_start = blockIdx.x * blockDim.x + threadIdx.x;
+    int _loop_stride = blockDim.x * gridDim.x;
+
+    for (int i = _loop_start; i < N; i += _loop_stride)
+    {
+        float x = X[i];
+        if (x >= threshold) {
+            Y[i] = x;
+        } else if (x <= -threshold) {
+            Y[i] = 0.0;
+        } else {
+            float cdf = 0.5 * (1.0 + erff(INV_SQRT_2 * x));
+            Y[i] = x * cdf;
+        }
+    }
+}
+
+extern "C" __global__
 void mish(float* Y, const float* X, double threshold, int N)
 {
     int _loop_start = blockIdx.x * blockDim.x + threadIdx.x;
@@ -123,6 +158,24 @@ void mish(float* Y, const float* X, double threshold, int N)
     }
 }
 
+extern "C" __global__
+void swish(float* Y, const float* X, double threshold, int N)
+{
+    int _loop_start = blockIdx.x * blockDim.x + threadIdx.x;
+    int _loop_stride = blockDim.x * gridDim.x;
+
+    for (int i = _loop_start; i < N; i += _loop_stride)
+    {
+        if (X[i] >= threshold) {
+            Y[i] = X[i];
+        } else if (X[i] <= -threshold) {
+            Y[i] = 0.0;
+        } else {
+            float logistic_cdf = 1.0 / (1.0 + expf(-X[i]));
+            Y[i] = X[i] * logistic_cdf;
+        }
+    }
+}
 
 extern "C" __global__
 void reduce_sum(float* output,
@@ -259,6 +312,88 @@ void backprop_seq2col(float* d_seqs, const float* d_cols, const int* lengths,
     }
 }
 
+extern "C" __global__
+void backprop_clipped_linear(float* dX, const float* dY, const float* X, double slope, double offset, double min_val, double max_val, int N)
+{
+    int _loop_start = blockIdx.x * blockDim.x + threadIdx.x;
+    int _loop_stride = blockDim.x * gridDim.x;
+    float low = (min_val - offset) / slope;
+    float high = (max_val - offset) / slope;
+
+    for (int i = _loop_start; i < N; i += _loop_stride)
+    {
+        float x = X[i];
+
+        if (low < x && x < high) {
+            dX[i] = dY[i] * slope;
+        } else {
+            dX[i] = 0;
+        }
+    }
+}
+
+extern "C" __global__
+void backprop_hard_swish(float* dX, const float* dY, const float* X, int N)
+{
+    int _loop_start = blockIdx.x * blockDim.x + threadIdx.x;
+    int _loop_stride = blockDim.x * gridDim.x;
+
+    for (int i = _loop_start; i < N; i += _loop_stride)
+    {
+        if (X[i] > 2.5) {
+            dX[i] = dY[i];
+        } else if (X[i] < -2.5) {
+            dX[i] = 0;
+        } else {
+            dX[i] = dY[i] * (X[i] * 0.4 + 0.5);
+        }
+    }
+}
+
+extern "C" __global__
+void backprop_hard_swish_mobilenet(float* dX, const float* dY, const float* X, int N)
+{
+    int _loop_start = blockIdx.x * blockDim.x + threadIdx.x;
+    int _loop_stride = blockDim.x * gridDim.x;
+
+    for (int i = _loop_start; i < N; i += _loop_stride)
+    {
+        if (X[i] > 3.0) {
+            dX[i] = dY[i];
+        } else if (X[i] < -3.0) {
+            dX[i] = 0;
+        } else {
+            dX[i] = dY[i] * ((X[i] * 2.0 + 3.0) / 6.0);
+        }
+    }
+}
+
+extern "C" __global__
+void backprop_gelu(float* dX, const float* dY, const float* X,
+    double threshold, int N)
+{
+    const float INV_SQRT_2PI = 0.3989422804014327;
+    const float INV_SQRT_2 = 0.7071067811865475;
+
+    int _loop_start = blockIdx.x * blockDim.x + threadIdx.x;
+    int _loop_stride = blockDim.x * gridDim.x;
+
+    for (int i = _loop_start; i < N; i += _loop_stride)
+    {
+        float x = X[i];
+
+        if (x >= threshold) {
+            dX[i] = dY[i];
+        } else if (x <= -threshold) {
+            dX[i] = 0.0;
+        } else {
+            float cdf = 0.5 * (1.0 + erff(INV_SQRT_2 * x));
+            float pdf = INV_SQRT_2PI * expf(-0.5 * x * x);
+            dX[i] = dY[i] * (cdf + x * pdf);
+        }
+    }
+}
+
 
 extern "C" __global__
 void backprop_maxout(float* dX,
@@ -299,6 +434,31 @@ void backprop_mish(float* dX,
             float omega = (4. * (x+1)) + (4 * exp_2x) + exp_3x + exp_x * (4.*x+6);
             float delta = 2 * exp_x + exp_2x + 2;
             dX[i] = dY[i] * ((exp_x * omega) / (delta * delta));
+        }
+    }
+}
+
+
+extern "C" __global__
+void backprop_swish(float* dX, const float* dY, const float* X,
+    const float* Y, double threshold, int N)
+{
+    int _loop_start = blockIdx.x * blockDim.x + threadIdx.x;
+    int _loop_stride = blockDim.x * gridDim.x;
+
+    for (int i = _loop_start; i < N; i += _loop_stride)
+    {
+        float x = X[i];
+        float y = Y[i];
+
+        if (x >= threshold) {
+            dX[i] = dY[i];
+        } else if (x <= -threshold) {
+            dX[i] = 0.0;
+        } else {
+            float cdf = 1.0 / (1 + exp(-x));
+            float d = y + cdf * (1 - y);
+            dX[i] = dY[i] * d;
         }
     }
 }

@@ -39,6 +39,18 @@ class CupyOps(Ops):
         else:
             return data.get()
 
+    def gelu(self, X, inplace=False):
+        if X.dtype == "float32":
+            return _custom_kernels.gelu(X, inplace=inplace, threshold=6.0)
+        else:
+            return super().gelu(X, inplace=inplace)
+
+    def backprop_gelu(self, dY, X, inplace=False):
+        if X.dtype == "float32" and dY.dtype == "float32":
+            return _custom_kernels.backprop_gelu(dY, X, inplace=inplace, threshold=6.0)
+        else:
+            return super().backprop_gelu(dY, X, inplace=inplace)
+
     def gemm(self, x, y, out=None, trans1=False, trans2=False):
         if isinstance(x, numpy.ndarray) or isinstance(y, numpy.ndarray):
             raise ValueError(
@@ -90,6 +102,77 @@ class CupyOps(Ops):
         dY *= Y > 0
         return dY
 
+    def clipped_linear(
+        self,
+        X,
+        slope: float = 1.0,
+        offset: float = 0.0,
+        min_val: float = 0.0,
+        max_val: float = 1.0,
+        inplace: bool = False,
+    ):
+        if X.dtype == "float32":
+            return _custom_kernels.clipped_linear(
+                X,
+                inplace=inplace,
+                slope=slope,
+                offset=offset,
+                min_val=min_val,
+                max_val=max_val,
+            )
+        else:
+            return super().clipped_linear(
+                X,
+                inplace=inplace,
+                slope=slope,
+                offset=offset,
+                min_val=min_val,
+                max_val=max_val,
+            )
+
+    def backprop_clipped_linear(
+        self,
+        dY,
+        X,
+        slope: float = 1.0,
+        offset: float = 0.0,
+        min_val: float = 0.0,
+        max_val: float = 1.0,
+        inplace: bool = False,
+    ):
+        if X.dtype == "float32" and dY.dtype == "float32":
+            return _custom_kernels.backprop_clipped_linear(
+                dY=dY,
+                X=X,
+                slope=slope,
+                offset=offset,
+                min_val=min_val,
+                max_val=max_val,
+                inplace=inplace,
+            )
+        else:
+            return super().backprop_clipped_linear(
+                dY=dY,
+                X=X,
+                slope=slope,
+                offset=offset,
+                min_val=min_val,
+                max_val=max_val,
+                inplace=inplace,
+            )
+
+    def backprop_hard_swish(self, dY, X, inplace: bool = False):
+        if X.dtype == "float32" and dY.dtype == "float32":
+            return _custom_kernels.backprop_hard_swish(dY, X, inplace=inplace)
+        else:
+            return super().backprop_hard_swish(dY, X, inplace=inplace)
+
+    def backprop_hard_swish_mobilenet(self, dY, X, inplace: bool = False):
+        if X.dtype == "float32" and dY.dtype == "float32":
+            return _custom_kernels.backprop_hard_swish_mobilenet(dY, X, inplace=inplace)
+        else:
+            return super().backprop_hard_swish_mobilenet(dY, X, inplace=inplace)
+
     def mish(self, X, threshold=20.0, inplace=False):
         if X.dtype == "float32" and not inplace:
             return _custom_kernels.mish(X, threshold=threshold, out=None)
@@ -101,6 +184,20 @@ class CupyOps(Ops):
             return _custom_kernels.backprop_mish(dY, X, threshold=threshold)
         else:
             return super().backprop_mish(dY, X, threshold, inplace)
+
+    def swish(self, X, inplace=False):
+        if X.dtype == "float32":
+            return _custom_kernels.swish(X, inplace=inplace, threshold=17.0)
+        else:
+            return super().swish(X, inplace=inplace)
+
+    def backprop_swish(self, dY, X, Y, inplace=False):
+        if X.dtype == "float32" and dY.dtype == "float32":
+            return _custom_kernels.backprop_swish(
+                dY, X, Y, inplace=inplace, threshold=17.0
+            )
+        else:
+            return super().backprop_swish(dY, X, Y, inplace=inplace)
 
     def clip_gradient(self, gradient, threshold):
         # We do not use CuPy's linalg.norm, since it uses scalar reductions
