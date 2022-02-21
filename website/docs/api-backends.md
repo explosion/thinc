@@ -377,6 +377,25 @@ the inputs and outputs.
 | `dtype`        | <tt>DTypes</tt>  | The data type (default: `float32`).                             |
 | **RETURNS**    | <tt>ArrayXd</tt> | An array of the correct shape and data type, filled with zeros. |
 
+### Ops.to_numpy {#to_numpy tag="method"}
+
+<inline-list>
+
+- **default:** <i name="yes"></i>
+- **numpy:** default
+- **cupy:** <i name="yes"></i>
+
+</inline-list>
+
+Convert the array to a numpy array.
+
+| Argument       | Type                   | Description                                                                                                                                                      |
+| -------------- | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `data`         | <tt>ArrayXd</tt>       | The array.                                                                                                                                                       |
+| _keyword-only_ |                        |                                                                                                                                                                  |
+| `byte_order`   | <tt>Optional[str]</tt> | The [new byte order](https://numpy.org/doc/stable/reference/generated/numpy.dtype.newbyteorder.html), `None` preserves the current byte order (default: `None`). |
+| **RETURNS**    | <tt>numpy.ndarray</tt> | A numpy array with the specified byte order.                                                                                                                     |
+
 #### Type-specific methods
 
 <inline-list>
@@ -1037,7 +1056,7 @@ with use_ops("cupy"):
 
 | Argument   | Type         | Description                                           |
 | ---------- | ------------ | ----------------------------------------------------- |
-| `ops`      | <tt>str</tt> | `"numpy"` or `"cupy"`.                       |
+| `ops`      | <tt>str</tt> | `"numpy"` or `"cupy"`.                                |
 | `**kwargs` |              | Optional arguments passed to [`Ops.__init__`](#init). |
 
 ### get_current_ops {#get_current_ops tag="function"}
