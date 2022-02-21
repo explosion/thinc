@@ -25,7 +25,7 @@ def Softmax(
         init=partial(init, init_W, init_b),
         dims={"nO": nO, "nI": nI},
         params={"W": None, "b": None},
-        attrs={"normalize_softmax": True},
+        attrs={"softmax_normalize": True, "softmax_temperature": 1.0},
     )
 
 
@@ -37,26 +37,39 @@ def Softmax_v2(
     init_W: Callable = zero_init,
     init_b: Callable = zero_init,
     normalize_outputs: bool = True,
+    temperature: float = 1.0,
 ) -> Model[InT, OutT]:
+    validate_temperature(temperature)
     return Model(
         "softmax",
         forward,
         init=partial(init, init_W, init_b),
         dims={"nO": nO, "nI": nI},
         params={"W": None, "b": None},
-        attrs={"normalize_softmax": normalize_outputs},
+        attrs={
+            "softmax_normalize": normalize_outputs,
+            "softmax_temperature": temperature,
+        },
     )
 
 
 def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Callable]:
-    normalize = model.attrs["normalize_softmax"] or is_train
+    normalize = model.attrs["softmax_normalize"] or is_train
+
+    temperature = model.attrs["softmax_temperature"]
+    validate_temperature(temperature)
+
     W = cast(Floats2d, model.get_param("W"))
     b = cast(Floats1d, model.get_param("b"))
     Y = model.ops.affine(X, W, b)
+
     if normalize:
-        Y = model.ops.softmax(Y)
+        Y = model.ops.softmax(Y, temperature=temperature)
 
     def backprop(dY: InT) -> OutT:
+        if temperature != 1.0:
+            dY = dY / temperature
+
         model.inc_grad("b", dY.sum(axis=0))
         model.inc_grad("W", model.ops.gemm(dY, X, trans1=True))
         return model.ops.gemm(dY, W)
@@ -85,3 +98,9 @@ def init(
     model.set_param("W", init_W(model.ops, (model.get_dim("nO"), model.get_dim("nI"))))
     model.set_param("b", init_b(model.ops, (model.get_dim("nO"),)))
     return model
+
+
+def validate_temperature(temperature):
+    if temperature <= 0.0:
+        msg = "softmax temperature must not be zero or negative"
+        raise ValueError(msg)
