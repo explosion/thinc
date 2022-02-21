@@ -512,7 +512,7 @@ class Model(Generic[InT, OutT]):
         result from loading and serializing a model.
         """
         msg = self.to_dict()
-        to_numpy_le = partial(self.ops.to_numpy, byteorder="<")
+        to_numpy_le = partial(self.ops.to_numpy, byte_order="<")
         msg = convert_recursive(is_xp_array, to_numpy_le, msg)
         return srsly.msgpack_dumps(msg)
 

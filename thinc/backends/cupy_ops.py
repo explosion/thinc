@@ -33,11 +33,11 @@ class CupyOps(Ops):
         self.device_type = device_type
         self.device_id = device_id
 
-    def to_numpy(self, data, *, byteorder=None):
+    def to_numpy(self, data, *, byte_order=None):
         if not isinstance(data, numpy.ndarray):
             data = data.get()
-        if byteorder:
-            dtype = data.dtype.newbyteorder(byteorder)
+        if byte_order:
+            dtype = data.dtype.newbyteorder(byte_order)
             data = numpy.asarray(data, dtype=dtype)
         return data
 
