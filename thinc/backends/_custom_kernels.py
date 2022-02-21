@@ -41,26 +41,26 @@ MMH_SRC = (PWD / "_murmur3.cu").read_text(encoding="utf8")
 KERNELS["hash"] = compile_mmh(MMH_SRC)
 
 clipped_linear_kernel = KERNELS["clipped_linear"]
-seq2col_kernel = KERNELS["seq2col"]
 gelu_kernel = KERNELS["gelu"]
+hash_data_kernel = compile_mmh(MMH_SRC)
 maxout_kernel = KERNELS["maxout"]
 mish_kernel = KERNELS["mish"]
-reduce_sum_kernel = KERNELS["reduce_sum"]
 reduce_max_kernel = KERNELS["reduce_max"]
+reduce_sum_kernel = KERNELS["reduce_sum"]
+seq2col_kernel = KERNELS["seq2col"]
 swish_kernel = KERNELS["swish"]
 
-backprop_seq2col_kernel = KERNELS["backprop_seq2col"]
 backprop_clipped_linear_kernel = KERNELS["backprop_clipped_linear"]
+backprop_gelu_kernel = KERNELS["backprop_gelu"]
 backprop_hard_swish_kernel = KERNELS["backprop_hard_swish"]
 backprop_hard_swish_mobilenet_kernel = KERNELS["backprop_hard_swish_mobilenet"]
-backprop_gelu_kernel = KERNELS["backprop_gelu"]
 backprop_maxout_kernel = KERNELS["backprop_maxout"]
 backprop_mish_kernel = KERNELS["backprop_mish"]
-backprop_reduce_sum_kernel = KERNELS["backprop_reduce_sum"]
-backprop_reduce_mean_kernel = KERNELS["backprop_reduce_mean"]
 backprop_reduce_max_kernel = KERNELS["backprop_reduce_max"]
+backprop_reduce_mean_kernel = KERNELS["backprop_reduce_mean"]
+backprop_reduce_sum_kernel = KERNELS["backprop_reduce_sum"]
+backprop_seq2col_kernel = KERNELS["backprop_seq2col"]
 backprop_swish_kernel = KERNELS["backprop_swish"]
-hash_data_kernel = compile_mmh(MMH_SRC)
 
 
 def clipped_linear(
