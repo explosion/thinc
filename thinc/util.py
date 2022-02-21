@@ -203,12 +203,21 @@ def copy_array(dst: ArrayXd, src: ArrayXd) -> None:  # pragma: no cover
         numpy.copyto(dst, src)  # type: ignore
 
 
-def to_categorical(Y: IntsXd, n_classes: Optional[int] = None) -> FloatsXd:
+def to_categorical(
+    Y: IntsXd,
+    n_classes: Optional[int] = None,
+    label_smoothing: Optional[float] = 0.0,
+) -> FloatsXd:
     xp = get_array_module(Y)
     if n_classes is None:
         n_classes = int(numpy.max(Y) + 1)  # type: ignore
     # Unfortunately, cupy does not support put_along_axis.
-    return xp.eye(n_classes, dtype="float32")[Y]
+    one_hot = xp.eye(n_classes, dtype="float32")[Y]
+    if label_smoothing > 0.0:
+        z = label_smoothing / (n_classes - 1)
+        xp.maximum(0, one_hot - label_smoothing - z, out=one_hot)
+        one_hot += z
+    return one_hot 
 
 
 def get_width(

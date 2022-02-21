@@ -46,14 +46,13 @@ class CategoricalCrossentropy(Loss):
         names: Optional[List[str]] = None,
         missing_value: Optional[Union[str, int]] = None,
         neg_prefix: Optional[str] = None,
-        alpha: float = 0.0
+        label_smoothing: Optional[float] = 0.0
     ):
         self.normalize = normalize
         self.names = names
         self.missing_value = missing_value
         self.neg_prefix = neg_prefix
-        self.alpha = alpha
-        
+        self.label_smoothing = label_smoothing
         if names is not None:
             self._name_to_i = {name: i for i, name in enumerate(names)}
         else:
@@ -103,10 +102,9 @@ class CategoricalCrossentropy(Loss):
             mask = _make_mask_by_value(truths, guesses, missing_value)
         if truths.ndim != guesses.ndim:
             # transform categorical values to one-hot encoding
-            truths = to_categorical(cast(Ints1d, truths), n_classes=guesses.shape[-1])
-            # Only smooth one-hot encoding
-            if self.alpha > 0:
-                truths = to_smooth(truths)
+            truths = to_categorical(cast(Ints1d, truths), 
+                                    n_classes=guesses.shape[-1],
+                                    label_smoothing=self.label_smoothing)
         # Transform negative annotations to a 0 for the negated value
         # + mask all other values for that row
         if negatives_mask is not None:
@@ -372,19 +370,6 @@ def _make_mask_by_value(truths, guesses, missing_value) -> Floats2d:
             mask[labels == missing_value] = 0.0
 
     return mask
-
-
-def to_smooth(truths: Floats2d, alpha: float):
-    """
-    Apply label-smoothing to one-hot matrix.
-    """
-    xp = get_array_module(truths)
-    smoothed = xp.empty_like(truths)
-    n_classes = truths.shape[1]
-    z = alpha / (n_classes - 1)
-    xp.maximum(0, truths - alpha - z, smoothed)
-    smoothed += z
-    return smoothed
 
 
 __all__ = [
