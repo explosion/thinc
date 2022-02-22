@@ -141,7 +141,7 @@ def maxout(X, out=None, threads_per_block=128, num_blocks=128):
     else:
         best, which = out
         _check_array(best, out_shape)
-        _check_which(which, B, I, P)
+        _check_which_maxout(which, B, I, P)
 
     maxout_kernel((num_blocks,), (threads_per_block,), (best, which, X, B, I, P))
     return best, which
@@ -213,7 +213,7 @@ def reduce_max(X, lengths, out=None, threads_per_block=128, num_blocks=128):
     else:
         maxes, which = out
         _check_array(maxes, out_shape)
-        _check_which(which, B, I, P)
+        _check_which_reduce_max(which, out_shape)
 
     reduce_max_kernel(
         (num_blocks,), (threads_per_block,), (maxes, which, X, lengths, B, T, O)
@@ -345,7 +345,7 @@ def backprop_maxout(dY, which, P, out=None, threads_per_block=128, num_blocks=12
     else:
         _check_array(out, out_shape)
 
-    _check_which(which, B, I, P, check_values=True)
+    _check_which_maxout(which, B, I, P, check_values=True)
 
     backprop_maxout_kernel(
         (num_blocks,), (threads_per_block,), (out, dY, which, B, I, P)
@@ -434,7 +434,7 @@ def backprop_reduce_max(
     else:
         _check_array(out, out_shape)
 
-    _check_which(which, B, T, O, check_values=True)
+    _check_which_reduce_max(which, (B, O), lengths)
 
     backprop_reduce_max_kernel(
         (num_blocks,), (threads_per_block,), (out, d_maxes, which, lengths, B, T, O)
@@ -488,7 +488,7 @@ def _check_lengths(lengths, n_elems: int):
     assert cupy.sum(lengths) == n_elems, "the lengths must sum up to the batch size"
 
 
-def _check_which(which, B: int, I: int, P: int, check_values: bool = False):
+def _check_which_maxout(which, B: int, I: int, P: int, check_values: bool = False):
     assert (
         which.dtype == "int32"
     ), "maximum index (which) should be encoded as 32-bit integers"
@@ -497,3 +497,13 @@ def _check_which(which, B: int, I: int, P: int, check_values: bool = False):
         assert cupy.all(
             (which >= 0) & (which < P)
         ), "maximum index (which) value out of bounds"
+
+def _check_which_reduce_max(which, shape: Tuple, lengths=None):
+    assert (
+        which.dtype == "int32"
+    ), "maximum index (which) should be encoded as 32-bit integers"
+    assert which.shape == shape, "maximum index (which) has incorrect shape"
+    if lengths is not None:
+        print(which.shape)
+        print(lengths.shape)
+        assert cupy.all((which >= 0) & (which < cupy.expand_dims(lengths, -1))), "maximum index (which) value out of bounds"
