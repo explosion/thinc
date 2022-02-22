@@ -73,6 +73,8 @@ def clipped_linear(
     threads_per_block=128,
     num_blocks=128,
 ):
+    assert X.dtype == "float32", "CUDA clipped_linear kernel can only handle float32"
+
     out = X
     if not inplace:
         out = cupy.zeros_like(X, dtype="f")
@@ -85,6 +87,8 @@ def clipped_linear(
 
 
 def gelu(X, inplace=False, threshold=6.0, threads_per_block=128, num_blocks=128):
+    assert X.dtype == "float32", "CUDA gelu kernel can only handle float32"
+
     out = X
     if not inplace:
         out = cupy.zeros_like(X, dtype="f")
@@ -104,11 +108,11 @@ def check_seq2col_lengths(lengths, B):
 
 
 def seq2col(X, nW, *, lengths=None, out=None, threads_per_block=128, num_blocks=128):
+    assert X.dtype == "float32", "CUDA seq2col kernel can only handle float32"
+
     B = X.shape[0]
     nF = nW * 2 + 1
     I = X.shape[1]
-
-    assert X.dtype == "float32", "CUDA seq2col kernel can only handle float32"
 
     lengths = check_seq2col_lengths(lengths, B)
     nL = lengths.shape[0]
@@ -127,6 +131,8 @@ def seq2col(X, nW, *, lengths=None, out=None, threads_per_block=128, num_blocks=
 
 
 def maxout(X, out=None, threads_per_block=128, num_blocks=128):
+    assert X.dtype == "float32", "CUDA maxout kernel can only handle float32"
+
     B, I, P = X.shape
 
     out_shape = (B, I)
@@ -135,7 +141,8 @@ def maxout(X, out=None, threads_per_block=128, num_blocks=128):
         which = cupy.zeros(out_shape, dtype="i")
     else:
         best, which = out
-        assert maxes.shape == out_shape, "maxes has incorrect shape"
+        assert best.dtype == "float32", "CUDA maxout kernel can only handle float32"
+        assert best.shape == out_shape, "best has incorrect shape"
         assert which.shape == out_shape, "which has incorrect shape"
 
     maxout_kernel((num_blocks,), (threads_per_block,), (best, which, X, B, I, P))
@@ -143,6 +150,8 @@ def maxout(X, out=None, threads_per_block=128, num_blocks=128):
 
 
 def mish(X, inplace=False, threshold=5, threads_per_block=128, num_blocks=128):
+    assert X.dtype == "float32", "CUDA mish kernel can only handle float32"
+
     out = X
     if not inplace:
         out = cupy.zeros_like(X, dtype="f")
@@ -151,27 +160,35 @@ def mish(X, inplace=False, threshold=5, threads_per_block=128, num_blocks=128):
 
 
 def reduce_sum(X, lengths, out=None, threads_per_block=128, num_blocks=128):
-    out_shape = (len(lengths), X.shape[1])
-    if out is None:
-        out = cupy.zeros(out_shape, dtype="f")
-    else:
-        assert out.shape == out_shape, "out has incorrect shape"
+    assert X.dtype == "float32", "CUDA reduce_sum kernel can only handle float32"
+
     B = len(lengths)
     T = X.shape[0]
     O = X.shape[1]
+    out_shape = (B, O)
+    if out is None:
+        out = cupy.zeros(out_shape, dtype="f")
+    else:
+        assert out.dtype == "float32", "CUDA reduce_sum kernel can only handle float32"
+        assert out.shape == out_shape, "out has incorrect shape"
+
     reduce_sum_kernel((num_blocks,), (threads_per_block,), (out, X, lengths, B, T, O))
     return out
 
 
 def reduce_mean(X, lengths, out=None, threads_per_block=128, num_blocks=128):
-    out_shape = (len(lengths), X.shape[1])
-    if out is None:
-        out = cupy.zeros(out_shape, dtype="f")
-    else:
-        assert out.shape == out_shape, "out has incorrect shape"
+    assert X.dtype == "float32", "CUDA reduce_mean kernel can only handle float32"
+
     B = len(lengths)
     T = X.shape[0]
     O = X.shape[1]
+
+    out_shape = (B, O)
+    if out is None:
+        out = cupy.zeros(out_shape, dtype="f")
+    else:
+        assert out.dtype == "float32", "CUDA reduce_mean kernel can only handle float32"
+        assert out.shape == out_shape, "out has incorrect shape"
     reduce_sum_kernel((num_blocks,), (threads_per_block,), (out, X, lengths, B, T, O))
     # Avoid divide by zero
     out /= lengths.reshape((-1, 1)) + 1e-10
@@ -179,18 +196,23 @@ def reduce_mean(X, lengths, out=None, threads_per_block=128, num_blocks=128):
 
 
 def reduce_max(X, lengths, out=None, threads_per_block=128, num_blocks=128):
-    out_shape = (len(lengths), X.shape[1])
+    assert X.dtype == "float32", "CUDA reduce_max kernel can only handle float32"
+
+    B = len(lengths)
+    T = X.shape[0]
+    O = X.shape[1]
+    out_shape = (B, O)
     if out is None:
         maxes = cupy.zeros(out_shape, dtype="f")
         which = cupy.zeros(out_shape, dtype="i")
     else:
         maxes, which = out
+        assert (
+            maxes.dtype == "float32"
+        ), "CUDA reduce_max kernel can only handle float32"
         assert maxes.shape == out_shape, "maxes has incorrect shape"
         assert which.shape == out_shape, "which has incorrect shape"
 
-    B = len(lengths)
-    T = X.shape[0]
-    O = X.shape[1]
     reduce_max_kernel(
         (num_blocks,), (threads_per_block,), (maxes, which, X, lengths, B, T, O)
     )
@@ -198,6 +220,8 @@ def reduce_max(X, lengths, out=None, threads_per_block=128, num_blocks=128):
 
 
 def swish(X, inplace=False, threshold=17.0, threads_per_block=128, num_blocks=128):
+    assert X.dtype == "float32", "CUDA swish kernel can only handle float32"
+
     out = X
     if not inplace:
         out = cupy.zeros_like(X, dtype="f")
@@ -208,11 +232,11 @@ def swish(X, inplace=False, threshold=17.0, threads_per_block=128, num_blocks=12
 def backprop_seq2col(
     dY, nW, *, lengths=None, out=None, threads_per_block=128, num_blocks=128
 ):
+    assert dY.dtype == "float32", "CUDA backprop_seq2col kernel can only handle float32"
+
     B = dY.shape[0]
     nF = nW * 2 + 1
     I = dY.shape[1] // nF
-
-    assert dY.dtype == "float32", "CUDA backprop_seq2col kernel can only handle float32"
 
     lengths = check_seq2col_lengths(lengths, B)
     nL = lengths.shape[0]
@@ -245,6 +269,13 @@ def backprop_clipped_linear(
     threads_per_block=128,
     num_blocks=128,
 ):
+    assert (
+        dY.dtype == "float32"
+    ), "CUDA backprop_clipped_linear kernel can only handle float32"
+    assert (
+        X.dtype == "float32"
+    ), "CUDA backprop_clipped_linear kernel can only handle float32"
+
     out = dY
     if not inplace:
         out = cupy.zeros_like(dY, dtype="f")
@@ -259,6 +290,13 @@ def backprop_clipped_linear(
 def backprop_hard_swish(
     dY, X, inplace: bool = False, threads_per_block=128, num_blocks=128
 ):
+    assert (
+        dY.dtype == "float32"
+    ), "CUDA backprop_hard_swish kernel can only handle float32"
+    assert (
+        X.dtype == "float32"
+    ), "CUDA backprop_hard_swish kernel can only handle float32"
+
     out = dY
     if not inplace:
         out = cupy.zeros_like(dY, dtype="f")
@@ -271,6 +309,13 @@ def backprop_hard_swish(
 def backprop_hard_swish_mobilenet(
     dY, X, inplace: bool = False, threads_per_block=128, num_blocks=128
 ):
+    assert (
+        dY.dtype == "float32"
+    ), "CUDA backprop_hard_swish_mobilenet kernel can only handle float32"
+    assert (
+        X.dtype == "float32"
+    ), "CUDA backprop_hard_swish_mobilenet kernel can only handle float32"
+
     out = dY
     if not inplace:
         out = cupy.zeros_like(dY, dtype="f")
@@ -283,6 +328,9 @@ def backprop_hard_swish_mobilenet(
 def backprop_gelu(
     dY, X, inplace: bool = False, threshold=6.0, threads_per_block=128, num_blocks=128
 ):
+    assert dY.dtype == "float32", "CUDA backprop_gelu kernel can only handle float32"
+    assert X.dtype == "float32", "CUDA backprop_gelu kernel can only handle float32"
+
     out = dY
     if not inplace:
         out = cupy.zeros_like(dY, dtype="f")
@@ -293,6 +341,8 @@ def backprop_gelu(
 
 
 def backprop_maxout(dY, which, P, out=None, threads_per_block=128, num_blocks=128):
+    assert dY.dtype == "float32", "CUDA backprop_maxout kernel can only handle float32"
+
     B = dY.shape[0]
     I = dY.shape[1]
 
@@ -311,6 +361,9 @@ def backprop_maxout(dY, which, P, out=None, threads_per_block=128, num_blocks=12
 def backprop_mish(
     dY, X, inplace: bool = False, threshold=5, threads_per_block=128, num_blocks=128
 ):
+    assert dY.dtype == "float32", "CUDA backprop_mish kernel can only handle float32"
+    assert X.dtype == "float32", "CUDA backprop_mish kernel can only handle float32"
+
     out = dY
     if not inplace:
         out = cupy.zeros_like(dY, dtype="f")
@@ -323,6 +376,10 @@ def backprop_mish(
 def backprop_reduce_sum(
     d_sum, lengths, out=None, threads_per_block=128, num_blocks=128
 ):
+    assert (
+        d_sum.dtype == "float32"
+    ), "CUDA backprop_reduce_sum kernel can only handle float32"
+
     B = len(lengths)
     T = int(lengths.sum())
     O = d_sum.shape[1]
@@ -331,6 +388,9 @@ def backprop_reduce_sum(
     if out is None:
         out = cupy.zeros(out_shape, dtype="f")
     else:
+        assert (
+            out.dtype == "float32"
+        ), "CUDA backprop_reduce_sum kernel can only handle float32"
         assert out.shape == out_shape, "out has incorrect shape"
 
     backprop_reduce_sum_kernel(
@@ -342,6 +402,10 @@ def backprop_reduce_sum(
 def backprop_reduce_mean(
     d_mean, lengths, out=None, threads_per_block=128, num_blocks=128
 ):
+    assert (
+        d_mean.dtype == "float32"
+    ), "CUDA backprop_reduce_mean kernel can only handle float32"
+
     B = len(lengths)
     T = int(lengths.sum())
     O = d_mean.shape[1]
@@ -350,6 +414,9 @@ def backprop_reduce_mean(
     if out is None:
         out = cupy.zeros(out_shape, dtype="f")
     else:
+        assert (
+            out.dtype == "float32"
+        ), "CUDA backprop_reduce_mean kernel can only handle float32"
         assert out.shape == out_shape, "out has incorrect shape"
 
     backprop_reduce_mean_kernel(
@@ -361,6 +428,10 @@ def backprop_reduce_mean(
 def backprop_reduce_max(
     d_maxes, which, lengths, out=None, threads_per_block=128, num_blocks=128
 ):
+    assert (
+        d_maxes.dtype == "float32"
+    ), "CUDA backprop_reduce_max kernel can only handle float32"
+
     B = len(lengths)
     T = int(lengths.sum())
     O = d_maxes.shape[1]
@@ -369,6 +440,9 @@ def backprop_reduce_max(
     if out is None:
         out = cupy.zeros(out_shape, dtype="f")
     else:
+        assert (
+            d_maxes.dtype == "float32"
+        ), "CUDA backprop_reduce_max kernel can only handle float32"
         assert out.shape == out_shape, "out has incorrect shape"
 
     backprop_reduce_max_kernel(
@@ -380,6 +454,10 @@ def backprop_reduce_max(
 def backprop_swish(
     dY, X, Y, inplace=False, threshold=17.0, threads_per_block=128, num_blocks=128
 ):
+    assert dY.dtype == "float32", "CUDA backprop_swish kernel can only handle float32"
+    assert X.dtype == "float32", "CUDA backprop_swish kernel can only handle float32"
+    assert Y.dtype == "float32", "CUDA backprop_swish kernel can only handle float32"
+
     out = dY
     if not inplace:
         out = cupy.zeros_like(dY, dtype="f")
