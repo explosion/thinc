@@ -3,6 +3,7 @@ import contextlib
 from io import BytesIO
 import itertools
 import srsly
+import warnings
 
 try:
     import torch.autograd
@@ -13,7 +14,7 @@ except ImportError:  # pragma: no cover
     pass
 
 from ..util import torch2xp, xp2torch, convert_recursive, iterate_recursive
-from ..backends import get_current_ops
+from ..backends import get_current_ops, context_pools, CupyOps
 from ..optimizers import Optimizer
 from ..types import ArgsKwargs, FloatsXd
 from .pytorch_grad_scaler import PyTorchGradScaler
@@ -49,6 +50,20 @@ class PyTorchShim(Shim):
         self._grad_scaler = grad_scaler
 
         self._mixed_precision = mixed_precision
+
+        if CupyOps.xp is not None and isinstance(get_current_ops(), CupyOps):
+            pools = context_pools.get()
+            if "pytorch" not in pools:
+                warnings.warn(
+                    "PyTorch model loaded without a designated GPU allocator. "
+                    "Use 'thinc.api.set_gpu_allocator(\"pytorch\")' to let "
+                    "PyTorch handle GPU memory allocations for both CuPy and "
+                    "PyTorch. This prevents out-of-memory errors that would "
+                    "otherwise occur from competing memory pools. See "
+                    "https://thinc.ai/docs/usage-frameworks#memory-contention "
+                    "and for spacy-transformers "
+                    "https://spacy.io/usage/embeddings-transformers#transformers-runtime"
+                )
 
     def __call__(self, inputs, is_train):
         if is_train:
