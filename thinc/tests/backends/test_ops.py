@@ -628,8 +628,8 @@ def test_softmax_temperature(ops, temperature):
 
     Yt, dXt = torch_softmax_with_temperature(X, dY, temperature)
 
-    assert_allclose(Y, Yt, atol=1e-6)
-    assert_allclose(dX, dXt, atol=1e-6)
+    ops.xp.testing.assert_allclose(Y, Yt, atol=1e-6)
+    ops.xp.testing.assert_allclose(dX, dXt, atol=1e-6)
 
 
 @pytest.mark.parametrize("cpu_ops", [*CPU_OPS, BLIS_OPS])
