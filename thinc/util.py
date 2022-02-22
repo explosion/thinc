@@ -211,13 +211,9 @@ def to_categorical(
     xp = get_array_module(Y)
     if n_classes is None:
         n_classes = int(numpy.max(Y) + 1)  # type: ignore
-    # Unfortunately, cupy does not support put_along_axis.
-    one_hot = xp.eye(n_classes, dtype="float32")[Y]
-    if label_smoothing > 0.0:
-        z = label_smoothing / (n_classes - 1)
-        xp.maximum(0, one_hot - label_smoothing - z, out=one_hot)
-        one_hot += z
-    return one_hot 
+    label_distr = xp.full((n_classes, n_classes), label_smoothing / (n_classes - 1))
+    xp.fill_diagonal(label_distr, 1 - label_smoothing)
+    return label_distr[Y]
 
 
 def get_width(
