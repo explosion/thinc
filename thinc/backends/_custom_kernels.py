@@ -271,9 +271,7 @@ def backprop_clipped_linear(
     assert (
         dY.dtype == "float32"
     ), "CUDA backprop_clipped_linear kernel can only handle float32"
-    assert (
-        X.dtype == "float32"
-    ), "CUDA backprop_clipped_linear kernel can only handle float32"
+    _check_array(X, dY.shape)
 
     out = dY
     if not inplace:
@@ -292,9 +290,7 @@ def backprop_hard_swish(
     assert (
         dY.dtype == "float32"
     ), "CUDA backprop_hard_swish kernel can only handle float32"
-    assert (
-        X.dtype == "float32"
-    ), "CUDA backprop_hard_swish kernel can only handle float32"
+    _check_array(X, dY.shape)
 
     out = dY
     if not inplace:
@@ -311,9 +307,7 @@ def backprop_hard_swish_mobilenet(
     assert (
         dY.dtype == "float32"
     ), "CUDA backprop_hard_swish_mobilenet kernel can only handle float32"
-    assert (
-        X.dtype == "float32"
-    ), "CUDA backprop_hard_swish_mobilenet kernel can only handle float32"
+    _check_array(X, dY.shape)
 
     out = dY
     if not inplace:
@@ -328,7 +322,7 @@ def backprop_gelu(
     dY, X, inplace: bool = False, threshold=6.0, threads_per_block=128, num_blocks=128
 ):
     assert dY.dtype == "float32", "CUDA backprop_gelu kernel can only handle float32"
-    assert X.dtype == "float32", "CUDA backprop_gelu kernel can only handle float32"
+    _check_array(X, dY.shape)
 
     out = dY
     if not inplace:
@@ -363,7 +357,7 @@ def backprop_mish(
     dY, X, inplace: bool = False, threshold=5, threads_per_block=128, num_blocks=128
 ):
     assert dY.dtype == "float32", "CUDA backprop_mish kernel can only handle float32"
-    assert X.dtype == "float32", "CUDA backprop_mish kernel can only handle float32"
+    _check_array(X, dY.shape)
 
     out = dY
     if not inplace:
@@ -452,8 +446,8 @@ def backprop_swish(
     dY, X, Y, inplace=False, threshold=17.0, threads_per_block=128, num_blocks=128
 ):
     assert dY.dtype == "float32", "CUDA backprop_swish kernel can only handle float32"
-    assert X.dtype == "float32", "CUDA backprop_swish kernel can only handle float32"
-    assert Y.dtype == "float32", "CUDA backprop_swish kernel can only handle float32"
+    _check_array(X, dY.shape)
+    _check_array(Y, dY.shape)
 
     out = dY
     if not inplace:
