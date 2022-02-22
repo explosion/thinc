@@ -1,15 +1,16 @@
-from typing import Tuple, Callable, List, Optional, TypeVar, Union, cast
+from typing import Tuple, Callable, List, Optional, TypeVar, Union, cast, Sequence
 
-from ..types import Padded, Ragged, Floats2d, List2d
+from ..types import Padded, Ragged, Floats2d, List2d, Array2d
 from ..model import Model
 from ..config import registry
 
-
+List2d_co = TypeVar("List2d_co", bound=List2d, covariant=True)
 SeqT = TypeVar("SeqT", bound=Union[Padded, Ragged, List2d])
+SeqT_co = TypeVar("SeqT_co", bound=Union[Padded, Ragged, List2d], covariant=True)
 
 
 @registry.layers("with_list.v1")
-def with_list(layer: Model[List2d, List2d]) -> Model[SeqT, SeqT]:
+def with_list(layer: Model[List2d_co, List2d_co]) -> Model[SeqT_co, SeqT_co]:
     return Model(
         f"with_list({layer.name})",
         forward,
@@ -20,22 +21,23 @@ def with_list(layer: Model[List2d, List2d]) -> Model[SeqT, SeqT]:
 
 
 def forward(
-    model: Model[SeqT, SeqT], Xseq: SeqT, is_train: bool
+    model: Model[SeqT_co, SeqT_co], Xseq: SeqT, is_train: bool
 ) -> Tuple[SeqT, Callable]:
     layer: Model[List2d, List2d] = model.layers[0]
-    Y: Union[Padded, Ragged, List2d]
+    Y: SeqT
     if isinstance(Xseq, Padded):
         Y, backprop = _padded_forward(layer, cast(Padded, Xseq), is_train)
     elif isinstance(Xseq, Ragged):
         Y, backprop = _ragged_forward(layer, cast(Ragged, Xseq), is_train)
     else:
-        Y, backprop = layer(cast(List2d, Xseq), is_train)
-    return cast(Tuple[SeqT, Callable], (Y, backprop))
+        concrete_Y, backprop = layer(cast(List2d, Xseq), is_train)
+        Y = cast(SeqT, concrete_Y)
+    return Y, backprop
 
 
 def init(
-    model: Model[SeqT, SeqT], X: Optional[SeqT] = None, Y: Optional[SeqT] = None
-) -> Model[SeqT, SeqT]:
+    model: Model[SeqT_co, SeqT_co], X: Optional[SeqT] = None, Y: Optional[SeqT] = None
+) -> Model[SeqT_co, SeqT_co]:
     model.layers[0].initialize(
         X=_get_list(model, X) if X is not None else None,
         Y=_get_list(model, Y) if Y is not None else None,
@@ -52,7 +54,9 @@ def _get_list(model, seq):
         return seq
 
 
-def _ragged_forward(layer, Xr, is_train):
+def _ragged_forward(
+    layer: Model[List2d, List2d], Xr: Ragged, is_train: bool
+) -> Tuple[SeqT, Callable]:
     # Assign these to locals, to keep code a bit shorter.
     unflatten = layer.ops.unflatten
     flatten = layer.ops.flatten
@@ -60,15 +64,27 @@ def _ragged_forward(layer, Xr, is_train):
     # are potentially large on GPU. So we make nested function calls instead
     # of assigning to temporaries where possible, so memory can be reclaimed
     # sooner.
-    Ys, get_dXs = layer(unflatten(Xr.data, Xr.lengths), is_train)
+    Ys, get_dXs = layer(
+        unflatten(Xr.data, Xr.lengths), is_train  # type:ignore [arg-type]
+    )
 
     def backprop(dYr: Ragged):
-        return Ragged(flatten(get_dXs(unflatten(dYr.data, dYr.lengths))), dYr.lengths)
+        return Ragged(
+            flatten(
+                get_dXs(unflatten(dYr.data, dYr.lengths))  # type:ignore [arg-type]
+            ),
+            dYr.lengths,
+        )
 
-    return Ragged(flatten(Ys), Xr.lengths), backprop
+    return (
+        cast(SeqT, Ragged(flatten(cast(Sequence[Array2d], Ys)), Xr.lengths)),
+        backprop,
+    )
 
 
-def _padded_forward(layer, Xp, is_train):
+def _padded_forward(
+    layer: Model[List2d, List2d], Xp: Padded, is_train: bool
+) -> Tuple[SeqT, Callable]:
     # Assign these to locals, to keep code a bit shorter.
     padded2list = layer.ops.padded2list
     list2padded = layer.ops.list2padded
@@ -81,4 +97,4 @@ def _padded_forward(layer, Xp, is_train):
     def backprop(dYp):
         return list2padded(get_dXs(padded2list(dYp)))
 
-    return list2padded(cast(List[Floats2d], Ys)), backprop
+    return cast(SeqT, list2padded(cast(List[Floats2d], Ys))), backprop

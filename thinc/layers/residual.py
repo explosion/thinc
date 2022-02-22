@@ -1,4 +1,4 @@
-from typing import Tuple, Callable, Optional, List, TypeVar
+from typing import Tuple, Callable, Optional, List, TypeVar, cast
 
 from ..model import Model
 from ..config import registry
@@ -30,7 +30,8 @@ def forward(model: Model[InT, InT], X: InT, is_train: bool) -> Tuple[InT, Callab
         if isinstance(d_output, list):
             return [d_output[i] + dX[i] for i in range(len(d_output))]
         elif isinstance(d_output, Ragged):
-            return Ragged(d_output.data + dX.data, dX.lengths)
+            ragged_d_output = cast(Ragged, d_output)
+            return cast(InT, Ragged(ragged_d_output.data + dX.data, dX.lengths))
         elif isinstance(X, Padded):
             dX.data += d_output.data
             return dX
@@ -41,7 +42,8 @@ def forward(model: Model[InT, InT], X: InT, is_train: bool) -> Tuple[InT, Callab
     if isinstance(X, list):
         return [X[i] + Y[i] for i in range(len(X))], backprop
     elif isinstance(X, Ragged):
-        return Ragged(X.data + Y.data, X.lengths), backprop
+        ragged_X = cast(Ragged, X)
+        return cast(InT, Ragged(ragged_X.data + Y.data, ragged_X.lengths)), backprop
     elif isinstance(X, Padded):
         Y.data += X.data
         return Y, backprop

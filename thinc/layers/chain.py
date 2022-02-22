@@ -1,4 +1,4 @@
-from typing import Tuple, Callable, Optional, TypeVar, Any, Dict
+from typing import Tuple, Callable, Optional, TypeVar, Any, Dict, List, cast
 
 from ..model import Model
 from ..config import registry
@@ -7,7 +7,6 @@ from ..types import XY_YZ_OutT
 
 
 InT = TypeVar("InT")
-OutT = TypeVar("OutT")
 MidT = TypeVar("MidT")
 
 
@@ -18,13 +17,15 @@ def chain_no_types(*layer: Model) -> Model:
 
 
 def chain(
-    layer1: Model[InT, MidT], layer2: Model[MidT, OutT], *layers: Model
+    layer1: Model[InT, MidT], layer2: Model[MidT, Any], *more_layers: Model[Any, Any]
 ) -> Model[InT, XY_YZ_OutT]:
     """Compose two models `f` and `g` such that they become layers of a single
     feed-forward model that computes `g(f(x))`.
     Also supports chaining more than 2 layers.
+    Note that the type checking for additional layers is carried out by the Thinc Mypy plugin.
     """
-    layers = (layer1, layer2) + layers
+    layers: List[Model[Any, Any]] = [layer1, layer2]
+    layers.extend(more_layers)
     dims: Dict[str, Optional[int]] = {"nO": None}
     # set input dimension only if first layer has one - should be "False" otherwise
     if layers[0].has_dim("nI") is True:
@@ -35,7 +36,7 @@ def chain(
     if layers[-1].has_dim("nO") is True:
         dims["nO"] = layers[-1].get_dim("nO")
 
-    model: Model[InT, Any] = Model(
+    model: Model[InT, XY_YZ_OutT] = Model(
         ">>".join(layer.name for layer in layers),
         forward,
         init=init,
@@ -45,7 +46,9 @@ def chain(
     return model
 
 
-def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Callable]:
+def forward(
+    model: Model[InT, XY_YZ_OutT], X: InT, is_train: bool
+) -> Tuple[XY_YZ_OutT, Callable]:
     """Apply the layers of `model` in sequence, feeding the output from one
     layer into the next.
     """
@@ -55,7 +58,7 @@ def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Call
         callbacks.append(inc_layer_grad)
         X = Y
 
-    def backprop(dY: OutT) -> InT:
+    def backprop(dY: XY_YZ_OutT) -> InT:
         for callback in reversed(callbacks):
             dX = callback(dY)
             dY = dX
@@ -65,8 +68,10 @@ def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Call
 
 
 def init(
-    model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = None
-) -> Model[InT, OutT]:
+    model: Model[InT, XY_YZ_OutT],
+    X: Optional[InT] = None,
+    Y: Optional[XY_YZ_OutT] = None,
+) -> Model[InT, XY_YZ_OutT]:
     if X is None and Y is None:
         for layer in model.layers:
             layer.initialize()
@@ -99,5 +104,5 @@ def init(
                 nO = model.layers[-1].get_dim("nO")
             else:
                 nO = None  # type: ignore
-        model.set_dim("nO", nO)
+        model.set_dim("nO", cast(int, nO))
     return model

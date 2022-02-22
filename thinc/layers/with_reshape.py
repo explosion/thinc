@@ -1,4 +1,4 @@
-from typing import Tuple, Callable, Optional, cast
+from typing import Tuple, Callable, Optional, cast, TypeVar
 
 from ..model import Model
 from ..config import registry
@@ -6,10 +6,13 @@ from ..types import Array3d, Array2d, Floats3d
 
 
 InT = Array3d
+InT_co = TypeVar("InT_co", bound=Array3d, covariant=True)
+OutT = Array2d
+OutT_co = TypeVar("OutT_co", bound=Array2d, covariant=True)
 
 
 @registry.layers("with_reshape.v1")
-def with_reshape(layer: Model[Array2d, Array2d]) -> Model[InT, InT]:
+def with_reshape(layer: Model[OutT_co, OutT_co]) -> Model[InT_co, InT_co]:
     """Reshape data on the way into and out from a layer."""
     return Model(
         f"with_reshape({layer.name})",
@@ -20,7 +23,9 @@ def with_reshape(layer: Model[Array2d, Array2d]) -> Model[InT, InT]:
     )
 
 
-def forward(model: Model[InT, InT], X: InT, is_train: bool) -> Tuple[InT, Callable]:
+def forward(
+    model: Model[InT_co, InT_co], X: InT, is_train: bool
+) -> Tuple[InT, Callable]:
     layer = model.layers[0]
     initial_shape = X.shape
     final_shape = list(initial_shape[:-1]) + [layer.get_dim("nO")]
@@ -40,7 +45,7 @@ def forward(model: Model[InT, InT], X: InT, is_train: bool) -> Tuple[InT, Callab
 
 def init(
     model: Model[InT, InT], X: Optional[Array3d] = None, Y: Optional[Array3d] = None
-) -> Model[InT, InT]:
+):
     layer = model.layers[0]
     if X is None and Y is None:
         layer.initialize()
@@ -56,4 +61,3 @@ def init(
         model.set_dim("nI", layer.get_dim("nI"))
     if layer.has_dim("nO"):
         model.set_dim("nO", layer.get_dim("nO"))
-    return model

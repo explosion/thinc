@@ -44,6 +44,8 @@ List3d = Union[List["Floats3d"], List["Ints3d"]]
 List4d = Union[List["Floats4d"], List["Ints4d"]]
 ListXd = Union[List["FloatsXd"], List["IntsXd"]]
 
+Floats2d_co = TypeVar("Floats2d_co", bound="Floats2d", covariant=True)
+
 ArrayT = TypeVar("ArrayT")
 SelfT = TypeVar("SelfT")
 Array1dT = TypeVar("Array1dT", bound="Array1d")
@@ -792,7 +794,7 @@ class Padded:
             self.data.copy(),
             self.size_at_t.copy(),
             self.lengths.copy(),
-            self.indices.copy()
+            self.indices.copy(),
         )
 
     def __len__(self) -> int:
@@ -923,7 +925,7 @@ class Pairs(Generic[_P]):
 class ArgsKwargs:
     """A tuple of (args, kwargs) that can be spread into some function f:
 
-        f(*args, **kwargs)
+    f(*args, **kwargs)
     """
 
     args: Tuple[Any, ...]
