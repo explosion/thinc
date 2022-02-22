@@ -102,9 +102,16 @@ class CategoricalCrossentropy(Loss):
             mask = _make_mask_by_value(truths, guesses, missing_value)
         if truths.ndim != guesses.ndim:
             # transform categorical values to one-hot encoding
-            truths = to_categorical(cast(Ints1d, truths), 
+            truths = to_categorical(cast(Ints1d, truths),
                                     n_classes=guesses.shape[-1],
                                     label_smoothing=self.label_smoothing)
+        else:
+            if self.label_smoothing:
+                raise ValueError(
+                    'Label smoothing is only applied, when truths have type '
+                    'List[str], List[int] or Ints1d, but it seems like Floats2d '
+                    'was provided.'
+                )
         # Transform negative annotations to a 0 for the negated value
         # + mask all other values for that row
         if negatives_mask is not None:
