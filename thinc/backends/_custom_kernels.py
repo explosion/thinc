@@ -1,3 +1,4 @@
+from typing import Tuple
 import re
 from pathlib import Path
 from collections import defaultdict
@@ -114,10 +115,11 @@ def seq2col(X, nW, *, lengths=None, out=None, threads_per_block=128, num_blocks=
     lengths = check_seq2col_lengths(lengths, B)
     nL = lengths.shape[0]
 
+    out_shape = (B, I * nF)
     if out is None:
-        out = cupy.zeros((B, I * nF), dtype="f")
+        out = cupy.zeros(out_shape, dtype="f")
     else:
-        assert out.shape == (B, I * nF)
+        _check_array(out, out_shape)
 
     if X.size != 0 and lengths.size != 0:
         seq2col_kernel(
@@ -138,8 +140,7 @@ def maxout(X, out=None, threads_per_block=128, num_blocks=128):
         which = cupy.zeros(out_shape, dtype="i")
     else:
         best, which = out
-        assert best.dtype == "float32", "CUDA maxout kernel can only handle float32"
-        assert best.shape == out_shape, "best has incorrect shape"
+        _check_array(best, out_shape)
         _check_which(which, B, I, P)
 
     maxout_kernel((num_blocks,), (threads_per_block,), (best, which, X, B, I, P))
@@ -169,8 +170,7 @@ def reduce_sum(X, lengths, out=None, threads_per_block=128, num_blocks=128):
     if out is None:
         out = cupy.zeros(out_shape, dtype="f")
     else:
-        assert out.dtype == "float32", "CUDA reduce_sum kernel can only handle float32"
-        assert out.shape == out_shape, "out has incorrect shape"
+        _check_array(out, out_shape)
 
     reduce_sum_kernel((num_blocks,), (threads_per_block,), (out, X, lengths, B, T, O))
     return out
@@ -189,8 +189,7 @@ def reduce_mean(X, lengths, out=None, threads_per_block=128, num_blocks=128):
     if out is None:
         out = cupy.zeros(out_shape, dtype="f")
     else:
-        assert out.dtype == "float32", "CUDA reduce_mean kernel can only handle float32"
-        assert out.shape == out_shape, "out has incorrect shape"
+        _check_array(out, out_shape)
 
     reduce_sum_kernel((num_blocks,), (threads_per_block,), (out, X, lengths, B, T, O))
     # Avoid divide by zero
@@ -213,10 +212,7 @@ def reduce_max(X, lengths, out=None, threads_per_block=128, num_blocks=128):
         which = cupy.zeros(out_shape, dtype="i")
     else:
         maxes, which = out
-        assert (
-            maxes.dtype == "float32"
-        ), "CUDA reduce_max kernel can only handle float32"
-        assert maxes.shape == out_shape, "maxes has incorrect shape"
+        _check_array(maxes, out_shape)
         _check_which(which, B, I, P)
 
     reduce_max_kernel(
@@ -251,10 +247,7 @@ def backprop_seq2col(
     if out is None:
         out = cupy.zeros(out_shape, dtype="f")
     else:
-        assert (
-            out.dtype == "float32"
-        ), "CUDA backprop_seq2col kernel can only handle float32"
-        assert out.shape == out_shape, "out has incorrect shape"
+        _check_array(out, out_shape)
 
     if dY.size != 0 and lengths.size != 0:
         backprop_seq2col_kernel(
@@ -356,7 +349,7 @@ def backprop_maxout(dY, which, P, out=None, threads_per_block=128, num_blocks=12
     if out is None:
         out = cupy.zeros(out_shape, dtype="f")
     else:
-        assert out.shape == out_shape, "out has incorrect shape"
+        _check_array(out, out_shape)
 
     _check_which(which, B, I, P, check_values=True)
 
@@ -397,10 +390,7 @@ def backprop_reduce_sum(
     if out is None:
         out = cupy.zeros(out_shape, dtype="f")
     else:
-        assert (
-            out.dtype == "float32"
-        ), "CUDA backprop_reduce_sum kernel can only handle float32"
-        assert out.shape == out_shape, "out has incorrect shape"
+        _check_array(out, out_shape)
 
     backprop_reduce_sum_kernel(
         (num_blocks,), (threads_per_block,), (out, d_sum, lengths, B, T, O)
@@ -424,10 +414,7 @@ def backprop_reduce_mean(
     if out is None:
         out = cupy.zeros(out_shape, dtype="f")
     else:
-        assert (
-            out.dtype == "float32"
-        ), "CUDA backprop_reduce_mean kernel can only handle float32"
-        assert out.shape == out_shape, "out has incorrect shape"
+        _check_array(out, out_shape)
 
     backprop_reduce_mean_kernel(
         (num_blocks,), (threads_per_block,), (out, d_mean, lengths, B, T, O)
@@ -451,10 +438,7 @@ def backprop_reduce_max(
     if out is None:
         out = cupy.zeros(out_shape, dtype="f")
     else:
-        assert (
-            d_maxes.dtype == "float32"
-        ), "CUDA backprop_reduce_max kernel can only handle float32"
-        assert out.shape == out_shape, "out has incorrect shape"
+        _check_array(out, out_shape)
 
     _check_which(which, B, T, O, check_values=True)
 
@@ -498,12 +482,19 @@ def hash(ids, seed, out=None, threads_per_block=128, num_blocks=128):
     )
     return out
 
+
+def _check_array(out, shape: Tuple):
+    assert out.dtype == "float32", "CUDA kernel can only handle float32"
+    assert out.shape == shape, "array has incorrect shape"
+
+
 def _check_lengths(lengths, n_elems: int):
     assert lengths.dtype == "int32", "lengths should be encoded as 32-bit integers"
     assert cupy.all(lengths >= 0), "all sequence lengths must be >= 0"
     assert cupy.sum(lengths) == n_elems, "the lengths must sum up to the batch size"
 
-def _check_which(which, B: int, I: int, P: int, check_values: bool=False):
+
+def _check_which(which, B: int, I: int, P: int, check_values: bool = False):
     assert which.dtype == "int32", "which should be encoded as 32-bit integers"
     assert which.shape == (B, I), "which has incorrect shape"
     if check_values:
