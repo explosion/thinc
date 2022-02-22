@@ -489,7 +489,11 @@ def _check_lengths(lengths, n_elems: int):
 
 
 def _check_which(which, B: int, I: int, P: int, check_values: bool = False):
-    assert which.dtype == "int32", "which should be encoded as 32-bit integers"
-    assert which.shape == (B, I), "which has incorrect shape"
+    assert (
+        which.dtype == "int32"
+    ), "maximum index (which) should be encoded as 32-bit integers"
+    assert which.shape == (B, I), "maximum index (which) has incorrect shape"
     if check_values:
-        assert cupy.all((which >= 0) & (which < which_len)), "which value out of bounds"
+        assert cupy.all(
+            (which >= 0) & (which < which_len)
+        ), "maximum index (which) value out of bounds"
