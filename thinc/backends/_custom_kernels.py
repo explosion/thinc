@@ -100,10 +100,7 @@ def check_seq2col_lengths(lengths, B):
     if lengths is None:
         lengths = cupy.array([B], dtype="int32")
     else:
-        lengths = lengths.astype("int32")
-        assert cupy.all(lengths >= 0), "All sequence lengths must be >= 0"
-        assert cupy.sum(lengths) == B, "The lengths must sum up to the batch length"
-
+        _check_lengths(lengths, B)
     return lengths
 
 
@@ -143,7 +140,7 @@ def maxout(X, out=None, threads_per_block=128, num_blocks=128):
         best, which = out
         assert best.dtype == "float32", "CUDA maxout kernel can only handle float32"
         assert best.shape == out_shape, "best has incorrect shape"
-        assert which.shape == out_shape, "which has incorrect shape"
+        _check_which(which, B, I, P)
 
     maxout_kernel((num_blocks,), (threads_per_block,), (best, which, X, B, I, P))
     return best, which
@@ -165,6 +162,9 @@ def reduce_sum(X, lengths, out=None, threads_per_block=128, num_blocks=128):
     B = len(lengths)
     T = X.shape[0]
     O = X.shape[1]
+
+    _check_lengths(lengths, T)
+
     out_shape = (B, O)
     if out is None:
         out = cupy.zeros(out_shape, dtype="f")
@@ -183,12 +183,15 @@ def reduce_mean(X, lengths, out=None, threads_per_block=128, num_blocks=128):
     T = X.shape[0]
     O = X.shape[1]
 
+    _check_lengths(lengths, T)
+
     out_shape = (B, O)
     if out is None:
         out = cupy.zeros(out_shape, dtype="f")
     else:
         assert out.dtype == "float32", "CUDA reduce_mean kernel can only handle float32"
         assert out.shape == out_shape, "out has incorrect shape"
+
     reduce_sum_kernel((num_blocks,), (threads_per_block,), (out, X, lengths, B, T, O))
     # Avoid divide by zero
     out /= lengths.reshape((-1, 1)) + 1e-10
@@ -201,6 +204,9 @@ def reduce_max(X, lengths, out=None, threads_per_block=128, num_blocks=128):
     B = len(lengths)
     T = X.shape[0]
     O = X.shape[1]
+
+    _check_lengths(lengths, T)
+
     out_shape = (B, O)
     if out is None:
         maxes = cupy.zeros(out_shape, dtype="f")
@@ -211,7 +217,7 @@ def reduce_max(X, lengths, out=None, threads_per_block=128, num_blocks=128):
             maxes.dtype == "float32"
         ), "CUDA reduce_max kernel can only handle float32"
         assert maxes.shape == out_shape, "maxes has incorrect shape"
-        assert which.shape == out_shape, "which has incorrect shape"
+        _check_which(which, B, I, P)
 
     reduce_max_kernel(
         (num_blocks,), (threads_per_block,), (maxes, which, X, lengths, B, T, O)
@@ -352,6 +358,8 @@ def backprop_maxout(dY, which, P, out=None, threads_per_block=128, num_blocks=12
     else:
         assert out.shape == out_shape, "out has incorrect shape"
 
+    _check_which(which, B, I, P, check_values=True)
+
     backprop_maxout_kernel(
         (num_blocks,), (threads_per_block,), (out, dY, which, B, I, P)
     )
@@ -383,6 +391,7 @@ def backprop_reduce_sum(
     B = len(lengths)
     T = int(lengths.sum())
     O = d_sum.shape[1]
+    _check_lengths(lengths, T)
 
     out_shape = (T, O)
     if out is None:
@@ -409,6 +418,7 @@ def backprop_reduce_mean(
     B = len(lengths)
     T = int(lengths.sum())
     O = d_mean.shape[1]
+    _check_lengths(lengths, T)
 
     out_shape = (T, O)
     if out is None:
@@ -435,6 +445,7 @@ def backprop_reduce_max(
     B = len(lengths)
     T = int(lengths.sum())
     O = d_maxes.shape[1]
+    _check_lengths(lengths, T)
 
     out_shape = (T, O)
     if out is None:
@@ -444,6 +455,8 @@ def backprop_reduce_max(
             d_maxes.dtype == "float32"
         ), "CUDA backprop_reduce_max kernel can only handle float32"
         assert out.shape == out_shape, "out has incorrect shape"
+
+    _check_which(which, B, T, O, check_values=True)
 
     backprop_reduce_max_kernel(
         (num_blocks,), (threads_per_block,), (out, d_maxes, which, lengths, B, T, O)
@@ -484,3 +497,14 @@ def hash(ids, seed, out=None, threads_per_block=128, num_blocks=128):
         (out, ids, out_size, in_size, ids.shape[0], seed),
     )
     return out
+
+def _check_lengths(lengths, n_elems: int):
+    assert lengths.dtype == "int32", "lengths should be encoded as 32-bit integers"
+    assert cupy.all(lengths >= 0), "all sequence lengths must be >= 0"
+    assert cupy.sum(lengths) == n_elems, "the lengths must sum up to the batch size"
+
+def _check_which(which, B: int, I: int, P: int, check_values: bool=False):
+    assert which.dtype == "int32", "which should be encoded as 32-bit integers"
+    assert which.shape == (B, I), "which has incorrect shape"
+    if check_values:
+        assert cupy.all((which >= 0) & (which < which_len)), "which value out of bounds"
