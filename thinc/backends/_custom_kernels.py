@@ -495,5 +495,5 @@ def _check_which(which, B: int, I: int, P: int, check_values: bool = False):
     assert which.shape == (B, I), "maximum index (which) has incorrect shape"
     if check_values:
         assert cupy.all(
-            (which >= 0) & (which < which_len)
+            (which >= 0) & (which < P)
         ), "maximum index (which) value out of bounds"
