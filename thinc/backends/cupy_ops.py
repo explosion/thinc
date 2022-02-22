@@ -176,14 +176,16 @@ class CupyOps(Ops):
             return super().backprop_hard_swish_mobilenet(dY, X, inplace=inplace)
 
     def mish(self, X, threshold=20.0, inplace=False):
-        if X.dtype == "float32" and not inplace:
-            return _custom_kernels.mish(X, threshold=threshold, out=None)
+        if X.dtype == "float32":
+            return _custom_kernels.mish(X, inplace=inplace, threshold=threshold)
         else:
             return super().mish(X, threshold, inplace)
 
     def backprop_mish(self, dY, X, threshold=20.0, inplace=False):
-        if dY.dtype == "float32" and X.dtype == "float32" and not inplace:
-            return _custom_kernels.backprop_mish(dY, X, threshold=threshold)
+        if dY.dtype == "float32" and X.dtype == "float32":
+            return _custom_kernels.backprop_mish(
+                dY, X, inplace=inplace, threshold=threshold
+            )
         else:
             return super().backprop_mish(dY, X, threshold, inplace)
 

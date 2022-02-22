@@ -115,6 +115,8 @@ def seq2col(X, nW, *, lengths=None, out=None, threads_per_block=128, num_blocks=
 
     if out is None:
         out = cupy.zeros((B, I * nF), dtype="f")
+    else:
+        assert out.shape == (B, I * nF)
 
     if X.size != 0 and lengths.size != 0:
         seq2col_kernel(
@@ -126,26 +128,34 @@ def seq2col(X, nW, *, lengths=None, out=None, threads_per_block=128, num_blocks=
 
 def maxout(X, out=None, threads_per_block=128, num_blocks=128):
     B, I, P = X.shape
+
+    out_shape = (B, I)
     if out is None:
-        best = cupy.zeros((B, I), dtype="f")
-        which = cupy.zeros((B, I), dtype="i")
+        best = cupy.zeros(out_shape, dtype="f")
+        which = cupy.zeros(out_shape, dtype="i")
     else:
-        best, which = None
+        best, which = out
+        assert maxes.shape == out_shape, "maxes has incorrect shape"
+        assert which.shape == out_shape, "which has incorrect shape"
+
     maxout_kernel((num_blocks,), (threads_per_block,), (best, which, X, B, I, P))
     return best, which
 
 
-def mish(X, out=None, threshold=5, threads_per_block=128, num_blocks=128):
-    N = X.size
-    if out is None:
-        out = cupy.zeros(X.shape, dtype="f")
-    mish_kernel((num_blocks,), (threads_per_block,), (out, X, threshold, N))
+def mish(X, inplace=False, threshold=5, threads_per_block=128, num_blocks=128):
+    out = X
+    if not inplace:
+        out = cupy.zeros_like(X, dtype="f")
+    mish_kernel((num_blocks,), (threads_per_block,), (out, X, threshold, X.size))
     return out
 
 
 def reduce_sum(X, lengths, out=None, threads_per_block=128, num_blocks=128):
+    out_shape = (len(lengths), X.shape[1])
     if out is None:
-        out = cupy.zeros((len(lengths), X.shape[1]), dtype="f")
+        out = cupy.zeros(out_shape, dtype="f")
+    else:
+        assert out.shape == out_shape, "out has incorrect shape"
     B = len(lengths)
     T = X.shape[0]
     O = X.shape[1]
@@ -154,8 +164,11 @@ def reduce_sum(X, lengths, out=None, threads_per_block=128, num_blocks=128):
 
 
 def reduce_mean(X, lengths, out=None, threads_per_block=128, num_blocks=128):
+    out_shape = (len(lengths), X.shape[1])
     if out is None:
-        out = cupy.zeros((len(lengths), X.shape[1]), dtype="f")
+        out = cupy.zeros(out_shape, dtype="f")
+    else:
+        assert out.shape == out_shape, "out has incorrect shape"
     B = len(lengths)
     T = X.shape[0]
     O = X.shape[1]
@@ -166,11 +179,15 @@ def reduce_mean(X, lengths, out=None, threads_per_block=128, num_blocks=128):
 
 
 def reduce_max(X, lengths, out=None, threads_per_block=128, num_blocks=128):
+    out_shape = (len(lengths), X.shape[1])
     if out is None:
-        maxes = cupy.zeros((len(lengths), X.shape[1]), dtype="f")
-        which = cupy.zeros((len(lengths), X.shape[1]), dtype="i")
+        maxes = cupy.zeros(out_shape, dtype="f")
+        which = cupy.zeros(out_shape, dtype="i")
     else:
         maxes, which = out
+        assert maxes.shape == out_shape, "maxes has incorrect shape"
+        assert which.shape == out_shape, "which has incorrect shape"
+
     B = len(lengths)
     T = X.shape[0]
     O = X.shape[1]
@@ -200,12 +217,14 @@ def backprop_seq2col(
     lengths = check_seq2col_lengths(lengths, B)
     nL = lengths.shape[0]
 
+    out_shape = (B, I)
     if out is None:
-        out = cupy.zeros((B, I), dtype="f")
+        out = cupy.zeros(out_shape, dtype="f")
     else:
         assert (
             out.dtype == "float32"
         ), "CUDA backprop_seq2col kernel can only handle float32"
+        assert out.shape == out_shape, "out has incorrect shape"
 
     if dY.size != 0 and lengths.size != 0:
         backprop_seq2col_kernel(
@@ -276,17 +295,25 @@ def backprop_gelu(
 def backprop_maxout(dY, which, P, out=None, threads_per_block=128, num_blocks=128):
     B = dY.shape[0]
     I = dY.shape[1]
+
+    out_shape = (B, I, P)
     if out is None:
-        out = cupy.zeros((B, I, P), dtype="f")
+        out = cupy.zeros(out_shape, dtype="f")
+    else:
+        assert out.shape == out_shape, "out has incorrect shape"
+
     backprop_maxout_kernel(
         (num_blocks,), (threads_per_block,), (out, dY, which, B, I, P)
     )
     return out
 
 
-def backprop_mish(dY, X, out=None, threshold=5, threads_per_block=128, num_blocks=128):
-    if out is None:
-        out = cupy.empty_like(X)
+def backprop_mish(
+    dY, X, inplace: bool = False, threshold=5, threads_per_block=128, num_blocks=128
+):
+    out = dY
+    if not inplace:
+        out = cupy.zeros_like(dY, dtype="f")
     backprop_mish_kernel(
         (num_blocks,), (threads_per_block,), (out, dY, X, threshold, dY.size)
     )
@@ -299,8 +326,12 @@ def backprop_reduce_sum(
     B = len(lengths)
     T = int(lengths.sum())
     O = d_sum.shape[1]
+
+    out_shape = (T, O)
     if out is None:
-        out = cupy.zeros((T, O), dtype="f")
+        out = cupy.zeros(out_shape, dtype="f")
+    else:
+        assert out.shape == out_shape, "out has incorrect shape"
 
     backprop_reduce_sum_kernel(
         (num_blocks,), (threads_per_block,), (out, d_sum, lengths, B, T, O)
@@ -314,8 +345,12 @@ def backprop_reduce_mean(
     B = len(lengths)
     T = int(lengths.sum())
     O = d_mean.shape[1]
+
+    out_shape = (T, O)
     if out is None:
-        out = cupy.zeros((T, O), dtype="f")
+        out = cupy.zeros(out_shape, dtype="f")
+    else:
+        assert out.shape == out_shape, "out has incorrect shape"
 
     backprop_reduce_mean_kernel(
         (num_blocks,), (threads_per_block,), (out, d_mean, lengths, B, T, O)
@@ -329,8 +364,12 @@ def backprop_reduce_max(
     B = len(lengths)
     T = int(lengths.sum())
     O = d_maxes.shape[1]
+
+    out_shape = (T, O)
     if out is None:
-        out = cupy.zeros((T, O), dtype="f")
+        out = cupy.zeros(out_shape, dtype="f")
+    else:
+        assert out.shape == out_shape, "out has incorrect shape"
 
     backprop_reduce_max_kernel(
         (num_blocks,), (threads_per_block,), (out, d_maxes, which, lengths, B, T, O)
@@ -351,8 +390,12 @@ def backprop_swish(
 
 
 def hash(ids, seed, out=None, threads_per_block=128, num_blocks=128):
+    out_shape = (ids.shape[0], 4)
     if out is None:
-        out = cupy.zeros((ids.shape[0], 4), dtype="uint32")
+        out = cupy.zeros(out_shape, dtype="uint32")
+    else:
+        assert out.shape == out_shape, "out has incorrect shape"
+
     # sizeof(uint32_t) * 4
     out_size = 4 * 4
     in_size = 8  # sizeof(uint64_t)
