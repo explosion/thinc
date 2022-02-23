@@ -2,13 +2,12 @@ from typing import Tuple, Callable, Sequence, Any, List, TypeVar, Optional
 
 from ..model import Model
 from ..config import registry
-from ..types import Ints2d, Floats2d
+from ..types import ArrayTXd
 
 
 ItemT = TypeVar("ItemT")
 InT = Sequence[ItemT]
-OutT = TypeVar("OutT", List[Ints2d], List[Floats2d], covariant=True)
-
+OutT = List[ArrayTXd]
 
 @registry.layers("with_flatten.v1")
 def with_flatten(layer: Model[InT, InT]) -> Model[OutT, OutT]:

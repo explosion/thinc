@@ -23,23 +23,6 @@ from ..util import get_array_module, is_xp_array, to_numpy
 
 ArrayT2d_co = TypeVar("ArrayT2d_co", Floats2d, Ints2d, Array2d, covariant=True)
 ArrayT = TypeVar("ArrayT", bound=ArrayXd)
-ArrayTXd_co = TypeVar(
-    "ArrayTXd_co",
-    Floats1d,
-    Floats2d,
-    Floats3d,
-    Floats4d,
-    Ints1d,
-    Ints2d,
-    Ints3d,
-    Ints4d,
-    Array1d,
-    Array2d,
-    Array3d,
-    Array4d,
-    Union[Floats1d, Floats2d, Floats3d, Floats4d, Ints1d, Ints2d, Ints3d, Ints4d],
-    covariant=True,
-)
 ArrayTXd_Concatenable_co = TypeVar(
     "ArrayTXd_Concatenable_co",
     Floats1d,
@@ -268,11 +251,11 @@ class Ops:
 
     def flatten(
         self,
-        X: List[ArrayTXd_co],
+        X: List[ArrayTXd],
         dtype: Optional[DTypes] = None,
         pad: int = 0,
         ndim_if_empty: int = 2,
-    ) -> ArrayTXd_co:
+    ) -> ArrayTXd:
         """Flatten a list of arrays into one large array."""
         if X is None or len(X) == 0:
             return self.alloc((0,) * ndim_if_empty, dtype=dtype or "f")

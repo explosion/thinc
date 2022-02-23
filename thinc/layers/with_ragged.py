@@ -1,12 +1,12 @@
 from typing import Tuple, Callable, Optional, TypeVar, cast, List
 
-from ..types import Padded, Ragged, Ints1d, Array2d, List2d
+from ..types import Padded, Ragged, Ints1d, Array2d, ListXd
 from ..model import Model
 from ..config import registry
 
 RaggedData = Tuple[Array2d, Ints1d]
-SeqT = TypeVar("SeqT", Padded, Ragged, List2d, RaggedData)
-SeqT_co = TypeVar("SeqT_co", Padded, Ragged, List2d, RaggedData, covariant=True)
+SeqT = TypeVar("SeqT", Padded, Ragged, ListXd, RaggedData)
+SeqT_co = TypeVar("SeqT_co", Padded, Ragged, ListXd, RaggedData, covariant=True)
 
 
 @registry.layers("with_ragged.v1")
