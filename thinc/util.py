@@ -206,7 +206,7 @@ def copy_array(dst: ArrayXd, src: ArrayXd) -> None:  # pragma: no cover
 def to_categorical(
     Y: IntsXd,
     n_classes: Optional[int] = None,
-    label_smoothing: Optional[float] = 0.0,
+    label_smoothing: float = 0.0,
 ) -> FloatsXd:
     assert label_smoothing >= 0 and label_smoothing < 1
     xp = get_array_module(Y)

@@ -46,7 +46,7 @@ class CategoricalCrossentropy(Loss):
         names: Optional[List[str]] = None,
         missing_value: Optional[Union[str, int]] = None,
         neg_prefix: Optional[str] = None,
-        label_smoothing: Optional[float] = 0.0
+        label_smoothing: float = 0.0
     ):
         self.normalize = normalize
         self.names = names
