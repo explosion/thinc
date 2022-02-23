@@ -463,7 +463,9 @@ def hash(ids, seed, out=None, threads_per_block=128, num_blocks=128):
     if out is None:
         out = cupy.zeros(out_shape, dtype="uint32")
     else:
-        assert out.shape == out_shape, "out has incorrect shape"
+        if out.shape != out_shape:
+            msg = f"out array has incorrect shape, expected: {shape}, was: {out.shape}"
+            raise ValueError(msg)
 
     # sizeof(uint32_t) * 4
     out_size = 4 * 4
@@ -479,31 +481,39 @@ def hash(ids, seed, out=None, threads_per_block=128, num_blocks=128):
 
 def _check_array(out, shape: Tuple):
     assert out.dtype == "float32", "CUDA kernel can only handle float32"
-    assert out.shape == shape, "array has incorrect shape"
+    if out.shape != shape:
+        msg = f"array has incorrect shape, expected: {shape}, was: {out.shape}"
+        raise ValueError(msg)
 
 
 def _check_lengths(lengths, n_elems: int):
     assert lengths.dtype == "int32", "lengths should be encoded as 32-bit integers"
-    assert cupy.all(lengths >= 0), "all sequence lengths must be >= 0"
-    assert cupy.sum(lengths) == n_elems, "the lengths must sum up to the batch size"
+    if not cupy.all(lengths >= 0):
+        raise ValueError("all sequence lengths must be >= 0")
+    if cupy.sum(lengths) != n_elems:
+        raise ValueError("lengths must sum up to the batch size")
 
 
 def _check_which_maxout(which, B: int, I: int, P: int, check_values: bool = False):
+    shape = (B, I)
     assert (
         which.dtype == "int32"
     ), "maximum index (which) should be encoded as 32-bit integers"
-    assert which.shape == (B, I), "maximum index (which) has incorrect shape"
+    if which.shape != shape:
+        msg = f"maximum index (which) has incorrect shape, expected: {shape}, was: {which.shape}"
+        raise ValueError(msg)
     if check_values:
-        assert cupy.all(
-            (which >= 0) & (which < P)
-        ), "maximum index (which) value out of bounds"
+        if not cupy.all((which >= 0) & (which < P)):
+            raise ValueError("maximum index (which) value out of bounds")
+
 
 def _check_which_reduce_max(which, shape: Tuple, lengths=None):
     assert (
         which.dtype == "int32"
     ), "maximum index (which) should be encoded as 32-bit integers"
-    assert which.shape == shape, "maximum index (which) has incorrect shape"
+    if which.shape != shape:
+        msg = f"maximum index (which) has incorrect shape, expected: {shape}, was: {which.shape}"
+        raise ValueError(msg)
     if lengths is not None:
-        print(which.shape)
-        print(lengths.shape)
-        assert cupy.all((which >= 0) & (which < cupy.expand_dims(lengths, -1))), "maximum index (which) value out of bounds"
+        if not cupy.all((which >= 0) & (which < cupy.expand_dims(lengths, -1))):
+            raise ValueError("maximum index (which) value out of bounds")
