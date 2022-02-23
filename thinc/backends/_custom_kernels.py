@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Optional, Tuple
 import re
 from pathlib import Path
 from collections import defaultdict
@@ -411,7 +411,7 @@ def hash(ids, seed, threads_per_block=128, num_blocks=128):
     return out
 
 
-def _check_array(out, shape: Tuple = None):
+def _check_array(out, shape: Optional[Tuple] = None):
     assert out.dtype == "float32", "CUDA kernel can only handle float32"
     if shape is not None and out.shape != shape:
         msg = f"array has incorrect shape, expected: {shape}, was: {out.shape}"
