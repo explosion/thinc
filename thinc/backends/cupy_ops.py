@@ -86,10 +86,16 @@ class CupyOps(Ops):
             return result
 
     def maxout(self, X):
-        return _custom_kernels.maxout(X)
+        if X.dtype == "float32":
+            return _custom_kernels.maxout(X)
+        else:
+            return super().maxout(X)
 
     def backprop_maxout(self, dY, which, P):
-        return _custom_kernels.backprop_maxout(dY, which, P)
+        if dY.dtype == "float32" and which.dtype == "int32":
+            return _custom_kernels.backprop_maxout(dY, which, P)
+        else:
+            return super().backprop_maxout(dY, which, P)
 
     def relu(self, X, inplace=False):
         if not inplace:
@@ -220,28 +226,52 @@ class CupyOps(Ops):
         The new sequence is constructed by concatenating nW preceding and succeeding
         vectors onto each column in the sequence, to extract a window of features.
         """
-        return _custom_kernels.seq2col(seq, nW, lengths=lengths)
+        if seq.dtype == "float32" and (lengths is None or lengths.dtype == "int32"):
+            return _custom_kernels.seq2col(seq, nW, lengths=lengths)
+        else:
+            return super().seq2col(seq, nW, lengths=lengths)
 
     def backprop_seq2col(self, dY, nW, *, lengths=None):
-        return _custom_kernels.backprop_seq2col(dY, nW, lengths=lengths)
+        if dY.dtype == "float32" and (lengths is None or lengths.dtype == "int32"):
+            return _custom_kernels.backprop_seq2col(dY, nW, lengths=lengths)
+        else:
+            return super().backprop_seq2col(dY, nW, lengths=lengths)
 
     def reduce_mean(self, X, lengths):
-        return _custom_kernels.reduce_mean(X, lengths)
+        if X.dtype == "float32" and lengths.dtype == "int32":
+            return _custom_kernels.reduce_mean(X, lengths)
+        else:
+            super().reduce_mean(X, lengths)
 
     def backprop_reduce_mean(self, d_means, lengths):
-        return _custom_kernels.backprop_reduce_mean(d_means, lengths)
+        if d_means.dtype == "float32" and lengths.dtype == "int32":
+            return _custom_kernels.backprop_reduce_mean(d_means, lengths)
+        else:
+            super().reduce_mean(d_means, lengths)
 
     def reduce_max(self, X, lengths):
-        return _custom_kernels.reduce_max(X, lengths)
+        if X.dtype == "float32" and lengths.dtype == "int32":
+            return _custom_kernels.reduce_max(X, lengths)
+        else:
+            super().reduce_max(X, lengths)
 
     def backprop_reduce_max(self, d_maxes, which, lengths):
-        return _custom_kernels.backprop_reduce_max(d_maxes, which, lengths)
+        if d_maxes.dtype == "float32" and which.dtype == "int32" and lengths.dtype == "int32":
+            return _custom_kernels.backprop_reduce_max(d_maxes, which, lengths)
+        else:
+            super().backprop_reduce_max(d_maxes, which, lengths)
 
     def reduce_sum(self, X, lengths):
-        return _custom_kernels.reduce_sum(X, lengths)
+        if X.dtype == "float32" and lengths.dtype == "int32":
+            return _custom_kernels.reduce_sum(X, lengths)
+        else:
+            return super().reduce_sum(X, lengths)
 
     def backprop_reduce_sum(self, d_sums, lengths):
-        return _custom_kernels.backprop_reduce_sum(d_sums, lengths)
+        if d_sums.dtype == "float32" and lengths.dtype == "int32":
+            return _custom_kernels.backprop_reduce_sum(d_sums, lengths)
+        else:
+            return super().backprop_reduce_sum(d_sums, lengths)
 
     def hash(self, ids, seed):
         return _custom_kernels.hash(ids, seed)
