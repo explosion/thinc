@@ -628,8 +628,8 @@ def test_softmax_temperature(ops, temperature):
 
     Yt, dXt = torch_softmax_with_temperature(X, dY, temperature)
 
-    assert_allclose(Y, Yt, atol=1e-6)
-    assert_allclose(dX, dXt, atol=1e-6)
+    ops.xp.testing.assert_allclose(Y, Yt, atol=1e-6)
+    ops.xp.testing.assert_allclose(dX, dXt, atol=1e-6)
 
 
 @pytest.mark.parametrize("cpu_ops", [*CPU_OPS, BLIS_OPS])
@@ -1045,3 +1045,18 @@ def test_clipped_linear(ops, x):
         ops.backprop_clipped_linear(1.0, x_thinc, slope=0.2, offset=0.5),
         ops.backprop_hard_sigmoid(1.0, x_thinc),
     )
+
+
+@pytest.mark.parametrize("ops", ALL_OPS)
+@pytest.mark.parametrize("byte_order", (">", "<", "=", "|"))
+@settings(max_examples=MAX_EXAMPLES, deadline=None)
+@given(x=strategies.floats(min_value=-10, max_value=10))
+def test_to_numpy_byteorder(ops, byte_order, x):
+    x = ops.xp.asarray([x])
+    y = ops.to_numpy(x, byte_order=byte_order)
+    assert numpy.array_equal(ops.to_numpy(x), ops.to_numpy(y))
+    if byte_order in (">", "<"):
+        # hack from: https://stackoverflow.com/a/49740663
+        assert y.dtype.newbyteorder("S").newbyteorder("S").byteorder == byte_order
+    else:
+        assert x.dtype.byteorder == y.dtype.byteorder
