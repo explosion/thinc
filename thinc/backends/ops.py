@@ -5,18 +5,39 @@ from typing import Iterator, overload
 import numpy
 import itertools
 
-from ..types import Array1d, Xp, Shape, DTypes, DTypesInt, DTypesFloat, List2d, ArrayXd
-from ..types import Array2d, Array3d, Array4d, Floats1d, Floats2d, Floats3d, Floats4d
-from ..types import FloatsXd, Ints1d, Ints2d, Ints3d, Ints4d, IntsXd, _Floats
+from ..types import (
+    Array1d,
+    Array2d,
+    Array3d,
+    Array4d,
+    ArrayXd,
+    ArrayXd_Concatenable,
+    ArrayXd_Iterable,
+)
+from ..types import Floats1d, Floats2d, Floats3d, Floats4d, FloatsXd, _Floats
+from ..types import Ints1d, Ints2d, Ints3d, Ints4d, IntsXd
+from ..types import Xp, Shape, DTypes, DTypesInt, DTypesFloat, List2d
 from ..types import DeviceTypes, Generator, Padded, Batchable, SizedGenerator
 from ..util import get_array_module, is_xp_array, to_numpy
 
 
 ArrayT = TypeVar("ArrayT", bound=ArrayXd)
-ArrayT_co = TypeVar("ArrayT_co", bound=ArrayXd, covariant=True)
-ArrayT2d = TypeVar("ArrayT2d", Floats2d, Ints2d, Array2d)
 ArrayT2d_co = TypeVar("ArrayT2d_co", Floats2d, Ints2d, Array2d, covariant=True)
-ArrayT3d = TypeVar("ArrayT3d", Floats3d, Ints3d, Array3d)
+ArrayTXd_Concatenable_co = TypeVar(
+    "ArrayTXd_Concatenable_co",
+    Floats1d,
+    Floats2d,
+    Floats3d,
+    Ints1d,
+    Ints2d,
+    Ints3d,
+    Array1d,
+    Array2d,
+    Array3d,
+    Union[Floats1d, Floats2d, Floats3d, Ints1d, Ints2d, Ints3d],
+    covariant=True,
+)
+
 FloatsT = TypeVar("FloatsT", bound=_Floats)
 FloatsType = TypeVar("FloatsType", bound=FloatsXd)
 SQRT2PI = math.sqrt(2.0 / math.pi)
@@ -230,11 +251,11 @@ class Ops:
 
     def flatten(
         self,
-        X: List[ArrayT],
+        X: List[ArrayTXd_Concatenable_co],
         dtype: Optional[DTypes] = None,
         pad: int = 0,
         ndim_if_empty: int = 2,
-    ) -> ArrayT:
+    ) -> ArrayXd_Iterable:
         """Flatten a list of arrays into one large array."""
         if X is None or len(X) == 0:
             return self.alloc((0,) * ndim_if_empty, dtype=dtype or "f")
@@ -255,7 +276,9 @@ class Ops:
             result = xp.asarray(result, dtype=dtype)
         return result
 
-    def unflatten(self, X: ArrayT2d, lengths: Ints1d, pad: int = 0) -> List[ArrayT2d]:
+    def unflatten(
+        self, X: ArrayXd_Iterable, lengths: Ints1d, pad: int = 0
+    ) -> List[ArrayXd_Concatenable]:
         """The reverse/backward operation of the `flatten` function: unflatten
         a large array into a list of arrays according to the given lengths.
         """
@@ -271,14 +294,13 @@ class Ops:
             X = X[pad:]
         assert len(X) == 0
         assert len(unflat) == len(lengths)
-        return unflat
+        return cast(List[ArrayXd_Concatenable], unflat)
 
-    def pad(self, seqs: List[ArrayT2d], round_to=1) -> Array3d:
+    def pad(self, seqs: List[ArrayTXd_Concatenable_co], round_to=1) -> ArrayXd_Iterable:
         """Perform padding on a list of arrays so that they each have the same
         length, by taking the maximum dimension across each axis. This only
         works on non-empty sequences with the same `ndim` and `dtype`.
         """
-        # TODO: This should be generalized to handle different ranks
         if not seqs:
             raise ValueError("Cannot pad empty sequence")
         if len(set(seq.ndim for seq in seqs)) != 1:
@@ -293,20 +315,22 @@ class Ops:
         # array sizes.
         length = (length + (round_to - 1)) // round_to * round_to
         final_shape = (len(seqs), length) + seqs[0].shape[1:]
-        output: Array3d = self.alloc(final_shape, dtype=seqs[0].dtype)
+        output: ArrayXd_Iterable = self.alloc(final_shape, dtype=seqs[0].dtype)
         for i, arr in enumerate(seqs):
             # It's difficult to convince this that the dtypes will match.
             output[i, : arr.shape[0]] = arr  # type: ignore
         return output
 
-    def unpad(self, padded: Array3d, lengths: List[int]) -> List2d:
+    def unpad(
+        self, padded: ArrayXd_Iterable, lengths: List[int]
+    ) -> List[ArrayTXd_Concatenable_co]:
         """The reverse/backward operation of the `pad` function: transform an
         array back into a list of arrays, each with their original length.
         """
         output = []
         for i, length in enumerate(lengths):
             output.append(padded[i, :length])
-        return cast(List2d, output)
+        return cast(List[ArrayTXd_Concatenable_co], output)
 
     def list2padded(self, seqs: List[ArrayT2d_co]) -> Padded:
         """Pack a sequence of 2d arrays into a Padded datatype."""
@@ -331,7 +355,7 @@ class Ops:
         # direction: you're swapping elements between their original and sorted
         # position.
         seqs = [seqs[i] for i in indices_]
-        arr: Array3d = self.pad(seqs)
+        arr: Array3d = cast(Array3d, self.pad(seqs))
         assert arr.shape == (nB, nS, nO), (nB, nS, nO)
         arr = self.as_contig(arr.transpose((1, 0, 2)))
         assert arr.shape == (nS, nB, nO)
@@ -344,7 +368,7 @@ class Ops:
             batch_size_at_t_[t] = current_size
         assert sum(lengths_) == sum(batch_size_at_t_)
         return Padded(
-            cast(Floats3d, arr),
+            arr,
             self.asarray1i(batch_size_at_t_),
             self.asarray1i(lengths_),
             self.asarray1i(indices_),
@@ -864,7 +888,7 @@ class Ops:
         Y = self.xp.zeros_like(X)
         Y += tmp
         Y *= X
-        return cast(FloatsType, Y)
+        return Y
 
     def backprop_gelu_approx(
         self, dY: FloatsType, X: FloatsType, inplace: bool = False

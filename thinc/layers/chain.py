@@ -98,11 +98,11 @@ def init(
         model.set_dim("nI", model.layers[0].get_dim("nI"))
     if model.has_dim("nO") is None:
         try:
-            nO = get_width(curr_input)  # type: ignore
+            nO = get_width(curr_input) #type: ignore[arg-type]
         except ValueError:
             if model.layers[-1].has_dim("nO"):
                 nO = model.layers[-1].get_dim("nO")
             else:
-                nO = None  # type: ignore
+                nO = None 
         model.set_dim("nO", cast(int, nO))
     return model

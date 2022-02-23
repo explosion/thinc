@@ -87,7 +87,7 @@ def _list_forward(
     def backprop(dYs: List[Array2d]) -> List[Array2d]:
         dYf = layer.ops.flatten(dYs, pad=pad)
         dXf = get_dXf(dYf)
-        return layer.ops.unflatten(dXf, lengths, pad=pad)
+        return cast(List[Array2d], layer.ops.unflatten(dXf, lengths, pad=pad))
 
     return cast(SeqT, layer.ops.unflatten(Yf, lengths, pad=pad)), backprop
 

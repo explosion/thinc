@@ -3,7 +3,6 @@ from typing import Tuple, Callable, Optional, TypeVar, cast, List
 from ..types import Padded, Ragged, Ints1d, Array2d, List2d
 from ..model import Model
 from ..config import registry
-from ..api import get_current_ops
 
 RaggedData = Tuple[Array2d, Ints1d]
 SeqT = TypeVar("SeqT", Padded, Ragged, List2d, RaggedData)
@@ -49,8 +48,7 @@ def _get_ragged(model: Model[SeqT_co, SeqT_co], seq: SeqT) -> Ragged:
     if isinstance(seq, Ragged):
         return seq
     elif isinstance(seq, Padded):
-        ops = get_current_ops()
-        lists = ops.padded2list(seq)
+        lists = model.ops.padded2list(seq)
         lengths = model.ops.asarray1i([len(x) for x in lists])
         k = model.ops.flatten(lists)
         return Ragged(model.ops.flatten(lists), lengths)
@@ -94,9 +92,10 @@ def _padded_forward(
 
     def backprop(dYp: Padded):
         flattened = flatten(padded2list(dYp))
-        return list2padded(unflatten(get_dXr(Ragged(flattened, lengths)).data, lengths))
+        dXr = get_dXr(Ragged(flattened, lengths))
+        return list2padded(cast(List[Array2d], unflatten(dXr.data, lengths)))
 
-    return cast(SeqT, list2padded(unflatten(Yr.data, Yr.lengths))), backprop
+    return cast(SeqT, list2padded(cast(List[Array2d], unflatten(Yr.data, Yr.lengths)))), backprop
 
 
 def _list_forward(

@@ -2,10 +2,10 @@ from typing import Tuple, List, Callable
 
 from ..model import Model
 from ..config import registry
-from ..types import ArrayXd, Ragged
+from ..types import ArrayXd_Concatenable, Ragged
 
 
-InT = List[ArrayXd]
+InT = List[ArrayXd_Concatenable]
 OutT = Ragged
 
 
