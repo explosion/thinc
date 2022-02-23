@@ -105,7 +105,7 @@ def check_seq2col_lengths(lengths, B):
     return lengths
 
 
-def seq2col(X, nW, *, lengths=None, out=None, threads_per_block=128, num_blocks=128):
+def seq2col(X, nW, *, lengths=None, threads_per_block=128, num_blocks=128):
     assert X.dtype == "float32", "CUDA seq2col kernel can only handle float32"
 
     B = X.shape[0]
@@ -115,11 +115,7 @@ def seq2col(X, nW, *, lengths=None, out=None, threads_per_block=128, num_blocks=
     lengths = check_seq2col_lengths(lengths, B)
     nL = lengths.shape[0]
 
-    out_shape = (B, I * nF)
-    if out is None:
-        out = cupy.zeros(out_shape, dtype="f")
-    else:
-        _check_array(out, out_shape)
+    out = cupy.zeros((B, I * nF), dtype="f")
 
     if X.size != 0 and lengths.size != 0:
         seq2col_kernel(
@@ -129,19 +125,14 @@ def seq2col(X, nW, *, lengths=None, out=None, threads_per_block=128, num_blocks=
     return out
 
 
-def maxout(X, out=None, threads_per_block=128, num_blocks=128):
+def maxout(X, threads_per_block=128, num_blocks=128):
     assert X.dtype == "float32", "CUDA maxout kernel can only handle float32"
 
     B, I, P = X.shape
 
     out_shape = (B, I)
-    if out is None:
-        best = cupy.zeros(out_shape, dtype="f")
-        which = cupy.zeros(out_shape, dtype="i")
-    else:
-        best, which = out
-        _check_array(best, out_shape)
-        _check_which_maxout(which, B, I, P)
+    best = cupy.zeros(out_shape, dtype="f")
+    which = cupy.zeros(out_shape, dtype="i")
 
     maxout_kernel((num_blocks,), (threads_per_block,), (best, which, X, B, I, P))
     return best, which
@@ -157,7 +148,7 @@ def mish(X, inplace=False, threshold=5, threads_per_block=128, num_blocks=128):
     return out
 
 
-def reduce_sum(X, lengths, out=None, threads_per_block=128, num_blocks=128):
+def reduce_sum(X, lengths, threads_per_block=128, num_blocks=128):
     assert X.dtype == "float32", "CUDA reduce_sum kernel can only handle float32"
 
     B = len(lengths)
@@ -166,17 +157,13 @@ def reduce_sum(X, lengths, out=None, threads_per_block=128, num_blocks=128):
 
     _check_lengths(lengths, T)
 
-    out_shape = (B, O)
-    if out is None:
-        out = cupy.zeros(out_shape, dtype="f")
-    else:
-        _check_array(out, out_shape)
+    out = cupy.zeros((B, O), dtype="f")
 
     reduce_sum_kernel((num_blocks,), (threads_per_block,), (out, X, lengths, B, T, O))
     return out
 
 
-def reduce_mean(X, lengths, out=None, threads_per_block=128, num_blocks=128):
+def reduce_mean(X, lengths, threads_per_block=128, num_blocks=128):
     assert X.dtype == "float32", "CUDA reduce_mean kernel can only handle float32"
 
     B = len(lengths)
@@ -185,11 +172,7 @@ def reduce_mean(X, lengths, out=None, threads_per_block=128, num_blocks=128):
 
     _check_lengths(lengths, T)
 
-    out_shape = (B, O)
-    if out is None:
-        out = cupy.zeros(out_shape, dtype="f")
-    else:
-        _check_array(out, out_shape)
+    out = cupy.zeros((B, O), dtype="f")
 
     reduce_sum_kernel((num_blocks,), (threads_per_block,), (out, X, lengths, B, T, O))
     # Avoid divide by zero
@@ -197,7 +180,7 @@ def reduce_mean(X, lengths, out=None, threads_per_block=128, num_blocks=128):
     return out
 
 
-def reduce_max(X, lengths, out=None, threads_per_block=128, num_blocks=128):
+def reduce_max(X, lengths, threads_per_block=128, num_blocks=128):
     assert X.dtype == "float32", "CUDA reduce_max kernel can only handle float32"
 
     B = len(lengths)
@@ -207,13 +190,8 @@ def reduce_max(X, lengths, out=None, threads_per_block=128, num_blocks=128):
     _check_lengths(lengths, T)
 
     out_shape = (B, O)
-    if out is None:
-        maxes = cupy.zeros(out_shape, dtype="f")
-        which = cupy.zeros(out_shape, dtype="i")
-    else:
-        maxes, which = out
-        _check_array(maxes, out_shape)
-        _check_which_reduce_max(which, out_shape)
+    maxes = cupy.zeros(out_shape, dtype="f")
+    which = cupy.zeros(out_shape, dtype="i")
 
     reduce_max_kernel(
         (num_blocks,), (threads_per_block,), (maxes, which, X, lengths, B, T, O)
@@ -231,9 +209,7 @@ def swish(X, inplace=False, threshold=17.0, threads_per_block=128, num_blocks=12
     return out
 
 
-def backprop_seq2col(
-    dY, nW, *, lengths=None, out=None, threads_per_block=128, num_blocks=128
-):
+def backprop_seq2col(dY, nW, *, lengths=None, threads_per_block=128, num_blocks=128):
     assert dY.dtype == "float32", "CUDA backprop_seq2col kernel can only handle float32"
 
     B = dY.shape[0]
@@ -243,11 +219,7 @@ def backprop_seq2col(
     lengths = check_seq2col_lengths(lengths, B)
     nL = lengths.shape[0]
 
-    out_shape = (B, I)
-    if out is None:
-        out = cupy.zeros(out_shape, dtype="f")
-    else:
-        _check_array(out, out_shape)
+    out = cupy.zeros((B, I), dtype="f")
 
     if dY.size != 0 and lengths.size != 0:
         backprop_seq2col_kernel(
@@ -333,17 +305,13 @@ def backprop_gelu(
     return out
 
 
-def backprop_maxout(dY, which, P, out=None, threads_per_block=128, num_blocks=128):
+def backprop_maxout(dY, which, P, threads_per_block=128, num_blocks=128):
     assert dY.dtype == "float32", "CUDA backprop_maxout kernel can only handle float32"
 
     B = dY.shape[0]
     I = dY.shape[1]
 
-    out_shape = (B, I, P)
-    if out is None:
-        out = cupy.zeros(out_shape, dtype="f")
-    else:
-        _check_array(out, out_shape)
+    out = cupy.zeros((B, I, P), dtype="f")
 
     _check_which_maxout(which, B, I, P, check_values=True)
 
@@ -368,9 +336,7 @@ def backprop_mish(
     return out
 
 
-def backprop_reduce_sum(
-    d_sum, lengths, out=None, threads_per_block=128, num_blocks=128
-):
+def backprop_reduce_sum(d_sum, lengths, threads_per_block=128, num_blocks=128):
     assert (
         d_sum.dtype == "float32"
     ), "CUDA backprop_reduce_sum kernel can only handle float32"
@@ -380,11 +346,7 @@ def backprop_reduce_sum(
     O = d_sum.shape[1]
     _check_lengths(lengths, T)
 
-    out_shape = (T, O)
-    if out is None:
-        out = cupy.zeros(out_shape, dtype="f")
-    else:
-        _check_array(out, out_shape)
+    out = cupy.zeros((T, O), dtype="f")
 
     backprop_reduce_sum_kernel(
         (num_blocks,), (threads_per_block,), (out, d_sum, lengths, B, T, O)
@@ -392,9 +354,7 @@ def backprop_reduce_sum(
     return out
 
 
-def backprop_reduce_mean(
-    d_mean, lengths, out=None, threads_per_block=128, num_blocks=128
-):
+def backprop_reduce_mean(d_mean, lengths, threads_per_block=128, num_blocks=128):
     assert (
         d_mean.dtype == "float32"
     ), "CUDA backprop_reduce_mean kernel can only handle float32"
@@ -404,11 +364,7 @@ def backprop_reduce_mean(
     O = d_mean.shape[1]
     _check_lengths(lengths, T)
 
-    out_shape = (T, O)
-    if out is None:
-        out = cupy.zeros(out_shape, dtype="f")
-    else:
-        _check_array(out, out_shape)
+    out = cupy.zeros((T, O), dtype="f")
 
     backprop_reduce_mean_kernel(
         (num_blocks,), (threads_per_block,), (out, d_mean, lengths, B, T, O)
@@ -416,9 +372,7 @@ def backprop_reduce_mean(
     return out
 
 
-def backprop_reduce_max(
-    d_maxes, which, lengths, out=None, threads_per_block=128, num_blocks=128
-):
+def backprop_reduce_max(d_maxes, which, lengths, threads_per_block=128, num_blocks=128):
     assert (
         d_maxes.dtype == "float32"
     ), "CUDA backprop_reduce_max kernel can only handle float32"
@@ -428,11 +382,7 @@ def backprop_reduce_max(
     O = d_maxes.shape[1]
     _check_lengths(lengths, T)
 
-    out_shape = (T, O)
-    if out is None:
-        out = cupy.zeros(out_shape, dtype="f")
-    else:
-        _check_array(out, out_shape)
+    out = cupy.zeros((T, O), dtype="f")
 
     _check_which_reduce_max(which, (B, O), lengths)
 
@@ -458,14 +408,8 @@ def backprop_swish(
     return out
 
 
-def hash(ids, seed, out=None, threads_per_block=128, num_blocks=128):
-    out_shape = (ids.shape[0], 4)
-    if out is None:
-        out = cupy.zeros(out_shape, dtype="uint32")
-    else:
-        if out.shape != out_shape:
-            msg = f"out array has incorrect shape, expected: {shape}, was: {out.shape}"
-            raise ValueError(msg)
+def hash(ids, seed, threads_per_block=128, num_blocks=128):
+    out = cupy.zeros((ids.shape[0], 4), dtype="uint32")
 
     # sizeof(uint32_t) * 4
     out_size = 4 * 4
