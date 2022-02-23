@@ -307,7 +307,7 @@ def backprop_maxout(dY, which, P, threads_per_block=128, num_blocks=128):
 
     out = cupy.zeros((B, I, P), dtype="f")
 
-    _check_which_maxout(which, B, I, P, check_values=True)
+    _check_which_maxout(which, B, I, P)
 
     backprop_maxout_kernel(
         (num_blocks,), (threads_per_block,), (out, dY, which, B, I, P)
@@ -426,7 +426,7 @@ def _check_lengths(lengths, n_elems: int):
         raise ValueError("lengths must sum up to the batch size")
 
 
-def _check_which_maxout(which, B: int, I: int, P: int, check_values: bool = False):
+def _check_which_maxout(which, B: int, I: int, P: int):
     shape = (B, I)
     assert (
         which.dtype == "int32"
@@ -434,18 +434,16 @@ def _check_which_maxout(which, B: int, I: int, P: int, check_values: bool = Fals
     if which.shape != shape:
         msg = f"maximum index (which) has incorrect shape, expected: {shape}, was: {which.shape}"
         raise ValueError(msg)
-    if check_values:
-        if not cupy.all((which >= 0) & (which < P)):
-            raise ValueError("maximum index (which) value out of bounds")
+    if not cupy.all((which >= 0) & (which < P)):
+        raise ValueError("maximum index (which) value out of bounds")
 
 
-def _check_which_reduce_max(which, shape: Tuple, lengths=None):
+def _check_which_reduce_max(which, shape: Tuple, lengths):
     assert (
         which.dtype == "int32"
     ), "maximum index (which) should be encoded as 32-bit integers"
     if which.shape != shape:
         msg = f"maximum index (which) has incorrect shape, expected: {shape}, was: {which.shape}"
         raise ValueError(msg)
-    if lengths is not None:
-        if not cupy.all((which >= 0) & (which < cupy.expand_dims(lengths, -1))):
-            raise ValueError("maximum index (which) value out of bounds")
+    if not cupy.all((which >= 0) & (which < cupy.expand_dims(lengths, -1))):
+        raise ValueError("maximum index (which) value out of bounds")
