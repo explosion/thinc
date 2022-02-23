@@ -2,10 +2,10 @@ from typing import Tuple, List, Callable
 
 from ..model import Model
 from ..config import registry
-from ..types import ArrayXd_Concatenable, Ragged
+from ..types import ArrayTXd, Ragged
 
 
-InT = List[ArrayXd_Concatenable]
+InT = List[ArrayTXd]
 OutT = Ragged
 
 
@@ -20,7 +20,7 @@ def list2ragged() -> Model[InT, OutT]:
 
 def forward(model: Model[InT, OutT], Xs: InT, is_train: bool) -> Tuple[OutT, Callable]:
     def backprop(dYr: OutT) -> InT:
-        return model.ops.unflatten(dYr.data, dYr.lengths)  # type: ignore
+        return model.ops.unflatten(dYr.data, dYr.lengths) 
 
     lengths = model.ops.asarray1i([len(x) for x in Xs])
     return Ragged(model.ops.flatten(Xs), lengths), backprop

@@ -2,9 +2,8 @@ from typing import Tuple, Callable, Optional, TypeVar, Union, cast, List
 
 from ..model import Model
 from ..config import registry
-from ..types import Array2d, Floats2d, Padded, Ragged, ArrayXd, Array3d
+from ..types import Array2d, Padded, Ragged, ArrayXd, Array3d
 from ..types import List2d
-
 
 ArrayXd_co = TypeVar("ArrayXd_co", bound=ArrayXd, covariant=True)
 SeqT = TypeVar("SeqT", bound=Union[Padded, Ragged, List2d, ArrayXd])

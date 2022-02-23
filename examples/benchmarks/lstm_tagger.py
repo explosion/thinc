@@ -11,7 +11,7 @@ Predicted 39018 13.174870599992573 Ys[0] 0.05000001 5.551115e-17
 
 So PyTorch is 3x faster currently.
 """
-from typing import List
+from typing import List, cast
 import typer
 import tqdm
 import numpy.random
@@ -19,7 +19,7 @@ from timeit import default_timer as timer
 from thinc.api import Model, Config, registry, chain, list2padded, with_array
 from thinc.api import to_categorical, set_current_ops
 from thinc.api import NumpyOps, CupyOps, fix_random_seed, require_gpu
-from thinc.types import Array2d, Padded
+from thinc.types import Array2d, Padded, List2d
 
 CONFIG = """
 [data]
@@ -59,7 +59,7 @@ def build_tagger(
     embed: Model[Array2d, Array2d],
     encode: Model[Padded, Padded],
     predict: Model[Array2d, Array2d],
-) -> Model[List[Array2d], Padded]:
+) -> Model[List2d, List2d]:
     model = chain(
         list2padded(),
         with_array(embed),

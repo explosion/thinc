@@ -43,16 +43,16 @@ def concatenate(*layers: Model) -> Model[InT, XY_XY_OutT]:
 def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Callable]:
     Ys, callbacks = zip(*[layer(X, is_train=is_train) for layer in model.layers])
     if isinstance(Ys[0], list):
-        return _list_forward(model, X, Ys, callbacks, is_train)  # type: ignore
+        return _list_forward(model, X, Ys, callbacks, is_train)
     elif isinstance(Ys[0], Ragged):
-        return _ragged_forward(model, X, Ys, callbacks, is_train)  # type: ignore
+        return _ragged_forward(model, X, Ys, callbacks, is_train)
     else:
-        return _array_forward(model, X, Ys, callbacks, is_train)  # type: ignore
+        return _array_forward(model, X, Ys, callbacks, is_train)
 
 
 def _array_forward(
-    model: Model[InT, Array2d], X, Ys, callbacks, is_train: bool
-) -> Tuple[Array2d, Callable]:
+    model: Model[InT, OutT], X, Ys, callbacks, is_train: bool
+) -> Tuple[OutT, Callable]:
     widths = [Y.shape[1] for Y in Ys]
     output = model.ops.xp.hstack(Ys)
 
@@ -72,12 +72,12 @@ def _array_forward(
             start += width
         return dX
 
-    return output, backprop
+    return cast(OutT, output), backprop
 
 
 def _ragged_forward(
-    model: Model[InT, Ragged], X, Ys, callbacks, is_train: bool
-) -> Tuple[Ragged, Callable]:
+    model: Model[InT, OutT], X, Ys, callbacks, is_train: bool
+) -> Tuple[OutT, Callable]:
 
     widths = [Y.dataXd.shape[1] for Y in Ys]
     output = Ragged(model.ops.xp.hstack([y.data for y in Ys]), Ys[0].lengths)
@@ -95,10 +95,10 @@ def _ragged_forward(
             start += width
         return dX
 
-    return output, backprop
+    return cast(OutT, output), backprop
 
 
-def _list_forward(model: Model[InT, List[Array2d]], X, Ys, callbacks, is_train: bool):
+def _list_forward(model: Model[InT, OutT], X, Ys, callbacks, is_train: bool) -> Tuple[OutT, Callable]:
     lengths = model.ops.asarray1i([len(x) for x in X])
     Ys = [model.ops.xp.concatenate(Y, axis=0) for Y in Ys]
     widths = [Y.shape[1] for Y in Ys]
@@ -119,7 +119,7 @@ def _list_forward(model: Model[InT, List[Array2d]], X, Ys, callbacks, is_train: 
             start += width
         return dX
 
-    return output, backprop
+    return cast(OutT, output), backprop
 
 
 def init(

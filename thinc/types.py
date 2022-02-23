@@ -42,6 +42,22 @@ IntsXd = Union["Ints1d", "Ints2d", "Ints3d", "Ints4d"]
 IntsXd_Concatenable = Union["Ints1d", "Ints2d", "Ints3d"]
 IntsXd_Iterable = Union["Ints2d", "Ints3d", "Ints4d"]
 ArrayXd = Union[FloatsXd, IntsXd]
+ArrayTXd = TypeVar(
+    "ArrayTXd",
+    "Floats1d",
+    "Floats2d",
+    "Floats3d",
+    "Floats4d",
+    "Ints1d",
+    "Ints2d",
+    "Ints3d",
+    "Ints4d",
+    "Array1d",
+    "Array2d",
+    "Array3d",
+    "Array4d",
+    Union["Floats1d", "Floats2d", "Floats3d", "Floats4d", "Ints1d", "Ints2d", "Ints3d", "Ints4d"],
+)
 ArrayXd_Concatenable = Union[FloatsXd_Concatenable, IntsXd_Concatenable]
 ArrayXd_Iterable = Union[FloatsXd_Iterable, IntsXd_Iterable]
 List1d = Union[List["Floats1d"], List["Ints1d"]]

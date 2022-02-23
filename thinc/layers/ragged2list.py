@@ -1,12 +1,14 @@
 from typing import Tuple, Callable, List, cast
 
+from thinc.backends.ops import ArrayTXd
+
 from ..model import Model
 from ..config import registry
-from ..types import Ragged, Array2d, ArrayXd_Iterable, ArrayXd_Concatenable
+from ..types import Ragged, ArrayTXd
 
 
 InT = Ragged
-OutT = List[ArrayXd_Concatenable]
+OutT = List[ArrayTXd]
 
 
 @registry.layers("ragged2list.v1")
@@ -19,7 +21,7 @@ def forward(model: Model[InT, OutT], Xr: InT, is_train: bool) -> Tuple[OutT, Cal
     lengths = Xr.lengths
 
     def backprop(dXs: OutT) -> InT:
-        return Ragged(model.ops.flatten(cast(List[ArrayXd_Concatenable], dXs), pad=0), lengths)
+        return Ragged(model.ops.flatten(dXs, pad=0), lengths)
 
-    data: List[ArrayXd_Concatenable] = model.ops.unflatten(cast(ArrayXd_Iterable, Xr.dataXd), Xr.lengths)
+    data: OutT = model.ops.unflatten(Xr.dataXd, Xr.lengths)
     return data, backprop
