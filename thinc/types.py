@@ -44,8 +44,6 @@ List3d = Union[List["Floats3d"], List["Ints3d"]]
 List4d = Union[List["Floats4d"], List["Ints4d"]]
 ListXd = Union[List["FloatsXd"], List["IntsXd"]]
 
-Floats2d_co = TypeVar("Floats2d_co", bound="Floats2d", covariant=True)
-
 ArrayT = TypeVar("ArrayT")
 SelfT = TypeVar("SelfT")
 Array1dT = TypeVar("Array1dT", bound="Array1d")
@@ -784,7 +782,7 @@ class Padded:
     and the indices indicates the original ordering.
     """
 
-    data: Floats3d
+    data: Array3d
     size_at_t: Ints1d
     lengths: Ints1d
     indices: Ints1d

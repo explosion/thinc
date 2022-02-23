@@ -1,4 +1,4 @@
-from typing import Tuple, Callable, Optional, TypeVar, Union, cast, Sequence
+from typing import Tuple, Callable, Optional, TypeVar, Union, cast, List
 
 from ..types import Padded, Ragged, Floats3d, Ints1d, Floats2d, Array2d, List2d
 from ..model import Model
@@ -39,7 +39,7 @@ def forward(
     elif is_xp_array(Xseq):
         Y, backprop = _array_forward(layer, cast(Floats3d, Xseq), is_train)
     else:
-        Y, backprop = _list_forward(layer, cast(List2d, Xseq), is_train)
+        Y, backprop = _list_forward(layer, cast(List[Array2d], Xseq), is_train)
     return cast(Tuple[SeqT, Callable], (Y, backprop))
 
 
@@ -60,9 +60,7 @@ def _get_padded(model: Model[SeqT_co, SeqT_co], seq: SeqT) -> Padded:
     if isinstance(seq, Padded):
         return seq
     elif isinstance(seq, Ragged):
-        return model.ops.list2padded(
-            model.ops.unflatten(seq.data, seq.lengths)  # type:ignore[arg-type]
-        )
+        return model.ops.list2padded(model.ops.unflatten(seq.data, seq.lengths))
     elif _is_padded_data(seq):
         return Padded(*seq)  # type: ignore[misc]
     elif is_xp_array(seq):
@@ -118,32 +116,28 @@ def _ragged_forward(
     # are potentially large on GPU. So we make nested function calls instead
     # of assigning to temporaries where possible, so memory can be reclaimed
     # sooner.
-    Yp, get_dXp = layer(list2padded(unflatten(Xr.data, Xr.lengths)), is_train)  # type: ignore[arg-type]
+    Yp, get_dXp = layer(list2padded(unflatten(Xr.data, Xr.lengths)), is_train)
 
     def backprop(dYr: Ragged):
-        dXp = cast(Floats2d, get_dXp(list2padded(unflatten(dYr.data, dYr.lengths))))  # type: ignore[arg-type]
         flattened = flatten(
-            cast(
-                Sequence[Array2d],
-                padded2list(get_dXp(list2padded(unflatten(dYr.data, dYr.lengths)))),  # type: ignore[arg-type]
-            )
+            padded2list(get_dXp(list2padded(unflatten(dYr.data, dYr.lengths)))),
         )
         return Ragged(cast(Floats2d, flattened), dYr.lengths)
 
-    flattened = flatten(cast(Sequence[Array2d], padded2list(Yp)))
+    flattened = flatten(padded2list(Yp))
     return cast(SeqT, Ragged(flattened, Xr.lengths)), backprop
 
 
 def _list_forward(
-    layer: Model[Padded, Padded], Xs: List2d, is_train: bool
+    layer: Model[Padded, Padded], Xs: List[Array2d], is_train: bool
 ) -> Tuple[SeqT, Callable]:
     # Assign these to locals, to keep code a bit shorter.
     list2padded = layer.ops.list2padded
     padded2list = layer.ops.padded2list
 
-    Yp, get_dXp = layer(list2padded(Xs), is_train)  # type: ignore
+    Yp, get_dXp = layer(list2padded(Xs), is_train)
 
     def backprop(dYs):
-        return padded2list(get_dXp(list2padded(dYs)))  # type: ignore
+        return padded2list(get_dXp(list2padded(dYs)))
 
     return cast(SeqT, padded2list(Yp)), backprop

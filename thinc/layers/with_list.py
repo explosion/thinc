@@ -23,14 +23,14 @@ def with_list(layer: Model[List2d_co, List2d_co]) -> Model[SeqT_co, SeqT_co]:
 def forward(
     model: Model[SeqT_co, SeqT_co], Xseq: SeqT, is_train: bool
 ) -> Tuple[SeqT, Callable]:
-    layer: Model[List2d, List2d] = model.layers[0]
+    layer: Model[List[Array2d], List[Array2d]] = model.layers[0]
     Y: SeqT
     if isinstance(Xseq, Padded):
         Y, backprop = _padded_forward(layer, cast(Padded, Xseq), is_train)
     elif isinstance(Xseq, Ragged):
         Y, backprop = _ragged_forward(layer, cast(Ragged, Xseq), is_train)
     else:
-        concrete_Y, backprop = layer(cast(List2d, Xseq), is_train)
+        concrete_Y, backprop = layer(cast(List[Array2d], Xseq), is_train)
         Y = cast(SeqT, concrete_Y)
     return Y, backprop
 
@@ -55,7 +55,7 @@ def _get_list(model, seq):
 
 
 def _ragged_forward(
-    layer: Model[List2d, List2d], Xr: Ragged, is_train: bool
+    layer: Model[List[Array2d], List[Array2d]], Xr: Ragged, is_train: bool
 ) -> Tuple[SeqT, Callable]:
     # Assign these to locals, to keep code a bit shorter.
     unflatten = layer.ops.unflatten
@@ -64,26 +64,22 @@ def _ragged_forward(
     # are potentially large on GPU. So we make nested function calls instead
     # of assigning to temporaries where possible, so memory can be reclaimed
     # sooner.
-    Ys, get_dXs = layer(
-        unflatten(Xr.data, Xr.lengths), is_train  # type:ignore [arg-type]
-    )
+    Ys, get_dXs = layer(unflatten(Xr.data, Xr.lengths), is_train)
 
     def backprop(dYr: Ragged):
         return Ragged(
-            flatten(
-                get_dXs(unflatten(dYr.data, dYr.lengths))  # type:ignore [arg-type]
-            ),
+            flatten(get_dXs(unflatten(dYr.data, dYr.lengths))),
             dYr.lengths,
         )
 
     return (
-        cast(SeqT, Ragged(flatten(cast(Sequence[Array2d], Ys)), Xr.lengths)),
+        cast(SeqT, Ragged(flatten(Ys), Xr.lengths)),
         backprop,
     )
 
 
 def _padded_forward(
-    layer: Model[List2d, List2d], Xp: Padded, is_train: bool
+    layer: Model[List[Array2d], List[Array2d]], Xp: Padded, is_train: bool
 ) -> Tuple[SeqT, Callable]:
     # Assign these to locals, to keep code a bit shorter.
     padded2list = layer.ops.padded2list

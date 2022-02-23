@@ -1,8 +1,8 @@
-from typing import Tuple, Callable, Optional, TypeVar, Union, cast
+from typing import Tuple, Callable, Optional, TypeVar, Union, cast, List
 
 from ..model import Model
 from ..config import registry
-from ..types import Array2d, Floats2d, Padded, Ragged, ArrayXd, Floats3d
+from ..types import Array2d, Floats2d, Padded, Ragged, ArrayXd, Array3d
 from ..types import List2d
 
 
@@ -46,7 +46,9 @@ def forward(
     elif not isinstance(Xseq, (list, tuple)):
         return model.layers[0](Xseq, is_train)
     else:
-        return _list_forward(cast(Model[List2d, List2d], model), Xseq, is_train)
+        return _list_forward(
+            cast(Model[List[Array2d], List[Array2d]], model), Xseq, is_train
+        )
 
 
 def init(
@@ -75,16 +77,16 @@ def _get_array(model, X: SeqT) -> ArrayXd:
 
 
 def _list_forward(
-    model: Model[List2d, List2d], Xs: List2d, is_train: bool
+    model: Model[List[Array2d], List[Array2d]], Xs: List[Array2d], is_train: bool
 ) -> Tuple[SeqT, Callable]:
     layer = model.layers[0]
     pad = model.attrs["pad"]
     lengths = layer.ops.asarray1i([len(seq) for seq in Xs])
-    Xf = layer.ops.flatten(Xs, pad=pad) # type:ignore
+    Xf = layer.ops.flatten(Xs, pad=pad)
     Yf, get_dXf = layer(Xf, is_train)
 
-    def backprop(dYs: List2d) -> List2d:
-        dYf = layer.ops.flatten(dYs, pad=pad)  # type: ignore
+    def backprop(dYs: List[Array2d]) -> List[Array2d]:
+        dYf = layer.ops.flatten(dYs, pad=pad)
         dXf = get_dXf(dYf)
         return layer.ops.unflatten(dXf, lengths, pad=pad)
 
@@ -106,7 +108,7 @@ def _ragged_forward(
 def _padded_forward(
     model: Model[Padded, Padded], Xp: Padded, is_train: bool
 ) -> Tuple[SeqT, Callable]:
-    layer: Model[Floats3d, Floats3d] = model.layers[0]
+    layer: Model[Array3d, Array3d] = model.layers[0]
     Y, get_dX = layer(Xp.data, is_train)
 
     def backprop(dYp: Padded) -> Padded:

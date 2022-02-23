@@ -5,15 +5,18 @@ from typing import Iterator, overload
 import numpy
 import itertools
 
-from .. import registry
-from ..types import Xp, Shape, DTypes, DTypesInt, DTypesFloat, List2d, ArrayXd
-from ..types import Array3d, Floats1d, Floats2d, Floats3d, Floats4d
+from ..types import Array1d, Xp, Shape, DTypes, DTypesInt, DTypesFloat, List2d, ArrayXd
+from ..types import Array2d, Array3d, Array4d, Floats1d, Floats2d, Floats3d, Floats4d
 from ..types import FloatsXd, Ints1d, Ints2d, Ints3d, Ints4d, IntsXd, _Floats
 from ..types import DeviceTypes, Generator, Padded, Batchable, SizedGenerator
 from ..util import get_array_module, is_xp_array, to_numpy
 
 
 ArrayT = TypeVar("ArrayT", bound=ArrayXd)
+ArrayT_co = TypeVar("ArrayT_co", bound=ArrayXd, covariant=True)
+ArrayT2d = TypeVar("ArrayT2d", Floats2d, Ints2d, Array2d)
+ArrayT2d_co = TypeVar("ArrayT2d_co", Floats2d, Ints2d, Array2d, covariant=True)
+ArrayT3d = TypeVar("ArrayT3d", Floats3d, Ints3d, Array3d)
 FloatsT = TypeVar("FloatsT", bound=_Floats)
 FloatsType = TypeVar("FloatsType", bound=FloatsXd)
 SQRT2PI = math.sqrt(2.0 / math.pi)
@@ -227,7 +230,7 @@ class Ops:
 
     def flatten(
         self,
-        X: Sequence[ArrayT],
+        X: List[ArrayT],
         dtype: Optional[DTypes] = None,
         pad: int = 0,
         ndim_if_empty: int = 2,
@@ -252,7 +255,7 @@ class Ops:
             result = xp.asarray(result, dtype=dtype)
         return result
 
-    def unflatten(self, X: Floats2d, lengths: Ints1d, pad: int = 0) -> List[Floats2d]:
+    def unflatten(self, X: ArrayT2d, lengths: Ints1d, pad: int = 0) -> List[ArrayT2d]:
         """The reverse/backward operation of the `flatten` function: unflatten
         a large array into a list of arrays according to the given lengths.
         """
@@ -270,17 +273,7 @@ class Ops:
         assert len(unflat) == len(lengths)
         return unflat
 
-    @overload
-    def pad(self, seqs: List[Ints2d], round_to=1) -> Ints3d:
-        ...
-
-    @overload  # noqa: F811
-    def pad(self, seqs: List[Floats2d], round_to=1) -> Floats3d:
-        ...
-
-    def pad(  # noqa: F811
-        self, seqs: Union[List[Ints2d], List[Floats2d]], round_to=1
-    ) -> Array3d:
+    def pad(self, seqs: List[ArrayT2d], round_to=1) -> Array3d:
         """Perform padding on a list of arrays so that they each have the same
         length, by taking the maximum dimension across each axis. This only
         works on non-empty sequences with the same `ndim` and `dtype`.
@@ -315,14 +308,14 @@ class Ops:
             output.append(padded[i, :length])
         return cast(List2d, output)
 
-    def list2padded(self, seqs: List[Floats2d]) -> Padded:
+    def list2padded(self, seqs: List[ArrayT2d_co]) -> Padded:
         """Pack a sequence of 2d arrays into a Padded datatype."""
         if not seqs:
             return Padded(
                 self.alloc3f(0, 0, 0), self.alloc1i(0), self.alloc1i(0), self.alloc1i(0)
             )
         elif len(seqs) == 1:
-            data = self.reshape3f(seqs[0], seqs[0].shape[0], 1, seqs[0].shape[1])
+            data = self.reshape3(seqs[0], seqs[0].shape[0], 1, seqs[0].shape[1])
             size_at_t = self.asarray1i([1] * data.shape[0])
             lengths = self.asarray1i([data.shape[0]])
             indices = self.asarray1i([0])
@@ -338,7 +331,7 @@ class Ops:
         # direction: you're swapping elements between their original and sorted
         # position.
         seqs = [seqs[i] for i in indices_]
-        arr: Floats3d = self.pad(seqs)
+        arr: Array3d = self.pad(seqs)
         assert arr.shape == (nB, nS, nO), (nB, nS, nO)
         arr = self.as_contig(arr.transpose((1, 0, 2)))
         assert arr.shape == (nS, nB, nO)
@@ -357,17 +350,17 @@ class Ops:
             self.asarray1i(indices_),
         )
 
-    def padded2list(self, padded: Padded) -> List2d:
+    def padded2list(self, padded: Padded) -> List[Array2d]:
         """Unpack a Padded datatype to a list of 2-dimensional arrays."""
         data = padded.data
         indices = to_numpy(padded.indices)
         lengths = to_numpy(padded.lengths)
-        unpadded: List[Optional[Floats2d]] = [None] * len(lengths)
+        unpadded: List[Optional[Array2d]] = [None] * len(lengths)
         # Transpose from (length, batch, data) to (batch, length, data)
         data = self.as_contig(data.transpose((1, 0, 2)))
         for i in range(data.shape[0]):
             unpadded[indices[i]] = data[i, : int(lengths[i])]
-        return cast(List2d, unpadded)
+        return cast(List[Array2d], unpadded)
 
     def get_dropout_mask(self, shape: Shape, drop: Optional[float]) -> FloatsXd:
         """Create a random mask for applying dropout, with a certain percent of
@@ -444,6 +437,18 @@ class Ops:
         if isinstance(shape, int):
             shape = (shape,)
         return self.xp.zeros(shape, dtype=dtype)
+
+    def reshape1(self, array: ArrayXd, d0: int) -> Array1d:
+        return cast(Array1d, self.reshape(array, (d0,)))
+
+    def reshape2(self, array: ArrayXd, d0: int, d1: int) -> Array2d:
+        return cast(Array2d, self.reshape(array, (d0, d1)))
+
+    def reshape3(self, array: ArrayXd, d0: int, d1: int, d2: int) -> Array3d:
+        return cast(Array3d, self.reshape(array, (d0, d1, d2)))
+
+    def reshape4(self, array: ArrayXd, d0: int, d1: int, d2: int, d3: int) -> Array4d:
+        return cast(Array4d, self.reshape(array, (d0, d1, d2, d3)))
 
     def reshape1f(self, array: FloatsXd, d0: int) -> Floats1d:
         return cast(Floats1d, self.reshape(array, (d0,)))
@@ -603,7 +608,7 @@ class Ops:
             Y += 1.0
             return Y
         else:
-            return 1 - Y ** 2
+            return 1 - Y**2
 
     def softmax(
         self,
@@ -924,7 +929,7 @@ class Ops:
         delta = xp.exp(Xsub) + 1.0
         delta *= delta
         delta += 1.0
-        dXsub = dYsub * ((xp.exp(Xsub) * omega) / (delta ** 2))
+        dXsub = dYsub * ((xp.exp(Xsub) * omega) / (delta**2))
         # Gradient when above threshold will ignore softplus.
         if inplace:
             out = dY
@@ -1368,7 +1373,7 @@ def dsigmoid(Y: ArrayT) -> ArrayT:
 
 
 def dtanh(Y: ArrayT) -> ArrayT:
-    return 1 - Y ** 2
+    return 1 - Y**2
 
 
 def gaussian_cdf(ops: Ops, X: FloatsType) -> FloatsType:
