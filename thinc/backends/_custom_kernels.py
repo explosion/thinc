@@ -74,7 +74,7 @@ def clipped_linear(
     threads_per_block=128,
     num_blocks=128,
 ):
-    assert X.dtype == "float32", "CUDA clipped_linear kernel can only handle float32"
+    _check_array(X)
 
     out = X
     if not inplace:
@@ -88,7 +88,7 @@ def clipped_linear(
 
 
 def gelu(X, inplace=False, threshold=6.0, threads_per_block=128, num_blocks=128):
-    assert X.dtype == "float32", "CUDA gelu kernel can only handle float32"
+    _check_array(X)
 
     out = X
     if not inplace:
@@ -106,7 +106,7 @@ def check_seq2col_lengths(lengths, B):
 
 
 def seq2col(X, nW, *, lengths=None, threads_per_block=128, num_blocks=128):
-    assert X.dtype == "float32", "CUDA seq2col kernel can only handle float32"
+    _check_array(X)
 
     B = X.shape[0]
     nF = nW * 2 + 1
@@ -126,7 +126,7 @@ def seq2col(X, nW, *, lengths=None, threads_per_block=128, num_blocks=128):
 
 
 def maxout(X, threads_per_block=128, num_blocks=128):
-    assert X.dtype == "float32", "CUDA maxout kernel can only handle float32"
+    _check_array(X)
 
     B, I, P = X.shape
 
@@ -139,7 +139,7 @@ def maxout(X, threads_per_block=128, num_blocks=128):
 
 
 def mish(X, inplace=False, threshold=5, threads_per_block=128, num_blocks=128):
-    assert X.dtype == "float32", "CUDA mish kernel can only handle float32"
+    _check_array(X)
 
     out = X
     if not inplace:
@@ -149,7 +149,7 @@ def mish(X, inplace=False, threshold=5, threads_per_block=128, num_blocks=128):
 
 
 def reduce_sum(X, lengths, threads_per_block=128, num_blocks=128):
-    assert X.dtype == "float32", "CUDA reduce_sum kernel can only handle float32"
+    _check_array(X)
 
     B = len(lengths)
     T = X.shape[0]
@@ -164,7 +164,7 @@ def reduce_sum(X, lengths, threads_per_block=128, num_blocks=128):
 
 
 def reduce_mean(X, lengths, threads_per_block=128, num_blocks=128):
-    assert X.dtype == "float32", "CUDA reduce_mean kernel can only handle float32"
+    _check_array(X)
 
     B = len(lengths)
     T = X.shape[0]
@@ -181,7 +181,7 @@ def reduce_mean(X, lengths, threads_per_block=128, num_blocks=128):
 
 
 def reduce_max(X, lengths, threads_per_block=128, num_blocks=128):
-    assert X.dtype == "float32", "CUDA reduce_max kernel can only handle float32"
+    _check_array(X)
 
     B = len(lengths)
     T = X.shape[0]
@@ -200,7 +200,7 @@ def reduce_max(X, lengths, threads_per_block=128, num_blocks=128):
 
 
 def swish(X, inplace=False, threshold=17.0, threads_per_block=128, num_blocks=128):
-    assert X.dtype == "float32", "CUDA swish kernel can only handle float32"
+    _check_array(X)
 
     out = X
     if not inplace:
@@ -210,7 +210,7 @@ def swish(X, inplace=False, threshold=17.0, threads_per_block=128, num_blocks=12
 
 
 def backprop_seq2col(dY, nW, *, lengths=None, threads_per_block=128, num_blocks=128):
-    assert dY.dtype == "float32", "CUDA backprop_seq2col kernel can only handle float32"
+    _check_array(dY)
 
     B = dY.shape[0]
     nF = nW * 2 + 1
@@ -240,9 +240,7 @@ def backprop_clipped_linear(
     threads_per_block=128,
     num_blocks=128,
 ):
-    assert (
-        dY.dtype == "float32"
-    ), "CUDA backprop_clipped_linear kernel can only handle float32"
+    _check_array(dY)
     _check_array(X, dY.shape)
 
     out = dY
@@ -259,9 +257,7 @@ def backprop_clipped_linear(
 def backprop_hard_swish(
     dY, X, inplace: bool = False, threads_per_block=128, num_blocks=128
 ):
-    assert (
-        dY.dtype == "float32"
-    ), "CUDA backprop_hard_swish kernel can only handle float32"
+    _check_array(dY)
     _check_array(X, dY.shape)
 
     out = dY
@@ -276,9 +272,7 @@ def backprop_hard_swish(
 def backprop_hard_swish_mobilenet(
     dY, X, inplace: bool = False, threads_per_block=128, num_blocks=128
 ):
-    assert (
-        dY.dtype == "float32"
-    ), "CUDA backprop_hard_swish_mobilenet kernel can only handle float32"
+    _check_array(dY)
     _check_array(X, dY.shape)
 
     out = dY
@@ -293,7 +287,7 @@ def backprop_hard_swish_mobilenet(
 def backprop_gelu(
     dY, X, inplace: bool = False, threshold=6.0, threads_per_block=128, num_blocks=128
 ):
-    assert dY.dtype == "float32", "CUDA backprop_gelu kernel can only handle float32"
+    _check_array(dY)
     _check_array(X, dY.shape)
 
     out = dY
@@ -306,7 +300,7 @@ def backprop_gelu(
 
 
 def backprop_maxout(dY, which, P, threads_per_block=128, num_blocks=128):
-    assert dY.dtype == "float32", "CUDA backprop_maxout kernel can only handle float32"
+    _check_array(dY)
 
     B = dY.shape[0]
     I = dY.shape[1]
@@ -324,7 +318,7 @@ def backprop_maxout(dY, which, P, threads_per_block=128, num_blocks=128):
 def backprop_mish(
     dY, X, inplace: bool = False, threshold=5, threads_per_block=128, num_blocks=128
 ):
-    assert dY.dtype == "float32", "CUDA backprop_mish kernel can only handle float32"
+    _check_array(dY)
     _check_array(X, dY.shape)
 
     out = dY
@@ -337,9 +331,7 @@ def backprop_mish(
 
 
 def backprop_reduce_sum(d_sum, lengths, threads_per_block=128, num_blocks=128):
-    assert (
-        d_sum.dtype == "float32"
-    ), "CUDA backprop_reduce_sum kernel can only handle float32"
+    _check_array(d_sum)
 
     B = len(lengths)
     T = int(lengths.sum())
@@ -355,9 +347,7 @@ def backprop_reduce_sum(d_sum, lengths, threads_per_block=128, num_blocks=128):
 
 
 def backprop_reduce_mean(d_mean, lengths, threads_per_block=128, num_blocks=128):
-    assert (
-        d_mean.dtype == "float32"
-    ), "CUDA backprop_reduce_mean kernel can only handle float32"
+    _check_array(d_mean)
 
     B = len(lengths)
     T = int(lengths.sum())
@@ -373,9 +363,7 @@ def backprop_reduce_mean(d_mean, lengths, threads_per_block=128, num_blocks=128)
 
 
 def backprop_reduce_max(d_maxes, which, lengths, threads_per_block=128, num_blocks=128):
-    assert (
-        d_maxes.dtype == "float32"
-    ), "CUDA backprop_reduce_max kernel can only handle float32"
+    _check_array(d_maxes)
 
     B = len(lengths)
     T = int(lengths.sum())
@@ -395,7 +383,7 @@ def backprop_reduce_max(d_maxes, which, lengths, threads_per_block=128, num_bloc
 def backprop_swish(
     dY, X, Y, inplace=False, threshold=17.0, threads_per_block=128, num_blocks=128
 ):
-    assert dY.dtype == "float32", "CUDA backprop_swish kernel can only handle float32"
+    _check_array(dY)
     _check_array(X, dY.shape)
     _check_array(Y, dY.shape)
 
@@ -423,9 +411,9 @@ def hash(ids, seed, threads_per_block=128, num_blocks=128):
     return out
 
 
-def _check_array(out, shape: Tuple):
+def _check_array(out, shape: Tuple = None):
     assert out.dtype == "float32", "CUDA kernel can only handle float32"
-    if out.shape != shape:
+    if shape is not None and out.shape != shape:
         msg = f"array has incorrect shape, expected: {shape}, was: {out.shape}"
         raise ValueError(msg)
 
