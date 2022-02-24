@@ -212,7 +212,9 @@ def to_categorical(
     xp = get_array_module(Y)
     if n_classes is None:
         n_classes = int(numpy.max(Y) + 1)  # type: ignore
-    label_distr = xp.full((n_classes, n_classes), label_smoothing / (n_classes - 1), dtype='float32')
+    label_distr = xp.full(
+        (n_classes, n_classes), label_smoothing / (n_classes - 1), dtype="float32"
+    )
     xp.fill_diagonal(label_distr, 1 - label_smoothing)
     return label_distr[Y]
 
