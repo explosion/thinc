@@ -75,8 +75,6 @@ def test_pytorch_wrapper_thinc_input(nN, nI, nO, mixed_precision):
         # Initialize with large weights to trigger overflow of FP16 in
         # mixed-precision training.
         torch.nn.init.uniform_(pytorch_layer.weight, 9.0, 11.0)
-        # Warns because the GPU allocator is not set (there's no way to unset
-        # it, so test only for the consistent unset case)
         model = chain(
             Relu(),
             PyTorchWrapper_v2(
@@ -85,6 +83,7 @@ def test_pytorch_wrapper_thinc_input(nN, nI, nO, mixed_precision):
                 grad_scaler=PyTorchGradScaler(enabled=True, init_scale=2.0 ** 16),
             ).initialize(),
         )
+        # pytorch allocator is set in PyTorchShim
         assert "pytorch" in context_pools.get()
         sgd = SGD(0.001)
         X = ops.xp.zeros((nN, nI), dtype="f")
