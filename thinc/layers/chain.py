@@ -103,6 +103,6 @@ def init(
             if model.layers[-1].has_dim("nO"):
                 nO = model.layers[-1].get_dim("nO")
             else:
-                nO = None
+                nO = None # type:ignore[assignment] (necessary for Mypy backwards compat.)
         model.set_dim("nO", cast(int, nO))
     return model
