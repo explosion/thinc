@@ -48,8 +48,14 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/cauchysimilarity.py
 
 <inline-list>
 
-- **Input:** <ndarray>ArrayXd</ndarray>
-- **Output:** <ndarray>ArrayXd</ndarray>
+- **Input:** <ndarray>ArrayXd</ndarray> /
+<ndarray>List[ArrayXd]</ndarray> /
+<ndarray>Ragged</ndarray> /
+<ndarray>Padded</ndarray>
+- **Output:** <ndarray>ArrayXd</ndarray> /
+<ndarray>List[ArrayXd]</ndarray> /
+<ndarray>Ragged</ndarray> /
+<ndarray>Padded</ndarray>
 - **Attrs:** `dropout_rate` <tt>float</tt>
 
 </inline-list>
@@ -71,10 +77,10 @@ for node in model.walk():
         node.attrs["dropout_rate"] = 0.5
 ```
 
-| Argument       | Type                             | Description                                                                                                                             |
-| -------------- | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `dropout_rate` | <tt>float</tt>                   | The probability of zeroing the activations (default: 0). Higher dropout rates mean more distortion. Values around `0.2` are often good. |
-| **RETURNS**    | <tt>Model[ArrayXd, ArrayXd]</tt> | The created dropout layer.                                                                                                              |
+| Argument       | Type                 | Description                                                                                                                             |
+| -------------- | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `dropout_rate` | <tt>float</tt>       | The probability of zeroing the activations (default: 0). Higher dropout rates mean more distortion. Values around `0.2` are often good. |
+| **RETURNS**    | <tt>Model[T, T]</tt> | The created dropout layer.                                                                                                              |
 
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/dropout.py
@@ -84,8 +90,7 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/dropout.py
 
 <inline-list>
 
-- **Input:** <ndarray shape="n,">Ints1d</ndarray> /
-  <ndarray shape="n, nV">Ints2d</ndarray>
+- **Input:** <ndarray shape="n,">Ints1d</ndarray>
 - **Output:** <ndarray shape="n, nO">Floats2d</ndarray>
 - **Parameters:** <ndarray shape="nV, nO">E</ndarray>
 - **Attrs:** `column` <tt>int</tt>, `dropout_rate` <tt>float</tt>
@@ -104,7 +109,7 @@ embeddings table will slice as the indices.
 | `column`       | <tt>int</tt>                                    | The column to slice from the input, to get the indices.                                                              |
 | `initializer`  | <tt>Callable</tt>                               | A function to initialize the internal parameters. Defaults to [`uniform_init`](/docs/api-initializers#uniform_init). |
 | `dropout`      | <tt>Optional[float]</tt>                        | Dropout rate to avoid overfitting (default `None`).                                                                  |
-| **RETURNS**    | <tt>Model[Union[Ints1d, Ints2d], Floats2d]</tt> | The created embedding layer.                                                                                         |
+| **RETURNS**    | <tt>Model[Ints1d, Floats2d]</tt>                | The created embedding layer.                                                                                         |
 
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/embed.py
@@ -115,7 +120,6 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/embed.py
 <inline-list>
 
 - **Input:** <ndarray shape="n,">Ints1d</ndarray> /
-  <ndarray shape="n, nV">Ints2d</ndarray>
 - **Output:** <ndarray shape="n, nO">Floats2d</ndarray>
 - **Parameters:** <ndarray shape="nV, nO">E</ndarray>
 - **Attrs:** `seed` <tt>Optional[int]</tt>, `column` <tt>int</tt>,
@@ -140,7 +144,7 @@ number of vectors in the table is very low.
 | `column`       | <tt>int</tt>                                    | The column to select features from.                                                                                  |
 | `initializer`  | <tt>Callable</tt>                               | A function to initialize the internal parameters. Defaults to [`uniform_init`](/docs/api-initializers#uniform_init). |
 | `dropout`      | <tt>Optional[float]</tt>                        | Dropout rate to avoid overfitting (default `None`).                                                                  |
-| **RETURNS**    | <tt>Model[Union[Ints1d, Ints2d], Floats2d]</tt> | The created embedding layer.                                                                                         |
+| **RETURNS**    | <tt>Model[Ints1d, Floats2d]</tt>                | The created embedding layer.                                                                                         |
 
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/hashembed.py
@@ -560,7 +564,7 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/staticvectors.py
 <inline-list>
 
 - **Input:** <ndarray>Ragged</ndarray>
-- **Output:** <ndarray shape="batch_size, nO">Floats2d</ndarray>
+- **Output:** <ndarray shape="batch_size, nO">Array2d</ndarray>
 
 </inline-list>
 
@@ -569,9 +573,9 @@ item of each sequence. This is most useful after multi-head attention layers,
 which can learn to assign a good feature representation for the sequence to one
 of its elements.
 
-| Argument    | Type                             | Description                |
-| ----------- | -------------------------------- | -------------------------- |
-| **RETURNS** | <tt>Model[Ragged, Floats2d]</tt> | The created pooling layer. |
+| Argument    | Type                            | Description                |
+| ----------- | ------------------------------- | -------------------------- |
+| **RETURNS** | <tt>Model[Ragged, Array2d]</tt> | The created pooling layer. |
 
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/reduce_first.py
@@ -587,13 +591,13 @@ representation for the sequence to its final element.
 <inline-list>
 
 - **Input:** <ndarray>Ragged</ndarray>
-- **Output:** <ndarray shape="batch_size, nO">Floats2d</ndarray>
+- **Output:** <ndarray shape="batch_size, nO">Array2d</ndarray>
 
 </inline-list>
 
-| Argument    | Type                             | Description                |
-| ----------- | -------------------------------- | -------------------------- |
-| **RETURNS** | <tt>Model[Ragged, Floats2d]</tt> | The created pooling layer. |
+| Argument    | Type                            | Description                |
+| ----------- | ------------------------------- | -------------------------- |
+| **RETURNS** | <tt>Model[Ragged, Array2d]</tt> | The created pooling layer. |
 
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/reduce_last.py
@@ -675,10 +679,10 @@ to `>>` allows you to write `Relu(512) >> Softmax()` instead of
 Compose two or more models `f`, `g`, etc, such that their outputs are added,
 i.e. `add(f, g)(x)` computes `f(x) + g(x)`.
 
-| Argument    | Type                             | Description            |
-| ----------- | -------------------------------- | ---------------------- |
-| `*layers`   | <tt>Model[ArrayXd, ArrayXd]</tt> | The models to compose. |
-| **RETURNS** | <tt>Model[ArrayXd, ArrayXd]</tt> | The composed model.    |
+| Argument    | Type                         | Description            |
+| ----------- | ---------------------------- | ---------------------- |
+| `*layers`   | <tt>Model[Any, ArrayXd]</tt> | The models to compose. |
+| **RETURNS** | <tt>Model[Any, ArrayXd]</tt> | The composed model.    |
 
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/add.py
@@ -703,10 +707,10 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/bidirectional.py
 Compose two models `f` and `g` such that they become layers of a single
 feed-forward model that computes `g(f(x))`.
 
-| Argument    | Type                             | Description                      |
-| ----------- | -------------------------------- | -------------------------------- |
-| `*layers`   | <tt>Model[ArrayXd, ArrayXd]</tt> | The models to compose.           |
-| **RETURNS** | <tt>Model[ArrayXd, ArrayXd]</tt> | The composed feed-forward model. |
+| Argument    | Type                | Description                      |
+| ----------- | ------------------- | -------------------------------- |
+| `*layers`   | <tt>Model</tt>, --- | The models to compose.           |
+| **RETURNS** | <tt>Model</tt>      | The composed feed-forward model. |
 
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/chain.py
@@ -717,11 +721,11 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/chain.py
 Construct `n` copies of a layer, with distinct weights. For example,
 `clone(f, 3)(x)` computes `f(f'(f''(x)))`.
 
-| Argument    | Type                             | Description                        |
-| ----------- | -------------------------------- | ---------------------------------- |
-| `orig`      | <tt>Model[ArrayXd, ArrayXd]</tt> | The layer to copy.                 |
-| `n`         | <tt>int</tt>                     | The number of copies to construct. |
-| **RETURNS** | <tt>Model[ArrayXd, ArrayXd]</tt> | The composed model.                |
+| Argument    | Type               | Description                        |
+| ----------- | -------------------| ---------------------------------- |
+| `orig`      | <tt>Model</tt>     | The layer to copy.                 |
+| `n`         | <tt>int</tt>       | The number of copies to construct. |
+| **RETURNS** | <tt>Model<tt>, ... | The composed model.                |
 
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/clone.py
@@ -732,10 +736,10 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/clone.py
 Compose two or more models `f`, `g`, etc, such that their outputs are
 concatenated, i.e. `concatenate(f, g)(x)` computes `hstack(f(x), g(x))`.
 
-| Argument    | Type                             | Description            |
-| ----------- | -------------------------------- | ---------------------- |
-| `*layers`   | <tt>Model[ArrayXd, ArrayXd]</tt> | The models to compose. |
-| **RETURNS** | <tt>Model[ArrayXd, ArrayXd]</tt> | The composed model.    |
+| Argument    | Type                | Description            |
+| ----------- | --------------------| ---------------------- |
+| `*layers`   | <tt>Model</tt>, ... | The models to compose. |
+| **RETURNS** | <tt>Model</tt>      | The composed model.    |
 
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/concatenate.py
@@ -758,8 +762,10 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/map_list.py
 
 <inline-list>
 
-- **Input:** <ndarray shape="batch_size, nI">Floats2d</ndarray>
-- **Output:** <ndarray shape="batch_size, nO">Floats2d</ndarray>
+- **Input:** <ndarray shape="batch_size, nI">Floats2d</ndarray> /
+<ndarray>Ragged</ndarray>
+- **Output:** <ndarray shape="batch_size, nO">Floats2d</ndarray> /
+<ndarray>Ragged</ndarray>
 - **Attrs:** `window_size` <tt>int</tt>
 
 </inline-list>
@@ -770,10 +776,10 @@ and a window of surrounding vectors. This is one step in a convolution. If the
 concatenating three contextual vectors from the left, and three from the right,
 to each input vector. In general, `nO` equals `nI * (2 * window_size + 1)`.
 
-| Argument      | Type                               | Description                                                                    |
-| ------------- | ---------------------------------- | ------------------------------------------------------------------------------ |
-| `window_size` | <tt>int</tt>                       | The window size (default 1) that determines the number of surrounding vectors. |
-| **RETURNS**   | <tt>Model[Floats2d, Floats2d]</tt> | The created layer for adding context to vectors.                               |
+| Argument      | Type                 | Description                                                                    |
+| ------------- | -------------------- | ------------------------------------------------------------------------------ |
+| `window_size` | <tt>int</tt>         | The window size (default 1) that determines the number of surrounding vectors. |
+| **RETURNS**   | <tt>Model[T, T]</tt> | The created layer for adding context to vectors.                               |
 
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/expand_window.py
@@ -783,10 +789,10 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/expand_window.py
 
 Transform a sequences of layers into a null operation.
 
-| Argument    | Type                             | Description            |
-| ----------- | -------------------------------- | ---------------------- |
-| `*layers`   | <tt>Model[ArrayXd, ArrayXd]</tt> | The models to compose. |
-| **RETURNS** | <tt>Model[ArrayXd, ArrayXd]</tt> | The composed model.    |
+| Argument    | Type           | Description            |
+| ----------- | -------------- | ---------------------- |
+| `*layers`   | <tt>Model</tt> | The models to compose. |
+| **RETURNS** | <tt>Model</tt> | The composed model.    |
 
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/noop.py
@@ -796,8 +802,14 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/noop.py
 
 <inline-list>
 
-- **Input:** <ndarray>List[FloatsXd], Ragged, Padded, FloatsXd</ndarray>
-- **Output:** <ndarray>List[FloatsXd], Ragged, Padded, FloatsXd</ndarray>
+- **Input:** <ndarray>List[FloatsXd]</ndarray> /
+<ndarray>Ragged</ndarray> /
+<ndarray>Padded</ndarray> /
+<ndarray>FloatsXd</ndarray>
+- **Output:** <ndarray>List[FloatsXd]</ndarray> /
+<ndarray>Ragged</ndarray> /
+<ndarray>Padded</ndarray> /
+<ndarray>FloatsXd</ndarray>
 
 </inline-list>
 
@@ -823,10 +835,10 @@ input to a downstream layer.
 On the backward pass the loss from each child is added together, so when using
 custom datatypes they should define an addition operator.
 
-| Argument    | Type                             | Description                      |
-| ----------- | -------------------------------- | -------------------------------- |
-| `*layers`   | <tt>Model[ArrayXd, ArrayXd]</tt> | The models to compose.           |
-| **RETURNS** | <tt>Model[ArrayXd, ArrayXd]</tt> | The composed feed-forward model. |
+| Argument    | Type                          | Description                      |
+| ----------- | ----------------------------- | -------------------------------- |
+| `*layers`   | <tt>Model[Any, T] ...</tt>    | The models to compose.           |
+| **RETURNS** | <tt>Model[Any, Tuple[T]]</tt> | The composed feed-forward model. |
 
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/tuplify.py
@@ -919,7 +931,7 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/list2array.py
 
 <inline-list>
 
-- **Input:** <ndarray>List[Floats2d]</ndarray>
+- **Input:** <ndarray>List[ArrayXd]</ndarray>
 - **Output:** <ndarray>Ragged</ndarray>
 
 </inline-list>
@@ -930,7 +942,7 @@ If sequences are already ragged, do nothing. A ragged array is a tuple
 
 | Argument    | Type                                  | Description                              |
 | ----------- | ------------------------------------- | ---------------------------------------- |
-| **RETURNS** | <tt>Model[List[Array2d], Ragged]</tt> | The layer to compute the transformation. |
+| **RETURNS** | <tt>Model[List[ArrayXd], Ragged]</tt> | The layer to compute the transformation. |
 
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/list2ragged.py
@@ -961,7 +973,7 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/list2padded.py
 <inline-list>
 
 - **Input:** <ndarray>Ragged</ndarray>
-- **Output:** <ndarray>List[Floats2d]</ndarray>
+- **Output:** <ndarray>List[ArrayXd]</ndarray>
 
 </inline-list>
 
@@ -969,7 +981,7 @@ Transform sequences from a ragged format into lists.
 
 | Argument    | Type                                   | Description                              |
 | ----------- | -------------------------------------- | ---------------------------------------- |
-| **RETURNS** | <tt>Model[Ragged, List[Floats2d]]</tt> | The layer to compute the transformation. |
+| **RETURNS** | <tt>Model[Ragged, List[ArrayXd]]</tt> | The layer to compute the transformation. |
 
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/ragged2list.py
@@ -980,7 +992,7 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/ragged2list.py
 <inline-list>
 
 - **Input:** <ndarray>Padded</ndarray>
-- **Output:** <ndarray>List[Array]</ndarray>
+- **Output:** <ndarray>List[Array2d]</ndarray>
 
 </inline-list>
 
@@ -989,7 +1001,7 @@ of arrays.
 
 | Argument    | Type                                | Description                              |
 | ----------- | ----------------------------------- | ---------------------------------------- |
-| **RETURNS** | <tt>Model[Padded, List[Array]]</tt> | The layer to compute the transformation. |
+| **RETURNS** | <tt>Model[Padded, List[Array2d]]</tt> | The layer to compute the transformation. |
 
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/padded2list.py
@@ -1053,7 +1065,7 @@ input is an array, it is passed through unchanged.
 
 | Argument       | Type                             | Description                   |
 | -------------- | -------------------------------- | ----------------------------- |
-| `layer`        | <tt>Model[Array2d, Array2d]</tt> | The layer to wrap.            |
+| `layer`        | <tt>Model[ArrayXd, ArrayXd]</tt> | The layer to wrap.            |
 | _keyword-only_ |                                  |                               |
 | `pad`          | <tt>int</tt>                     | The padding. Defaults to `0`. |
 | **RETURNS**    | <tt>Model</tt>                   | The wrapped layer.            |
@@ -1093,17 +1105,17 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/with_array.py
 <inline-list>
 
 - **Input:** <tt>Sequence[Sequence[Any]]</tt>
-- **Output:** <tt>List[Array2d]</tt>
+- **Output:** <tt>List[ArrayXd]</tt>
 
 </inline-list>
 
 Flatten nested inputs on the way into a layer and reverse the transformation
 over the outputs.
 
-| Argument    | Type           | Description        |
-| ----------- | -------------- | ------------------ |
-| `layer`     | <tt>Model</tt> | The layer to wrap. |
-| **RETURNS** | <tt>Model</tt> | The wrapped layer. |
+| Argument    | Type                                                              | Description        |
+| ----------- | --------------................................................... | ------------------ |
+| `layer`     | <tt>Model[Sequence[Sequence[Any]], Sequence[Sequence[Any]]]</tt>  | The layer to wrap. |
+| **RETURNS** | <tt>Model[List[ArrayXd], List[ArrayXd]]</tt> | The wrapped layer. |
 
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/with_flatten.py
@@ -1134,7 +1146,7 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/with_padded.py
 
 <inline-list>
 
-- **Input / output:** <tt>Union[Padded, Ragged, List[Array2d], Floats3d,
+- **Input / output:** <tt>Union[Padded, Ragged, List[ArrayXd], Floats3d,
   Tuple[Floats2d, Ints1d]]</tt>
 
 </inline-list>

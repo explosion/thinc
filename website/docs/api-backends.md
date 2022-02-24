@@ -273,11 +273,11 @@ Perform padding on a list of arrays so that they each have the same length, by
 taking the maximum dimension across each axis. This only works on non-empty
 sequences with the same `ndim` and `dtype`.
 
-| Argument    | Type                   | Description                                                                                      |
-| ----------- | ---------------------- | ------------------------------------------------------------------------------------------------ |
-| `seqs`      | <tt>List[Array2d]</tt> | The sequences to pad.                                                                            |
-| `round_to`  | <tt>int</tt>           | Round the length to nearest bucket (helps on GPU, to make similar array sizes). Defaults to `1`. |
-| **RETURNS** | <tt>Array3d</tt>       | The padded sequences, stored in one array.                                                       |
+| Argument    | Type                                                    | Description                                                                                      |
+| ----------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `seqs`      | <tt>List[Array1d] / List[Array2d] / List[Array3d] </tt> | The sequences to pad.                                                                            |
+| `round_to`  | <tt>int</tt>                                            | Round the length to nearest bucket (helps on GPU, to make similar array sizes). Defaults to `1`. |
+| **RETURNS** | <tt>Array2d / Array3d / Array4d </tt>                   | The padded sequences, stored in one array.                                                       |
 
 ### Ops.unpad {#unpad tag="method"}
 
@@ -292,11 +292,11 @@ sequences with the same `ndim` and `dtype`.
 The reverse/backward operation of the `pad` function: transform an array back
 into a list of arrays, each with their original length.
 
-| Argument    | Type                   | Description                                     |
-| ----------- | ---------------------- | ----------------------------------------------- |
-| `padded`    | <tt>ArrayXd</tt>       | The padded sequences, stored in one array.      |
-| `lengths`   | <tt>List[int]</tt>     | The original lengths of the unpadded sequences. |
-| **RETURNS** | <tt>List[ArrayXd]</tt> | The unpadded sequences.                         |
+| Argument    | Type                                                    | Description                                     |
+| ----------- | ------------------------------------------------------- | ----------------------------------------------- |
+| `padded`    | <tt>Array2d / Array3d / Array4d</tt>                    | The padded sequences, stored in one array.      |
+| `lengths`   | <tt>List[int]</tt>                                      | The original lengths of the unpadded sequences. |
+| **RETURNS** | <tt>List[Array1d] / List[Array2d] / List[Array3d] </tt> | The unpadded sequences.                         |
 
 ### Ops.list2padded {#list2padded tag="method"}
 

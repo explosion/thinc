@@ -6,7 +6,7 @@ from ..types import ArrayXd
 
 
 ItemT = TypeVar("ItemT")
-InT = Sequence[ItemT]
+InT = Sequence[Sequence[ItemT]]
 OutT_member_co = TypeVar("OutT_member_co", bound=ArrayXd, covariant=True)
 OutT = List[OutT_member_co]
 

@@ -3,10 +3,10 @@ import numpy
 
 from ..model import Model
 from ..config import registry
-from ..types import Ints2d, Floats2d
+from ..types import Array2d, Floats2d
 
 
-InT = Ints2d
+InT = Array2d
 OutT = Floats2d
 
 
