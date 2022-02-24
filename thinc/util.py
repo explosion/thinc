@@ -214,10 +214,7 @@ def to_categorical(
         n_classes = int(numpy.max(Y) + 1)  # type: ignore
     label_distr = xp.full((n_classes, n_classes), label_smoothing / (n_classes - 1))
     xp.fill_diagonal(label_distr, 1 - label_smoothing)
-    if Y.dtype.itemsize == 4:  # type: ignore
-        label_distr = label_distr.astype('float32')
-    else:
-        label_distr = label_distr.astype('float64')
+    label_distr = label_distr.astype('float32')
     return label_distr[Y]
 
 
