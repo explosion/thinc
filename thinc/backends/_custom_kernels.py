@@ -423,7 +423,7 @@ def _check_lengths(lengths, n_elems: int):
     if not cupy.all(lengths >= 0):
         raise ValueError("all sequence lengths must be >= 0")
     if cupy.sum(lengths) != n_elems:
-        raise ValueError("lengths must sum up to the batch size")
+        raise IndexError("lengths must sum up to the batch size")
 
 
 def _check_which_maxout(which, B: int, I: int, P: int):
@@ -435,7 +435,7 @@ def _check_which_maxout(which, B: int, I: int, P: int):
         msg = f"maximum index (which) has incorrect shape, expected: {shape}, was: {which.shape}"
         raise ValueError(msg)
     if not cupy.all((which >= 0) & (which < P)):
-        raise ValueError("maximum index (which) value out of bounds")
+        raise IndexError("maximum index (which) value out of bounds")
 
 
 def _check_which_reduce_max(which, shape: Tuple, lengths):
@@ -446,4 +446,4 @@ def _check_which_reduce_max(which, shape: Tuple, lengths):
         msg = f"maximum index (which) has incorrect shape, expected: {shape}, was: {which.shape}"
         raise ValueError(msg)
     if not cupy.all((which >= 0) & (which < cupy.expand_dims(lengths, -1))):
-        raise ValueError("maximum index (which) value out of bounds")
+        raise IndexError("maximum index (which) value out of bounds")
