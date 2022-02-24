@@ -54,8 +54,10 @@ class PyTorchShim(Shim):
         if CupyOps.xp is not None and isinstance(get_current_ops(), CupyOps):
             pools = context_pools.get()
             if "pytorch" not in pools:
+                from cupy import get_default_memory_pool
+
                 set_gpu_allocator("pytorch")
-                cupy.get_default_memory_pool().free_all_blocks()
+                get_default_memory_pool().free_all_blocks()
 
     def __call__(self, inputs, is_train):
         if is_train:
