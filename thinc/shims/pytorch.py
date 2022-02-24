@@ -55,6 +55,7 @@ class PyTorchShim(Shim):
             pools = context_pools.get()
             if "pytorch" not in pools:
                 set_gpu_allocator("pytorch")
+                cupy.get_default_memory_pool().free_all_blocks()
 
     def __call__(self, inputs, is_train):
         if is_train:
