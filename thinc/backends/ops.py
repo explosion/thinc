@@ -13,7 +13,7 @@ from ..types import (
     ArrayXd,
 )
 from ..types import Floats1d, Floats2d, Floats3d, Floats4d, FloatsXd, _Floats
-from ..types import Ints1d, Ints2d, Ints3d, Ints4d, IntsXd, List2d
+from ..types import Ints1d, Ints2d, Ints3d, Ints4d, IntsXd
 from ..types import Xp, Shape, DTypes, DTypesInt, DTypesFloat
 from ..types import DeviceTypes, Generator, Padded, Batchable, SizedGenerator
 from ..util import get_array_module, is_xp_array, to_numpy
@@ -26,29 +26,11 @@ ArrayT2d_co = TypeVar(
 ArrayT = TypeVar("ArrayT", bound=ArrayXd)
 ArrayTXd = TypeVar(
     "ArrayTXd",
-    bound=Union[
-        "Floats1d",
-        "Floats2d",
-        "Floats3d",
-        "Floats4d",
-        "Ints1d",
-        "Ints2d",
-        "Ints3d",
-        "Ints4d",
-    ],
+    bound=ArrayXd,
 )
 ArrayTXd_co = TypeVar(
     "ArrayTXd_co",
-    bound=Union[
-        "Floats1d",
-        "Floats2d",
-        "Floats3d",
-        "Floats4d",
-        "Ints1d",
-        "Ints2d",
-        "Ints3d",
-        "Ints4d",
-    ],
+    bound=ArrayXd,
     covariant=True,
 )
 ArrayTXNotMind = TypeVar(
