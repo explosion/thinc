@@ -9,13 +9,14 @@ from ..util import get_width
 LayerT = TypeVar("LayerT")
 SimT = TypeVar("SimT")
 InT = Tuple[LayerT, LayerT]
-OutT = ArrayXd
+OutT = TypeVar("OutT", bound=ArrayXd)
+OutT_co = TypeVar("OutT_co", bound=ArrayXd, covariant=True)
 
 
 @registry.layers("siamese.v1")
 def siamese(
-    layer: Model[LayerT, SimT], similarity: Model[Tuple[SimT, SimT], OutT]
-) -> Model[InT, OutT]:
+    layer: Model[LayerT, SimT], similarity: Model[Tuple[SimT, SimT], OutT_co]
+) -> Model[InT, OutT_co]:
     return Model(
         f"siamese({layer.name}, {similarity.name})",
         forward,
@@ -26,8 +27,8 @@ def siamese(
 
 
 def forward(
-    model: Model[InT, OutT], X1_X2: InT, is_train: bool
-) -> Tuple[OutT, Callable]:
+    model: Model[InT, OutT_co], X1_X2: InT, is_train: bool
+) -> Tuple[OutT_co, Callable]:
     X1, X2 = X1_X2
     vec1, bp_vec1 = model.layers[0](X1, is_train)
     vec2, bp_vec2 = model.layers[0](X2, is_train)

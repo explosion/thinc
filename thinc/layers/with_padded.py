@@ -7,9 +7,13 @@ from ..util import is_xp_array
 
 
 PaddedData = Tuple[Floats3d, Ints1d, Ints1d, Ints1d]
-SeqT = TypeVar("SeqT", bound=Union[Padded, Ragged, List2d, PaddedData, Floats3d])
+SeqT = TypeVar(
+    "SeqT", bound=Union[Padded, Ragged, List2d, List[Array2d], PaddedData, Floats3d]
+)
 SeqT_co = TypeVar(
-    "SeqT_co", bound=Union[Padded, Ragged, List2d, PaddedData, Floats3d], covariant=True
+    "SeqT_co",
+    bound=Union[Padded, Ragged, List2d, List[Array2d], PaddedData, Floats3d],
+    covariant=True,
 )
 
 

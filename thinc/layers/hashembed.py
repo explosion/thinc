@@ -1,4 +1,4 @@
-from typing import Callable, Dict, Tuple, Optional, Any, Union, cast
+from typing import Callable, Dict, Tuple, Optional, Any, Union, cast, TypeVar
 
 from .chain import chain
 from .array_getitem import ints_getitem
@@ -9,7 +9,7 @@ from ..initializers import uniform_init
 from ..util import partial
 
 
-InT = Union[Ints2d, Ints1d]
+InT = Ints1d
 OutT = Floats2d
 
 

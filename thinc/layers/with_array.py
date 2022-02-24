@@ -2,13 +2,62 @@ from typing import Tuple, Callable, Optional, TypeVar, Union, cast, List
 
 from ..model import Model
 from ..config import registry
-from ..types import Array2d, Padded, Ragged, ArrayXd, Array3d
-from ..types import List2d
+from ..types import (
+    Padded,
+    Ragged,
+    ArrayXd,
+    Array3d,
+    Floats1d,
+    Floats2d,
+    Floats3d,
+    Floats4d,
+    FloatsXd,
+    Ints1d,
+    Ints2d,
+    Ints3d,
+    Ints4d,
+    IntsXd,
+)
 
 ArrayXd_co = TypeVar("ArrayXd_co", bound=ArrayXd, covariant=True)
-SeqT = TypeVar("SeqT", bound=Union[Padded, Ragged, List2d, ArrayXd])
+SeqT = TypeVar(
+    "SeqT",
+    bound=Union[
+        Padded,
+        Ragged,
+        List[ArrayXd],
+        List[Floats1d],
+        List[Floats2d],
+        List[Floats3d],
+        List[Floats4d],
+        List[FloatsXd],
+        List[Ints1d],
+        List[Ints2d],
+        List[Ints3d],
+        List[Ints4d],
+        List[IntsXd],
+        ArrayXd,
+    ],
+)
 SeqT_co = TypeVar(
-    "SeqT_co", bound=Union[Padded, Ragged, List2d, ArrayXd], covariant=True
+    "SeqT_co",
+    bound=Union[
+        Padded,
+        Ragged,
+        List[ArrayXd],
+        List[Floats1d],
+        List[Floats2d],
+        List[Floats3d],
+        List[Floats4d],
+        List[FloatsXd],
+        List[Ints1d],
+        List[Ints2d],
+        List[Ints3d],
+        List[Ints4d],
+        List[IntsXd],
+        ArrayXd,
+    ],
+    covariant=True,
 )
 
 
@@ -46,7 +95,7 @@ def forward(
         return model.layers[0](Xseq, is_train)
     else:
         return _list_forward(
-            cast(Model[List[Array2d], List[Array2d]], model), Xseq, is_train
+            cast(Model[List[ArrayXd], List[ArrayXd]], model), Xseq, is_train
         )
 
 
@@ -76,7 +125,7 @@ def _get_array(model, X: SeqT) -> ArrayXd:
 
 
 def _list_forward(
-    model: Model[List[Array2d], List[Array2d]], Xs: List[Array2d], is_train: bool
+    model: Model[List[ArrayXd], List[ArrayXd]], Xs: List[ArrayXd], is_train: bool
 ) -> Tuple[SeqT, Callable]:
     layer = model.layers[0]
     pad = model.attrs["pad"]
@@ -84,10 +133,10 @@ def _list_forward(
     Xf = layer.ops.flatten(Xs, pad=pad)
     Yf, get_dXf = layer(Xf, is_train)
 
-    def backprop(dYs: List[Array2d]) -> List[Array2d]:
+    def backprop(dYs: List[ArrayXd]) -> List[ArrayXd]:
         dYf = layer.ops.flatten(dYs, pad=pad)
         dXf = get_dXf(dYf)
-        return cast(List[Array2d], layer.ops.unflatten(dXf, lengths, pad=pad))
+        return cast(List[ArrayXd], layer.ops.unflatten(dXf, lengths, pad=pad))
 
     return cast(SeqT, layer.ops.unflatten(Yf, lengths, pad=pad)), backprop
 

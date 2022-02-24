@@ -4,28 +4,28 @@ from ..model import Model
 from ..config import registry
 from ..types import Floats2d, Ragged
 
-
-InT = TypeVar("InT", Floats2d, Ragged)
+InT = TypeVar("InT", bound=Union[Floats2d, Ragged])
+InT_co = TypeVar("InT_co", bound=Union[Floats2d, Ragged], covariant=True)
 
 
 @registry.layers("expand_window.v1")
-def expand_window(window_size: int = 1) -> Model[InT, InT]:
+def expand_window(window_size: int = 1) -> Model[InT_co, InT_co]:
     """For each vector in an input, construct an output vector that contains the
     input and a window of surrounding vectors. This is one step in a convolution.
     """
     return Model("expand_window", forward, attrs={"window_size": window_size})
 
 
-def forward(model: Model[InT, InT], X: InT, is_train: bool) -> Tuple[InT, Callable]:
+def forward(
+    model: Model[InT_co, InT_co], X: InT, is_train: bool
+) -> Tuple[InT_co, Callable]:
     if isinstance(X, Ragged):
         return _expand_window_ragged(model, X)
     else:
-        return _expand_window_floats(model, X)
+        return _expand_window_floats(model, cast(Floats2d, X))
 
 
-def _expand_window_floats(
-    model: Model[Floats2d, Floats2d], X: Floats2d
-) -> Tuple[Floats2d, Callable]:
+def _expand_window_floats(model: Model[InT, InT], X: Floats2d) -> Tuple[InT, Callable]:
     nW = model.attrs["window_size"]
     if len(X) > 0:
         Y = model.ops.seq2col(X, nW)
@@ -36,12 +36,10 @@ def _expand_window_floats(
     def backprop(dY: Floats2d) -> Floats2d:
         return model.ops.backprop_seq2col(dY, nW)
 
-    return Y, backprop
+    return cast(InT, Y), backprop
 
 
-def _expand_window_ragged(
-    model: Model[Ragged, Ragged], Xr: Ragged
-) -> Tuple[Ragged, Callable]:
+def _expand_window_ragged(model: Model[InT, InT], Xr: Ragged) -> Tuple[InT, Callable]:
     nW = model.attrs["window_size"]
     Y = Ragged(
         model.ops.seq2col(cast(Floats2d, Xr.data), nW, lengths=Xr.lengths), Xr.lengths
@@ -55,4 +53,4 @@ def _expand_window_ragged(
             Xr.lengths,
         )
 
-    return Y, backprop
+    return cast(InT, Y), backprop

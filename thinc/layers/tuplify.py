@@ -1,11 +1,10 @@
-from typing import Callable, Optional, Tuple, Any, TypeVar
+from typing import Optional, Tuple, Any, TypeVar
 
 from ..model import Model
 from ..config import registry
 
 InT = TypeVar("InT")
 OutT = Tuple
-MidT = TypeVar("MidT")
 
 
 @registry.layers("tuplify.v1")

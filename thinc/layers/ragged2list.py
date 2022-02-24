@@ -1,14 +1,13 @@
-from typing import Tuple, Callable, List, cast
-
-from thinc.backends.ops import ArrayTXd
+from typing import Tuple, Callable, List, TypeVar
 
 from ..model import Model
 from ..config import registry
-from ..types import Ragged, ArrayTXd
+from ..types import Ragged, ArrayXd
 
 
 InT = Ragged
-OutT = List[ArrayTXd]
+OutT_member_co = TypeVar("OutT_member_co", bound=ArrayXd, covariant=True)
+OutT = List[OutT_member_co]
 
 
 @registry.layers("ragged2list.v1")

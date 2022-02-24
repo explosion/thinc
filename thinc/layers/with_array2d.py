@@ -2,19 +2,25 @@ from typing import Tuple, Callable, Optional, TypeVar, Union, cast, List
 
 from ..model import Model
 from ..config import registry
-from ..types import Array2d, Floats2d, Padded, Ragged, ArrayXd
-from ..types import List2d
+from ..types import Array2d, Floats2d, Ints2d, Padded, Ragged
 
 
-ValT = TypeVar("ValT", bound=Array2d)
-SeqT = TypeVar("SeqT", bound=Union[Padded, Ragged, List2d, Array2d])
+ValT_co = TypeVar("ValT_co", bound=Array2d, covariant=True)
+SeqT = TypeVar(
+    "SeqT",
+    bound=Union[Padded, Ragged, List[Array2d], List[Ints2d], List[Floats2d], Array2d],
+)
 SeqT_co = TypeVar(
-    "SeqT_co", bound=Union[Padded, Ragged, List2d, ArrayXd], covariant=True
+    "SeqT_co",
+    bound=Union[Padded, Ragged, List[Array2d], List[Ints2d], List[Floats2d], Array2d],
+    covariant=True,
 )
 
 
 @registry.layers("with_array2d.v1")
-def with_array2d(layer: Model[ValT, ValT], pad: int = 0) -> Model[SeqT_co, SeqT_co]:
+def with_array2d(
+    layer: Model[ValT_co, ValT_co], pad: int = 0
+) -> Model[SeqT_co, SeqT_co]:
     """Transform sequence data into a contiguous 2d array on the way into and
     out of a model. Handles a variety of sequence types: lists, padded and ragged.
     If the input is a 2d array, it is passed through unchanged.
@@ -95,7 +101,7 @@ def _list_forward(
 def _ragged_forward(
     model: Model[Ragged, Ragged], Xr: Ragged, is_train: bool
 ) -> Tuple[SeqT, Callable]:
-    layer: Model[Array2d, ArrayXd] = model.layers[0]
+    layer: Model[Array2d, Array2d] = model.layers[0]
     Y, get_dX = layer(Xr.data, is_train)
     x_shape = Xr.dataXd.shape
 

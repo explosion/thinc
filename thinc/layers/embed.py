@@ -4,12 +4,12 @@ from .chain import chain
 from .array_getitem import ints_getitem
 from ..model import Model
 from ..config import registry
-from ..types import Ints1d, Ints2d, Floats1d, Floats2d
+from ..types import Ints1d, Floats1d, Floats2d
 from ..initializers import uniform_init
 from ..util import get_width, partial
 
 
-InT = Union[Ints1d, Ints2d]
+InT = Ints1d
 OutT = Floats2d
 
 

@@ -4,9 +4,11 @@ from ..types import Padded, Ragged, Floats2d, List2d, Array2d
 from ..model import Model
 from ..config import registry
 
-List2d_co = TypeVar("List2d_co", bound=List2d, covariant=True)
-SeqT = TypeVar("SeqT", bound=Union[Padded, Ragged, List2d])
-SeqT_co = TypeVar("SeqT_co", bound=Union[Padded, Ragged, List2d], covariant=True)
+List2d_co = TypeVar("List2d_co", bound=Union[List2d, List[Array2d]], covariant=True)
+SeqT = TypeVar("SeqT", bound=Union[Padded, Ragged, List2d, List[Array2d]])
+SeqT_co = TypeVar(
+    "SeqT_co", bound=Union[Padded, Ragged, List2d, List[Array2d]], covariant=True
+)
 
 
 @registry.layers("with_list.v1")

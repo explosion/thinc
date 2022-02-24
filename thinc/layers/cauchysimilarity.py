@@ -30,7 +30,7 @@ def forward(
     X1, X2 = X1_X2
     W = cast(Floats2d, model.get_param("W"))
     diff = X1 - X2
-    square_diff = diff ** 2
+    square_diff = diff**2
     total = (W * square_diff).sum(axis=1)  # type: ignore
     sim, bp_sim = inverse(total)
 

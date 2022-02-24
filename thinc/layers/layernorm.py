@@ -17,7 +17,7 @@ def LayerNorm(nI: Optional[int] = None) -> Model[InT, InT]:
         forward,
         init=init,
         dims={"nI": nI, "nO": nI},
-        params={"G": None, "b": None}
+        params={"G": None, "b": None},
     )
 
 

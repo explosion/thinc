@@ -1,12 +1,64 @@
-from typing import Tuple, Callable, Optional, TypeVar, cast, List
+from typing import Tuple, Callable, Optional, TypeVar, cast, List, Union
 
-from ..types import Padded, Ragged, Ints1d, Array2d, ListXd
+from ..types import (
+    Padded,
+    Ragged,
+    Ints1d,
+    Array2d,
+    ListXd,
+    Floats1d,
+    Floats2d,
+    Floats3d,
+    Floats4d,
+    FloatsXd,
+    Ints2d,
+    Ints3d,
+    Ints4d,
+    IntsXd,
+)
 from ..model import Model
 from ..config import registry
 
 RaggedData = Tuple[Array2d, Ints1d]
-SeqT = TypeVar("SeqT", Padded, Ragged, ListXd, RaggedData)
-SeqT_co = TypeVar("SeqT_co", Padded, Ragged, ListXd, RaggedData, covariant=True)
+SeqT = TypeVar(
+    "SeqT",
+    bound=Union[
+        Padded,
+        Ragged,
+        ListXd,
+        List[Floats1d],
+        List[Floats2d],
+        List[Floats3d],
+        List[Floats4d],
+        List[FloatsXd],
+        List[Ints1d],
+        List[Ints2d],
+        List[Ints3d],
+        List[Ints4d],
+        List[IntsXd],
+        RaggedData,
+    ],
+)
+SeqT_co = TypeVar(
+    "SeqT_co",
+    bound=Union[
+        Padded,
+        Ragged,
+        ListXd,
+        List[Floats1d],
+        List[Floats2d],
+        List[Floats3d],
+        List[Floats4d],
+        List[FloatsXd],
+        List[Ints1d],
+        List[Ints2d],
+        List[Ints3d],
+        List[Ints4d],
+        List[IntsXd],
+        RaggedData,
+    ],
+    covariant=True,
+)
 
 
 @registry.layers("with_ragged.v1")
@@ -18,10 +70,10 @@ def forward(
     model: Model[SeqT_co, SeqT_co], Xseq: SeqT, is_train: bool
 ) -> Tuple[SeqT, Callable]:
     layer: Model[Ragged, Ragged] = model.layers[0]
-    Y: SeqT
+    Y: SeqT_co
     if isinstance(Xseq, Ragged):
         ragged_Y, backprop = layer(Xseq, is_train)
-        Y = cast(SeqT, ragged_Y)
+        Y = cast(SeqT_co, ragged_Y)
     elif isinstance(Xseq, Padded):
         Y, backprop = _padded_forward(layer, cast(Padded, Xseq), is_train)
     elif _is_ragged_data(Xseq):
@@ -32,7 +84,9 @@ def forward(
 
 
 def init(
-    model: Model[SeqT_co, SeqT_co], X: Optional[SeqT] = None, Y: Optional[SeqT] = None
+    model: Model[SeqT_co, SeqT_co],
+    X: Optional[SeqT_co] = None,
+    Y: Optional[SeqT_co] = None,
 ) -> None:
     model.layers[0].initialize(
         X=_get_ragged(model, X) if X is not None else None,
@@ -95,7 +149,10 @@ def _padded_forward(
         dXr = get_dXr(Ragged(flattened, lengths))
         return list2padded(cast(List[Array2d], unflatten(dXr.data, lengths)))
 
-    return cast(SeqT, list2padded(cast(List[Array2d], unflatten(Yr.data, Yr.lengths)))), backprop
+    return (
+        cast(SeqT, list2padded(cast(List[Array2d], unflatten(Yr.data, Yr.lengths)))),
+        backprop,
+    )
 
 
 def _list_forward(

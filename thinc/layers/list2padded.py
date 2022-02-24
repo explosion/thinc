@@ -1,16 +1,17 @@
-from typing import Tuple, Callable
+from typing import Tuple, Callable, TypeVar, List, Union
 
-from ..types import Padded, List2d
+from ..types import Padded, List2d, Array2d
 from ..model import Model
 from ..config import registry
 
 
 InT = List2d
+InT_co = TypeVar("InT_co", bound=Union[List2d, List[Array2d]], covariant=True)
 OutT = Padded
 
 
 @registry.layers("list2padded.v1")
-def list2padded() -> Model[InT, OutT]:
+def list2padded() -> Model[InT_co, OutT]:
     """Create a layer to convert a list of array inputs into Padded."""
     return Model(f"list2padded", forward)
 

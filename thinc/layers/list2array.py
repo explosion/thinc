@@ -1,16 +1,17 @@
-from typing import Tuple, Callable
+from typing import Tuple, Callable, TypeVar, List, Union
 
 from ..model import Model
 from ..config import registry
-from ..types import Array2d, List2d
+from ..types import Array2d, List2d, Array2d
 
 
 InT = List2d
+InT_co = TypeVar("InT_co", bound=Union[List2d, List[Array2d]], covariant=True)
 OutT = Array2d
 
 
 @registry.layers("list2array.v1")
-def list2array() -> Model[InT, OutT]:
+def list2array() -> Model[InT_co, OutT]:
     """Transform sequences to ragged arrays if necessary and return the data
     from the ragged array. If sequences are already ragged, do nothing. A
     ragged array is a tuple (data, lengths), where data is the concatenated data.
