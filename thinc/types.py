@@ -36,19 +36,8 @@ Array2d = Union["Floats2d", "Ints2d"]
 Array3d = Union["Floats3d", "Ints3d"]
 Array4d = Union["Floats4d", "Ints4d"]
 FloatsXd = Union["Floats1d", "Floats2d", "Floats3d", "Floats4d"]
-FloatsXNotMaxd = Union["Floats1d", "Floats2d", "Floats3d"]
-FloatsXNotMind = Union["Floats2d", "Floats3d", "Floats4d"]
 IntsXd = Union["Ints1d", "Ints2d", "Ints3d", "Ints4d"]
-IntsXNotMaxd = Union["Ints1d", "Ints2d", "Ints3d"]
-IntsXNotMind = Union["Ints2d", "Ints3d", "Ints4d"]
 ArrayXd = Union[FloatsXd, IntsXd]
-ArrayTXd = TypeVar(
-    "ArrayTXd",
-    bound=
-    Union["Floats1d", "Floats2d", "Floats3d", "Floats4d", "Ints1d", "Ints2d", "Ints3d", "Ints4d"],
-)
-ArrayXNotMaxd = Union[FloatsXNotMaxd, IntsXNotMaxd]
-ArrayXNotMind = Union[FloatsXNotMind, IntsXNotMind]
 List1d = Union[List["Floats1d"], List["Ints1d"]]
 List2d = Union[List["Floats2d"], List["Ints2d"]]
 List3d = Union[List["Floats3d"], List["Ints3d"]]

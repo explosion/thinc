@@ -11,23 +11,44 @@ from ..types import (
     Array3d,
     Array4d,
     ArrayXd,
-    ArrayXNotMind,
 )
 from ..types import Floats1d, Floats2d, Floats3d, Floats4d, FloatsXd, _Floats
 from ..types import Ints1d, Ints2d, Ints3d, Ints4d, IntsXd, List2d
-from ..types import Xp, Shape, DTypes, DTypesInt, DTypesFloat, ArrayTXd
+from ..types import Xp, Shape, DTypes, DTypesInt, DTypesFloat
 from ..types import DeviceTypes, Generator, Padded, Batchable, SizedGenerator
 from ..util import get_array_module, is_xp_array, to_numpy
 
 
 ArrayT2d = TypeVar("ArrayT2d", bound=Union[Floats2d, Ints2d, Array2d])
-ArrayT2d_co = TypeVar("ArrayT2d_co", bound=Union[Floats2d, Ints2d, Array2d], covariant=True)
+ArrayT2d_co = TypeVar(
+    "ArrayT2d_co", bound=Union[Floats2d, Ints2d, Array2d], covariant=True
+)
 ArrayT = TypeVar("ArrayT", bound=ArrayXd)
+ArrayTXd = TypeVar(
+    "ArrayTXd",
+    bound=Union[
+        "Floats1d",
+        "Floats2d",
+        "Floats3d",
+        "Floats4d",
+        "Ints1d",
+        "Ints2d",
+        "Ints3d",
+        "Ints4d",
+    ],
+)
+ArrayTXNotMind = TypeVar(
+    "ArrayTXNotMind", bound=Union[Floats2d, Floats3d, Floats4d, Ints2d, Ints3d, Ints4d]
+)
+ArrayTXNotMaxd = TypeVar(
+    "ArrayTXNotMaxd", bound=Union[Floats1d, Floats2d, Floats3d, Ints1d, Ints2d, Ints3d]
+)
 ArrayTXNotMaxd_co = TypeVar(
     "ArrayTXNotMaxd_co",
     bound=Union[Floats1d, Floats2d, Floats3d, Ints1d, Ints2d, Ints3d],
     covariant=True,
 )
+
 
 FloatsT = TypeVar("FloatsT", bound=_Floats)
 FloatsType = TypeVar("FloatsType", bound=FloatsXd)
@@ -276,16 +297,16 @@ class Ops:
         for length in lengths:
             length = int(length)
             if pad >= 1 and length != 0:
-                X = X[pad:] #type: ignore[assignment]
+                X = X[pad:]  # type: ignore[assignment]
             unflat.append(X[:length])
-            X = X[length:] #type: ignore[assignment]
+            X = X[length:]  # type: ignore[assignment]
         if pad >= 1:
-            X = X[pad:] #type: ignore[assignment]
+            X = X[pad:]  # type: ignore[assignment]
         assert len(X) == 0
         assert len(unflat) == len(lengths)
         return cast(List[ArrayTXd], unflat)
 
-    def pad(self, seqs: List[ArrayTXNotMaxd_co], round_to=1) -> ArrayXNotMind:
+    def pad(self, seqs: List[ArrayTXNotMaxd_co], round_to=1) -> ArrayTXNotMind:
         """Perform padding on a list of arrays so that they each have the same
         length, by taking the maximum dimension across each axis. This only
         works on non-empty sequences with the same `ndim` and `dtype`.
@@ -304,14 +325,14 @@ class Ops:
         # array sizes.
         length = (length + (round_to - 1)) // round_to * round_to
         final_shape = (len(seqs), length) + seqs[0].shape[1:]
-        output: ArrayXNotMind = self.alloc(final_shape, dtype=seqs[0].dtype)
+        output: ArrayTXNotMind = self.alloc(final_shape, dtype=seqs[0].dtype)
         for i, arr in enumerate(seqs):
             # It's difficult to convince this that the dtypes will match.
             output[i, : arr.shape[0]] = arr  # type: ignore
         return output
 
     def unpad(
-        self, padded: ArrayXNotMind, lengths: List[int]
+        self, padded: ArrayTXNotMind, lengths: List[int]
     ) -> List[ArrayTXNotMaxd_co]:
         """The reverse/backward operation of the `pad` function: transform an
         array back into a list of arrays, each with their original length.

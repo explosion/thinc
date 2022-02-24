@@ -2,11 +2,11 @@ from typing import Tuple, List, Callable, TypeVar
 
 from ..model import Model
 from ..config import registry
-from ..types import ArrayXd, ArrayTXd, Ragged
+from ..types import ArrayXd, Ragged
 
 
-InT = List[ArrayTXd]
 InT_member_co = TypeVar("InT_member_co", bound=ArrayXd, covariant=True)
+InT = List[InT_member_co]
 OutT = Ragged
 
 
