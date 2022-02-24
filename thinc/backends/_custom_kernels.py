@@ -434,8 +434,23 @@ def _check_which_maxout(which, B: int, I: int, P: int):
     if which.shape != shape:
         msg = f"maximum index (which) has incorrect shape, expected: {shape}, was: {which.shape}"
         raise ValueError(msg)
-    if not cupy.all((which >= 0) & (which < P)):
+    if not _values_within_range(which, 0, P):
         raise IndexError("maximum index (which) value out of bounds")
+
+
+_values_within_range = (
+    cupy.ReductionKernel(
+        "T x, T lower, T upper",
+        "bool r",
+        "x >= lower && x < upper",
+        "a & b",
+        "r = a",
+        "true",
+        "within_range",
+    )
+    if cupy is not None
+    else None
+)
 
 
 def _check_which_reduce_max(which, shape: Tuple, lengths):
