@@ -76,7 +76,6 @@ jobs:
     displayName: 'Build sdist'
 
   - script: |
-      python -m pip install mypy==0.910
       python -m mypy thinc
     displayName: 'Run mypy'
 
