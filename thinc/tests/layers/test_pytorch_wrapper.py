@@ -1,6 +1,7 @@
 from thinc.api import Linear, SGD, PyTorchWrapper, PyTorchWrapper_v2
 from thinc.api import xp2torch, torch2xp, ArgsKwargs, use_ops
 from thinc.api import chain, get_current_ops, Relu
+from thinc.backends import context_pools
 from thinc.shims.pytorch_grad_scaler import PyTorchGradScaler
 from thinc.util import has_torch, has_torch_amp, has_torch_gpu
 import numpy
@@ -76,15 +77,15 @@ def test_pytorch_wrapper_thinc_input(nN, nI, nO, mixed_precision):
         torch.nn.init.uniform_(pytorch_layer.weight, 9.0, 11.0)
         # Warns because the GPU allocator is not set (there's no way to unset
         # it, so test only for the consistent unset case)
-        with pytest.warns(UserWarning):
-            model = chain(
-                Relu(),
-                PyTorchWrapper_v2(
-                    pytorch_layer.cuda(),
-                    mixed_precision=mixed_precision,
-                    grad_scaler=PyTorchGradScaler(enabled=True, init_scale=2.0 ** 16),
-                ).initialize(),
-            )
+        model = chain(
+            Relu(),
+            PyTorchWrapper_v2(
+                pytorch_layer.cuda(),
+                mixed_precision=mixed_precision,
+                grad_scaler=PyTorchGradScaler(enabled=True, init_scale=2.0 ** 16),
+            ).initialize(),
+        )
+        assert "pytorch" in context_pools.get()
         sgd = SGD(0.001)
         X = ops.xp.zeros((nN, nI), dtype="f")
         X += ops.xp.random.uniform(size=X.size).reshape(X.shape)
