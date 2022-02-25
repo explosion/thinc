@@ -1,5 +1,5 @@
 from typing import Any, Union, Sequence, cast, Dict, Optional, Callable, TypeVar
-from typing import List
+from typing import List, Tuple
 import numpy
 import random
 import functools
@@ -11,6 +11,7 @@ import tempfile
 import threading
 import contextlib
 from contextvars import ContextVar
+from dataclasses import dataclass
 
 DATA_VALIDATION: ContextVar[bool] = ContextVar("DATA_VALIDATION", default=False)
 
@@ -510,6 +511,8 @@ def set_torch_tensor_type_for_ops(ops):
     except ImportError:
         pass
 
+
+
 def consistent_backprop(forward):
     """Decorator to check that backprop input is consistent.
 
@@ -532,6 +535,21 @@ def consistent_backprop(forward):
 
     return wrapped_forward
 
+@dataclass
+class ArrayInfo:
+    """Container for info for checking array compatibility."""
+    shape: Tuple[int]
+    dtype: str # corresponds to dtype.name
+
+    def check_consistency(self, arr: FloatsXd):
+        if arr.shape != self.shape:
+            raise ValueError(f"Shape mismatch in backprop. Y: {self.shape}, dY: {arr.shape}")
+        if arr.dtype.name != self.dtype:
+            raise ValueError(f"Type mismatch in backprop. Y: {self.dtype}, dY: {arr.dtype.name}")
+
+#XXX is there a better way to do this?
+def create_arrayinfo(arr: FloatsXd):
+    return ArrayInfo(arr.shape, arr.dtype.name)
 
 __all__ = [
     "get_array_module",
@@ -553,4 +571,7 @@ __all__ = [
     "make_tempfile",
     "use_nvtx_range",
     "set_torch_tensor_type_for_ops",
+    "consistent_backprop",
+    "ArrayInfo",
+    "create_arrayinfo",
 ]
