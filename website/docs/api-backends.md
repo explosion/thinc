@@ -1077,7 +1077,7 @@ Set the current backend object.
 
 ### set_gpu_allocator {#set_gpu_allocator tag="function"}
 
-Set the current backend object.
+Set the CuPy GPU memory allocator.
 
 | Argument    | Type         | Description                           |
 | ----------- | ------------ | ------------------------------------- |
