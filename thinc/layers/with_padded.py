@@ -1,4 +1,4 @@
-from typing import Tuple, Callable, Optional, TypeVar, Union, cast, List, Any
+from typing import Tuple, Callable, Optional, TypeVar, Union, cast, List
 
 from ..types import Padded, Ragged, Floats3d, Ints1d, Floats2d, Array2d, List2d
 from ..model import Model
@@ -18,7 +18,7 @@ SeqT_co = TypeVar(
 
 
 @registry.layers("with_padded.v1")
-def with_padded(layer: Model[Any, Padded]) -> Model[Any, SeqT_co]:
+def with_padded(layer: Model[Padded, Padded]) -> Model[SeqT_co, SeqT_co]:
     return Model(
         f"with_padded({layer.name})",
         forward,
@@ -29,7 +29,7 @@ def with_padded(layer: Model[Any, Padded]) -> Model[Any, SeqT_co]:
 
 
 def forward(
-    model: Model[Any, SeqT_co], Xseq: SeqT, is_train: bool
+    model: Model[SeqT_co, SeqT_co], Xseq: SeqT, is_train: bool
 ) -> Tuple[SeqT, Callable]:
     layer: Model[Padded, Padded] = model.layers[0]
     Y: SeqT
@@ -48,7 +48,7 @@ def forward(
 
 
 def init(
-    model: Model[Any, SeqT_co], X: Optional[SeqT] = None, Y: Optional[SeqT] = None
+    model: Model[SeqT_co, SeqT_co], X: Optional[SeqT] = None, Y: Optional[SeqT] = None
 ) -> None:
     model.layers[0].initialize(
         X=_get_padded(model, X) if X is not None else None,
@@ -60,7 +60,7 @@ def _is_padded_data(seq: SeqT) -> bool:
     return isinstance(seq, tuple) and len(seq) == 4 and all(map(is_xp_array, seq))
 
 
-def _get_padded(model: Model[Any, SeqT_co], seq: SeqT) -> Padded:
+def _get_padded(model: Model[SeqT_co, SeqT_co], seq: SeqT) -> Padded:
     if isinstance(seq, Padded):
         return seq
     elif isinstance(seq, Ragged):
@@ -81,7 +81,7 @@ def _get_padded(model: Model[Any, SeqT_co], seq: SeqT) -> Padded:
 
 
 def _array_forward(
-    layer: Model[Any, Padded], X: Floats3d, is_train
+    layer: Model[Padded, Padded], X: Floats3d, is_train
 ) -> Tuple[SeqT, Callable]:
     # Create bogus metadata for Padded.
     Xp = _get_padded(layer, X)
@@ -99,7 +99,7 @@ def _array_forward(
 
 
 def _tuple_forward(
-    layer: Model[Any, Padded], X: PaddedData, is_train: bool
+    layer: Model[Padded, Padded], X: PaddedData, is_train: bool
 ) -> Tuple[SeqT, Callable]:
     Yp, get_dXp = layer(Padded(*X), is_train)
 
@@ -111,7 +111,7 @@ def _tuple_forward(
 
 
 def _ragged_forward(
-    layer: Model[Any, Padded], Xr: Ragged, is_train: bool
+    layer: Model[Padded, Padded], Xr: Ragged, is_train: bool
 ) -> Tuple[SeqT, Callable]:
     # Assign these to locals, to keep code a bit shorter.
     list2padded = layer.ops.list2padded
@@ -141,7 +141,7 @@ def _ragged_forward(
 
 
 def _list_forward(
-    layer: Model[Any, Padded], Xs: List[Array2d], is_train: bool
+    layer: Model[Padded, Padded], Xs: List[Array2d], is_train: bool
 ) -> Tuple[SeqT, Callable]:
     # Assign these to locals, to keep code a bit shorter.
     list2padded = layer.ops.list2padded
