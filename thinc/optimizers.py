@@ -74,6 +74,7 @@ def Adam(
         beta2=beta2,
         eps=eps,
         grad_clip=grad_clip,
+        grad_center=False,
         L2_is_weight_decay=L2_is_weight_decay,
         use_averages=use_averages,
         use_radam=False,
@@ -145,6 +146,7 @@ class Optimizer(object):
     L2: float
     use_radam: bool
     use_adabelief: bool
+    grad_center: bool
     L2_is_weight_decay: bool
     _radam_buffer: List[List[Optional[FloatsXd]]]
 
@@ -166,6 +168,7 @@ class Optimizer(object):
         "L2",
         "use_radam",
         "use_adabelief",
+        "grad_center",
         "L2_is_weight_decay",
         "_radam_buffer",
     ]
@@ -182,6 +185,7 @@ class Optimizer(object):
         use_averages: bool = True,
         use_radam: bool = False,
         use_adabelief: bool = False,
+        grad_center: bool = False,
         L2_is_weight_decay: bool = True,
     ):
         """
@@ -216,6 +220,7 @@ class Optimizer(object):
         self._set_attr_or_schedule("L2", L2)
         self.use_radam = use_radam
         self.use_adabelief = use_adabelief
+        self.grad_center = grad_center
         self.L2_is_weight_decay = L2_is_weight_decay
         self._radam_buffer = [[None, None, None] for _ in range(10)]
 
@@ -260,6 +265,9 @@ class Optimizer(object):
             gradient += self.L2 * weights
         if self.grad_clip:
             gradient = ops.clip_gradient(gradient, self.grad_clip)
+        if self.grad_center:
+            norm_dims = tuple(i for i, n in enumerate(gradient.shape[1:]))
+            gradient -= gradient.mean(axis=norm_dims)
         if self.use_radam:
             weights, gradient = self._radam(
                 ops, weights, gradient, lr_scale, key, nr_upd
