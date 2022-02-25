@@ -970,6 +970,30 @@ class Ops:
         weights -= learn_rate * (mom1 / (mod_rate * self.xp.sqrt(mom2) + eps))
         return weights, gradient, mom1, mom2
 
+    def adabelief(
+        self,
+        weights: Floats1d,
+        gradient: Floats1d,
+        mom: Floats1d,
+        belief: Floats1d,
+        beta1: float,
+        beta2: float,
+        eps: float,
+        learn_rate: float,
+        time_step: int
+    ) -> Tuple[Floats1d, Floats1d, Floats1d, Floats1d]:
+        mom *= beta1
+        belief *= beta2
+        mom += gradient * (1 - beta1)
+        grad_residual = gradient - mom
+        belief += grad_residual * grad_residual * (1 - beta2)
+        belief += eps
+        # bias correction not optimized
+        mom_ = mom / (1 - beta1**time_step)
+        belief_ = belief / (1 - beta2**time_step)
+        weights -= learn_rate * (mom_ / (self.xp.sqrt(belief_) + eps))
+        return weights, gradient, mom, belief
+
     def clip_gradient(self, gradient: FloatsT, threshold: float) -> FloatsT:
         # Internals for optimizer
         xp = get_array_module(gradient)

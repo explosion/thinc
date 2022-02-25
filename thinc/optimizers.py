@@ -80,6 +80,31 @@ def Adam(
     )
 
 
+def AdaBelief(
+    learn_rate: FloatOrSeq = ADAM_DEFAULTS["learn_rate"],
+    *,
+    L2: FloatOrSeq = ADAM_DEFAULTS["L2"],
+    beta1: FloatOrSeq = ADAM_DEFAULTS["beta1"],
+    beta2: FloatOrSeq = ADAM_DEFAULTS["beta2"],
+    eps: FloatOrSeq = ADAM_DEFAULTS["eps"],
+    grad_clip: FloatOrSeq = ADAM_DEFAULTS["grad_clip"],
+    L2_is_weight_decay: bool = cast(bool, ADAM_DEFAULTS["L2_is_weight_decay"]),
+    use_averages: bool = True,
+):
+    return Optimizer(
+        learn_rate,
+        L2=L2,
+        beta1=beta1,
+        beta2=beta2,
+        eps=eps,
+        grad_clip=grad_clip,
+        L2_is_weight_decay=L2_is_weight_decay,
+        use_averages=use_averages,
+        use_adabelief=True,
+        use_radam=False,
+    )
+
+
 @registry.optimizers("SGD.v1")
 def SGD(
     learn_rate: FloatOrSeq,
@@ -107,6 +132,7 @@ class Optimizer(object):
 
     mom1: Dict[KeyT, FloatsXd]
     mom2: Dict[KeyT, FloatsXd]
+    belief: Dict[KeyT, FloatsXd]
     averages: Optional[Dict[KeyT, FloatsXd]]
     schedules: Dict[str, Generator]
     nr_update: Dict[KeyT, int]
@@ -118,6 +144,7 @@ class Optimizer(object):
     eps: float
     L2: float
     use_radam: bool
+    use_adabelief: bool
     L2_is_weight_decay: bool
     _radam_buffer: List[List[Optional[FloatsXd]]]
 
@@ -126,6 +153,7 @@ class Optimizer(object):
     __slots__ = [
         "mom1",
         "mom2",
+        "belief",
         "averages",
         "schedules",
         "nr_update",
@@ -137,6 +165,7 @@ class Optimizer(object):
         "eps",
         "L2",
         "use_radam",
+        "use_adabelief",
         "L2_is_weight_decay",
         "_radam_buffer",
     ]
@@ -152,6 +181,7 @@ class Optimizer(object):
         grad_clip: FloatOrSeq = ADAM_DEFAULTS["grad_clip"],
         use_averages: bool = True,
         use_radam: bool = False,
+        use_adabelief: bool = False,
         L2_is_weight_decay: bool = True,
     ):
         """
@@ -170,6 +200,7 @@ class Optimizer(object):
         """
         self.mom1 = {}
         self.mom2 = {}
+        self.belief = {}
         if use_averages:
             self.averages = {}
         else:
@@ -184,6 +215,7 @@ class Optimizer(object):
         self._set_attr_or_schedule("eps", eps)
         self._set_attr_or_schedule("L2", L2)
         self.use_radam = use_radam
+        self.use_adabelief = use_adabelief
         self.L2_is_weight_decay = L2_is_weight_decay
         self._radam_buffer = [[None, None, None] for _ in range(10)]
 
@@ -232,6 +264,11 @@ class Optimizer(object):
             weights, gradient = self._radam(
                 ops, weights, gradient, lr_scale, key, nr_upd
             )
+        elif self.use_adabelief:
+            weights, gradient = self._adabelief(
+                ops, weights, gradient, lr_scale, key, nr_upd
+            )
+
         elif self.b1 > 0.0 and self.b2 > 0.0:
             weights, gradient = self._adam(
                 ops, weights, gradient, lr_scale, key, nr_upd
@@ -338,6 +375,7 @@ class Optimizer(object):
         mom2 = self.mom2[key]
         b1 = self.b1
         b2 = self.b2
+        # Bias correction
         fix1 = 1.0 - (b1 ** nr_upd)
         fix2 = 1.0 - (b2 ** nr_upd)
         lr = self.learn_rate * fix2 ** 0.5 / fix1
@@ -348,6 +386,30 @@ class Optimizer(object):
         )
         self.mom1[key] = mom1
         self.mom2[key] = mom2
+        return (
+            ops.reshape_f(weights_1D, weights.shape),
+            ops.reshape_f(gradient_1D, gradient.shape),
+        )
+
+    def _adabelief(self, ops, weights, gradient, lr_scale, key, nr_upd):
+        weights_1D = ops.reshape1f(weights, weights.size)
+        gradient_1D = ops.reshape1f(gradient, gradient.size)
+        if key not in self.mom1:
+            self.mom1[key] = ops.alloc1f(weights.size)
+        if key not in self.mom2:
+            self.belief[key] = ops.alloc1f(weights.size)
+        mom = self.mom1[key]
+        belief = self.belief[key]
+        b1 = self.b1
+        b2 = self.b2
+        lr = self.learn_rate * lr_scale
+        eps = self.eps
+        # needs to be 1D going into the adam function
+        weights_1D, gradient_1D, mom, belief = ops.adabelief(
+            weights_1D, gradient_1D, mom, belief, b1, b2, eps, lr, nr_upd
+        )
+        self.mom1[key] = mom
+        self.belief[key] = belief
         return (
             ops.reshape_f(weights_1D, weights.shape),
             ops.reshape_f(gradient_1D, gradient.shape),
