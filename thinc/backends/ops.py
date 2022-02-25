@@ -603,7 +603,7 @@ class Ops:
             Y += 1.0
             return Y
         else:
-            return 1 - Y ** 2
+            return 1 - Y**2
 
     def softmax(
         self,
@@ -924,7 +924,7 @@ class Ops:
         delta = xp.exp(Xsub) + 1.0
         delta *= delta
         delta += 1.0
-        dXsub = dYsub * ((xp.exp(Xsub) * omega) / (delta ** 2))
+        dXsub = dYsub * ((xp.exp(Xsub) * omega) / (delta**2))
         # Gradient when above threshold will ignore softplus.
         if inplace:
             out = dY
@@ -933,10 +933,16 @@ class Ops:
         out[indices] = dXsub
         return out
 
+    # Vanilla moving average of weights
+    def update_averages_swa(self, ma: FloatsT, weights: FloatsT, t: int) -> None:
+        ma *= t
+        ma += weights
+        ma /= t + 1
+
+    # Exponential moving average of weights
     def update_averages(
         self, ema: FloatsT, weights: FloatsT, t: int, max_decay: float = 0.9999
     ) -> None:
-        # Internals for optimizer
         decay = (1.0 + t) / (10.0 + t)
         if decay > max_decay:
             decay = max_decay
@@ -1368,7 +1374,7 @@ def dsigmoid(Y: ArrayT) -> ArrayT:
 
 
 def dtanh(Y: ArrayT) -> ArrayT:
-    return 1 - Y ** 2
+    return 1 - Y**2
 
 
 def gaussian_cdf(ops: Ops, X: FloatsType) -> FloatsType:
