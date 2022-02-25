@@ -1,4 +1,4 @@
-from typing import Tuple, Callable, Optional, TypeVar, cast, List, Union
+from typing import Tuple, Callable, Optional, TypeVar, cast, List, Union, Any
 
 from ..types import (
     Padded,
@@ -62,12 +62,12 @@ SeqT_co = TypeVar(
 
 
 @registry.layers("with_ragged.v1")
-def with_ragged(layer: Model[Ragged, Ragged]) -> Model[SeqT_co, SeqT_co]:
+def with_ragged(layer: Model[Any, Ragged]) -> Model[Any, SeqT_co]:
     return Model(f"with_ragged({layer.name})", forward, init=init, layers=[layer])
 
 
 def forward(
-    model: Model[SeqT_co, SeqT_co], Xseq: SeqT, is_train: bool
+    model: Model[Any, SeqT_co], Xseq: SeqT, is_train: bool
 ) -> Tuple[SeqT, Callable]:
     layer: Model[Ragged, Ragged] = model.layers[0]
     Y: SeqT_co
@@ -84,7 +84,7 @@ def forward(
 
 
 def init(
-    model: Model[SeqT_co, SeqT_co],
+    model: Model[Any, SeqT_co],
     X: Optional[SeqT_co] = None,
     Y: Optional[SeqT_co] = None,
 ) -> None:
@@ -98,7 +98,7 @@ def _is_ragged_data(seq):
     return isinstance(seq, tuple) and len(seq) == 2
 
 
-def _get_ragged(model: Model[SeqT_co, SeqT_co], seq: SeqT) -> Ragged:
+def _get_ragged(model: Model[Any, SeqT_co], seq: SeqT) -> Ragged:
     if isinstance(seq, Ragged):
         return seq
     elif isinstance(seq, Padded):
@@ -115,7 +115,7 @@ def _get_ragged(model: Model[SeqT_co, SeqT_co], seq: SeqT) -> Ragged:
 
 
 def _tuple_forward(
-    layer: Model[Ragged, Ragged], X: RaggedData, is_train: bool
+    layer: Model[Any, Ragged], X: RaggedData, is_train: bool
 ) -> Tuple[SeqT, Callable]:
     Yr, get_dXr = layer(Ragged(*X), is_train)
 
@@ -127,7 +127,7 @@ def _tuple_forward(
 
 
 def _padded_forward(
-    layer: Model[Ragged, Ragged], Xp: Padded, is_train: bool
+    layer: Model[Any, Ragged], Xp: Padded, is_train: bool
 ) -> Tuple[SeqT, Callable]:
     # Assign these to locals, to keep code a bit shorter.
     list2padded = layer.ops.list2padded
@@ -156,7 +156,7 @@ def _padded_forward(
 
 
 def _list_forward(
-    layer: Model[Ragged, Ragged], Xs: List[Array2d], is_train: bool
+    layer: Model[Any, Ragged], Xs: List[Array2d], is_train: bool
 ) -> Tuple[SeqT, Callable]:
     # Assign these to locals, to keep code a bit shorter.
     flatten = layer.ops.flatten

@@ -12,14 +12,14 @@ OutT = List[OutT_member_co]
 
 
 @registry.layers("with_flatten.v1")
-def with_flatten(layer: Model[InT, InT]) -> Model[OutT, OutT]:
+def with_flatten(layer: Model[Any, InT]) -> Model[Any, OutT]:
     return Model(f"with_flatten({layer.name})", forward, layers=[layer], init=init)
 
 
 def forward(
-    model: Model[OutT, OutT], Xnest: OutT, is_train: bool
+    model: Model[Any, OutT], Xnest: OutT, is_train: bool
 ) -> Tuple[OutT, Callable]:
-    layer: Model[InT, InT] = model.layers[0]
+    layer: Model[Any, InT] = model.layers[0]
     Xflat: Sequence[Any] = _flatten(Xnest)
     Yflat, backprop_layer = layer(Xflat, is_train)
     # Get the split points. We want n-1 splits for n items.
@@ -44,7 +44,7 @@ def _flatten(nested: InT) -> List[ItemT]:
 
 
 def init(
-    model: Model[OutT, OutT], X: Optional[OutT] = None, Y: Optional[OutT] = None
+    model: Model[Any, OutT], X: Optional[OutT] = None, Y: Optional[OutT] = None
 ) -> None:
     model.layers[0].initialize(
         _flatten(X) if X is not None else None,
