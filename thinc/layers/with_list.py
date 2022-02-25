@@ -39,12 +39,11 @@ def forward(
 
 def init(
     model: Model[SeqT_co, SeqT_co], X: Optional[SeqT] = None, Y: Optional[SeqT] = None
-) -> Model[SeqT_co, SeqT_co]:
+) -> None:
     model.layers[0].initialize(
         X=_get_list(model, X) if X is not None else None,
         Y=_get_list(model, Y) if Y is not None else None,
     )
-    return model
 
 
 def _get_list(model, seq):
