@@ -46,7 +46,7 @@ class CategoricalCrossentropy(Loss):
         names: Optional[List[str]] = None,
         missing_value: Optional[Union[str, int]] = None,
         neg_prefix: Optional[str] = None,
-        label_smoothing: float = 0.0
+        label_smoothing: float = 0.0,
     ):
         self.normalize = normalize
         self.names = names
@@ -102,15 +102,17 @@ class CategoricalCrossentropy(Loss):
             mask = _make_mask_by_value(truths, guesses, missing_value)
         if truths.ndim != guesses.ndim:
             # transform categorical values to one-hot encoding
-            truths = to_categorical(cast(Ints1d, truths),
-                                    n_classes=guesses.shape[-1],
-                                    label_smoothing=self.label_smoothing)
+            truths = to_categorical(
+                cast(Ints1d, truths),
+                n_classes=guesses.shape[-1],
+                label_smoothing=self.label_smoothing,
+            )
         else:
             if self.label_smoothing:
                 raise ValueError(
-                    'Label smoothing is only applied, when truths have type '
-                    'List[str], List[int] or Ints1d, but it seems like Floats2d '
-                    'was provided.'
+                    "Label smoothing is only applied, when truths have type "
+                    "List[str], List[int] or Ints1d, but it seems like Floats2d "
+                    "was provided."
                 )
         # Transform negative annotations to a 0 for the negated value
         # + mask all other values for that row
@@ -151,7 +153,7 @@ class CategoricalCrossentropy(Loss):
 
     def _get_loss_from_grad(self, d_truth: Floats2d) -> float:
         # TODO: Add overload for axis=None case to sum
-        return (d_truth ** 2).sum()  # type: ignore
+        return (d_truth**2).sum()  # type: ignore
 
 
 @registry.losses("CategoricalCrossentropy.v1")
@@ -274,7 +276,7 @@ class L2Distance(Loss):
             raise ValueError(err)
         d_truth = self.get_grad(guesses, truths)
         # TODO: Add overload for axis=None case to sum
-        return (d_truth ** 2).sum()  # type: ignore
+        return (d_truth**2).sum()  # type: ignore
 
 
 @registry.losses("L2Distance.v1")
@@ -323,7 +325,7 @@ class CosineDistance(Loss):
         norm_y = xp.linalg.norm(y, axis=1, keepdims=True)
         mul_norms = norm_yh * norm_y
         cosine = (yh * y).sum(axis=1, keepdims=True) / mul_norms
-        d_yh = (y / mul_norms) - (cosine * (yh / norm_yh ** 2))
+        d_yh = (y / mul_norms) - (cosine * (yh / norm_yh**2))
         if self.ignore_zeros:
             # If the target was a zero vector, don't count it in the loss.
             d_yh[zero_indices] = 0
