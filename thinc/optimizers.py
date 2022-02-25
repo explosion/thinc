@@ -76,8 +76,10 @@ def Adam(
         grad_clip=grad_clip,
         grad_center=False,
         L2_is_weight_decay=L2_is_weight_decay,
-        use_averages=use_averages,
+        use_averages=True,
         use_radam=False,
+        lookahead=0,
+        lookahead_alpha=0.0
     )
 
 
@@ -147,6 +149,9 @@ class Optimizer(object):
     use_radam: bool
     use_adabelief: bool
     grad_center: bool
+    lookahead: int
+    lookahead_alpha: float
+    slow_weights: Dict[KeyT, FloatsXd]
     L2_is_weight_decay: bool
     _radam_buffer: List[List[Optional[FloatsXd]]]
 
@@ -169,6 +174,9 @@ class Optimizer(object):
         "use_radam",
         "use_adabelief",
         "grad_center",
+        "lookahead",
+        "lookahead_alpha",
+        "slow_weights",
         "L2_is_weight_decay",
         "_radam_buffer",
     ]
@@ -187,6 +195,8 @@ class Optimizer(object):
         use_adabelief: bool = False,
         grad_center: bool = False,
         L2_is_weight_decay: bool = True,
+        lookahead: int = 0,
+        lookahead_alpha: float = 0
     ):
         """
         Initialize an optimizer.
@@ -209,6 +219,7 @@ class Optimizer(object):
             self.averages = {}
         else:
             self.averages = None
+        self.slow_weights = {}
         self.schedules = {}
         self.nr_update = defaultdict(int)
         self.last_seen = defaultdict(int)
@@ -221,6 +232,8 @@ class Optimizer(object):
         self.use_radam = use_radam
         self.use_adabelief = use_adabelief
         self.grad_center = grad_center
+        self.lookahead = lookahead
+        self.lookahead_alpha = lookahead_alpha
         self.L2_is_weight_decay = L2_is_weight_decay
         self._radam_buffer = [[None, None, None] for _ in range(10)]
 
@@ -288,6 +301,14 @@ class Optimizer(object):
         gradient *= 0
         if self.L2 != 0 and self.L2_is_weight_decay:
             weights -= lr_scale * self.learn_rate * self.L2 * weights
+        if self.lookahead:
+            if key not in self.slow_weights:
+                self.slow_weights[key] = ops.alloc(weights.shape, dtype="float32")
+            elif nr_upd % self.lookahead == 0:
+                slow_weights = self.slow_weights[key]
+                alpha = self.lookahead_alpha
+                slow_weights += alpha * (weights - slow_weights)
+                weights = slow_weights
         if self.averages is not None:
             if key not in self.averages:
                 self.averages[key] = ops.alloc(weights.shape, dtype="float32")
