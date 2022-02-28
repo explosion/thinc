@@ -91,6 +91,8 @@ TEST_CASES_SUMMABLE = [
     ("softmax_activation.v1", {}, array2d, array2d),
     ("Softmax.v1", {}, array2d, array2d),
     ("Softmax.v1", {"nO": 4, "nI": 4}, array2d, array2d),
+    ("Softmax.v2", {}, array2d, array2d),
+    ("Softmax.v2", {"nO": 4, "nI": 4}, array2d, array2d),
     # fmt: off
     # List to list
     ("LSTM.v1", {"bi": False}, [array2d, array2d], [array2d, array2d]),
@@ -115,6 +117,7 @@ TEST_CASES = [
     # fmt: off
     # Other
     ("expand_window.v1", {}, array2d, array2d),
+    ("expand_window.v1", {}, ragged, ragged),
     ("Embed.v1", {"nO": 4, "nV": array2dint.max() + 1, "column": 0, "dropout": 0.2}, array2dint, array2d),
     ("Embed.v1", {"nO": 4, "nV": array1dint.max() + 1}, array1dint, array2d),
     ("HashEmbed.v1", {"nO": 1, "nV": array2dint.max(), "column": 0, "dropout": 0.2}, array2dint, array2d),

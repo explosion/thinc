@@ -24,7 +24,7 @@ from .resizable import resizable
 from .sigmoid_activation import sigmoid_activation
 from .sigmoid import Sigmoid
 from .softmax_activation import softmax_activation
-from .softmax import Softmax
+from .softmax import Softmax, Softmax_v2
 from .sparselinear import SparseLinear
 from .tensorflowwrapper import TensorFlowWrapper, keras_subclass
 from .mxnetwrapper import MXNetWrapper
@@ -94,6 +94,7 @@ __all__ = [
     "sigmoid_activation",
     "Sigmoid" "softmax_activation",
     "Softmax",
+    "Softmax_v2",
     "SparseLinear",
     "TensorFlowWrapper",
     "add",

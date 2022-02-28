@@ -222,13 +222,13 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/linear.py
 A linear (aka dense) layer, followed by a sigmoid activation. This is usually
 used as an output layer for multi-label classification (in contrast to the
 `Softmax` layer, which is used for problems where exactly one class is correct
-per example. 
+per example.
 
 | Argument    | Type                               | Description                      |
 | ----------- | ---------------------------------- | -------------------------------- |
 | `nOs`       | <tt>Tuple[int, ...]</tt>           | The sizes of the output vectors. |
 | `nI`        | <tt>Optional[int]</tt>             | The size of the input vectors.   |
-| **RETURNS** | <tt>Model[Floats2d, Floats2d]</tt> | The created sigmoid layer. |
+| **RETURNS** | <tt>Model[Floats2d, Floats2d]</tt> | The created sigmoid layer.       |
 
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/sigmoid.py
@@ -243,12 +243,12 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/sigmoid.py
 
 </inline-list>
 
-Apply the sigmoid logistic function as an activation to the inputs. This is often
-used as an output activation for multi-label classification, because each element
-of the output vectors will be between `0` and `1`.
+Apply the sigmoid logistic function as an activation to the inputs. This is
+often used as an output activation for multi-label classification, because each
+element of the output vectors will be between `0` and `1`.
 
-| Argument    | Type                               | Description                   |
-| ----------- | ---------------------------------- | ----------------------------- |
+| Argument    | Type                               | Description                             |
+| ----------- | ---------------------------------- | --------------------------------------- |
 | **RETURNS** | <tt>Model[Floats2d, Floats2d]</tt> | The created `sigmoid_activation` layer. |
 
 ```python
@@ -454,6 +454,49 @@ distribution.
 https://github.com/explosion/thinc/blob/master/thinc/layers/softmax.py
 ```
 
+### Softmax_v2 {#softmax_v2 tag="function"}
+
+<inline-list>
+
+- **Input:** <ndarray shape="batch_size, nI">Floats2d</ndarray>
+- **Output:** <ndarray shape="batch_size, nO">Floats2d</ndarray>
+- **Parameters:** <ndarray shape="nO, nI">W</ndarray>,
+  <ndarray shape="nO,">b</ndarray>
+
+</inline-list>
+
+A dense layer with a softmax activation. This is usually used as a prediction
+layer. Vectors produced by the softmax function sum to 1, and have values
+between 0 and 1, so each vector can be interpreted as a probability
+distribution.
+
+`Softmax_v2` supports outputting unnormalized probabilities during inference by
+using `normalize_outputs=False` as an argument. This is useful when we are only
+interested in finding the top-k classes, but not their probabilities. Computing
+unnormalized probabilities is faster, because it skips the expensive
+normalization step.
+
+The `temperature` argument of `Softmax_v2` provides control of the softmax
+distribution. Values larger than 1 increase entropy and values between 0 and 1
+(exclusive) decrease entropy of the distribution. The default temperature of 1
+will calculate the unmodified softmax distribution. `temperature` is not used
+during inference when `normalize_outputs=False`.
+
+| Argument            | Type                               | Description                                                                                              |
+| ------------------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `nO`                | <tt>Optional[int]</tt>             | The size of the output vectors.                                                                          |
+| `nI`                | <tt>Optional[int]</tt>             | The size of the input vectors.                                                                           |
+| _keyword-only_      |                                    |                                                                                                          |
+| `init_W`            | <tt>Callable</tt>                  | A function to initialize the weights matrix. Defaults to [`zero_init`](/docs/api-initializers#zero_init) |
+| `init_b`            | <tt>Callable</tt>                  | A function to initialize the bias vector. Defaults to [`zero_init`](/docs/api-initializers#zero_init).   |
+| `normalize_outputs` | <tt>bool</tt>                      | Return normalized probabilities during inference. Defaults to `True`.                                    |
+| `temperature`       | <tt>float</tt>                     | Temperature to divide logits by. Defaults to `1.0`.                                                      |
+| **RETURNS**         | <tt>Model[Floats2d, Floats2d]</tt> | The created softmax layer.                                                                               |
+
+```python
+https://github.com/explosion/thinc/blob/master/thinc/layers/softmax.py
+```
+
 ### SparseLinear {#sparselinear tag="function"}
 
 <inline-list>
@@ -536,8 +579,8 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/reduce_first.py
 
 ### reduce_last {#reduce_last tag="function"}
 
-Pooling layer that reduces the dimensions of the data by selecting the last
-item of each sequence. This is typically used after multi-head attention or recurrent
+Pooling layer that reduces the dimensions of the data by selecting the last item
+of each sequence. This is typically used after multi-head attention or recurrent
 neural network layers such as LSTMs, which can learn to assign a good feature
 representation for the sequence to its final element.
 
@@ -555,8 +598,6 @@ representation for the sequence to its final element.
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/reduce_last.py
 ```
-
-
 
 ### reduce_max {#reduce_max tag="function"}
 
@@ -706,7 +747,7 @@ Map a child layer across list inputs.
 
 | Argument    | Type                                  | Description             |
 | ----------- | ------------------------------------- | ----------------------- |
-| `layer`   | <tt>Model[InT, OutT]</tt>               | The child layer to map. |
+| `layer`     | <tt>Model[InT, OutT]</tt>             | The child layer to map. |
 | **RETURNS** | <tt>Model[List[InT], List[OutT]]</tt> | The composed model.     |
 
 ```python
@@ -1006,9 +1047,9 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/strings2arrays.py
 
 </inline-list>
 
-Transform sequence data into a contiguous array on the way into and out of a model.
-Handles a variety of sequence types: lists, padded and ragged. If the input is
-an array, it is passed through unchanged.
+Transform sequence data into a contiguous array on the way into and out of a
+model. Handles a variety of sequence types: lists, padded and ragged. If the
+input is an array, it is passed through unchanged.
 
 | Argument       | Type                             | Description                   |
 | -------------- | -------------------------------- | ----------------------------- |
@@ -1031,10 +1072,10 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/with_array2d.py
 
 Transform sequence data into a contiguous two-dimensional array on the way into
 and out of a model. In comparison to the `with_array` layer, the behavior of
-this layer mostly differs on `Padded` inputs, as this layer merges the batch
-and length axes to form a two-dimensional array.
-Handles a variety of sequence types: lists, padded and ragged.
-If the input is a two-dimensional array, it is passed through unchanged.
+this layer mostly differs on `Padded` inputs, as this layer merges the batch and
+length axes to form a two-dimensional array. Handles a variety of sequence
+types: lists, padded and ragged. If the input is a two-dimensional array, it is
+passed through unchanged.
 
 | Argument       | Type                             | Description                   |
 | -------------- | -------------------------------- | ----------------------------- |
@@ -1231,8 +1272,8 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/with_debug.py
 
 </inline-list>
 
-Layer that wraps any layer and marks the forward and backprop passes as an
-NVTX range. This can be helpful when profiling GPU performance of a layer.
+Layer that wraps any layer and marks the forward and backprop passes as an NVTX
+range. This can be helpful when profiling GPU performance of a layer.
 
 ```python
 ### Example
@@ -1242,19 +1283,18 @@ model = with_nvtx_range(Linear(2, 5))
 model.initialize()
 ```
 
-| Argument         | Type                   | Description                                                                                               |
-| ---------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------|
-| `layer`          | <tt>Model</tt>         | The layer to wrap.                                                                                        |
+| Argument         | Type                   | Description                                                                     |
+| ---------------- | ---------------------- | ------------------------------------------------------------------------------- |
+| `layer`          | <tt>Model</tt>         | The layer to wrap.                                                              |
 | `name`           | <tt>Optional[str]</tt> | Optional name for the wrapped layer. Defaults to the name of the wrapped layer. |
-| _keyword-only_   |                        |                                                                                                           |
-| `forward_color`  | <tt>int</tt>           | Identifier of the color to use for the forward pass                                                       |
-| `backprop_color` | <tt>int</tt>           | Identifier of the color to use for the backward pass                                                      |
-| **RETURNS**      | <tt>Model</tt>         | The wrapped layer.                                                                                        |
+| _keyword-only_   |                        |                                                                                 |
+| `forward_color`  | <tt>int</tt>           | Identifier of the color to use for the forward pass                             |
+| `backprop_color` | <tt>int</tt>           | Identifier of the color to use for the backward pass                            |
+| **RETURNS**      | <tt>Model</tt>         | The wrapped layer.                                                              |
 
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/with_nvtx_range.py
 ```
-
 
 ---
 

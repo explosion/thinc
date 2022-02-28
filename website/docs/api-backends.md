@@ -353,7 +353,7 @@ overfitting.
 | ----------- | ------------------------ | ---------------------------------------------------------- |
 | `shape`     | <tt>Shape</tt>           | The input shape.                                           |
 | `drop`      | <tt>Optional[float]</tt> | The dropout rate.                                          |
-| **RETURNS** | <tt>Floats</tt>          | A mask specifying a 0 were a neuron should be deactivated. |
+| **RETURNS** | <tt>Floats</tt>          | A mask specifying a 0 where a neuron should be deactivated.|
 
 ### Ops.alloc {#alloc tag="method"}
 
@@ -376,6 +376,25 @@ the inputs and outputs.
 | _keyword-only_ |                  |                                                                 |
 | `dtype`        | <tt>DTypes</tt>  | The data type (default: `float32`).                             |
 | **RETURNS**    | <tt>ArrayXd</tt> | An array of the correct shape and data type, filled with zeros. |
+
+### Ops.to_numpy {#to_numpy tag="method"}
+
+<inline-list>
+
+- **default:** <i name="yes"></i>
+- **numpy:** default
+- **cupy:** <i name="yes"></i>
+
+</inline-list>
+
+Convert the array to a numpy array.
+
+| Argument       | Type                   | Description                                                                                                                                                      |
+| -------------- | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `data`         | <tt>ArrayXd</tt>       | The array.                                                                                                                                                       |
+| _keyword-only_ |                        |                                                                                                                                                                  |
+| `byte_order`   | <tt>Optional[str]</tt> | The [new byte order](https://numpy.org/doc/stable/reference/generated/numpy.dtype.newbyteorder.html), `None` preserves the current byte order (default: `None`). |
+| **RETURNS**    | <tt>numpy.ndarray</tt> | A numpy array with the specified byte order.                                                                                                                     |
 
 #### Type-specific methods
 
@@ -448,7 +467,7 @@ purposes**. They do **not** change the data type of the array. For example,
 `Ops.reshape2f` expects an array of floats and expects to return an array of
 floats – but it won't convert an array of ints to an array of floats. However,
 using the specific method will tell the static type checker what array to
-expect, and passing in an array thats _typed_ as an int array will result in a
+expect, and passing in an array that's _typed_ as an int array will result in a
 type error.
 
 </infobox>
@@ -1037,7 +1056,7 @@ with use_ops("cupy"):
 
 | Argument   | Type         | Description                                           |
 | ---------- | ------------ | ----------------------------------------------------- |
-| `ops`      | <tt>str</tt> | `"numpy"` or `"cupy"`.                       |
+| `ops`      | <tt>str</tt> | `"numpy"` or `"cupy"`.                                |
 | `**kwargs` |              | Optional arguments passed to [`Ops.__init__`](#init). |
 
 ### get_current_ops {#get_current_ops tag="function"}

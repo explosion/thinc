@@ -31,8 +31,11 @@ class Ops:
         self.device_type = device_type
         self.device_id = device_id
 
-    def to_numpy(self, data):  # pragma: no cover
+    def to_numpy(self, data, *, byte_order=None):  # pragma: no cover
         if isinstance(data, numpy.ndarray):
+            if byte_order:
+                dtype = data.dtype.newbyteorder(byte_order)
+                data = numpy.asarray(data, dtype=dtype)
             return data
         else:
             raise ValueError("Cannot convert non-numpy from base Ops class")
@@ -149,14 +152,17 @@ class Ops:
             i += output[-1]
         return output
 
-    def seq2col(self, seq: Floats2d, nW: int) -> Floats2d:
+    def seq2col(
+        self, seq: Floats2d, nW: int, *, lengths: Optional[Ints1d] = None
+    ) -> Floats2d:
         """Given an (M, N) sequence of vectors, return an (M, N*(nW*2+1))
         sequence. The new sequence is constructed by concatenating nW preceding
         and succeeding vectors onto each column in the sequence, to extract a
         window of features.
         """
-        # This is a test implementation that only supports nW=1
+        # This is a test implementation that only supports nW=1 and lengths=None
         assert nW == 1
+        assert lengths == None
         B = seq.shape[0]
         I = seq.shape[1]
         cols = self.alloc3f(B, (nW * 2 + 1), I)
@@ -166,13 +172,16 @@ class Ops:
         cols[:-nW, nW + 1 :] = self.reshape3f(seq[nW:], -1, nW, I)
         return self.reshape2f(cols, B, I * (2 * nW + 1))
 
-    def backprop_seq2col(self, dY: Floats2d, nW: int) -> Floats2d:
+    def backprop_seq2col(
+        self, dY: Floats2d, nW: int, *, lengths: Optional[Ints1d] = None
+    ) -> Floats2d:
         """The reverse/backward operation of the `seq2col` function: calculate
         the gradient of the original `(M, N)` sequence, as a function of the
         gradient of the output `(M, N*(nW*2+1))` sequence.
         """
-        # This is a test implementation that only supports nW=1
+        # This is a test implementation that only supports nW=1 and lengths=None
         assert nW == 1
+        assert lengths == None
         nF = nW * 2 + 1
         B = dY.shape[0]
         I = dY.shape[1] // nF
@@ -596,7 +605,16 @@ class Ops:
         else:
             return 1 - Y ** 2
 
-    def softmax(self, x: FloatsT, *, inplace: bool = False, axis: int = -1) -> FloatsT:
+    def softmax(
+        self,
+        x: FloatsT,
+        *,
+        inplace: bool = False,
+        axis: int = -1,
+        temperature: float = 1.0,
+    ) -> FloatsT:
+        if temperature != 1.0:
+            x = x / temperature
         maxes = self.xp.max(x, axis=axis, keepdims=True)
         shifted = x - maxes
         new_x = self.xp.exp(shifted)
@@ -616,7 +634,12 @@ class Ops:
         new_x /= summed
         return new_x
 
-    def backprop_softmax(self, Y: FloatsT, dY: FloatsT, *, axis: int = -1) -> FloatsT:
+    def backprop_softmax(
+        self, Y: FloatsT, dY: FloatsT, *, axis: int = -1, temperature: float = 1.0
+    ) -> FloatsT:
+        if temperature != 1.0:
+            dY = dY / temperature
+
         dX = Y * dY
         dX -= Y * dX.sum(axis=axis, keepdims=True)
         return dX
@@ -872,39 +895,41 @@ class Ops:
             return dY
         return dY * dX
 
-    def mish(self, X: Floats2d, threshold: float = 20.0) -> Floats2d:
-        Y = self.alloc2f(*X.shape, dtype=X.dtype)
+    def mish(
+        self, X: FloatsType, threshold: float = 20.0, inplace: bool = False
+    ) -> FloatsType:
         tmp = X * self.xp.tanh(self.xp.log(1.0 + self.xp.exp(X)))
-        for i in range(X.shape[0]):
-            for j in range(X.shape[1]):
-                if X[i, j] >= threshold:
-                    Y[i, j] = X[i, j]
-                else:
-                    Y[i, j] = tmp[i, j]
-        return Y
+        Y = self.xp.where(X >= threshold, X, tmp)
+        if inplace:
+            X[:] = Y
+            return X
+        else:
+            return Y
 
     def backprop_mish(
         self,
-        dY: Floats2d,
+        dY: FloatsType,
         X: Floats2d,
         threshold: float = 20.0,
-        out: Optional[Floats2d] = None,
-    ) -> Floats2d:
+        inplace: bool = False,
+    ) -> FloatsType:
         xp = get_array_module(X)
         indices = X < threshold
         Xsub = X[indices]
         dYsub = dY[indices]
         omega = 4.0 * (Xsub + 1.0)
         omega += 4.0 * xp.exp(2.0 * Xsub)
+        omega += xp.exp(3.0 * Xsub)
         omega += xp.exp(Xsub) * ((4.0 * Xsub) + 6.0)
-        delta = 2.0 * xp.exp(Xsub)
-        delta += xp.exp(2.0 * Xsub)
-        delta += 2.0
+        delta = xp.exp(Xsub) + 1.0
+        delta *= delta
+        delta += 1.0
         dXsub = dYsub * ((xp.exp(Xsub) * omega) / (delta ** 2))
-        if out is None:
-            out = xp.zeros(dY.shape, dtype="f")
         # Gradient when above threshold will ignore softplus.
-        out[:] = dY + dY * self.dtanh(X)
+        if inplace:
+            out = dY
+        else:
+            out = xp.copy(dY)
         out[indices] = dXsub
         return out
 

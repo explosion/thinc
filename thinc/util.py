@@ -205,19 +205,11 @@ def copy_array(dst: ArrayXd, src: ArrayXd) -> None:  # pragma: no cover
 
 
 def to_categorical(Y: IntsXd, n_classes: Optional[int] = None) -> FloatsXd:
-    # From keras
     xp = get_array_module(Y)
-    if xp is cupy:  # pragma: no cover
-        Y = Y.get()
-    keep_shapes: List[int] = list(Y.shape)
-    Y = numpy.array(Y, dtype="int").ravel()  # type: ignore
     if n_classes is None:
         n_classes = int(numpy.max(Y) + 1)  # type: ignore
-    keep_shapes.append(n_classes)
-    n = Y.shape[0]
-    categorical = numpy.zeros((n, n_classes), dtype="float32")
-    categorical[numpy.arange(n), Y] = 1
-    return xp.asarray(categorical).reshape(keep_shapes)
+    # Unfortunately, cupy does not support put_along_axis.
+    return xp.eye(n_classes, dtype="float32")[Y]
 
 
 def get_width(

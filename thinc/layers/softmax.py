@@ -17,7 +17,7 @@ def Softmax(
     nI: Optional[int] = None,
     *,
     init_W: Callable = zero_init,
-    init_b: Callable = zero_init
+    init_b: Callable = zero_init,
 ) -> Model[InT, OutT]:
     return Model(
         "softmax",
@@ -25,23 +25,66 @@ def Softmax(
         init=partial(init, init_W, init_b),
         dims={"nO": nO, "nI": nI},
         params={"W": None, "b": None},
+        attrs={"softmax_normalize": True, "softmax_temperature": 1.0},
+    )
+
+
+@registry.layers("Softmax.v2")
+def Softmax_v2(
+    nO: Optional[int] = None,
+    nI: Optional[int] = None,
+    *,
+    init_W: Callable = zero_init,
+    init_b: Callable = zero_init,
+    normalize_outputs: bool = True,
+    temperature: float = 1.0,
+) -> Model[InT, OutT]:
+    validate_temperature(temperature)
+    return Model(
+        "softmax",
+        forward,
+        init=partial(init, init_W, init_b),
+        dims={"nO": nO, "nI": nI},
+        params={"W": None, "b": None},
+        attrs={
+            "softmax_normalize": normalize_outputs,
+            "softmax_temperature": temperature,
+        },
     )
 
 
 def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Callable]:
+    normalize = model.attrs["softmax_normalize"] or is_train
+
+    temperature = model.attrs["softmax_temperature"]
+    validate_temperature(temperature)
+
     W = cast(Floats2d, model.get_param("W"))
     b = cast(Floats1d, model.get_param("b"))
     Y = model.ops.affine(X, W, b)
-    Y = model.ops.softmax(Y)
+
+    if normalize:
+        Y = model.ops.softmax(Y, temperature=temperature)
+
     ainfo = ArrayInfo.from_array(Y)
 
     def backprop(dY: InT) -> OutT:
         ainfo.check_consistency(dY)
+        if temperature != 1.0:
+            dY = dY / temperature
+
         model.inc_grad("b", dY.sum(axis=0))
         model.inc_grad("W", model.ops.gemm(dY, X, trans1=True))
         return model.ops.gemm(dY, W)
 
-    return Y, backprop
+    def backprop_unnormalized(dY: InT):
+        msg = "backprop is not supported for an unnormalized Softmax layer"
+        raise ValueError(msg)
+
+    if normalize:
+        return Y, backprop
+    else:
+        return Y, backprop_unnormalized
 
 
 def init(
@@ -58,3 +101,9 @@ def init(
     model.set_param("W", init_W(model.ops, (model.get_dim("nO"), model.get_dim("nI"))))
     model.set_param("b", init_b(model.ops, (model.get_dim("nO"),)))
     return model
+
+
+def validate_temperature(temperature):
+    if temperature <= 0.0:
+        msg = "softmax temperature must not be zero or negative"
+        raise ValueError(msg)
