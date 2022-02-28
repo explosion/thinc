@@ -512,7 +512,6 @@ def set_torch_tensor_type_for_ops(ops):
         pass
 
 
-
 def consistent_backprop(forward):
     """Decorator to check that backprop input is consistent.
 
@@ -528,28 +527,36 @@ def consistent_backprop(forward):
         @functools.wraps(backprop)
         def wrapped_backprop(dY):
             if dY.shape != y_shape:
-                raise ValueError(f"Shape mismatch in backprop. Y: {y_shape}, dY: {dY.shape}")
+                raise ValueError(
+                    f"Shape mismatch in backprop. Y: {y_shape}, dY: {dY.shape}"
+                )
             return backprop(dY)
 
         return Y, wrapped_backprop
 
     return wrapped_forward
 
+
 @dataclass
 class ArrayInfo:
     """Container for info for checking array compatibility."""
+
     shape: Tuple[int]
-    dtype: str # corresponds to dtype.name
+    dtype: str  # corresponds to dtype.name
+    
+    @classmethod
+    def from_array(cls, arr: FloatsXd):
+        return cls(shape=arr.shape, dtype=arr.dtype.name)
 
     def check_consistency(self, arr: FloatsXd):
         if arr.shape != self.shape:
-            raise ValueError(f"Shape mismatch in backprop. Y: {self.shape}, dY: {arr.shape}")
+            raise ValueError(
+                f"Shape mismatch in backprop. Y: {self.shape}, dY: {arr.shape}"
+            )
         if arr.dtype.name != self.dtype:
-            raise ValueError(f"Type mismatch in backprop. Y: {self.dtype}, dY: {arr.dtype.name}")
-
-#XXX is there a better way to do this?
-def create_arrayinfo(arr: FloatsXd):
-    return ArrayInfo(arr.shape, arr.dtype.name)
+            raise ValueError(
+                f"Type mismatch in backprop. Y: {self.dtype}, dY: {arr.dtype.name}"
+            )
 
 __all__ = [
     "get_array_module",
