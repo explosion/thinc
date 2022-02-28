@@ -4,7 +4,7 @@ from ..model import Model
 from ..config import registry
 from ..types import Floats2d, Floats1d
 from ..initializers import zero_init
-from ..util import get_width, partial, consistent_backprop
+from ..util import get_width, partial, ArrayInfo
 
 
 InT = Floats2d
@@ -28,14 +28,15 @@ def Softmax(
     )
 
 
-@consistent_backprop
 def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Callable]:
     W = cast(Floats2d, model.get_param("W"))
     b = cast(Floats1d, model.get_param("b"))
     Y = model.ops.affine(X, W, b)
     Y = model.ops.softmax(Y)
+    ainfo = ArrayInfo.from_array(Y)
 
     def backprop(dY: InT) -> OutT:
+        ainfo.check_consistency(dY)
         model.inc_grad("b", dY.sum(axis=0))
         model.inc_grad("W", model.ops.gemm(dY, X, trans1=True))
         return model.ops.gemm(dY, W)

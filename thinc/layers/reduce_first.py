@@ -3,7 +3,7 @@ from typing import Callable, Tuple, cast, TypeVar
 from ..model import Model
 from ..config import registry
 from ..types import Ragged, ArrayXd
-from ..util import consistent_backprop
+from ..util import ArrayInfo
 
 OutT = TypeVar("OutT", bound=ArrayXd)
 
@@ -13,7 +13,6 @@ def reduce_first() -> Model[Ragged, OutT]:
     return Model("reduce_first", forward)
 
 
-@consistent_backprop
 def forward(model: Model[Ragged, OutT], Xr: Ragged, is_train: bool) -> Tuple[OutT, Callable]:
     starts = model.ops.alloc1i(Xr.lengths.shape[0])
     starts[1:] += Xr.lengths.cumsum()[:-1]
@@ -22,7 +21,10 @@ def forward(model: Model[Ragged, OutT], Xr: Ragged, is_train: bool) -> Tuple[Out
     x_shape = Xr.dataXd.shape
     lengths = Xr.lengths
 
+    ainfo = ArrayInfo.from_array(Y)
+
     def backprop(dY: OutT) -> Ragged:
+        ainfo.check_consistency(dY)
         dX = cast(OutT, model.ops.alloc(x_shape, dtype=dY.dtype))
         dX[starts] = dY # type: ignore
         return Ragged(dX, lengths)

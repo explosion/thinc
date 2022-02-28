@@ -512,31 +512,6 @@ def set_torch_tensor_type_for_ops(ops):
         pass
 
 
-def consistent_backprop(forward):
-    """Decorator to check that backprop input is consistent.
-
-    This should be placed on the forward function, and only works with backprop
-    that takes a single Array2D input.
-    """
-
-    @functools.wraps(forward)
-    def wrapped_forward(*args, **kwargs):
-        Y, backprop = forward(*args, **kwargs)
-        y_shape = Y.shape
-
-        @functools.wraps(backprop)
-        def wrapped_backprop(dY):
-            if dY.shape != y_shape:
-                raise ValueError(
-                    f"Shape mismatch in backprop. Y: {y_shape}, dY: {dY.shape}"
-                )
-            return backprop(dY)
-
-        return Y, wrapped_backprop
-
-    return wrapped_forward
-
-
 @dataclass
 class ArrayInfo:
     """Container for info for checking array compatibility."""
