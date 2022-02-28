@@ -20,6 +20,7 @@ def forward(model: Model[InT, OutT], Xr: InT, is_train: bool) -> Tuple[OutT, Cal
     lengths = Xr.lengths
 
     ainfo = ArrayInfo.from_array(Y)
+
     def backprop(dY: OutT) -> InT:
         ainfo.check_consistency(dY)
         return Ragged(model.ops.backprop_reduce_mean(dY, lengths), lengths)

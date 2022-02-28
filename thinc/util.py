@@ -543,7 +543,7 @@ class ArrayInfo:
 
     shape: Tuple[int]
     dtype: str  # corresponds to dtype.name
-    
+
     @classmethod
     def from_array(cls, arr: FloatsXd):
         return cls(shape=arr.shape, dtype=arr.dtype.name)
@@ -557,6 +557,7 @@ class ArrayInfo:
             raise ValueError(
                 f"Type mismatch in backprop. Y: {self.dtype}, dY: {arr.dtype.name}"
             )
+
 
 __all__ = [
     "get_array_module",
