@@ -17,24 +17,16 @@ ArrayT2d = TypeVar("ArrayT2d", bound=Union[Floats2d, Ints2d, Array2d])
 ArrayT2d_co = TypeVar(
     "ArrayT2d_co", bound=Union[Floats2d, Ints2d, Array2d], covariant=True
 )
-ArrayT = TypeVar("ArrayT", bound=ArrayXd)
-ArrayTXd = TypeVar(
-    "ArrayTXd",
-    bound=ArrayXd,
+ArrayTXd = TypeVar("ArrayTXd", bound=ArrayXd)
+ArrayTXd_co = TypeVar("ArrayTXd_co", bound=ArrayXd, covariant=True)
+ArrayT234d = TypeVar(
+    "ArrayT234d", bound=Union[Floats2d, Floats3d, Floats4d, Ints2d, Ints3d, Ints4d]
 )
-ArrayTXd_co = TypeVar(
-    "ArrayTXd_co",
-    bound=ArrayXd,
-    covariant=True,
+ArrayT123d = TypeVar(
+    "ArrayT123d", bound=Union[Floats1d, Floats2d, Floats3d, Ints1d, Ints2d, Ints3d]
 )
-ArrayTXNotMind = TypeVar(
-    "ArrayTXNotMind", bound=Union[Floats2d, Floats3d, Floats4d, Ints2d, Ints3d, Ints4d]
-)
-ArrayTXNotMaxd = TypeVar(
-    "ArrayTXNotMaxd", bound=Union[Floats1d, Floats2d, Floats3d, Ints1d, Ints2d, Ints3d]
-)
-ArrayTXNotMaxd_co = TypeVar(
-    "ArrayTXNotMaxd_co",
+ArrayT123d_co = TypeVar(
+    "ArrayT123d_co",
     bound=Union[Floats1d, Floats2d, Floats3d, Ints1d, Ints2d, Ints3d],
     covariant=True,
 )
@@ -287,7 +279,7 @@ class Ops:
         for length in lengths:
             length = int(length)
             if pad >= 1 and length != 0:
-                X = X[pad:]  # type: ignore[assignment]
+                X = X[pad:] # type: ignore[assignment]
             unflat.append(X[:length])
             X = X[length:]  # type: ignore[assignment]
         if pad >= 1:
@@ -296,7 +288,7 @@ class Ops:
         assert len(unflat) == len(lengths)
         return cast(List[ArrayTXd], unflat)
 
-    def pad(self, seqs: List[ArrayTXNotMaxd_co], round_to=1) -> ArrayTXNotMind:
+    def pad(self, seqs: List[ArrayT123d_co], round_to=1) -> ArrayT234d:
         """Perform padding on a list of arrays so that they each have the same
         length, by taking the maximum dimension across each axis. This only
         works on non-empty sequences with the same `ndim` and `dtype`.
@@ -315,22 +307,22 @@ class Ops:
         # array sizes.
         length = (length + (round_to - 1)) // round_to * round_to
         final_shape = (len(seqs), length) + seqs[0].shape[1:]
-        output: ArrayTXNotMind = self.alloc(final_shape, dtype=seqs[0].dtype)
+        output: ArrayT234d = self.alloc(final_shape, dtype=seqs[0].dtype)
         for i, arr in enumerate(seqs):
             # It's difficult to convince this that the dtypes will match.
             output[i, : arr.shape[0]] = arr  # type: ignore
         return output
 
     def unpad(
-        self, padded: ArrayTXNotMind, lengths: List[int]
-    ) -> List[ArrayTXNotMaxd_co]:
+        self, padded: ArrayT234d, lengths: List[int]
+    ) -> List[ArrayT123d_co]:
         """The reverse/backward operation of the `pad` function: transform an
         array back into a list of arrays, each with their original length.
         """
         output = []
         for i, length in enumerate(lengths):
             output.append(padded[i, :length])
-        return cast(List[ArrayTXNotMaxd_co], output)
+        return cast(List[ArrayT123d_co], output)
 
     def list2padded(self, seqs: List[ArrayT2d_co]) -> Padded:
         """Pack a sequence of 2d arrays into a Padded datatype."""
@@ -456,7 +448,7 @@ class Ops:
     def alloc_i(self, shape: Shape, *, dtype: Optional[DTypesInt] = "int32") -> IntsXd:
         return self.alloc(shape, dtype=dtype)
 
-    def alloc(self, shape: Shape, *, dtype: Optional[DTypes] = "float32") -> ArrayT:
+    def alloc(self, shape: Shape, *, dtype: Optional[DTypes] = "float32") -> ArrayTXd:
         """Allocate an array of a certain shape."""
         if isinstance(shape, int):
             shape = (shape,)
@@ -506,11 +498,11 @@ class Ops:
     def reshape_i(self, array: IntsXd, shape: Shape) -> IntsXd:
         return self.reshape(array, shape)
 
-    def reshape(self, array: ArrayT, shape: Shape) -> ArrayT:
+    def reshape(self, array: ArrayTXd, shape: Shape) -> ArrayTXd:
         """Reshape an array."""
         if isinstance(shape, int):
             shape = (shape,)
-        return cast(ArrayT, array.reshape(shape))
+        return cast(ArrayTXd, array.reshape(shape))
 
     def asarray4f(
         self,
@@ -599,7 +591,7 @@ class Ops:
         else:
             return self.xp.array(data)
 
-    def as_contig(self, data: ArrayT, dtype: Optional[DTypes] = None) -> ArrayT:
+    def as_contig(self, data: ArrayTXd, dtype: Optional[DTypes] = None) -> ArrayTXd:
         """Allow the backend to make a contiguous copy of an array.
         Implementations of `Ops` do not have to make a copy or make it
         contiguous if that would not improve efficiency for the execution engine.
@@ -1392,11 +1384,11 @@ def sigmoid(X, out=None):
     return 1.0 / (1.0 + xp.exp(-X))
 
 
-def dsigmoid(Y: ArrayT) -> ArrayT:
+def dsigmoid(Y: ArrayTXd) -> ArrayTXd:
     return Y * (1.0 - Y)
 
 
-def dtanh(Y: ArrayT) -> ArrayT:
+def dtanh(Y: ArrayTXd) -> ArrayTXd:
     return 1 - Y**2
 
 
