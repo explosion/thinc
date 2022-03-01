@@ -11,7 +11,6 @@ Predicted 39018 13.174870599992573 Ys[0] 0.05000001 5.551115e-17
 
 So PyTorch is 3x faster currently.
 """
-from typing import List, cast
 import typer
 import tqdm
 import numpy.random
