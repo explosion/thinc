@@ -18,10 +18,10 @@ def forward(model: Model[Ragged, OutT], Xr: Ragged, is_train: bool) -> Tuple[Out
     Y = cast(OutT, Xr.dataXd[ends]) # type: ignore
     x_shape = Xr.dataXd.shape
     lengths = Xr.lengths
-    ainfo = ArrayInfo.from_array(Y)
+    array_info = ArrayInfo.from_array(Y)
 
     def backprop(dY: OutT) -> Ragged:
-        ainfo.check_consistency(dY)
+        array_info.check_consistency(dY)
         dX = cast(OutT, model.ops.alloc(x_shape, dtype=dY.dtype))
         dX[ends] = dY # type: ignore
         return Ragged(dX, lengths)

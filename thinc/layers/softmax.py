@@ -66,10 +66,10 @@ def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Call
     if normalize:
         Y = model.ops.softmax(Y, temperature=temperature)
 
-    ainfo = ArrayInfo.from_array(Y)
+    array_info = ArrayInfo.from_array(Y)
 
     def backprop(dY: InT) -> OutT:
-        ainfo.check_consistency(dY)
+        array_info.check_consistency(dY)
         if temperature != 1.0:
             dY = dY / temperature
 
