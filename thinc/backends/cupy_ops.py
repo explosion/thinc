@@ -247,7 +247,7 @@ class CupyOps(Ops):
         if d_means.dtype == "float32" and lengths.dtype == "int32":
             return _custom_kernels.backprop_reduce_mean(d_means, lengths)
         else:
-            super().reduce_mean(d_means, lengths)
+            super().backprop_reduce_mean(d_means, lengths)
 
     def reduce_max(self, X, lengths):
         if X.dtype == "float32" and lengths.dtype == "int32":
