@@ -520,7 +520,7 @@ class ArrayInfo:
             raise ValueError(
                 f"Shape mismatch in backprop. Y: {self.shape}, dY: {arr.shape}"
             )
-        if arr.dtype.name != self.dtype:
+        if arr.dtype != self.dtype:
             raise ValueError(
                 f"Type mismatch in backprop. Y: {self.dtype}, dY: {arr.dtype}"
             )
