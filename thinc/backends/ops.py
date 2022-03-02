@@ -19,6 +19,17 @@ ArrayT2d_co = TypeVar(
 )
 ArrayTXd = TypeVar("ArrayTXd", bound=ArrayXd)
 ArrayTXd_co = TypeVar("ArrayTXd_co", bound=ArrayXd, covariant=True)
+ArrayTXd_strict = TypeVar(
+    "ArrayTXd_strict",
+    Ints1d,
+    Ints2d,
+    Ints3d,
+    Ints4d,
+    Floats1d,
+    Floats2d,
+    Floats3d,
+    Floats4d,
+)
 ArrayT234d = TypeVar(
     "ArrayT234d", bound=Union[Floats2d, Floats3d, Floats4d, Ints2d, Ints3d, Ints4d]
 )
@@ -245,7 +256,7 @@ class Ops:
 
     def flatten(
         self,
-        X: List[ArrayTXd_co],
+        X: Sequence[ArrayTXd_co],
         dtype: Optional[DTypes] = None,
         pad: int = 0,
         ndim_if_empty: int = 2,
@@ -270,7 +281,9 @@ class Ops:
             result = xp.asarray(result, dtype=dtype)
         return result
 
-    def unflatten(self, X: ArrayTXd, lengths: Ints1d, pad: int = 0) -> List[ArrayTXd]:
+    def unflatten(
+        self, X: ArrayTXd_strict, lengths: Ints1d, pad: int = 0
+    ) -> List[ArrayTXd_strict]:
         """The reverse/backward operation of the `flatten` function: unflatten
         a large array into a list of arrays according to the given lengths.
         """
@@ -279,14 +292,14 @@ class Ops:
         for length in lengths:
             length = int(length)
             if pad >= 1 and length != 0:
-                X = X[pad:] # type: ignore[assignment]
+                X = X[pad:]  # type: ignore[assignment]
             unflat.append(X[:length])
             X = X[length:]  # type: ignore[assignment]
         if pad >= 1:
             X = X[pad:]  # type: ignore[assignment]
         assert len(X) == 0
         assert len(unflat) == len(lengths)
-        return cast(List[ArrayTXd], unflat)
+        return cast(List[ArrayTXd_strict], unflat)
 
     def pad(self, seqs: List[ArrayT123d_co], round_to=1) -> ArrayT234d:
         """Perform padding on a list of arrays so that they each have the same
@@ -313,9 +326,7 @@ class Ops:
             output[i, : arr.shape[0]] = arr  # type: ignore
         return output
 
-    def unpad(
-        self, padded: ArrayT234d, lengths: List[int]
-    ) -> List[ArrayT123d_co]:
+    def unpad(self, padded: ArrayT234d, lengths: List[int]) -> List[ArrayT123d_co]:
         """The reverse/backward operation of the `pad` function: transform an
         array back into a list of arrays, each with their original length.
         """

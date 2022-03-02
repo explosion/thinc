@@ -4,21 +4,18 @@ from ..model import Model
 from ..config import registry
 from ..types import Floats2d, Ragged
 
-InT = TypeVar("InT", bound=Union[Floats2d, Ragged])
-InT_co = TypeVar("InT_co", bound=Union[Floats2d, Ragged], covariant=True)
+InT = TypeVar("InT", Floats2d, Ragged)
 
 
 @registry.layers("expand_window.v1")
-def expand_window(window_size: int = 1) -> Model[InT_co, InT_co]:
+def expand_window(window_size: int = 1) -> Model[InT, InT]:
     """For each vector in an input, construct an output vector that contains the
     input and a window of surrounding vectors. This is one step in a convolution.
     """
     return Model("expand_window", forward, attrs={"window_size": window_size})
 
 
-def forward(
-    model: Model[InT_co, InT_co], X: InT, is_train: bool
-) -> Tuple[InT_co, Callable]:
+def forward(model: Model[InT, InT], X: InT, is_train: bool) -> Tuple[InT, Callable]:
     if isinstance(X, Ragged):
         return _expand_window_ragged(model, X)
     else:

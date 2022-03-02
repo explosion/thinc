@@ -2,7 +2,7 @@ from typing import Tuple, Callable, TypeVar, List, Union
 
 from ..model import Model
 from ..config import registry
-from ..types import Array2d, List2d, Array2d
+from ..types import Array2d, List2d
 
 
 InT = List2d

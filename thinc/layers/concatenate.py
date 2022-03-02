@@ -61,7 +61,9 @@ def _array_forward(
         dX = callbacks[0](dY)
         start = widths[0]
         add_gradients = hasattr(dX, "__add__") or hasattr(dX, "__iadd__")
-        add_gradients_data = hasattr(dX, "data") and (hasattr(dX.data, "__add__") or hasattr(dX.data, "__iadd__"))
+        add_gradients_data = hasattr(dX, "data") and (
+            hasattr(dX.data, "__add__") or hasattr(dX.data, "__iadd__")
+        )
         for bwd, width in zip(callbacks[1:], widths[1:]):
             dY = model.ops.as_contig(d_output[:, start : start + width])
             gradient = bwd(dY)
@@ -98,7 +100,9 @@ def _ragged_forward(
     return cast(OutT, output), backprop
 
 
-def _list_forward(model: Model[InT, OutT], X, Ys, callbacks, is_train: bool) -> Tuple[OutT, Callable]:
+def _list_forward(
+    model: Model[InT, OutT], X, Ys, callbacks, is_train: bool
+) -> Tuple[OutT, Callable]:
     lengths = model.ops.asarray1i([len(x) for x in X])
     Ys = [model.ops.xp.concatenate(Y, axis=0) for Y in Ys]
     widths = [Y.shape[1] for Y in Ys]
