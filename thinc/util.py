@@ -546,7 +546,5 @@ __all__ = [
     "make_tempfile",
     "use_nvtx_range",
     "set_torch_tensor_type_for_ops",
-    "consistent_backprop",
     "ArrayInfo",
-    "create_arrayinfo",
 ]
