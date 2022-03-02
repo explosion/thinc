@@ -1028,7 +1028,9 @@ class Ops:
         dX = self.alloc2f(lengths.sum(), d_maxes.shape[1])
         start = 0
         for i, length in enumerate(lengths):
-            dX[start : start + length, which[i]] = d_maxes[i]
+            self.xp.put_along_axis(
+                dX[start : start + length], which[i].reshape((1, -1)), d_maxes[i], 0
+            )
             start += length
         return dX
 
