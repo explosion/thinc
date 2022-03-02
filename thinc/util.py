@@ -508,14 +508,14 @@ def set_torch_tensor_type_for_ops(ops):
 class ArrayInfo:
     """Container for info for checking array compatibility."""
 
-    shape: Tuple[int]
-    dtype: str  # corresponds to dtype.name
+    shape: types.Shape
+    dtype: types.DTypes  # corresponds to dtype.name
 
     @classmethod
-    def from_array(cls, arr: FloatsXd):
+    def from_array(cls, arr: ArrayXd):
         return cls(shape=arr.shape, dtype=arr.dtype.name)
 
-    def check_consistency(self, arr: FloatsXd):
+    def check_consistency(self, arr: ArrayXd):
         if arr.shape != self.shape:
             raise ValueError(
                 f"Shape mismatch in backprop. Y: {self.shape}, dY: {arr.shape}"
