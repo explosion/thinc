@@ -24,7 +24,7 @@ def forward(
 
     def backprop(dY: OutT) -> Ragged:
         dX = cast(OutT, model.ops.alloc(x_shape, dtype=dY.dtype))
-        dX[ends] = dY  # type: ignore
+        dX[ends] = dY  # type: ignore[assignment]
         return Ragged(dX, lengths)
 
     return Y, backprop

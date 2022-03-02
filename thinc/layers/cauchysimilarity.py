@@ -31,7 +31,7 @@ def forward(
     W = cast(Floats2d, model.get_param("W"))
     diff = X1 - X2
     square_diff = diff**2
-    total = (W * square_diff).sum(axis=1)  # type: ignore
+    total = (W * square_diff).sum(axis=1)
     sim, bp_sim = inverse(total)
 
     def backprop(d_sim: OutT) -> InT:

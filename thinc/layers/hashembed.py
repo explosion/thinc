@@ -35,7 +35,7 @@ def HashEmbed(
     attrs: Dict[str, Any] = {"column": column, "seed": seed}
     if dropout is not None:
         attrs["dropout_rate"] = dropout
-    model = Model(  # type: ignore
+    model = Model(  # type: ignore[var-annotated]
         "hashembed",
         forward,
         init=partial(init, initializer),
@@ -64,7 +64,7 @@ def forward(
     if len(ids) == 0:
         output: Floats2d = model.ops.alloc((0, nO), dtype=vectors.dtype)
     else:
-        ids = model.ops.as_contig(ids, dtype="uint64")  # type: ignore
+        ids = model.ops.as_contig(ids, dtype="uint64")
         nN = ids.shape[0]
         seed: int = model.attrs["seed"]
         keys = model.ops.hash(ids, seed) % nV

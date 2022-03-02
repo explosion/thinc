@@ -19,17 +19,6 @@ ArrayT2d_co = TypeVar(
 )
 ArrayTXd = TypeVar("ArrayTXd", bound=ArrayXd)
 ArrayTXd_co = TypeVar("ArrayTXd_co", bound=ArrayXd, covariant=True)
-ArrayTXd_strict = TypeVar(
-    "ArrayTXd_strict",
-    Ints1d,
-    Ints2d,
-    Ints3d,
-    Ints4d,
-    Floats1d,
-    Floats2d,
-    Floats3d,
-    Floats4d,
-)
 ArrayT234d = TypeVar(
     "ArrayT234d", bound=Union[Floats2d, Floats3d, Floats4d, Ints2d, Ints3d, Ints4d]
 )
@@ -37,9 +26,7 @@ ArrayT123d = TypeVar(
     "ArrayT123d", bound=Union[Floats1d, Floats2d, Floats3d, Ints1d, Ints2d, Ints3d]
 )
 ArrayT123d_co = TypeVar(
-    "ArrayT123d_co",
-    bound=Union[Floats1d, Floats2d, Floats3d, Ints1d, Ints2d, Ints3d],
-    covariant=True,
+    "ArrayT123d_co", bound=Union[Floats1d, Floats2d, Floats3d, Ints1d, Ints2d, Ints3d], covariant=True
 )
 
 
@@ -164,13 +151,13 @@ class Ops:
         if isinstance(sequence, list):
             subseq = [sequence[i] for i in indices]
         elif isinstance(sequence, tuple):
-            subseq = tuple(sequence[i] for i in indices)  # type: ignore
+            subseq = tuple(sequence[i] for i in indices)
         else:
-            subseq = sequence[indices]  # type: ignore
+            subseq = sequence[indices]
         if is_xp_array(subseq):
             subseq = self.as_contig(
                 cast(ArrayXd, self.xp.asarray(subseq))
-            )  # type: ignore
+            )
         return subseq
 
     def _get_batch_sizes(self, length: int, sizes: Iterator[int]):
@@ -282,8 +269,8 @@ class Ops:
         return result
 
     def unflatten(
-        self, X: ArrayTXd_strict, lengths: Ints1d, pad: int = 0
-    ) -> List[ArrayTXd_strict]:
+        self, X: ArrayTXd, lengths: Ints1d, pad: int = 0
+    ) -> List[ArrayTXd]:
         """The reverse/backward operation of the `flatten` function: unflatten
         a large array into a list of arrays according to the given lengths.
         """
@@ -292,14 +279,14 @@ class Ops:
         for length in lengths:
             length = int(length)
             if pad >= 1 and length != 0:
-                X = X[pad:]  # type: ignore[assignment]
+                X = cast(ArrayTXd, X[pad:])
             unflat.append(X[:length])
-            X = X[length:]  # type: ignore[assignment]
+            X = cast(ArrayTXd, X[length:])
         if pad >= 1:
-            X = X[pad:]  # type: ignore[assignment]
+            X = cast(ArrayTXd, X[pad:])
         assert len(X) == 0
         assert len(unflat) == len(lengths)
-        return cast(List[ArrayTXd_strict], unflat)
+        return cast(List[ArrayTXd], unflat)
 
     def pad(self, seqs: List[ArrayT123d_co], round_to=1) -> ArrayT234d:
         """Perform padding on a list of arrays so that they each have the same
@@ -323,7 +310,7 @@ class Ops:
         output: ArrayT234d = self.alloc(final_shape, dtype=seqs[0].dtype)
         for i, arr in enumerate(seqs):
             # It's difficult to convince this that the dtypes will match.
-            output[i, : arr.shape[0]] = arr  # type: ignore
+            output[i, : arr.shape[0]] = arr # type: ignore[index, assignment, call-overload]
         return output
 
     def unpad(self, padded: ArrayT234d, lengths: List[int]) -> List[ArrayT123d_co]:
@@ -596,7 +583,7 @@ class Ops:
                 return self.xp.asarray(data, dtype=dtype)
         elif hasattr(data, "numpy"):
             # Handles PyTorch Tensor
-            return data.numpy()  # type: ignore
+            return data.numpy() # type: ignore[union-attr]
         elif dtype is not None:
             return self.xp.array(data, dtype=dtype)
         else:
@@ -615,8 +602,8 @@ class Ops:
     def sigmoid(self, X: FloatsType, *, inplace: bool = False) -> FloatsType:
         if inplace:
             self.xp.exp(-X, out=X)
-            X += 1.0  # type: ignore
-            X **= -1.0  # type: ignore
+            X += 1.0  # type: ignore[assignment]
+            X **= -1.0  # type: ignore[assignment]
             return cast(FloatsType, X)
         else:
             return cast(FloatsType, 1.0 / (1.0 + self.xp.exp(-X)))
@@ -750,10 +737,10 @@ class Ops:
         inplace: bool = False,
     ) -> FloatsType:
         if inplace:
-            X *= slope  # type: ignore
-            X += offset  # type: ignore
+            X *= slope  # type: ignore[assignment]
+            X += offset  # type: ignore[assignment]
             return cast(FloatsType, self.xp.clip(X, min_val, max_val, out=X))
-        out = X * slope + offset  # type: ignore
+        out = X * slope + offset  # type: ignore[assignment]
         return cast(FloatsType, self.xp.clip(out, min_val, max_val))
 
     def backprop_clipped_linear(
@@ -804,27 +791,27 @@ class Ops:
 
     def swish(self, X: FloatsType, inplace: bool = False) -> FloatsType:
         if inplace:
-            X *= self.sigmoid(X)  # type: ignore
+            X *= self.sigmoid(X)  # type: ignore[operator, assignment]
             return cast(FloatsType, X)
-        out = X * self.sigmoid(X)  # type: ignore
+        out = X * self.sigmoid(X)  # type: ignore[operator]
         return cast(FloatsType, out)
 
     def backprop_swish(
         self, dY: FloatsType, X: FloatsType, Y: FloatsType, inplace: bool = False
     ) -> FloatsType:
-        Y = Y + self.sigmoid(X) * (1 - Y)  # type: ignore
+        Y = Y + self.sigmoid(X) * (1 - Y)  # type: ignore[operator]
         if inplace:
-            dY *= Y  # type: ignore
+            dY *= Y  # type: ignore[operator, assignment]
             return cast(FloatsType, dY)
-        out = dY * Y  # type: ignore
+        out = dY * Y  # type: ignore[operator]
         return cast(FloatsType, out)
 
     # Following https://www.scitepress.org/Papers/2019/74696/74696.pdf
     def hard_swish(self, X: FloatsType, inplace: bool = False) -> FloatsType:
         if inplace:
-            X *= self.hard_sigmoid(X)  # type: ignore
+            X *= self.hard_sigmoid(X)  # type: ignore[operator, assignment]
             return cast(FloatsType, X)
-        out = X * self.hard_sigmoid(X)  # type: ignore
+        out = X * self.hard_sigmoid(X)  # type: ignore[operator]
         return cast(FloatsType, out)
 
     def backprop_hard_swish(
@@ -913,15 +900,15 @@ class Ops:
         # GELU(x) = x · Φ(x)
         cdf = gaussian_cdf(self, X)
         if inplace:
-            X *= cdf  # type: ignore
+            X *= cdf  # type: ignore[operator, assignment]
             return X
-        return X * cdf  # type: ignore
+        return X * cdf  # type: ignore[operator, return-value]
 
     def backprop_gelu(
         self, dY: FloatsType, X: FloatsType, inplace: bool = False
     ) -> FloatsType:
         # GELU'(x) = Φ(x) + x · PDF(x)
-        dX = gaussian_cdf(self, X) + X * gaussian_pdf(self, X)  # type: ignore
+        dX = gaussian_cdf(self, X) + X * gaussian_pdf(self, X)  # type: ignore[operator]
         if inplace:
             dY *= dX
             return dY
@@ -1169,8 +1156,8 @@ def lstm_forward_training(
         for d in range(dirs):
             # The inits are shaped (depth, dirs, nO). We add the internal dimension
             # to make them set correctly.
-            Yt2 = h_init[i, d].reshape((1, nO))  # type: ignore
-            Ct2 = c_init[i, d].reshape((1, nO))  # type: ignore
+            Yt2 = h_init[i, d].reshape((1, nO)) # type: ignore[assignment]
+            Ct2 = c_init[i, d].reshape((1, nO)) # type: ignore[assignment]
             layer_params, params_i = _split_weights(params, i, nO, nI, params_i)
             Wx, Wh, bias = _transpose_weights(layer_params)
             G[i, d] += xp.dot(X, Wx.T)

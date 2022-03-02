@@ -20,6 +20,8 @@ def forward(
     Y = model.ops.sigmoid(X, inplace=False)
 
     def backprop(dY: InT) -> InT:
-        return dY * model.ops.dsigmoid(Y, inplace=False)  # type: ignore
+        return cast(
+            InT, dY * model.ops.dsigmoid(Y, inplace=False)
+        )  # type:ignore[operator]
 
     return Y, backprop

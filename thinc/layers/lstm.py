@@ -45,7 +45,7 @@ def PyTorchLSTM(
     from .pytorchwrapper import PyTorchRNNWrapper
 
     if depth == 0:
-        return noop()  # type: ignore
+        return noop()  # type: ignore[misc]
     nH = nO
     if bi:
         nH = nO // 2

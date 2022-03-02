@@ -20,13 +20,13 @@ def forward(
     starts = model.ops.alloc1i(Xr.lengths.shape[0])
     starts[1:] += Xr.lengths.cumsum()[:-1]
     X = cast(OutT, Xr.dataXd)
-    Y = cast(OutT, X[starts])  # type: ignore
+    Y = cast(OutT, X[starts])
     x_shape = Xr.dataXd.shape
     lengths = Xr.lengths
 
     def backprop(dY: OutT) -> Ragged:
         dX = cast(OutT, model.ops.alloc(x_shape, dtype=dY.dtype))
-        dX[starts] = dY  # type: ignore
+        dX[starts] = dY  # type: ignore[assignment]
         return Ragged(dX, lengths)
 
     return Y, backprop

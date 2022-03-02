@@ -1,4 +1,4 @@
-from typing import Tuple, Callable, TypeVar, List, Union
+from typing import Tuple, Callable, TypeVar, List, Union, cast
 
 from ..model import Model
 from ..config import registry
@@ -23,6 +23,6 @@ def forward(model: Model[InT, OutT], Xs: InT, is_train: bool) -> Tuple[OutT, Cal
     lengths = model.ops.asarray1i([len(x) for x in Xs])
 
     def backprop(dY: OutT) -> InT:
-        return model.ops.unflatten(dY, lengths)  # type: ignore
+        return cast(InT, model.ops.unflatten(dY, lengths))
 
-    return model.ops.flatten(Xs), backprop  # type: ignore
+    return model.ops.flatten(Xs), backprop  # type:ignore[type-var, return-value]
