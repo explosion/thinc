@@ -509,11 +509,11 @@ class ArrayInfo:
     """Container for info for checking array compatibility."""
 
     shape: types.Shape
-    dtype: types.DTypes  # corresponds to dtype.name
+    dtype: types.DTypes
 
     @classmethod
     def from_array(cls, arr: ArrayXd):
-        return cls(shape=arr.shape, dtype=arr.dtype.name)
+        return cls(shape=arr.shape, dtype=arr.dtype)
 
     def check_consistency(self, arr: ArrayXd):
         if arr.shape != self.shape:
@@ -522,7 +522,7 @@ class ArrayInfo:
             )
         if arr.dtype.name != self.dtype:
             raise ValueError(
-                f"Type mismatch in backprop. Y: {self.dtype}, dY: {arr.dtype.name}"
+                f"Type mismatch in backprop. Y: {self.dtype}, dY: {arr.dtype}"
             )
 
 
