@@ -52,11 +52,15 @@ def forward(
     nN = ids.shape[0]
     dropout: Optional[float] = model.attrs.get("dropout_rate")
     output = vectors[ids]
-    drop_mask = cast(Floats1d, model.ops.get_dropout_mask((nO,), dropout))
-    output *= drop_mask
+    drop_mask = None
+    if is_train:
+        drop_mask = cast(Floats1d, model.ops.get_dropout_mask((nO,), dropout))
+        if drop_mask is not None:
+            output *= drop_mask
 
     def backprop(d_output: OutT) -> Ints1d:
-        d_output *= drop_mask
+        if drop_mask is not None:
+            d_output *= drop_mask
         d_vectors = model.ops.alloc2f(*vectors.shape)
         model.ops.scatter_add(d_vectors, ids, d_output)
         model.inc_grad("E", d_vectors)
@@ -74,6 +78,6 @@ def init(
 ) -> Model[InT, OutT]:
     if Y is not None:
         model.set_dim("nO", get_width(Y))
-    shape = (model.get_dim("nV") + 1, model.get_dim("nO"))
+    shape = (model.get_dim("nV"), model.get_dim("nO"))
     model.set_param("E", initializer(model.ops, shape))
     return model

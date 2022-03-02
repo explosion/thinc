@@ -1,17 +1,12 @@
+from collections import Counter
 import pytest
 import threading
 import time
-import ml_datasets
-from thinc.api import (
-    CupyOps,
-    prefer_gpu,
-    Linear,
-    Dropout,
-    Model,
-    Shim,
-    change_attr_values,
-)
-from thinc.api import set_dropout_rate, chain, ReLu, Softmax, Adam
+from thinc.api import Adam, CupyOps, Dropout, Linear, Model, Relu
+from thinc.api import Shim, Softmax, chain, change_attr_values
+from thinc.api import concatenate, has_cupy, set_dropout_rate
+from thinc.api import use_ops, with_debug, wrap_model_recursive
+from thinc.util import gpu_is_available
 import numpy
 
 from ..util import make_tempdir
@@ -78,10 +73,6 @@ def test_model_init():
         model.get_dim("xyz")
     with pytest.raises(ValueError):
         model.get_dim("nO")
-    with pytest.raises(KeyError):
-        model.set_dim("xyz", 20)
-    with pytest.raises(ValueError):
-        model.set_dim("nI", 20)
     assert model.has_ref("a")
     assert model.get_ref("a").name == "a"
     assert not model.has_ref("xyz")
@@ -103,6 +94,38 @@ def test_model_init():
     model.attrs["bar"] = "baz"
     model_copy = model.copy()
     assert model_copy.name == "test"
+
+
+def test_model_set_dim():
+    class MyShim(Shim):
+        name = "testshim"
+
+    model_a = create_model("a")
+    model = Model(
+        "test",
+        lambda X: (X, lambda dY: dY),
+        dims={"nI": 5, "nO": None},
+        params={"W": None, "b": None},
+        refs={"a": model_a, "b": None},
+        attrs={"foo": "bar"},
+        shims=[MyShim(None)],
+        layers=[model_a, model_a],
+    )
+    with pytest.raises(ValueError):
+        model.set_dim("nI", 10)
+    # force can be used before any parameters are set
+    model.set_dim("nI", 10, force=True)
+    model.set_param("W", model.ops.alloc1f(10))
+    model.set_grad("W", model.ops.alloc1f(10))
+    assert model.has_dim("nI")
+    assert model.get_dim("nI") == 10
+    with pytest.raises(KeyError):
+        model.set_dim("xyz", 20)
+    with pytest.raises(ValueError):
+        model.set_dim("nI", 20)
+    # force can't be used after any parameter is set
+    with pytest.raises(ValueError):
+        model.set_dim("nI", 20, force=True)
 
 
 def test_param_names():
@@ -146,6 +169,17 @@ def test_model_set_reference():
     assert not parent.has_ref("grandkind")
 
 
+def test_maybe_methods():
+    model = Linear(5)
+    assert model.maybe_get_dim("nI") is None
+    model.set_dim("nI", 4)
+    assert model.maybe_get_dim("nI") == 4
+    assert model.maybe_get_ref("boo") is None
+    assert model.maybe_get_param("W") is None
+    model.initialize()
+    assert model.maybe_get_param("W") is not None
+
+
 def test_model_can_save_to_disk(model_with_no_args):
     with make_tempdir() as path:
         model_with_no_args.to_disk(path / "thinc_model")
@@ -155,6 +189,13 @@ def test_model_can_load_from_disk(model_with_no_args):
     with make_tempdir() as path:
         model_with_no_args.to_disk(path / "thinc_model")
         m2 = model_with_no_args.from_disk(path / "thinc_model")
+    assert model_with_no_args.to_bytes() == m2.to_bytes()
+
+
+def test_model_can_roundtrip_with_path_subclass(model_with_no_args, pathy_fixture):
+    path = pathy_fixture / "thinc_model"
+    model_with_no_args.to_disk(path)
+    m2 = model_with_no_args.from_disk(path)
     assert model_with_no_args.to_bytes() == m2.to_bytes()
 
 
@@ -364,35 +405,212 @@ def test_unique_id_multithreading():
 
 
 def test_model_gpu():
-    prefer_gpu()
-    n_hidden = 32
-    dropout = 0.2
-    (train_X, train_Y), (dev_X, dev_Y) = ml_datasets.mnist()
-    model = chain(
-        ReLu(nO=n_hidden, dropout=dropout),
-        ReLu(nO=n_hidden, dropout=dropout),
-        Softmax(),
+    pytest.importorskip("ml_datasets")
+    import ml_datasets
+
+    ops = "cpu"
+    if has_cupy and gpu_is_available():
+        ops = "cupy"
+
+    with use_ops(ops):
+        n_hidden = 32
+        dropout = 0.2
+        (train_X, train_Y), (dev_X, dev_Y) = ml_datasets.mnist()
+        model = chain(
+            Relu(nO=n_hidden, dropout=dropout),
+            Relu(nO=n_hidden, dropout=dropout),
+            Softmax(),
+        )
+        # make sure the data is on the right device
+        train_X = model.ops.asarray(train_X)
+        train_Y = model.ops.asarray(train_Y)
+        dev_X = model.ops.asarray(dev_X)
+        dev_Y = model.ops.asarray(dev_Y)
+
+        model.initialize(X=train_X[:5], Y=train_Y[:5])
+        optimizer = Adam(0.001)
+        batch_size = 128
+
+        for i in range(2):
+            batches = model.ops.multibatch(batch_size, train_X, train_Y, shuffle=True)
+            for X, Y in batches:
+                Yh, backprop = model.begin_update(X)
+                backprop(Yh - Y)
+                model.finish_update(optimizer)
+            # Evaluate and print progress
+            correct = 0
+            total = 0
+            for X, Y in model.ops.multibatch(batch_size, dev_X, dev_Y):
+                Yh = model.predict(X)
+                correct += (Yh.argmax(axis=1) == Y.argmax(axis=1)).sum()
+                total += Yh.shape[0]
+
+
+def test_replace_node():
+    relu1 = Relu(5)
+    relu2 = Relu(5)
+    relu_chain = chain(relu1, relu2)
+    relu1_debug = with_debug(relu1)
+    debug = Model(
+        "test",
+        lambda X: (X, lambda dY: dY),
+        layers=[relu1, relu2, relu1, relu_chain],
+        refs={"relu1": relu1, "relu2": relu2, "relu3": relu1},
     )
-    # making sure the data is on the right device
-    train_X = model.ops.asarray(train_X)
-    train_Y = model.ops.asarray(train_Y)
-    dev_X = model.ops.asarray(dev_X)
-    dev_Y = model.ops.asarray(dev_Y)
+    debug.replace_node(relu1, relu1_debug)
+    assert debug.layers[0] == relu1_debug
+    assert debug.layers[1] == relu2
+    assert debug.layers[2] == relu1_debug
+    assert debug.get_ref("relu1") == relu1_debug
+    assert debug.get_ref("relu2") == relu2
+    assert debug.get_ref("relu3") == relu1_debug
 
-    model.initialize(X=train_X[:5], Y=train_Y[:5])
-    optimizer = Adam(0.001)
-    batch_size = 128
+    # Check that nodes are replaced recursively
+    assert debug.layers[3] == relu_chain
+    assert debug.layers[3].layers[0] == relu1_debug
+    assert debug.layers[3].layers[1] == relu2
 
-    for i in range(2):
-        batches = model.ops.multibatch(batch_size, train_X, train_Y, shuffle=True)
-        for X, Y in batches:
-            Yh, backprop = model.begin_update(X)
-            backprop(Yh - Y)
-            model.finish_update(optimizer)
-        # Evaluate and print progress
-        correct = 0
-        total = 0
-        for X, Y in model.ops.multibatch(batch_size, dev_X, dev_Y):
-            Yh = model.predict(X)
-            correct += (Yh.argmax(axis=1) == Y.argmax(axis=1)).sum()
-            total += Yh.shape[0]
+
+def test_replace_node_with_indirect_node_ref():
+    #  a
+    # / \
+    # x  b[y=y]
+    # |  |
+    # y  x
+    #    |
+    #    y
+
+    def dummy_model(name, layers):
+        return Model(name, lambda model, X, is_train: ..., layers=layers)
+
+    y = dummy_model("y", [])
+    x = dummy_model("x", [y])
+
+    y_debug = with_debug(y)
+
+    b = dummy_model("b", [x])
+    b.set_ref("y", y)
+
+    a = chain(x, b)
+    a.name = "a"
+
+    a.replace_node(y, y_debug)
+
+    assert a.layers[0].layers[0] == y_debug
+    assert a.layers[1].layers[0].layers[0] == y_debug
+    assert a.layers[1].get_ref("y") == y_debug
+
+
+def test_with_debug():
+    pytest.importorskip("ml_datasets")
+    import ml_datasets
+
+    (train_X, train_Y), (dev_X, dev_Y) = ml_datasets.mnist()
+
+    counts = Counter()
+
+    def on_init(*_):
+        counts["init"] += 1
+
+    def on_forward(*_):
+        counts["forward"] += 1
+
+    def on_backprop(*_):
+        counts["backprop"] += 1
+
+    relu = Relu()
+    relu2 = with_debug(
+        Relu(), on_init=on_init, on_forward=on_forward, on_backprop=on_backprop
+    )
+    chained = chain(relu, relu2, relu2)
+    chained.initialize(X=train_X[:5], Y=train_Y[:5])
+    _, backprop = chained(X=train_X[:5], is_train=False)
+
+    # Not real loss gradients, but we don't care for testing.
+    backprop(train_Y[:5])
+
+    # Four times forward, because initialization also applies forward for
+    # validation.
+    assert counts == {"init": 2, "forward": 4, "backprop": 2}
+
+
+def test_recursive_wrap():
+    def dummy_model(name, layers):
+        return Model(name, lambda model, X, is_train: ..., layers=layers)
+
+    # Check:
+    #
+    # * Recursion: chain -> relu
+    # * Multiple sublayers: chain -> [relu, relu]
+
+    relu = Relu(5)
+    chained = chain(relu, relu)
+    chained_debug = wrap_model_recursive(
+        chained, lambda model: dummy_model(f"dummy({model.name})", [model])
+    )
+
+    assert chained_debug.name == "dummy(relu>>relu)"
+    assert chained_debug.layers[0] is chained
+    assert chained_debug.layers[0].layers[0].name == "dummy(relu)"
+    assert chained_debug.layers[0].layers[0].layers[0] is relu
+    assert chained_debug.layers[0].layers[1].name == "dummy(relu)"
+    assert chained_debug.layers[0].layers[1].layers[0] is relu
+
+
+def test_recursive_double_wrap():
+    def dummy_model(name, layers):
+        return Model(name, lambda model, X, is_train: ..., layers=layers)
+
+    relu = Relu(5)
+    chained = chain(relu, relu)
+    concat = concatenate(chained, chained, relu)
+    concat_wrapped = wrap_model_recursive(
+        concat, lambda model: dummy_model(f"dummy({model.name})", [model])
+    )
+
+    n_debug = 0
+    for model in concat_wrapped.walk():
+        if model.name.startswith("dummy"):
+            n_debug += 1
+
+    # There should be 3 unique dummy wrappers:
+    # * Around concatenate.
+    # * Around chain.
+    # * Around relu.
+    assert n_debug == 3
+
+    assert concat_wrapped.layers[0].layers[0].layers[0].layers[0].name == "dummy(relu)"
+    assert concat_wrapped.layers[0].layers[0].layers[0].layers[1].name == "dummy(relu)"
+    assert concat_wrapped.layers[0].layers[1].layers[0].layers[0].name == "dummy(relu)"
+    assert concat_wrapped.layers[0].layers[1].layers[0].layers[1].name == "dummy(relu)"
+    assert concat_wrapped.layers[0].layers[2].name == "dummy(relu)"
+
+
+def test_wrap_non_child_references():
+    relu = Relu(5)
+    relu2 = Relu(5)
+    chained = chain(relu, relu)
+    chained2 = chain(relu2, chained)
+    chained2.set_ref("relu", relu)
+    # Fails in case non-child references cannot be set.
+    wrap_model_recursive(chained2, with_debug)
+
+
+def test_walk_dfs():
+    relu = Relu(5)
+    relu2 = Relu(5)
+    inner_chain = chain(relu, relu2)
+    chained = chain(inner_chain, inner_chain)
+    assert list(chained.walk(order="dfs_pre")) == [chained, inner_chain, relu, relu2]
+    assert list(chained.walk(order="dfs_post")) == [
+        relu,
+        relu2,
+        inner_chain,
+        chained,
+    ]
+
+
+def test_walk_bfs_post_order_fails():
+    relu = Relu(5)
+    with pytest.raises(ValueError, match="Invalid order"):
+        relu.walk(order="dfs_post_order")

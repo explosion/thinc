@@ -1,6 +1,7 @@
 import numpy
 import timeit
 from thinc.api import NumpyOps, LSTM, PyTorchLSTM, with_padded, fix_random_seed
+from thinc.api import Ops
 from thinc.util import has_torch
 import pytest
 
@@ -36,39 +37,62 @@ def test_list2padded():
     assert unpadded[2].shape == (2, 4)
 
 
+@pytest.mark.parametrize("ops", [Ops(), NumpyOps()])
 @pytest.mark.parametrize("nO,nI", [(1, 2), (2, 2), (100, 200), (9, 6)])
-def test_LSTM_init_with_sizes(nO, nI):
-    model = with_padded(LSTM(nO, nI)).initialize()
+def test_LSTM_init_with_sizes(ops, nO, nI):
+    model = with_padded(LSTM(nO, nI, depth=1)).initialize()
     for node in model.walk():
+        model.ops = ops
         # Check no unallocated params.
-        assert node.has_param("W") is not None
-        assert node.has_param("b") is not None
-        assert node.has_param("initial_hiddens") is not None
-        assert node.has_param("initial_cells") is not None
+        assert node.has_param("LSTM") is not None
+        assert node.has_param("HC0") is not None
     for node in model.walk():
         # Check param sizes.
-        if node.has_param("W"):
-            W = node.get_param("W")
-            assert W.shape == (nO * 4, nO + nI)
-        if node.has_param("b"):
-            b = node.get_param("b")
-            assert b.shape == (nO * 4,)
-        if node.has_param("initial_hiddens"):
-            initial_hiddens = node.get_param("initial_hiddens")
-            assert initial_hiddens.shape == (nO,)
-        if node.has_param("initial_cells"):
-            initial_cells = node.get_param("initial_cells")
-            assert initial_cells.shape == (nO,)
+        if node.has_param("LSTM"):
+            params = node.get_param("LSTM")
+            assert params.shape == (
+                ((nO * 4 * nI)) + (nO * 4) + (nO * 4 * nO + nO * 4),
+            )
+        if node.has_param("HC0"):
+            params = node.get_param("HC0")
+            assert params.shape == (2, 1, 1, nO)
 
 
-def test_LSTM_fwd_bwd_shapes(nO, nI):
+@pytest.mark.parametrize("ops", [Ops(), NumpyOps()])
+def test_LSTM_fwd_bwd_shapes_simple(ops, nO, nI):
     nO = 1
     nI = 2
     X = numpy.asarray([[0.1, 0.1], [-0.1, -0.1], [1.0, 1.0]], dtype="f")
     model = with_padded(LSTM(nO, nI)).initialize(X=[X])
-    ys, backprop_ys = model([X], is_train=False)
+    for node in model.walk():
+        node.ops = ops
+    ys, backprop_ys = model([X], is_train=True)
     dXs = backprop_ys(ys)
     assert numpy.vstack(dXs).shape == numpy.vstack([X]).shape
+
+
+@pytest.mark.parametrize("ops", [Ops(), NumpyOps()])
+@pytest.mark.parametrize(
+    "nO,nI,depth,bi,lengths",
+    [
+        (1, 1, 1, False, [1]),
+        (12, 32, 1, False, [3, 1]),
+        (2, 2, 1, True, [2, 5, 7]),
+        (2, 2, 2, False, [7, 2, 4]),
+        (2, 2, 2, True, [1]),
+        (32, 16, 1, True, [5, 1, 10, 2]),
+        (32, 16, 2, True, [3, 3, 5]),
+        (32, 16, 3, True, [9, 2, 4]),
+    ],
+)
+def test_BiLSTM_fwd_bwd_shapes(ops, nO, nI, depth, bi, lengths):
+    Xs = [numpy.ones((length, nI), dtype="f") for length in lengths]
+    model = with_padded(LSTM(nO, nI, depth=depth, bi=bi)).initialize(X=Xs)
+    for node in model.walk():
+        node.ops = ops
+    ys, backprop_ys = model(Xs, is_train=True)
+    dXs = backprop_ys(ys)
+    assert numpy.vstack(dXs).shape == numpy.vstack(Xs).shape
 
 
 def test_LSTM_learns():
@@ -145,11 +169,9 @@ def test_benchmark_LSTM_fwd():
 def test_lstm_init():
     model = with_padded(LSTM(2, 2, bi=True)).initialize()
     model.initialize()
-    with pytest.raises(NotImplementedError):
-        with_padded(LSTM(2, dropout=0.2))
 
 
 @pytest.mark.skipif(not has_torch, reason="needs PyTorch")
 def test_pytorch_lstm_init():
     model = with_padded(PyTorchLSTM(2, 2, depth=0)).initialize()
-    assert model.name.endswith("noop")
+    assert model.name == "with_padded(noop)"

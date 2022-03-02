@@ -1,0 +1,23 @@
+.root
+    display: block
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr))
+    margin-bottom: 4rem
+    grid-gap: 2rem
+
+.feature
+    grid-gap: 2.5rem
+
+@supports(display: grid)
+    .root
+        display: grid !important
+
+@media(min-width: 1000px)
+    .root
+        display: flex
+
+        & > *
+            flex: 0 0 50%
+            margin-bottom: 0
+
+    .feature
+        grid-template-columns: 3fr 1fr

@@ -1,6 +1,6 @@
 import numpy
 import pytest
-from thinc.api import SGD, NumpyOps, to_categorical, SparseLinear
+from thinc.api import SGD, to_categorical, SparseLinear
 
 
 @pytest.fixture
@@ -15,7 +15,7 @@ def instances():
 
 @pytest.fixture
 def sgd():
-    return SGD(0.001, ops=NumpyOps())
+    return SGD(0.001)
 
 
 def test_basic(instances, sgd):

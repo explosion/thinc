@@ -2,26 +2,26 @@ from typing import Tuple, Callable, Optional, TypeVar, Union, cast
 
 from ..model import Model
 from ..config import registry
-from ..types import Array2d, Floats2d, Padded, Ragged, ArrayXd
+from ..types import Array2d, Floats2d, Padded, Ragged, ArrayXd, Floats3d
 from ..types import List2d
 
 
-ValT = TypeVar("ValT", bound=Array2d)
-SeqT = TypeVar("SeqT", bound=Union[Padded, Ragged, List2d, Array2d])
+SeqT = TypeVar("SeqT", bound=Union[Padded, Ragged, List2d, ArrayXd])
 
 
 @registry.layers("with_array.v1")
-def with_array(layer: Model[ValT, ValT], pad: int = 0) -> Model[SeqT, SeqT]:
+def with_array(layer: Model[ArrayXd, ArrayXd], pad: int = 0) -> Model[SeqT, SeqT]:
     """Transform sequence data into a contiguous 2d array on the way into and
     out of a model. Handles a variety of sequence types: lists, padded and ragged.
     If the input is a 2d array, it is passed through unchanged.
     """
     return Model(
-        f"with_array-{layer.name}",
+        f"with_array({layer.name})",
         forward,
         init=init,
         layers=[layer],
         attrs={"pad": pad},
+        dims={name: layer.maybe_get_dim(name) for name in layer.dim_names},
     )
 
 
@@ -43,23 +43,25 @@ def forward(model: Model[SeqT, SeqT], Xseq: SeqT, is_train: bool):
 def init(
     model: Model[SeqT, SeqT], X: Optional[SeqT] = None, Y: Optional[SeqT] = None
 ) -> Model[SeqT, SeqT]:
-    layer: Model[Array2d, Array2d] = model.layers[0]
+    layer: Model[ArrayXd, ArrayXd] = model.layers[0]
     layer.initialize(
         X=_get_array(model, X) if X is not None else X,
         Y=_get_array(model, Y) if Y is not None else Y,
     )
+    for dim_name in layer.dim_names:
+        value = layer.maybe_get_dim(dim_name)
+        if value is not None:
+            model.set_dim(dim_name, value)
     return model
 
 
-def _get_array(model, X: SeqT) -> Array2d:
+def _get_array(model, X: SeqT) -> ArrayXd:
     if isinstance(X, Ragged):
-        return X.data
+        return X.dataXd
     elif isinstance(X, Padded):
-        return model.ops.reshape2f(
-            X.data, X.data.shape[0] * X.data.shape[1], X.data.shape[2]
-        )
+        return X.data
     elif not isinstance(X, (list, tuple)):
-        return cast(Array2d, X)
+        return cast(ArrayXd, X)
     else:
         return model.ops.flatten(X)
 
@@ -90,29 +92,18 @@ def _ragged_forward(
     def backprop(dYr: Ragged) -> Ragged:
         return Ragged(get_dX(dYr.dataXd), dYr.lengths)
 
-    return Ragged(cast(Floats2d, Y), Xr.lengths), backprop
+    return Ragged(Y, Xr.lengths), backprop
 
 
 def _padded_forward(
     model: Model[Padded, Padded], Xp: Padded, is_train: bool
 ) -> Tuple[Padded, Callable]:
-    layer: Model[Array2d, Array2d] = model.layers[0]
-    X = model.ops.reshape2f(
-        Xp.data, Xp.data.shape[0] * Xp.data.shape[1], Xp.data.shape[2]
-    )
-    Y2d, get_dX = layer(X, is_train)
-    Y = model.ops.reshape3f(
-        cast(Floats2d, Y2d), Xp.data.shape[0], Xp.data.shape[1], Y2d.shape[1]
-    )
+    layer: Model[Floats3d, Floats3d] = model.layers[0]
+    Y, get_dX = layer(Xp.data, is_train)
 
     def backprop(dYp: Padded) -> Padded:
-        dY = model.ops.reshape2f(
-            dYp.data, dYp.data.shape[0] * dYp.data.shape[1], dYp.data.shape[2]
-        )
-        dX2d = get_dX(dY)
-        dX = model.ops.reshape3f(
-            dX2d, dYp.data.shape[0], dYp.data.shape[1], dX2d.data.shape[1]
-        )
+        assert isinstance(dYp, Padded)
+        dX = get_dX(dYp.data)
         return Padded(dX, dYp.size_at_t, dYp.lengths, dYp.indices)
 
     return Padded(Y, Xp.size_at_t, Xp.lengths, Xp.indices), backprop

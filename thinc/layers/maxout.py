@@ -56,8 +56,8 @@ def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Call
         # TODO: Add sum methods for Floats3d
         model.inc_grad("b", dZ.sum(axis=0))  # type: ignore
         dY = model.ops.reshape2f(dZ, dZ.shape[0], nO * nP)
-        dX = model.ops.reshape3f(model.ops.gemm(dY, X, trans1=True), nO, nP, nI)
-        model.inc_grad("W", dX)
+        dW = model.ops.reshape3f(model.ops.gemm(dY, X, trans1=True), nO, nP, nI)
+        model.inc_grad("W", dW)
         return model.ops.gemm(dY, model.ops.reshape2f(W, nO * nP, nI))
 
     return best, backprop

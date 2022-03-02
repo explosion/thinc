@@ -6,7 +6,7 @@ def test_init():
     model = HashEmbed(64, 1000).initialize()
     assert model.get_dim("nV") == 1000
     assert model.get_dim("nO") == 64
-    assert model.get_param("E").shape == (1001, 64)
+    assert model.get_param("E").shape == (1000, 64)
 
 
 def test_seed_changes_bucket():

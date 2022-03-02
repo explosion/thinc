@@ -45,7 +45,11 @@ def cupy_pytorch_allocator(size_in_bytes: int):
     """
     # Cupy was having trouble with very small allocations?
     size_in_bytes = max(1024, size_in_bytes)
-    torch_tensor = torch.zeros((size_in_bytes // 4,))
+    # We use pytorch's underlying FloatStorage type to avoid overhead from
+    # creating a whole Tensor.
+    # This turns out to be way faster than making FloatStorage? Maybe
+    # a Python vs C++ thing I guess?
+    torch_tensor = torch.zeros((size_in_bytes // 4,), requires_grad=False)
     # cupy has a neat class to help us here. Otherwise it will try to free.
     # I think this is a private API? It's not in the types.
     address = torch_tensor.data_ptr()  # type: ignore

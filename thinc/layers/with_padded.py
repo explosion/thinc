@@ -1,4 +1,4 @@
-from typing import Tuple, Callable, List, Optional, TypeVar, Union, cast
+from typing import Tuple, Callable, Optional, TypeVar, Union, cast
 
 from ..types import Padded, Ragged, Array2d, Floats3d, Ints1d, Floats2d, List2d
 from ..model import Model
@@ -7,13 +7,18 @@ from ..util import is_xp_array
 
 
 PaddedData = Tuple[Floats3d, Ints1d, Ints1d, Ints1d]
-ValT = TypeVar("ValT", bound=Array2d)
 SeqT = TypeVar("SeqT", bound=Union[Padded, Ragged, List2d, Floats3d, PaddedData])
 
 
 @registry.layers("with_padded.v1")
 def with_padded(layer: Model[Padded, Padded]) -> Model[SeqT, SeqT]:
-    return Model(f"with_padded-{layer.name}", forward, init=init, layers=[layer])
+    return Model(
+        f"with_padded({layer.name})",
+        forward,
+        init=init,
+        layers=[layer],
+        dims={name: layer.maybe_get_dim(name) for name in layer.dim_names},
+    )
 
 
 def forward(

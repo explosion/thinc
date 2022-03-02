@@ -98,14 +98,14 @@ def setup_package():
         about = {}
         exec(f.read(), about)
 
-    include_dirs = [get_python_inc(plat_specific=True), numpy.get_include()]
+    include_dirs = [numpy.get_include(), get_python_inc(plat_specific=True)]
     ext_modules = []
     for name in MOD_NAMES:
         mod_path = name.replace(".", "/") + ".pyx"
         ext = Extension(name, [mod_path], language="c++", include_dirs=include_dirs)
         ext_modules.append(ext)
     print("Cythonizing sources")
-    ext_modules = cythonize(ext_modules, compiler_directives=COMPILER_DIRECTIVES)
+    ext_modules = cythonize(ext_modules, compiler_directives=COMPILER_DIRECTIVES, language_level=2)
 
     setup(
         name="thinc",
@@ -113,7 +113,7 @@ def setup_package():
         version=about["__version__"],
         ext_modules=ext_modules,
         cmdclass={"build_ext": build_ext_subclass},
-        package_data={"": ["*.pyx", "*.pxd", "*.pxi", "*.cpp", "*.cu"]},
+        package_data={"": ["*.pyx", "*.pxd", "*.pxi", "*.cu"]},
     )
 
 

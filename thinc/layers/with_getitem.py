@@ -14,7 +14,7 @@ def with_getitem(idx: int, layer: Model) -> Model[InT, OutT]:
     from a tuple.
     """
     return Model(
-        f"with_getitem-{layer.name}",
+        f"with_getitem({layer.name})",
         forward,
         init=init,
         layers=[layer],
@@ -30,7 +30,7 @@ def forward(
 
     def backprop(d_output: OutT) -> InT:
         dY_i = backprop_item(d_output[idx])
-        return d_output[:idx] + (dY_i,) + items[idx + 1 :]
+        return d_output[:idx] + (dY_i,) + d_output[idx + 1 :]
 
     return items[:idx] + (Y_i,) + items[idx + 1 :], backprop
 

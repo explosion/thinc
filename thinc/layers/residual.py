@@ -13,7 +13,7 @@ InT = TypeVar("InT", List[Floats1d], List[Floats2d], List[Floats3d], List[Floats
 @registry.layers("residual.v1")
 def residual(layer: Model[InT, InT]) -> Model[InT, InT]:
     return Model(
-        "residual",
+        f"residual({layer.name})",
         forward,
         init=init,
         layers=[layer],
@@ -53,7 +53,10 @@ def init(
     model: Model[InT, InT], X: Optional[InT] = None, Y: Optional[InT] = None
 ) -> Model[InT, InT]:
     first_layer = model.layers[0]
-    first_layer.initialize(X=X, Y=Y)
+    if first_layer.has_dim("nO") is None:
+        first_layer.initialize(X=X, Y=Y)
+    else:
+        first_layer.initialize(X=X)
     if first_layer.has_dim("nO"):
         model.set_dim("nO", first_layer.get_dim("nO"))
     if first_layer.has_dim("nI"):

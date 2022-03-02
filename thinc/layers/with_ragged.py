@@ -1,6 +1,6 @@
-from typing import Tuple, Callable, List, Optional, TypeVar, Union, cast
+from typing import Tuple, Callable, Optional, TypeVar, Union, cast
 
-from ..types import Padded, Ragged, Ints1d, Floats2d, Array2d, List2d
+from ..types import Padded, Ragged, Ints1d, Array2d, List2d
 from ..model import Model
 from ..config import registry
 
@@ -11,7 +11,7 @@ SeqT = TypeVar("SeqT", bound=Union[Padded, Ragged, List2d, RaggedData])
 
 @registry.layers("with_ragged.v1")
 def with_ragged(layer: Model[Ragged, Ragged]) -> Model[SeqT, SeqT]:
-    return Model(f"with_ragged-{layer.name}", forward, init=init, layers=[layer])
+    return Model(f"with_ragged({layer.name})", forward, init=init, layers=[layer])
 
 
 def forward(

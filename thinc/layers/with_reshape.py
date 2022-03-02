@@ -12,7 +12,7 @@ InT = Array3d
 def with_reshape(layer: Model[Array2d, Array2d]) -> Model[InT, InT]:
     """Reshape data on the way into and out from a layer."""
     return Model(
-        f"with_reshape-{layer.name}",
+        f"with_reshape({layer.name})",
         forward,
         init=init,
         layers=[layer],

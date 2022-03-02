@@ -1,44 +1,137 @@
-*.egg-info/
-dist/
-*.dat
-build/
-.env/
-.python/
-*.pyc
-*.swp
-*.swo
+# File extensions
+*.pdf
+*.aux
+*.orig
+*.pyo
+*.pickle
+*.dvi
+*.o
+*.sqlite
 .*.s*
+*.dat
+
+# Varia
+_paths.py
+.mypy_cache
+.hypothesis/
+version.cc
+version.pl
+
+# Tests
+tests/model/*
+tests/model/
+
+# Website
+website/.cache/
+website/public/
+website/node_modules
+website/.npm
+website/logs
+*.log
+npm-debug.log*
+website/www/
+website/_deploy.sh
+*.html
+
+# Cython / C extensions
+cythonize.json
 *.cpp
 *.so
 *.so.1
-*.sqlite
-.ropeproject/
-*.o
-*.log
-version.cc
-version.pl
+
+# Vim / VSCode / editors
+*.swp
+*.swo
+*.sw*
+Profile.prof
+.vscode
+.sass-cache
+
+# Python
+.Python
+.python-version
+__pycache__/
+.pytest_cache
+*.py[cod]
+.env/
+.env*
+.~env/
+.venv
+env3.*/
+venv/
+.dev
+.denv
+.pypyenv
+.pytest_cache/
+
+# Distribution / packaging
+env/
+build/
+develop-eggs/
+dist/
+eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+pip-wheel-metadata/
+Pipfile.lock
+.installed.cfg
+*.egg
+.eggs
+MANIFEST
+
+# Temporary files
+*.~*
+tmp/
 predict
 train
-*.dvi
-*.pdf
-*.aux
-*.html
-Profile.prof
-_paths.py
-tests/model/*
-tests/model/
-*.orig
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
 .coverage
-.cache/
-.hypothesis/
-*.pyo
-tmp/
-*.pickle
-*.dat
-.eggs/
-.pytest_cache/
-.vscode/
-.mypy_cache
-env3.*/
+.cache
+nosetests.xml
 coverage.xml
+
+# Translations
+*.mo
+
+# Mr Developer
+.mr.developer.cfg
+.project
+.pydevproject
+
+# Rope
+.ropeproject
+
+# Django stuff:
+*.log
+*.pot
+
+# Windows
+*.bat
+Thumbs.db
+Desktop.ini
+
+# Mac OS X
+*.DS_Store
+
+# Komodo project files
+*.komodoproject
+
+# Other
+*.tgz
+
+# Pycharm project files
+*.idea
+
+# IPython
 .ipynb_checkpoints/

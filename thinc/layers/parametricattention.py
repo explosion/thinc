@@ -18,11 +18,11 @@ def ParametricAttention(nO: Optional[int] = None) -> Model[InT, OutT]:
 
 def forward(model: Model[InT, OutT], Xr: InT, is_train: bool) -> Tuple[OutT, Callable]:
     Q = model.get_param("Q")
-    attention, bp_attention = _get_attention(model.ops, Q, Xr.data, Xr.lengths)
-    output, bp_output = _apply_attention(model.ops, attention, Xr.data, Xr.lengths)
+    attention, bp_attention = _get_attention(model.ops, Q, Xr.dataXd, Xr.lengths)
+    output, bp_output = _apply_attention(model.ops, attention, Xr.dataXd, Xr.lengths)
 
     def backprop(dYr: OutT) -> InT:
-        dX, d_attention = bp_output(dYr.data)
+        dX, d_attention = bp_output(dYr.dataXd)
         dQ, dX2 = bp_attention(d_attention)
         model.inc_grad("Q", dQ.ravel())
         dX += dX2
@@ -33,10 +33,13 @@ def forward(model: Model[InT, OutT], Xr: InT, is_train: bool) -> Tuple[OutT, Cal
 
 def init(
     model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = None
-) -> Model[InT, OutT]:
-    if Y is not None:
-        model.set_dim("nO", get_width(Y.data))
-    model.set_param("Q", model.ops.alloc1f(model.get_dim("nO")))
+):
+    if X is not None:
+        model.set_dim("nO", get_width(X))
+    # Randomly initialize the parameter, as though it were an embedding.
+    Q = model.ops.alloc1f(model.get_dim("nO"))
+    Q += model.ops.xp.random.uniform(-0.1, 0.1, Q.shape)
+    model.set_param("Q", Q)
     return model
 
 
@@ -53,7 +56,7 @@ def _get_attention(ops, Q, X, lengths):
     return attention, get_attention_bwd
 
 
-def _apply_attention(self, attention, X, lengths):
+def _apply_attention(ops, attention, X, lengths):
     output = X * attention
 
     def apply_attention_bwd(d_output):

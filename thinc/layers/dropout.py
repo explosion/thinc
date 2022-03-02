@@ -25,7 +25,7 @@ def Dropout(rate: float = 0.0) -> Model[InT, InT]:
 # here.
 def forward(model: Model, X, is_train: bool) -> Tuple[Any, Callable]:
     rate = model.attrs["dropout_rate"]
-    is_enabled = model.attrs["is_enabled"]
+    is_enabled = model.attrs["is_enabled"] and is_train
     if rate == 0 or not is_enabled:
         return X, lambda dY: dY
     elif isinstance(X, Ragged):

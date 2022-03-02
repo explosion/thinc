@@ -1,4 +1,6 @@
-# cython: cdivision=True, infer_types=True, profile=True
+# cython: cdivision=True
+# cython: infer_types=True
+# cython: profile=True
 from typing import Optional
 from collections.abc import Sized
 import numpy
@@ -11,9 +13,11 @@ from libc.string cimport memcpy
 from libc.math cimport isnan
 from cymem.cymem cimport Pool
 from preshed.maps cimport PreshMap
-from murmurhash.mrmr cimport hash64, hash128_x86, hash128_x64
+from murmurhash.mrmr cimport hash64
 cimport numpy as np
+cimport blis.cy
 
+from .. import registry
 from ..util import copy_array, get_array_module
 from ..types import DeviceTypes, DTypes, Shape, ArrayXd
 from .linalg cimport VecVec, Vec
@@ -38,6 +42,7 @@ cdef extern from "math.h":
     float cosf(float x) nogil
 
 
+@registry.ops("NumpyOps")
 class NumpyOps(Ops):
     name = "numpy"
     xp = numpy
@@ -47,7 +52,7 @@ class NumpyOps(Ops):
         device_type: DeviceTypes = "cpu",
         device_id: int = -1,
         *,
-        use_blis: bool = False
+        use_blis: bool = True
     ) -> None:
         self.device_type = device_type
         self.device_id = device_id
@@ -75,13 +80,17 @@ class NumpyOps(Ops):
         return self.xp.zeros(shape, dtype=dtype)
 
     def gemm(self, np.ndarray x, np.ndarray y, *, np.ndarray out=None, trans1=False, trans2=False):
+        if x.ndim != 2:
+            raise ValueError(f"Provided 'x' array should be 2-dimensional, but found {x.ndim} dimension(s).")
+        if y.ndim != 2:
+            raise ValueError(f"Provided 'y' array should be 2-dimensional, but found {y.ndim} dimension(s).")
         if not self.use_blis:  # delegate to base Ops
             return super().gemm(x, y, out=out, trans1=trans1, trans2=trans2)
         x = self.as_contig(x)
         y = self.as_contig(y)
         if out is not None:
             out = self.as_contig(out)
-        return blis.py.gemm(x, y, out=out, trans1=trans1, trans2=trans2)
+        return blis.py.gemm(x, y, out=out, trans1=trans1, trans2=trans2, beta=0.)
 
     def relu(self, np.ndarray X, inplace=False):
         cdef np.ndarray out = X if inplace else X.copy()
@@ -102,6 +111,36 @@ class NumpyOps(Ops):
                 dX_ptr[i] = 0.
         return dX
 
+    def lstm_forward_training(
+        self,
+        np.ndarray params,
+        np.ndarray H0,
+        np.ndarray C0,
+        np.ndarray X,
+        np.ndarray size_at_t
+    ):
+        assert H0.shape[0] == C0.shape[0]
+        assert H0.shape[1] == C0.shape[1]
+        Y, fwd_state = lstm_forward_training(params, H0, C0, X, size_at_t)
+        return Y, fwd_state
+
+    def lstm_forward_inference(
+        self,
+        np.ndarray params,
+        np.ndarray H0,
+        np.ndarray C0,
+        np.ndarray X,
+        np.ndarray size_at_t
+    ):
+        Y, _ = lstm_forward_training(params, H0, C0, X, size_at_t)
+        return Y
+
+    def backprop_lstm(
+            self, np.ndarray dY, np.ndarray lengths, np.ndarray params, fwd_state
+    ):
+        dX, d_params = backprop_lstm(dY, lengths, params, fwd_state)
+        return dX, d_params
+
     def maxout(self, const float[:, :, ::1] X):
         cdef Pool mem = Pool()
         cdef int B = X.shape[0]
@@ -110,8 +149,9 @@ class NumpyOps(Ops):
 
         cdef np.ndarray best = numpy.zeros((B, O), dtype='float32', order='C')
         cdef np.ndarray which = numpy.zeros((B, O), dtype='int32', order='C')
-        cpu_maxout(<float*>best.data, <int*>which.data,
-            &X[0, 0, 0], B, O, P)
+        if len(X) > 0:
+            cpu_maxout(<float*>best.data, <int*>which.data,
+                &X[0, 0, 0], B, O, P)
         return best, which
 
     def backprop_maxout(self, const float[:, ::1] dY, int[:, ::1] which, int P):
@@ -123,26 +163,31 @@ class NumpyOps(Ops):
             &dY[0, 0], &which[0, 0], B, O, P)
         return dX
 
-    def mish(self, const float[:, ::1] X, threshold=20.0):
-        shape = [X.shape[i] for i in range(X.ndim)]
-        cdef np.ndarray Y = self.alloc(tuple(shape), dtype="f")
-        cpu_mish(<float*>Y.data,
-            &X[0, 0], threshold, X.size)
-        return Y
-
-    def backprop_mish(self, const float[:, ::1] dY, const float[:, ::1] X,
-            threshold=20.0, out=None):
-        shape = [X.shape[i] for i in range(X.ndim)]
-        cdef np.ndarray dX = self.alloc(tuple(shape), dtype="f")
-        cpu_backprop_mish(<float*>dX.data,
-            &dY[0, 0], &X[0, 0], threshold, X.size)
-        if out is not None:
-            out[:] = dX
-            return out
+    def mish(self, np.ndarray X, threshold=20.0, inplace: bool = False):
+        cdef np.ndarray Y
+        if X.dtype == "float32":
+            if inplace:
+                Y = X
+            else:
+                Y = self.xp.empty_like(X)
+            cpu_mish(<float*>Y.data, <float *>X.data, threshold, X.size)
+            return Y
         else:
-            return dX
+            return super().mish(X, threshold, inplace)
 
-    def seq2col(self, const float[:, ::1] seq, int nW):
+    def backprop_mish(self, np.ndarray dY, np.ndarray X, threshold=20.0, inplace=False):
+        cdef np.ndarray dX
+        if dY.dtype == "float32" and X.dtype == "float32":
+            if inplace:
+                dX = dY
+            else:
+                dX = self.xp.empty_like(X)
+            cpu_backprop_mish(<float*>dX.data, <float*>dY.data, <float*>X.data, threshold, X.size)
+            return dX
+        else:
+            return super().backprop_mish(dY, X, threshold, inplace)
+
+    def seq2col(self, const float[:, ::1] seq, int nW, *, const int[::1] lengths=None):
         """Given an (M, N) sequence of vectors, return an (M, N*(nW*2+1))
         sequence. The new sequence is constructed by concatenating nW preceding
         and succeeding vectors onto each column in the sequence, to extract a
@@ -150,16 +195,28 @@ class NumpyOps(Ops):
         """
         cdef int B = seq.shape[0]
         cdef int I = seq.shape[1]
+
+        lengths = check_seq2col_lengths(self, lengths, B)
+        cdef int nL = lengths.shape[0]
+
         cdef np.ndarray cols = self.alloc((B, (2*nW + 1) * I), dtype="float32")
-        seq2col(<float*>cols.data, &seq[0,0], nW, B, I)
+
+        if seq.size != 0 and lengths.size != 0:
+            seq2col(<float*>cols.data, &seq[0,0], &lengths[0], nW, B, I, nL)
+
         return cols
 
-    def backprop_seq2col(self, const float[:, ::1] dY, int nW):
+    def backprop_seq2col(self, const float[:, ::1] dY, int nW, *, const int[::1] lengths=None):
         cdef int B = dY.shape[0]
         cdef int nF = nW*2+1
         cdef int I = dY.shape[1] / nF
+
+        lengths = check_seq2col_lengths(self, lengths, B)
+        cdef int nL = lengths.shape[0]
+
         cdef np.ndarray dX = self.alloc((B, I), dtype='float32')
-        backprop_seq2col(<float*>dX.data, &dY[0,0], B, I, nW)
+        if dY.size != 0 and lengths.size != 0:
+            backprop_seq2col(<float*>dX.data, &dY[0,0], &lengths[0], B, I, nW, nL)
         return dX
 
     @cython.boundscheck(False)
@@ -168,18 +225,10 @@ class NumpyOps(Ops):
         """Hash a sequence of 64-bit keys into a table with 4 32-bit keys."""
         # Written to mirror the GPU implementation
         cdef np.ndarray[uint32_t, ndim=2] keys = self.alloc((ids.shape[0], 4), dtype='uint32')
-        cdef int i, j
-        cdef unsigned char entropy[16] # 128/8=16
-        cdef size_t n_items = len(ids)
-        cdef size_t in_size = sizeof(uint64_t)
-        src = <unsigned char*>&ids[0]
-        dest = <unsigned char*>keys.data
-        for i in range(n_items):
-            hash128_x64(<void*>src, in_size, seed, entropy)
-            for j in range(16):
-                dest[j] = entropy[j]
-            src += in_size
-            dest += 16
+        cdef int i
+        cdef uint32_t* dest = <uint32_t*>keys.data
+        for i in range(len(ids)):
+            MurmurHash3_x86_128_uint64(ids[i], seed, &dest[i*4])
         return keys
 
     def reduce_mean(self, const float[:, ::1] X, int[::1] lengths):
@@ -188,6 +237,8 @@ class NumpyOps(Ops):
         cdef int T = X.shape[0]
 
         cdef Pool mem = Pool()
+        assert B != 0
+        assert O != 0
         means = <float*>mem.alloc(B * O, sizeof(float))
 
         cpu_reduce_mean(means,
@@ -200,6 +251,8 @@ class NumpyOps(Ops):
         cdef int T = X.shape[0]
 
         cdef Pool mem = Pool()
+        assert B != 0
+        assert O != 0
         sums = <float*>mem.alloc(B * O, sizeof(float))
 
         cpu_reduce_sum(sums,
@@ -213,6 +266,8 @@ class NumpyOps(Ops):
         for length in lengths[:B]:
             T += length
         cdef Pool mem = Pool()
+        assert T != 0
+        assert O != 0
         dX = <float*>mem.alloc(T * O, sizeof(float))
 
         cpu_backprop_reduce_mean(dX,
@@ -227,6 +282,8 @@ class NumpyOps(Ops):
         for length in lengths[:B]:
             T += length
         cdef Pool mem = Pool()
+        assert T != 0
+        assert O != 0
         dX = <float*>mem.alloc(T * O, sizeof(float))
 
         cpu_backprop_reduce_sum(dX,
@@ -239,6 +296,8 @@ class NumpyOps(Ops):
         cdef int T = X.shape[0]
 
         cdef Pool mem = Pool()
+        assert B != 0
+        assert O != 0
         maxes = <float*>mem.alloc(B * O, sizeof(float))
         which = <int*>mem.alloc(B * O, sizeof(int))
 
@@ -257,6 +316,8 @@ class NumpyOps(Ops):
         for length in lengths[:B]:
             T += length
         cdef Pool mem = Pool()
+        assert T != 0
+        assert O != 0
         dX = <float*>mem.alloc(T * O, sizeof(float))
 
         cpu_backprop_reduce_max(dX,
@@ -295,11 +356,13 @@ class NumpyOps(Ops):
         return weights, gradient, mom1, mom2
 
     def ngrams(self, int n, const uint64_t[::1] keys):
+        if n < 1:
+            return self.alloc((0,), dtype="uint64")
         keys_ = <uint64_t*>&keys[0]
-        length = max(0, keys.shape[0]-n)
+        length = max(0, keys.shape[0]-(n-1))
         cdef np.ndarray output_ = self.alloc((length,), dtype="uint64")
         output = <uint64_t*>output_.data
-        for i in range(keys.shape[0]-n):
+        for i in range(keys.shape[0]-(n-1)):
             output[i] = hash64(&keys_[i], n*sizeof(keys_[0]), 0)
         return output_
 
@@ -315,7 +378,17 @@ class NumpyOps(Ops):
         return out_
 
 
-cdef void seq2col(float* output, const float* X, int nW, int B, int I) nogil:
+def check_seq2col_lengths(ops, lengths, B):
+    if lengths is None:
+        lengths = ops.asarray1i([B])
+    else:
+        assert ops.xp.all(ops.xp.array(lengths) >= 0), "All sequence lengths must be >= 0"
+        assert ops.xp.sum(lengths) == B, "The lengths must sum up to the batch length"
+
+    return lengths
+
+
+cdef void seq2col(float* output, const float* X, const int* L, int nW, int B, int I, int nL) nogil:
     '''
     Let's say nW is 1 (it usually is). Then we want to take:
 
@@ -347,23 +420,41 @@ cdef void seq2col(float* output, const float* X, int nW, int B, int I) nogil:
     * x_start=-3, x_end=13 : (1-2) * 3, (1+2+1) * 3
     * x_start=0, x_end=16 : (2-2) * 3, (2+2+1) * 3
 
+    If lengths > 1, then the sequence lengths dictate
+    the boundaries/padding rather than the begin/end
+    of X.
     '''
+
     nF = nW * 2 + 1
-    for i in range(B):
-        o_start = i * I * nF
-        x_start = (i-nW) * I
-        x_end = (i+nW+1) * I
-        if x_start < 0:
-            o_start += -x_start
-            x_start = 0
-        if x_end >= B * I:
-            x_end = B * I
-        memcpy(&output[o_start],
-            &X[x_start], (x_end-x_start) * sizeof(output[0]))
+
+    seq_start = 0
+    for i in range(nL):
+        # Calculate the bounds of the next sequence.
+        seq_end = seq_start + L[i]
+
+        # Four-argument range loop only works with constant step.
+        for j in range(seq_start, seq_end):
+            # Find the unconstrained window around b, which
+            # may be out of the sequence bounds.
+            window_start = j - nW
+            window_end = j + nW + 1
+
+            # Find the sequence-constrained window around b.
+            x_start = max(seq_start, window_start)
+            x_end = min(seq_end, window_end)
+            n_elems = x_end - x_start
+
+            out_offset = x_start - window_start
+
+            memcpy(output + (j * nF * I) + (out_offset * I),
+                   X + (x_start * I),
+                   n_elems * I * sizeof(output[0]))
+
+        seq_start += L[i]
 
 
 cdef void backprop_seq2col(float* d_seqs,
-        const float* d_cols, int B, int I, int nW) nogil:
+        const float* d_cols, const int* L, int B, int I, int nW, int nL) nogil:
     # Here's what we're doing, if we had 2d indexing.
     #for i in range(B):
     #    d_seq[i] += d_cols[i-2, 4]
@@ -371,19 +462,34 @@ cdef void backprop_seq2col(float* d_seqs,
     #    d_seq[i] += d_cols[i, 2]
     #    d_seq[i] += d_cols[i+1, 1]
     #    d_seq[i] += d_cols[i+2, 0]
-    cdef int col_feat
+
     nF = nW * 2 + 1
-    for i in range(B):
-        seq_row = i * I
-        col_feat = nF * I
-        for f in range(-nW, nW+1):
-            col_row = (i+f) * (I * nF)
-            col_feat -= I
-            if col_row >= 0 and (col_row < (B*I*nF)):
-                j = col_row + col_feat
-                if j >= 0 and (j+I) < (B*I*nF):
-                    VecVec.add_i(&d_seqs[seq_row],
-                        &d_cols[j], 1., I)
+
+    seq_start = 0
+    for i in range(nL):
+        # Calculate the bounds of the next sequence.
+        seq_end = seq_start + L[i]
+
+        for j in range(seq_start, seq_end):
+            # Find the unconstrained window around b, which
+            # may be out of the sequence bounds.
+            window_begin = j - nW
+            window_end = j + nW + 1
+
+            # Find the sequence-constrained window around b.
+            d_seqs_begin = max(seq_start, window_begin)
+            d_seqs_end = min(seq_end, window_end)
+            n_elems = d_seqs_end - d_seqs_begin
+
+            # If the left window is cut short, we want to
+            # start by the same amount in the output.
+            out_offset = d_seqs_begin - window_begin
+
+            VecVec.add_i(&d_seqs[d_seqs_begin * I],
+                         &d_cols[(j * nF * I) + (out_offset * I)],
+                         1., n_elems * I)
+
+        seq_start += L[i]
 
 
 cdef void cpu_maxout(float* best__bo, int* which__bo,
@@ -452,7 +558,7 @@ cdef void _adam_momentum(weight_t* gradient, weight_t* mom1, weight_t* mom2,
         int nr_weight, weight_t beta1, weight_t beta2, weight_t eps,
         weight_t learn_rate) nogil:
     # Calculate Adam on CPU, fused.
-    # Assumes the learning rate adustment is calculated by the caller;
+    # Assumes the learning rate adjustment is calculated by the caller;
     # a_t = learn_rate * sqrt(1-beta2**timestep) / (1-beta1**timestep)
     cdef weight_t one_minus_beta1 = 1-beta1
     cdef weight_t one_minus_beta2 = 1-beta2
@@ -620,6 +726,384 @@ cdef void cpu_backprop_reduce_max(float* dX__to,
         which__bo += O
 
 
+def lstm_forward_training(
+    np.ndarray params, np.ndarray c_init, np.ndarray h_init,
+    np.ndarray X, np.ndarray lengths
+):
+    xp = numpy
+    depth = c_init.shape[0]
+    dirs = c_init.shape[1]
+    nO = c_init.shape[2]
+    N = X.shape[0]
+    nI = X.shape[1]
+    nT = lengths.shape[0]
+    cdef int batch_size = lengths[0]
+    # Preallocate these so we can pass them through for loop.
+    cdef np.ndarray G = xp.zeros((depth, dirs, X.shape[0], nO * 4), dtype="f")
+    cdef np.ndarray Y = xp.zeros((depth, dirs, X.shape[0], nO), dtype="f")
+    cdef np.ndarray C = xp.zeros((depth, dirs, X.shape[0], nO), dtype="f")
+    cdef np.ndarray Yt2 = numpy.zeros((batch_size, nO), dtype="f")
+    cdef np.ndarray Ct2 = numpy.zeros((batch_size, nO), dtype="f")
+
+    cdef int params_i = 0
+    cdef int seq_i = 0
+    orig_X = X
+    cdef int i
+    cdef np.ndarray Yid
+    cdef np.ndarray Cid
+    cdef np.ndarray Gid
+    cdef np.ndarray Wx
+    cdef np.ndarray Wh
+    cdef np.ndarray bias
+    for i in range(depth):
+        nI = X.shape[1]
+        for d in range(dirs):
+            # The inits are shaped (depth, dirs, nO). We add the internal dimension
+            # to make them set correctly.
+            Yt2[:] = h_init[i, d].reshape((1, nO))
+            Ct2[:] = c_init[i, d].reshape((1, nO))
+            layer_params, params_i = _split_weights(params, i, nO, nI, params_i)
+            Wx, Wh, bias = _transpose_weights(layer_params)
+            Yid = Y[i, d]
+            Cid = C[i, d]
+            Gid = G[i, d]
+            _lstm_forward_training(
+                d, N, nO, nI, nT, 
+                Gid,
+                <float*>Yid.data,
+                <float*>Cid.data,
+                <float*>X.data,
+                <float*>Wx.data,
+                <float*>Wh.data,
+                bias,
+                <int*>lengths.data,
+                <float*>Yt2.data,
+                <float*>Ct2.data
+            )
+        H = Y[i].transpose((1, 0, 2)).reshape((N, -1))
+        if dirs == 2:
+            H = xp.ascontiguousarray(H)
+        X = H
+    return H, (Y, G, C, orig_X)
+
+
+cdef int _lstm_forward_training(
+    int d, int N, int nO, int nI, int nT,
+    np.ndarray G,
+    float* Y,
+    float* C,
+    float* X,
+    float* Wx,
+    float* Wh,
+    np.ndarray bias,
+    int* lengths,
+    float* Yt2,
+    float* Ct2,
+) except -1:
+    cdef double one = 1.0
+    blis.cy.gemm(blis.cy.NO_TRANSPOSE, blis.cy.TRANSPOSE,
+        N, nO*4, nI,
+        one,
+        X, nI, 1,
+        Wx, nI, 1,
+        one,
+        <float*>G.data, nO*4, 1
+    )
+    cdef int t, batch_size
+    cdef int seq_i = 0 if d == 0 else N
+    cdef int i, j
+    cdef np.ndarray Gt3_
+    for t in range(nT):
+        if d == 0:
+            batch_size = lengths[t]
+        else:
+            batch_size = lengths[nT-(t+1)]
+            seq_i -= batch_size
+        # Prepare the inputs
+        Yt3 = &Y[seq_i*nO]
+        Ct3 = &C[seq_i*nO]
+        Gt3_ = G[seq_i : seq_i+batch_size]
+        Gt3 = <float*>Gt3_.data
+        # Now do the actual calculation
+        blis.cy.gemm(blis.cy.NO_TRANSPOSE, blis.cy.TRANSPOSE,
+            batch_size, nO*4, nO,
+            one,
+            Yt2, nO, 1,
+            Wh, nO, 1,
+            one,
+            Gt3, nO*4, 1
+        )
+        # This is super weird: if we remove this add, it gets slower? I guess
+        # it does cache prefetching or something?
+        # It's annoying though --- it means I can't really refactor further,
+        # because speed goes down if I remove this.
+        Gt3_ += bias
+        #for i in range(batch_size):
+        #    for j in range(nO*4):
+        #        Gt3[i*nO*4+j] += bias[j]
+        cpu_lstm_activate_fwd(Gt3,
+            batch_size, nO)
+        cpu_lstm_gates_fwd(Yt3, Ct3,
+            Gt3, Ct2, batch_size, nO)
+        if d == 0:
+            seq_i += batch_size
+        # We need to keep a full-sized array here, padded with the sequence-start
+        # values. This isn't necessary for the l2r part, but for the r2l part
+        # it's necessary, as we otherwise would have the previous step smaller
+        # than the current.
+        memcpy(Yt2, Yt3, sizeof(Yt3[0]) * batch_size * nO)
+        memcpy(Ct2, Ct3, sizeof(Ct3[0]) * batch_size * nO)
+
+
+def backprop_lstm(np.ndarray dY, np.ndarray lengths, np.ndarray params, fwd_state):
+    xp = numpy
+    cdef np.ndarray Y
+    cdef np.ndarray G
+    cdef np.ndarray C
+    cdef np.ndarray X
+    cdef np.ndarray Yid
+    cdef np.ndarray Cid
+    cdef np.ndarray Gid
+    cdef np.ndarray Wx, Wh, bias
+    cdef np.ndarray dWx, dWh, d_bias
+    cdef np.ndarray dYid
+    Y, G, C, X = fwd_state
+    cdef int depth = C.shape[0]
+    cdef int dirs = C.shape[1]
+    cdef int N = C.shape[2]
+    cdef int nO = C.shape[3]
+    cdef int nI = X.shape[1]
+    cdef int batch_size = lengths[0]
+    cdef int nT = lengths.shape[0]
+    # We don't need to store all the cells for all the layers.
+    cdef np.ndarray dC = xp.zeros((N, nO), dtype=C.dtype)
+    cdef np.ndarray dG = xp.zeros((N, nO*4), dtype=C.dtype)
+    cdef np.ndarray d_params = xp.zeros((params.shape[0],), dtype=params.dtype)
+    # Collect the params and slices. It makes it a bit easier to get the indexing
+    # right, when we're iterating backwards.
+    params_i = 0
+    all_layer_params = []
+    for i in range(depth):
+        all_layer_params.append([])
+        n_inputs = nI if i == 0 else (nO * dirs)
+        for d in range(dirs):
+            layer_params, params_i = _split_weights(params, i, nO, n_inputs, params_i)
+            layer_params = _transpose_weights(layer_params)
+            all_layer_params[-1].append((layer_params, params_i))
+    params_i = 0
+    all_layer_grads = []
+    for i in range(depth):
+        all_layer_grads.append([])
+        n_inputs = nI if i == 0 else (nO * dirs)
+        for d in range(dirs):
+            layer_grads, params_i = _split_weights(params, i, nO, n_inputs, params_i)
+            layer_grads = _transpose_weights(layer_grads)
+            all_layer_grads[-1].append((layer_grads, params_i))
+    # Similarly, we want to compute the indices first
+    indices = []
+    seq_i = 0
+    for batch_size in lengths:
+        indices.append((seq_i, batch_size))
+        seq_i += batch_size
+
+    cdef np.ndarray dX
+    Xs = [X] + [Y[i].transpose(1, 0, 2).reshape((N, -1)) for i in range(depth-1)]
+    dXs = [xp.zeros((X.shape[0], X.shape[1]), dtype=X.dtype) for X in Xs]
+    # Okay, now do the actual looping
+    for i in reversed(range(depth)):
+        dY = dY.reshape((N, dirs, nO)).transpose((1, 0, 2))
+        dX = dXs[i]
+        X = Xs[i]
+        if dirs >= 2:
+            dY = numpy.ascontiguousarray(dY)
+        for d in range(dirs):
+            Wx, Wh, bias = all_layer_params[i][d][0]
+            dWx, dWh, d_bias = all_layer_grads[i][d][0]
+            assert Wx.shape[1] == dWx.shape[1] == X.shape[1] == dX.shape[1], (Wx.shape[1], dWx.shape[1], X.shape[1], dX.shape[1])
+            dYid = dY[d] 
+            dC.fill(0.)
+            dG.fill(0.)
+            Cid = C[i, d]
+            Gid = G[i, d]
+            Yid = Y[i, d]
+            assert (Cid.shape[0], Cid.shape[1]) == (N, nO)
+            assert (Yid.shape[0], Yid.shape[1]) == (N, nO)
+            assert (Gid.shape[0], Gid.shape[1]) == (N, nO*4)
+            assert (dYid.shape[0], dYid.shape[1]) == (N, nO)
+            assert (dC.shape[0], dC.shape[1]) == (N, nO)
+            assert (dG.shape[0], dG.shape[1]) == (N, nO*4)
+            _lstm_backward_training(d, N, nO, dX.shape[1], nT,
+                <float*>dX.data,
+                <float*>dYid.data,
+                <float*>dC.data,
+                <float*>dG.data,
+                <float*>dWx.data,
+                <float*>dWh.data,
+                <float*>d_bias.data,
+                <float*>Cid.data,
+                <float*>Gid.data, 
+                <float*>Yid.data,
+                <float*>X.data,
+                <float*>Wx.data,
+                <float*>Wh.data,
+                list(indices)
+            )
+        dY = dX
+    assert dX.shape[1] == X.shape[1]
+    grad_parts = []
+    for layer_grads in all_layer_grads:
+        for dir_grads, _ in layer_grads:
+            grad_parts.append(_untranspose_unsplit_weights(dir_grads))
+    return dX, numpy.concatenate(grad_parts)
+
+
+def _split_directions(X, dirs):
+    if dirs == 1:
+        return [X]
+    else:
+        X_ = X.reshape((X.shape[0], -1, dirs))
+        Xs = []
+        for d in range(dirs):
+            Xs.append(numpy.ascontiguousarray(X_[:, d]))
+        return Xs
+
+
+cdef int _lstm_backward_training(
+    int d, int N, int nO, int nI, int nT,
+    float* dX,
+    float* dY,
+    float* dC,
+    float* dG,
+    float* dWx,
+    float* dWh,
+    float* d_bias,
+    const float* C,
+    const float* G,
+    const float* Y,
+    const float* X,
+    const float* Wx,
+    const float* Wh,
+    indices,
+) except -1:
+    cdef int seq_t2
+    cdef int seq_t3
+    cdef double one = 1.0
+    if d == 0:
+        seq_t3, size_t3 = indices[-1]
+        indices = indices[:-1]
+        indices.reverse()
+    else:
+        seq_t3, size_t3 = indices[0]
+        indices = indices[1:]
+    cdef int batch_size
+    for seq_t2, size_t2 in indices:
+        dGt3 = &dG[seq_t3*nO*4]
+        dXt3 = &dX[seq_t3*nI]
+        dYt3 = &dY[seq_t3*nO]
+        dCt3 = &dC[seq_t3*nO]
+        dYt2 = &dY[seq_t2*nO]
+        dCt2 = &dC[seq_t2*nO]
+        Ct3 = &C[seq_t3*nO]
+        Gt3 = &G[seq_t3*nO*4]
+        Ct2 = &C[seq_t2*nO]
+        
+        batch_size = min(size_t2, size_t3)
+        cpu_lstm_gates_bwd(dGt3, dCt2,
+            dYt3, dCt3, Gt3, Ct3, Ct2, batch_size * nO
+        )
+        # Backprop hidden-to-hidden w.r.t. hidden.
+        #     dYt2 += dGt3 @ Wh
+        blis.cy.gemm(blis.cy.NO_TRANSPOSE, blis.cy.NO_TRANSPOSE,
+            batch_size, nO, nO*4,
+            one,
+            <float*>dGt3, nO*4, 1,
+            <float*>Wh, nO, 1,
+            one,
+            dYt2, nO, 1
+        )
+        seq_t3 = seq_t2
+        size_t3 = size_t2
+
+    # Backprop input-to-hidden w.r.t. weights.
+    #     dWx += dG @ X
+    blis.cy.gemm(blis.cy.TRANSPOSE, blis.cy.NO_TRANSPOSE,
+        nO*4, nI, N,
+        one,
+        <float*>dG, nO*4, 1,
+        <float*>X, nI, 1,
+        one,
+        dWx, nI, 1
+    )
+    # Backprop hidden-to-hidden w.r.t weights.
+    #     dWh += dG @ Y
+    blis.cy.gemm(blis.cy.TRANSPOSE, blis.cy.NO_TRANSPOSE,
+        nO*4, nO, N,
+        one,
+        <float*>dG, nO*4, 1,
+        <float*>Y, nO, 1,
+        one,
+        dWh, nO, 1
+    )
+    # Backprop bias
+    for i in range(N):
+        for j in range(nO*4):
+            d_bias[j] += dG[i*nO*4+j]
+
+    # Backprop input-to-hidden w.r.t. input
+    blis.cy.gemm(blis.cy.NO_TRANSPOSE, blis.cy.NO_TRANSPOSE,
+        N, nI, nO*4,
+        one,
+        <float*>dG, nO*4, 1,
+        <float*>Wx, nI, 1,
+        one,
+        dX, nI, 1
+    )
+
+
+def _split_weights(np.ndarray params, int i, int nO, int nI, int params_i):
+    Wx_size = 4 * nO * nI
+    bx_size = 4 * nO
+    Wh_size = 4 * nO * nO
+    bh_size = 4 * nO
+    Wx = params[params_i : params_i + Wx_size].reshape((4 * nO, nI))
+    params_i += Wx_size
+    bx = params[params_i : params_i + bx_size].reshape((4 * nO,))
+    params_i += bx_size
+    Wh = params[params_i : params_i + Wh_size].reshape((4 * nO, nO))
+    params_i += Wh_size
+    bh = params[params_i : params_i + bh_size].reshape((4 * nO,))
+    params_i += bh_size
+    return ((Wx, bx), (Wh, bh)), params_i
+
+
+def _transpose_weights(params):
+    # Transpose the parameters so that the gates are the last dimension. This
+    # makes it easier to fuse.
+    (Wx, bx), (Wh, bh) = params
+    Wx = Wx.reshape((4, -1, Wx.shape[-1]))
+    Wx = Wx.transpose((1, 0, 2)).reshape((-1, Wx.shape[-1]))
+    bx = bx.reshape((4, -1)).transpose((1, 0)).reshape((-1,))
+    Wh = Wh.reshape((4, -1, Wh.shape[-1]))
+    Wh = Wh.transpose((1, 0, 2)).reshape((-1, Wh.shape[-1]))
+    bh = bh.reshape((4, -1)).transpose((1, 0)).reshape((-1,))
+    ascontig = numpy.ascontiguousarray
+    Wx = ascontig(Wx)
+    Wh = ascontig(Wh)
+    bias = ascontig(bx) + bh
+    return Wx, Wh, bias
+
+
+def _untranspose_unsplit_weights(params):
+    Wx, Wh, bias = params
+    nO = Wh.shape[1]
+    nI = Wx.shape[1]
+    Wx = Wx.reshape((-1, 4, nI)).transpose((1, 0, 2)).reshape((-1, nI))
+    Wh = Wh.reshape((-1, 4, nO)).transpose((1, 0, 2)).reshape((-1, nO))
+    bias = bias.reshape((-1, 4)).transpose((1, 0)).reshape((-1,))
+    zeros = numpy.zeros(bias.shape, dtype="f")
+    return numpy.concatenate((Wx.ravel(), bias, Wh.ravel(), zeros))
+
+
 cdef inline float sigmoid(float X) nogil:
     return 1./(1. + expf(-X))
 
@@ -632,74 +1116,145 @@ cdef inline float dtanh(float y) nogil:
     return 1-y**2
 
 
-cdef void cpu_lstm_gates_fwd(float* hiddens_cells, float* gates_and_acts,
-        const float* prevcells, int B, int N) nogil:
-    cdef float hf, hi, ho, hc
-    cdef int i, b
-    gates = gates_and_acts
-    acts = gates_and_acts
+cdef void cpu_lstm_activate_fwd(float* gates, int B, int N) nogil:
+    """Apply sigmoid activation in-place to columns 0, 1, 2 and tanh to column 3.
+    The data is assumed to have the gates in the last dimension.
+    """
+    # This just does the following, but unrolled slightly to give 
+    # a better chance at simd.
+    #
+    # gates[g+i+0] = sigmoid(gates[g+i+0])
+    # gates[g+i+1] = sigmoid(gates[g+i+1])
+    # gates[g+i+2] = sigmoid(gates[g+i+2])
+    # gates[g+i+3] = tanh(gates[g+i+3])
+    #
+    # I would've hoped the compiler would find this itself? It seems to make
+    # it like, 10% faster. It feels like a dumb thing to do but it's not much
+    # code. The problem with this sort of thing is it needs to be rebenchmarked
+    # later...It's fine to revert this at a later date to the simpler loop.
+    # Shrug. The weird thing is, why should the batch entries be a good loop
+    # stride here? Surely something to do with cache lines would make more sense?
+    cdef int i, b, g
+    g = 0
     for b in range(B):
-        for i in range(N):
-            acts[i*4+0] = sigmoid(acts[i*4+0])
-            acts[i*4+1] = sigmoid(acts[i*4+1])
-            acts[i*4+2] = sigmoid(acts[i*4+2])
-        for i in range(N):
-            hf = acts[i*4+0]
-            hi = acts[i*4+1]
-            ho = acts[i*4+2]
-            hc = tanhf(acts[i*4+3])
-            hiddens_cells[i*2] = tanhf(hiddens_cells[i*2]) * ho
-            hiddens_cells[i*2+1] = hf * prevcells[i] + hi * hc
-            gates[i*4+0] = hf
-            gates[i*4+1] = hi
-            gates[i*4+2] = ho
-            gates[i*4+3] = hc
-        hiddens_cells += N
-        gates += N*4
-        acts += N*4
-        prevcells += N
+        g = b * N * 4
+        end = g + N*4
+        while g < end:
+            gates[g+0] = expf(-gates[g+0])
+            gates[g+1] = expf(-gates[g+1])
+            gates[g+2] = expf(-gates[g+2])
+            g += 4
+        g = b * N * 4
+        while g < end:
+            gates[g+0] += 1
+            gates[g+1] += 1
+            gates[g+2] += 1
+            g += 4
+        g = b * N * 4
+        while g < end:
+            gates[g+0] = 1.0 / gates[g+0]
+            gates[g+1] = 1.0 / gates[g+1]
+            gates[g+2] = 1.0 / gates[g+2]
+            g += 4
+        g = b * N * 4
+        while g < end:
+            gates[g+3] = tanhf(gates[g+3])
+            g += 4
+
+ 
+cdef void cpu_lstm_gates_fwd(float* hiddens, float* cells,
+        const float* gates, const float* prevcells, int B, int N) nogil:
+    cdef float hf, hi, ho, hc, ct2, ct3
+    cdef int i, b, g, c, h
+    g = 0
+    c = 0
+    h = 0
+    while g < B*N*4:
+        hf = gates[g+0]
+        hi = gates[g+1]
+        ho = gates[g+2]
+        hc = gates[g+3]
+        ct2 = prevcells[c]
+        ct3 = hf * ct2 + hi * hc
+        hiddens[h] = tanhf(ct3) * ho
+        cells[c] = ct3
+        g += 4
+        c += 1
+        h += 1
 
 
-cdef void cpu_lstm_gates_bwd(float* gates_and_d_acts, float* d_prev,
-        const float* d_cells, const float* d_hiddens,
-        const float* cells, const float* prevcells, int B, int N) nogil:
-    cdef float hf, hi, ho, hc, c, ct, dh, dho, dc, dhf, dhi, dhc, dprev
-    cdef int i, b
-    # These are aliased: we're writing the output over the top of the input
-    gates = gates_and_d_acts
-    d_acts = gates_and_d_acts
-    for b in range(B):
-        for i in range(N):
-            hf = gates[i*4+0]
-            hi = gates[i*4+1]
-            ho = gates[i*4+2]
-            hc = gates[i*4+3]
-            c  = cells[i]
-            ct = tanhf(cells[i])
-            dh = d_hiddens[i]
-            # Gradient for ho and c in h = sigmoid(ho) * tanh(c)
-            dho = ct     * dh * dsigmoid(ho)
-            dc  = ho     * dh * dtanh(ct)
-            dc += d_cells[i]  # Carry gradient from previous step
+cdef void cpu_lstm_gates_bwd(
+    float* dGt3,
+    float* dCt2,
+    const float* dYt3,
+    const float* dCt3,
+    const float* Gt3,
+    const float* Ct3,
+    const float* Ct2,
+    int N
+) nogil:
+    cdef int i
+    cdef float ct2, ct3, hf, hi, ho, hc, tanh_ct3
+    cdef float d_ho, d_tanh_ct3, dct3, d_hi, d_hc, d_hf
+    for i in range(N):
+        ct2 = Ct2[i]
+        ct3 = Ct3[i]
+        dct3 = dCt3[i]
+        dyt3 = dYt3[i]
+        hf = Gt3[i*4+0]
+        hi = Gt3[i*4+1]
+        ho = Gt3[i*4+2]
+        hc = Gt3[i*4+3]
+        
+        tanh_ct3 = tanhf(ct3)
+        # 3b: Yt3 = tanhCt3 * ho
+        d_ho = dyt3 * tanh_ct3
+        d_tanh_ct3 = dyt3 * ho
+        # 3a: tanhCt3 = tanh(Ct3)
+        dct3 += d_tanh_ct3 * dtanh(tanh_ct3)
+        # 2b: Ct3 += hi * hc
+        d_hi = dct3 * hc
+        d_hc = dct3 * hi
+        # 2a: Ct3 = hf * Ct2
+        d_hf = dct3 * ct2
+        dCt2[i] = dct3 * hf
+        dGt3[i*4+0] = d_hf * dsigmoid(hf)  # 1a
+        dGt3[i*4+1] = d_hi * dsigmoid(hi)  # 1b
+        dGt3[i*4+2] = d_ho * dsigmoid(ho)  # 1c
+        dGt3[i*4+3] = d_hc * dtanh(hc)  # 1d
 
-            # Gradient for hf, hi, hc, prev[i]
-            # in c = sigmoid(hf) * prev[i] + sigmoid(hi) * tanh(hc)
-            dhf   = dsigmoid(hf) * dc * prevcells[i]
-            dhi   = dsigmoid(hi) * dc * hc
-            dhc   = dtanh(hc)    * dc * hi
-            dprev =                dc * hf
 
-            d_acts[i*4+0] = dhf
-            d_acts[i*4+1] = dhi
-            d_acts[i*4+2] = dho
-            d_acts[i*4+3] = dhc
-            d_prev[i] = dprev
-            # Wtf why was I writing to this. Is it necessary??
-            #d_cells[i] = dc
-        d_cells += N
-        d_prev += N
-        d_hiddens += N
-        d_acts += N*4
-        gates += N*4
-        cells += N
-        prevcells += N
+cdef void MurmurHash3_x86_128_uint64(
+    const uint64_t val,
+    const uint32_t seed,
+    uint32_t *out
+) nogil:
+    cdef uint64_t h1, h2
+
+    h1 = val
+    h1 *= 0x87c37b91114253d5ull
+    h1 = (h1 << 31) | (h1 >> 33)
+    h1 *= 0x4cf5ad432745937full
+    h1 ^= seed
+    h1 ^= 8
+    h2 = seed
+    h2 ^= 8
+    h1 += h2
+    h2 += h1
+    h1 ^= h1 >> 33
+    h1 *= 0xff51afd7ed558ccdull
+    h1 ^= h1 >> 33
+    h1 *= 0xc4ceb9fe1a85ec53ull
+    h1 ^= h1 >> 33
+    h2 ^= h2 >> 33
+    h2 *= 0xff51afd7ed558ccdull
+    h2 ^= h2 >> 33
+    h2 *= 0xc4ceb9fe1a85ec53ull
+    h2 ^= h2 >> 33
+    h1 += h2
+    h2 += h1
+
+    out[0] = h1 & 0xffffffffu
+    out[1] = h1 >> 32
+    out[2] = h2 & 0xffffffffu
+    out[3] = h2 >> 32

@@ -2,7 +2,7 @@ import pytest
 import numpy
 from functools import partial
 from numpy.testing import assert_allclose
-from thinc.api import chain, Linear, ReLu, NumpyOps
+from thinc.api import chain, Linear, Relu, NumpyOps
 
 
 @pytest.fixture(params=[1, 2, 9])
@@ -27,7 +27,7 @@ def nO(request):
 
 @pytest.fixture
 def model1(nH, nI):
-    model = ReLu(nH, nI).initialize()
+    model = Relu(nH, nI).initialize()
     return model
 
 
@@ -82,7 +82,7 @@ def test_model_shape(model, model1, model2, nI, nH, nO):
 
 
 def test_infer_output_shape():
-    model = ReLu(dropout=0.2)
+    model = Relu(dropout=0.2)
     X = model.ops.alloc2f(4, 5)
     Y = model.ops.alloc2f(4, 2)
     assert model.has_dim("nI") is None
@@ -114,9 +114,9 @@ def test_init_functions_are_called():
     layer1 = Linear(5)
     layer2 = Linear(5)
     layer3 = Linear(5)
-    layer1._init = partial(register_init, "one")
-    layer2._init = partial(register_init, "two")
-    layer3._init = partial(register_init, "three")
+    layer1.init = partial(register_init, "one")
+    layer2.init = partial(register_init, "two")
+    layer3.init = partial(register_init, "three")
     # This is the nesting we'll get from operators.
     model = chain(layer1, chain(layer2, layer3))
     assert not init_was_called

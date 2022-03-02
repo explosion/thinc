@@ -60,7 +60,8 @@ def test_finish_update_calls_optimizer_with_weights(W_b_input):
     grad_BO = numpy.ones((nr_batch, nr_out), dtype="f")
     grad_BI = finish_update(grad_BO)  # noqa: F841
     model.finish_update(sgd)
-    assert seen_keys == {(model.id, "W"), (model.id, "b")}
+    for name in model.param_names:
+        assert (model.id, name) in seen_keys
 
 
 @settings(max_examples=100)
@@ -187,7 +188,7 @@ def test_update():
     model = Linear(2, 2)
     model.set_param("W", W)
     model.set_param("b", bias)
-    sgd = SGD(1.0, L2=0.0, ops=model.ops, grad_clip=0.0)
+    sgd = SGD(1.0, L2=0.0, grad_clip=0.0)
     sgd.averages = None
 
     ff = numpy.asarray([[0.0, 0.0]], dtype="f")

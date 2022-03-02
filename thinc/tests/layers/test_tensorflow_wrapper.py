@@ -2,7 +2,7 @@ import numpy
 import pytest
 from thinc.api import Adam, ArgsKwargs, Linear, Model, TensorFlowWrapper
 from thinc.api import get_current_ops, keras_subclass, tensorflow2xp, xp2tensorflow
-from thinc.util import has_tensorflow, to_categorical
+from thinc.util import has_cupy, has_tensorflow, to_categorical
 
 from ..util import check_input_converters, make_tempdir
 
@@ -109,23 +109,34 @@ def test_tensorflow_wrapper_train_overfits(model, X, Y, answer):
 
 
 @pytest.mark.skipif(not has_tensorflow, reason="needs TensorFlow")
-def test_tensorflow_wrapper_accepts_optimizer(model, tf_model, X, Y, answer):
-    # Update the optimizer weights
+def test_tensorflow_wrapper_accumulate_gradients(model, X, Y, answer):
+    import tensorflow as tf
+
     optimizer = Adam()
-    for i in range(10):
+    gradients = []
+    for i in range(3):
         guesses, backprop = model(X, is_train=True)
         d_guesses = (guesses - Y) / guesses.shape[0]
         backprop(d_guesses)
-        model.finish_update(optimizer)
+        shim_grads = [tf.identity(var) for var in model.shims[0].gradients]
+        gradients.append(shim_grads)
 
-    # Pass the existing optimizer to a new wrapper shim
-    wrapped = TensorFlowWrapper(tf_model, optimizer=model.shims[0]._optimizer)
-    assert model.shims[0]._optimizer is not None
-    assert wrapped.shims[0]._optimizer is not None
-    weights_model = model.shims[0]._optimizer.get_weights()
-    weights_wrapped = wrapped.shims[0]._optimizer.get_weights()
-    for w1, w2 in zip(weights_model, weights_wrapped):
-        assert numpy.array_equal(w1, w2)
+    # Apply the gradients
+    model.finish_update(optimizer)
+    assert model.shims[0].gradients is None
+
+    # Compare prev/next pairs and ensure their gradients have changed
+    for i in range(len(gradients)):
+        # Skip the first one
+        if i == 0:
+            continue
+        found_diff = False
+        curr_grads = gradients[i]
+        prev_grads = gradients[i - 1]
+        for curr, prev in zip(curr_grads, prev_grads):
+            if (prev != curr).numpy().any():
+                found_diff = True
+        assert found_diff is True
 
 
 @pytest.mark.skipif(not has_tensorflow, reason="needs TensorFlow")
@@ -203,27 +214,6 @@ def test_tensorflow_wrapper_keras_subclass_decorator_compile_args():
 
     assert model.shims[0]._model.loss == "binary_crossentropy"
     assert isinstance(model, Model)
-
-
-@pytest.mark.skipif(not has_tensorflow, reason="needs TensorFlow")
-def test_tensorflow_wrapper_keras_subclass_compile_optimizer():
-    import tensorflow as tf
-
-    @keras_subclass(
-        "TestModel", X=numpy.array([0.0, 0.0]), Y=numpy.array([0.5]), input_shape=(2,)
-    )
-    class TestModel(tf.keras.Model):
-        def call(self, inputs):
-            return inputs
-
-    optimizer = tf.keras.optimizers.Adam(lr=3e-18)
-    model = TensorFlowWrapper(TestModel(), optimizer=optimizer)
-    weights_model = model.shims[0]._optimizer.get_weights()
-    for w1, w2 in zip(optimizer.get_weights(), weights_model):
-        assert numpy.array_equal(w1, w2)
-    lr_key = "learning_rate"
-    assert optimizer._get_hyper(lr_key) == 3e-18
-    assert optimizer._get_hyper(lr_key) == model.shims[0]._optimizer._get_hyper(lr_key)
 
 
 @pytest.mark.skipif(not has_tensorflow, reason="needs TensorFlow")
@@ -352,10 +342,9 @@ def test_tensorflow_wrapper_to_cpu(tf_model):
 
 
 @pytest.mark.skipif(not has_tensorflow, reason="needs TensorFlow")
+@pytest.mark.skipif(not has_cupy, reason="needs cupy")
 def test_tensorflow_wrapper_to_gpu(model, X):
-    # Raises while failing to import cupy
-    with pytest.raises(ImportError):
-        model.to_gpu(0)
+    model.to_gpu(0)
 
 
 @pytest.mark.skipif(not has_tensorflow, reason="needs TensorFlow")

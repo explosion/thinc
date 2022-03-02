@@ -1,8 +1,5 @@
-from typing import Any
-import contextlib
-from io import BytesIO
+from typing import Any, cast
 import srsly
-import tempfile
 import copy
 
 try:
@@ -12,9 +9,10 @@ try:
 except ImportError:  # pragma: no cover
     pass
 
-from ..util import mxnet2xp, xp2mxnet, convert_recursive, make_tempfile
-from ..backends import get_current_ops
-from ..types import ArgsKwargs
+from ..util import mxnet2xp, convert_recursive, make_tempfile, xp2mxnet
+from ..util import get_array_module
+from ..optimizers import Optimizer
+from ..types import ArgsKwargs, FloatsXd
 from .shim import Shim
 
 
@@ -59,47 +57,30 @@ class MXNetShim(Shim):
 
         return output, backprop
 
-    def finish_update(self, optimizer):
-        if self._optimizer is None:
-            self._optimizer, self._trainer = self._create_optimizer(optimizer)
-        if getattr(optimizer, "max_grad_norm", None):
-            mxnet.gluon.utils.clip_global_norm(
-                self._model.parameters(), optimizer.max_grad_norm
-            )
-        self._trainer.step(1)
-        for param in self._model.collect_params().values():
-            param.zero_grad()
-        self._update_mxnet_averages(optimizer)
-
-    def _create_optimizer(self, sgd):
-        if sgd.b1 != 0 and sgd.b2 != 0:
-            optimizer = mxnet.optimizer.Adam(
-                learning_rate=sgd.learn_rate, beta1=sgd.b1, beta2=sgd.b2
-            )
-        elif sgd.b2 == 0:
-            optimizer = mxnet.optimizer.SGD(
-                learning_rate=sgd.learn_rate, momentum=sgd.b1
-            )
-        else:
-            raise NotImplementedError
-
-        from mxnet import gluon
-
-        return optimizer, gluon.Trainer(self._model.collect_params(), optimizer)
-
-    def _update_mxnet_averages(self, sgd, *, init_steps=1):
-        if getattr(sgd, "averages", None) is None:
+    def finish_update(self, optimizer: Optimizer):
+        params = []
+        grads = []
+        shapes = []
+        ctx = mx.current_context()
+        for key, value in self._model.collect_params().items():
+            grad = cast(FloatsXd, mxnet2xp(value.grad(ctx)))
+            param = cast(FloatsXd, mxnet2xp(value.data(ctx)))
+            params.append(param.ravel())
+            grads.append(grad.ravel())
+            shapes.append((param.size, param.shape))
+        if not params:
             return
-        # Collect parameters if we don't have them
-        for name, param in self._model.collect_params().items():
-            key = f"mxnet_{self.id}_{name}"
-            sgd.nr_update[key] += 1
-            xp_param = mxnet2xp(param.grad())
-            if key in sgd.averages:
-                sgd.ops.update_averages(sgd.averages[key], xp_param, sgd.nr_update[key])
-            else:
-                sgd.averages[key] = xp_param.copy()
-                sgd.nr_update[key] = init_steps
+        xp = get_array_module(params[0])
+        flat_params, flat_grads = optimizer(
+            (self.id, "mxnet-shim"), xp.concatenate(params), xp.concatenate(grads)
+        )
+        start = 0
+        for key, value in self._model.collect_params().items():
+            size, shape = shapes.pop(0)
+            param = flat_params[start : start + size].reshape(shape)
+            value.set_data(xp2mxnet(param))
+            value.zero_grad()
+            start += size
 
     def copy(self, ctx: "mx.context.Context" = None):
         if ctx is None:
@@ -110,11 +91,14 @@ class MXNetShim(Shim):
         copied.from_bytes(model_bytes)
         return copied
 
-    def to_device(self, device):
-        if device == "cpu":
+    def to_device(self, device_type: str, device_id: int):
+        if device_type == "cpu":
             self._model = self.copy(mx.cpu())
-        else:
+        elif device_type == "gpu":
             self._model = self.copy(mx.gpu())
+        else:
+            msg = f"Unexpected device_type: {device_type}. Try 'cpu' or 'gpu'."
+            raise ValueError(msg)
 
     def to_bytes(self):
         # MXNet doesn't implement save/load without a filename

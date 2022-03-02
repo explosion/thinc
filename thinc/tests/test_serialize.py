@@ -54,6 +54,19 @@ def test_simple_model_roundtrip_bytes():
     assert model.get_param("b")[0, 0] == 1
 
 
+def test_simple_model_roundtrip_bytes_length():
+    """ Ensure that serialization of non-initialized weight matrices goes fine """
+    model1 = Maxout(5, 10, nP=2)
+    model2 = Maxout(5, 10, nP=2)
+
+    data1 = model1.to_bytes()
+    model2 = model2.from_bytes(data1)
+    data2 = model2.to_bytes()
+
+    assert data1 == data2
+    assert len(data1) == len(data2)
+
+
 def test_simple_model_roundtrip_bytes_serializable_attrs():
     fwd = lambda model, X, is_train: (X, lambda dY: dY)
     attr = SerializableAttr()
@@ -165,3 +178,23 @@ def test_serialize_attrs():
     assert model4.attrs["test"].value == "foo"
     result = deserialize_attr(model4.attrs["test"], bytes_attr, "test", model4)
     assert result.value == "foo from bytes"
+
+
+def test_simple_model_can_from_dict():
+    model = Maxout(5, 10, nP=2).initialize()
+    model_dict = model.to_dict()
+    assert model.can_from_dict(model_dict)
+    # Test check without initialize
+    assert Maxout(5, 10, nP=2).can_from_dict(model_dict)
+    # Test not-strict check 
+    assert not Maxout(10, 5, nP=2).can_from_dict(model_dict)
+    assert Maxout(5, nP=2).can_from_dict(model_dict)
+
+
+def test_multi_model_can_from_dict():
+    model = chain(Maxout(5, 10, nP=2), Maxout(2, 3)).initialize()
+    model_dict = model.to_dict()
+    assert model.can_from_dict(model_dict)
+    assert chain(Maxout(5, 10, nP=2), Maxout(2, 3)).can_from_dict(model_dict)
+    resized = chain(Maxout(5, 10, nP=3), Maxout(2, 3))
+    assert not resized.can_from_dict(model_dict)

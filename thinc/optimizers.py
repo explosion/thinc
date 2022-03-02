@@ -3,7 +3,7 @@ import math
 from typing import Dict, Optional, Union, Tuple, List, cast
 from collections import defaultdict
 
-from .backends import Ops, NumpyOps, CupyOps, get_current_ops
+from .backends import get_array_ops
 from .types import Generator, FloatsXd
 from .config import registry
 
@@ -37,10 +37,10 @@ def RAdam(
     beta1: FloatOrSeq = ADAM_DEFAULTS["beta1"],
     beta2: FloatOrSeq = ADAM_DEFAULTS["beta2"],
     eps: FloatOrSeq = ADAM_DEFAULTS["eps"],
-    weight_decay: FloatOrSeq = ADAM_DEFAULTS["L2"],
+    L2: FloatOrSeq = ADAM_DEFAULTS["L2"],
+    L2_is_weight_decay: bool = cast(bool, ADAM_DEFAULTS["L2_is_weight_decay"]),
     grad_clip: FloatOrSeq = ADAM_DEFAULTS["grad_clip"],
     use_averages: bool = True,
-    ops: Optional[Ops] = None,
 ):
     return Optimizer(
         learn_rate,
@@ -48,11 +48,10 @@ def RAdam(
         beta2=beta2,
         eps=eps,
         grad_clip=grad_clip,
-        L2_is_weight_decay=True,
-        L2=weight_decay,
-        use_averages=True,
+        L2_is_weight_decay=L2_is_weight_decay,
+        L2=L2,
+        use_averages=use_averages,
         use_radam=True,
-        ops=ops,
     )
 
 
@@ -67,7 +66,6 @@ def Adam(
     grad_clip: FloatOrSeq = ADAM_DEFAULTS["grad_clip"],
     L2_is_weight_decay: bool = cast(bool, ADAM_DEFAULTS["L2_is_weight_decay"]),
     use_averages: bool = True,
-    ops: Optional[Ops] = None,
 ):
     return Optimizer(
         learn_rate,
@@ -77,9 +75,8 @@ def Adam(
         eps=eps,
         grad_clip=grad_clip,
         L2_is_weight_decay=L2_is_weight_decay,
-        use_averages=True,
+        use_averages=use_averages,
         use_radam=False,
-        ops=ops,
     )
 
 
@@ -91,7 +88,6 @@ def SGD(
     grad_clip: FloatOrSeq = SGD_DEFAULTS["grad_clip"],
     L2_is_weight_decay: bool = cast(bool, SGD_DEFAULTS["L2_is_weight_decay"]),
     use_averages: bool = True,
-    ops: Optional[Ops] = None,
 ):
     return Optimizer(
         learn_rate,
@@ -100,7 +96,7 @@ def SGD(
         L2_is_weight_decay=L2_is_weight_decay,
         beta1=0.0,
         beta2=0.0,
-        ops=ops,
+        use_averages=use_averages,
     )
 
 
@@ -125,11 +121,30 @@ class Optimizer(object):
     L2_is_weight_decay: bool
     _radam_buffer: List[List[Optional[FloatsXd]]]
 
+    # This "locks" the class, so we get an error if you try to assign to
+    # an unexpected variable.
+    __slots__ = [
+        "mom1",
+        "mom2",
+        "averages",
+        "schedules",
+        "nr_update",
+        "last_seen",
+        "grad_clip",
+        "learn_rate",
+        "b1",
+        "b2",
+        "eps",
+        "L2",
+        "use_radam",
+        "L2_is_weight_decay",
+        "_radam_buffer",
+    ]
+
     def __init__(
         self,
         learn_rate: FloatOrSeq,
         *,
-        ops: Optional[Ops] = None,
         L2: FloatOrSeq = ADAM_DEFAULTS["L2"],
         beta1: FloatOrSeq = ADAM_DEFAULTS["beta1"],
         beta2: FloatOrSeq = ADAM_DEFAULTS["beta2"],
@@ -143,7 +158,6 @@ class Optimizer(object):
         Initialize an optimizer.
 
         learn_rate (float): The initial learning rate.
-        ops (Ops): A backend object. Defaults to the currently selected backend.
         L2 (float): The L2 regularization term.
         beta1 (float): First-order momentum.
         beta2 (float): Second-order momentum.
@@ -154,7 +168,6 @@ class Optimizer(object):
         L2_is_weight_decay (bool): Whether to interpret the L2 parameter as a
             weight decay term, in the style of the AdamW optimizer.
         """
-        self.ops = ops if ops is not None else get_current_ops()
         self.mom1 = {}
         self.mom2 = {}
         if use_averages:
@@ -187,19 +200,6 @@ class Optimizer(object):
                 err = f"Invalid schedule for '{name}' ({type(value)})\n{e}"
                 raise ValueError(err)
 
-    def to_gpu(self):  # pragma: no cover
-        self.ops = CupyOps()
-        for params in (self.mom1, self.mom2, self.averages):
-            for key, value in params.items():
-                params[key] = self.ops.xp.asarray(value, dtype=value.dtype)
-
-    def to_cpu(self):  # pragma: no cover
-        self.ops = NumpyOps()
-        for params in (self.mom1, self.mom2, self.averages):
-            for key, value in params.items():
-                if hasattr(value, "get"):
-                    params[key] = value.get()
-
     def step_schedules(self):
         for key, schedule in self.schedules.items():
             try:
@@ -221,37 +221,42 @@ class Optimizer(object):
         """
         if len(gradient) < 1:
             return weights, gradient
-        xp = self.ops.xp
+        ops = get_array_ops(weights)
         self.nr_update[key] += 1
         nr_upd = self.nr_update[key]
         if self.L2 != 0 and not self.L2_is_weight_decay:
             gradient += self.L2 * weights
         if self.grad_clip:
-            gradient = self.ops.clip_gradient(gradient, self.grad_clip)
+            gradient = ops.clip_gradient(gradient, self.grad_clip)
         if self.use_radam:
             weights, gradient = self._radam(
-                xp, weights, gradient, lr_scale, key, nr_upd
+                ops, weights, gradient, lr_scale, key, nr_upd
             )
         elif self.b1 > 0.0 and self.b2 > 0.0:
-            weights, gradient = self._adam(xp, weights, gradient, lr_scale, key, nr_upd)
+            weights, gradient = self._adam(
+                ops, weights, gradient, lr_scale, key, nr_upd
+            )
         elif self.b2 > 0.0:  # pragma: no cover
             raise NotImplementedError  # TODO: error message
         else:
             weights -= lr_scale * self.learn_rate * gradient
-        gradient = gradient * 0.0
+        gradient *= 0
         if self.L2 != 0 and self.L2_is_weight_decay:
-            weights -= self.L2 * weights
+            weights -= lr_scale * self.learn_rate * self.L2 * weights
         if self.averages is not None:
             if key not in self.averages:
-                self.averages[key] = self.ops.alloc(weights.shape, dtype="float32")
-            self.ops.update_averages(self.averages[key], weights, nr_upd)
+                self.averages[key] = ops.alloc(weights.shape, dtype="float32")
+            ops.update_averages(self.averages[key], weights, nr_upd)
         return weights, gradient
 
-    def _radam(self, xp, weights, grad, lr_scale, key, nr_upd):
+    def _radam(self, ops, weights, grad, lr_scale, key, nr_upd):
         if key not in self.mom1:
-            self.mom1[key] = self.ops.alloc1f(weights.size)
+            self.mom1[key] = ops.alloc1f(weights.size)
         if key not in self.mom2:
-            self.mom2[key] = self.ops.alloc1f(weights.size)
+            self.mom2[key] = ops.alloc1f(weights.size)
+
+        weights_1D = ops.reshape1f(weights, weights.size)
+        gradient_1D = ops.reshape1f(grad, grad.size)
 
         # While we port from the pytorch implementation, keep some of the same
         # naming
@@ -274,10 +279,10 @@ class Optimizer(object):
 
         # exp_avg_sq.mul_(beta2).addcmul_(1 - beta2, grad, grad)
         exp_avg_sq *= beta2
-        exp_avg_sq += (1 - beta2) * (grad ** 2)
+        exp_avg_sq += (1 - beta2) * (gradient_1D ** 2)
         # exp_avg.mul_(beta1).add_(1 - beta1, grad)
         exp_avg *= beta1
-        exp_avg += (1 - beta1) * grad
+        exp_avg += (1 - beta1) * gradient_1D
 
         state["step"] += 1
         buffered = group["buffer"][int(state["step"] % 10)]
@@ -310,22 +315,25 @@ class Optimizer(object):
         # more conservative since it's an approximated value
         if N_sma >= 5:
             if group["weight_decay"] != 0:
-                weights += -group["weight_decay"] * group["lr"] * weights
-            denom = xp.sqrt(exp_avg_sq) + group["eps"]
-            weights += -step_size * group["lr"] * (exp_avg / denom)
+                weights_1D += -group["weight_decay"] * group["lr"] * weights_1D
+            denom = ops.xp.sqrt(exp_avg_sq) + group["eps"]
+            weights_1D += -step_size * group["lr"] * (exp_avg / denom)
         elif step_size > 0:
             if group["weight_decay"] != 0:
-                weights += -group["weight_decay"] * group["lr"] * weights
-            weights += -step_size * group["lr"] * exp_avg
-        return weights, grad
+                weights_1D += -group["weight_decay"] * group["lr"] * weights_1D
+            weights_1D += -step_size * group["lr"] * exp_avg
+        return (
+            ops.reshape_f(weights_1D, weights.shape),
+            ops.reshape_f(gradient_1D, grad.shape),
+        )
 
-    def _adam(self, xp, weights, gradient, lr_scale, key, nr_upd):
-        weights_1D = self.ops.reshape1f(weights, weights.size)
-        gradient_1D = self.ops.reshape1f(gradient, gradient.size)
+    def _adam(self, ops, weights, gradient, lr_scale, key, nr_upd):
+        weights_1D = ops.reshape1f(weights, weights.size)
+        gradient_1D = ops.reshape1f(gradient, gradient.size)
         if key not in self.mom1:
-            self.mom1[key] = self.ops.alloc1f(weights.size)
+            self.mom1[key] = ops.alloc1f(weights.size)
         if key not in self.mom2:
-            self.mom2[key] = self.ops.alloc1f(weights.size)
+            self.mom2[key] = ops.alloc1f(weights.size)
         mom1 = self.mom1[key]
         mom2 = self.mom2[key]
         b1 = self.b1
@@ -335,14 +343,14 @@ class Optimizer(object):
         lr = self.learn_rate * fix2 ** 0.5 / fix1
         eps = self.eps
         # needs to be 1D going into the adam function
-        weights_1D, gradient_1D, mom1, mom2 = self.ops.adam(
+        weights_1D, gradient_1D, mom1, mom2 = ops.adam(
             weights_1D, gradient_1D, mom1, mom2, b1, b2, eps, lr * lr_scale
         )
         self.mom1[key] = mom1
         self.mom2[key] = mom2
         return (
-            self.ops.reshape_f(weights_1D, weights.shape),
-            self.ops.reshape_f(gradient_1D, gradient.shape),
+            ops.reshape_f(weights_1D, weights.shape),
+            ops.reshape_f(gradient_1D, gradient.shape),
         )
 
 

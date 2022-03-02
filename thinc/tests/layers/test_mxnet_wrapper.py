@@ -2,11 +2,10 @@ from typing import cast
 
 import numpy
 import pytest
-from thinc.api import Adam, ArgsKwargs, Linear, Model, Ops, MXNetWrapper
+from thinc.api import Adam, ArgsKwargs, Model, Ops, MXNetWrapper
 from thinc.api import get_current_ops, mxnet2xp, xp2mxnet
-from thinc.api import chain, Mish
 from thinc.types import Array2d, Array1d, IntsXd
-from thinc.util import has_mxnet, to_categorical
+from thinc.util import has_cupy, has_mxnet, to_categorical
 
 from ..util import check_input_converters, make_tempdir
 
@@ -40,7 +39,10 @@ def X(input_size: int) -> Array2d:
 @pytest.fixture
 def Y(answer: int, n_classes: int) -> Array2d:
     ops: Ops = get_current_ops()
-    return to_categorical(cast(IntsXd, ops.asarray([answer])), n_classes=n_classes)
+    return cast(
+        Array2d,
+        to_categorical(cast(IntsXd, ops.asarray([answer])), n_classes=n_classes),
+    )
 
 
 @pytest.fixture
@@ -155,11 +157,10 @@ def test_mxnet_wrapper_to_cpu(mx_model, X: Array2d):
     model.to_cpu()
 
 
-@pytest.mark.skipif(not has_mxnet, reason="needs MXNet")
+@pytest.mark.skipif(not has_mxnet or not has_cupy, reason="needs MXNet")
 def test_mxnet_wrapper_to_gpu(model: Model[Array2d, Array2d], X: Array2d):
-    # Raises while failing to import cupy
-    with pytest.raises(ImportError):
-        model.to_gpu(0)
+    model.predict(X)
+    model.to_gpu(0)
 
 
 @pytest.mark.skipif(not has_mxnet, reason="needs MXNet")

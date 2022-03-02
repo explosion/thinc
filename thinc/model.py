@@ -1,5 +1,5 @@
 from typing import Dict, List, Callable, Optional, Any, Union, Iterable, Set, cast
-from typing import Generic, Sequence, Tuple, TypeVar
+from typing import Generic, Sequence, Tuple, TypeVar, Iterator
 import contextlib
 from contextvars import ContextVar
 import srsly
@@ -11,7 +11,7 @@ import threading
 from .backends import ParamServer, Ops, NumpyOps, CupyOps, get_current_ops
 from .optimizers import Optimizer  # noqa: F401
 from .shims import Shim
-from .util import convert_recursive, is_xp_array
+from .util import convert_recursive, is_xp_array, DATA_VALIDATION
 from .util import partial, validate_fwd_input_output
 from .types import FloatsXd
 
@@ -21,7 +21,6 @@ OutT = TypeVar("OutT")
 SelfT = TypeVar("SelfT", bound="Model")
 
 context_operators: ContextVar[dict] = ContextVar("context_operators", default={})
-DATA_VALIDATION: ContextVar[bool] = ContextVar("DATA_VALIDATION", default=True)
 
 
 def empty_init(model: "Model", *args, **kwargs) -> "Model":
@@ -39,7 +38,7 @@ class Model(Generic[InT, OutT]):
     ops: Ops
     id: int
     _func: Callable
-    _init: Callable
+    init: Callable
     _params: ParamServer
     _dims: Dict[str, Optional[int]]
     _layers: List["Model"]
@@ -54,7 +53,7 @@ class Model(Generic[InT, OutT]):
         "id",
         "ops",
         "_func",
-        "_init",
+        "init",
         "_params",
         "_dims",
         "_attrs",
@@ -84,7 +83,7 @@ class Model(Generic[InT, OutT]):
             init = partial(empty_init, self)
         # Assign to callable attrs: https://github.com/python/mypy/issues/2427
         setattr(self, "_func", forward)
-        setattr(self, "_init", init)
+        setattr(self, "init", init)
         self.ops = ops if ops is not None else get_current_ops()
         self._params = ParamServer()
         self._dims = dict(dims)
@@ -149,7 +148,7 @@ class Model(Generic[InT, OutT]):
 
         EXAMPLE:
             with Model.define_operators({">>": chain}):
-                model = ReLu(512) >> ReLu(512) >> Softmax()
+                model = Relu(512) >> Relu(512) >> Softmax()
         """
         token = cls._context_operators.set(dict(operators))
         yield
@@ -177,15 +176,25 @@ class Model(Generic[InT, OutT]):
         else:
             return value
 
-    def set_dim(self, name: str, value: int) -> None:
+    def set_dim(self, name: str, value: int, *, force: bool = False) -> None:
         """Set a value for a dimension."""
         if name not in self._dims:
-            raise KeyError(f"Cannot set dimension '{name}' for model '{self.name}'.")
+            raise KeyError(
+                f"Cannot set unknown dimension '{name}' for model '{self.name}'."
+            )
         old_value = self._dims[name]
-        if old_value is not None and old_value != value:
+        has_params = any(bool(y) for x, y in self._has_params.items())
+        invalid_change = (old_value is not None and old_value != value) and (
+            not force or force and has_params
+        )
+        if invalid_change:
             err = f"Attempt to change dimension '{name}' for model '{self.name}' from {old_value} to {value}"
             raise ValueError(err)
         self._dims[name] = value
+
+    def maybe_get_dim(self, name: str) -> Optional[int]:
+        """Retrieve the value of a dimension of the given name, or None."""
+        return self.get_dim(name) if self.has_dim(name) else None
 
     def has_param(self, name: str) -> Optional[bool]:
         """Check whether the model has a weights parameter of the given name.
@@ -209,6 +218,10 @@ class Model(Generic[InT, OutT]):
             )
         return self._params.get_param(self.id, name)
 
+    def maybe_get_param(self, name: str) -> Optional[FloatsXd]:
+        """Retrieve a weights parameter by name, or None."""
+        return self.get_param(name) if self.has_param(name) else None
+
     def set_param(self, name: str, value: Optional[FloatsXd]) -> None:
         """Set a weights parameter's value."""
         if value is None:
@@ -218,8 +231,7 @@ class Model(Generic[InT, OutT]):
             self._has_params[name] = True
 
     def has_grad(self, name: str) -> bool:
-        """Check whether the model has a non-zero gradient for a parameter.
-        """
+        """Check whether the model has a non-zero gradient for a parameter."""
         return self._params.has_grad(self.id, name)
 
     def get_grad(self, name: str) -> FloatsXd:
@@ -229,6 +241,10 @@ class Model(Generic[InT, OutT]):
     def set_grad(self, name: str, value: FloatsXd) -> None:
         """Set a gradient value for the model."""
         self._params.set_grad(self.id, name, value)
+
+    def maybe_get_grad(self, name: str) -> Optional[FloatsXd]:
+        """Retrieve a gradient by name, or None."""
+        return self.get_grad(name) if self.has_grad(name) else None
 
     def inc_grad(self, name: str, value: FloatsXd) -> None:
         """Increment the gradient of a parameter by a value."""
@@ -248,13 +264,17 @@ class Model(Generic[InT, OutT]):
     def get_ref(self, name: str) -> "Model":
         """Retrieve the value of a reference of the given name."""
         if name not in self._refs:
-            raise KeyError(f"Cannot get reference '{name} for model '{self.name}'.")
+            raise KeyError(f"Cannot get reference '{name}' for model '{self.name}'.")
         value = self._refs[name]
         if value is None:
             err = f"Cannot get reference '{name}' for model '{self.name}': value unset."
             raise ValueError(err)
         else:
             return value
+
+    def maybe_get_ref(self, name: str) -> Optional["Model"]:
+        """Retrieve the value of a reference if it exists, or None."""
+        return self.get_ref(name) if self.has_ref(name) else None
 
     def set_ref(self, name: str, value: Optional["Model"]) -> None:
         """Set a value for a reference."""
@@ -275,8 +295,8 @@ class Model(Generic[InT, OutT]):
         example input and output data to perform shape inference."""
         if DATA_VALIDATION.get():
             validate_fwd_input_output(self.name, self._func, X, Y)
-        if self._init is not None:
-            self._init(self, X=X, Y=Y)
+        if self.init is not None:
+            self.init(self, X=X, Y=Y)
         return self
 
     def begin_update(self, X: InT) -> Tuple[OutT, Callable[[InT], OutT]]:
@@ -299,15 +319,15 @@ class Model(Generic[InT, OutT]):
         with each parameter and gradient of the model.
         """
         for node in self.walk():
-            for name in node.param_names:
-                if node.has_grad(name):
-                    param = node.get_param(name)
-                    grad = node.get_grad(name)
-                    param, grad = optimizer((node.id, name), param, grad)
-                    node.set_param(name, param)
-                    node.set_grad(name, grad)
             for shim in node.shims:
                 shim.finish_update(optimizer)
+        for node in self.walk():
+            for name in node.param_names:
+                if node.has_grad(name):
+                    param, grad = optimizer(
+                        (node.id, name), node.get_param(name), node.get_grad(name)
+                    )
+                    node.set_param(name, param)
 
     @contextlib.contextmanager
     def use_params(self, params: Dict[Tuple[int, str], FloatsXd]):
@@ -332,7 +352,22 @@ class Model(Generic[InT, OutT]):
             for name, param in backup.items():
                 self.set_param(name, param)
 
-    def walk(self) -> Iterable["Model"]:
+    def walk(self, *, order: str = "bfs") -> Iterable["Model"]:
+        """Iterate out layers of the model.
+
+        Nodes are returned in breadth-first order by default. Other possible
+        orders are "dfs_pre" (depth-first search in preorder) and "dfs_post"
+        (depth-first search in postorder)."""
+        if order == "bfs":
+            return self._walk_bfs()
+        elif order == "dfs_pre":
+            return self._walk_dfs(post_order=False)
+        elif order == "dfs_post":
+            return self._walk_dfs(post_order=True)
+        else:
+            raise ValueError("Invalid order, must be one of: bfs, dfs_pre, dfs_post")
+
+    def _walk_bfs(self) -> Iterable["Model"]:
         """Iterate out layers of the model, breadth-first."""
         queue = [self]
         seen: Set[int] = set()
@@ -342,6 +377,28 @@ class Model(Generic[InT, OutT]):
             seen.add(id(node))
             yield node
             queue.extend(node.layers)
+
+    def _walk_dfs(self, post_order: bool = False) -> Iterable["Model"]:
+        """Iterate out layers of the model, depth-first."""
+        seen: Dict[int, Iterator["Model"]] = dict()
+        stack = [self]
+        seen[id(self)] = iter(self.layers)
+        if not post_order:
+            yield self
+
+        while stack:
+            try:
+                next_child = next(seen[id(stack[-1])])
+                if not id(next_child) in seen:
+                    if not post_order:
+                        yield next_child
+
+                    stack.append(next_child)
+                    seen[id(next_child)] = iter(next_child.layers)
+            except StopIteration:
+                if post_order:
+                    yield stack[-1]
+                stack.pop()
 
     def remove_node(self, node: "Model") -> None:
         """Remove a node from all layers lists, and then update references.
@@ -359,6 +416,33 @@ class Model(Generic[InT, OutT]):
                 ref = node.get_ref(name)
                 if ref is not None and ref not in tree:
                     node.set_ref(name, None)
+
+    def replace_callbacks(
+        self, forward: Callable, *, init: Optional[Callable] = None
+    ) -> None:
+        setattr(self, "_func", forward)
+        setattr(self, "init", init)
+
+    def replace_node(self, old: "Model", new: "Model") -> bool:
+        """Replace a node anywhere it occurs within the model. Returns a boolean
+        indicating whether the replacement was made."""
+        seen = False
+
+        # We need to replace nodes in topological order of the transposed graph
+        # to ensure that a node's dependencies are processed before the node.
+        # This is equivalent to a post-order traversal of the original graph.
+        for node in list(self.walk(order="dfs_post")):
+            if node is old:
+                seen = True
+            else:
+                node._layers = [
+                    new if layer is old else layer for layer in node._layers
+                ]
+                for name in node.ref_names:
+                    if node.get_ref(name) is old:
+                        node.set_ref(name, new)
+
+        return seen
 
     def get_gradients(self) -> Dict[Tuple[int, str], Tuple[FloatsXd, FloatsXd]]:
         """Get non-zero gradients of the model's parameters, as a dictionary
@@ -379,16 +463,13 @@ class Model(Generic[InT, OutT]):
         value.
         """
         params = {}
-        grads = {}
         for name in self.param_names:
             params[name] = self.get_param(name) if self.has_param(name) else None
-        for name in self.grad_names:
-            grads[name] = self.get_grad(name)
 
         copied: Model[InT, OutT] = Model(
             self.name,
             self._func,
-            init=self._init,
+            init=self.init,
             params=copy.deepcopy(params),
             dims=copy.deepcopy(self._dims),
             attrs=copy.deepcopy(self._attrs),
@@ -403,8 +484,7 @@ class Model(Generic[InT, OutT]):
         """Transfer the model to a given GPU device."""
         import cupy.cuda.device
 
-        device = cupy.cuda.device.Device(gpu_id)
-        with device.use():
+        with cupy.cuda.device.Device(gpu_id):
             self._to_ops(CupyOps())
 
     def to_cpu(self) -> None:  # pragma: no cover
@@ -421,7 +501,7 @@ class Model(Generic[InT, OutT]):
                 if node.has_grad(name):
                     node.set_grad(name, ops.asarray_f(node.get_grad(name)))
             for shim in node.shims:
-                shim.to_device(ops.device_type)
+                shim.to_device(ops.device_type, ops.device_id)
 
     def to_bytes(self) -> bytes:
         """Serialize the model to a bytes representation. Models are usually
@@ -432,14 +512,15 @@ class Model(Generic[InT, OutT]):
         result from loading and serializing a model.
         """
         msg = self.to_dict()
-        msg = convert_recursive(is_xp_array, self.ops.to_numpy, msg)
-        return srsly.msgpack_dumps(self.to_dict())
+        to_numpy_le = partial(self.ops.to_numpy, byte_order="<")
+        msg = convert_recursive(is_xp_array, to_numpy_le, msg)
+        return srsly.msgpack_dumps(msg)
 
     def to_disk(self, path: Union[Path, str]) -> None:
         """Serialize the model to disk. Most models will serialize to a single
         file, which should just be the bytes contents of model.to_bytes().
         """
-        path = Path(path)
+        path = Path(path) if isinstance(path, str) else path
         with path.open("wb") as file_:
             file_.write(self.to_bytes())
 
@@ -516,7 +597,7 @@ class Model(Generic[InT, OutT]):
         """Deserialize the model from disk. Most models will serialize to a single
         file, which should just be the bytes contents of model.to_bytes().
         """
-        path = Path(path)
+        path = Path(path) if isinstance(path, str) else path
         with path.open("rb") as file_:
             bytes_data = file_.read()
         return self.from_bytes(bytes_data)
@@ -544,10 +625,82 @@ class Model(Generic[InT, OutT]):
                 loaded_value = deserialize_attr(default_value, value, attr, node)
                 node.attrs[attr] = loaded_value
             for param_name, value in msg["params"][i].items():
+                if value is not None:
+                    value = node.ops.asarray(value).copy()
                 node.set_param(param_name, value)
             for i, shim_bytes in enumerate(msg["shims"][i]):
                 node.shims[i].from_bytes(shim_bytes)
         return self
+
+    def can_from_disk(self, path: Union[Path, str], *, strict: bool = True) -> bool:
+        """Check whether serialized data on disk is compatible with the model.
+        If 'strict', the function returns False if the model has an attribute
+        already loaded that would be changed.
+        """
+        path = Path(path) if isinstance(path, str) else path
+        if path.is_dir() or not path.exists():
+            return False
+        with path.open("rb") as file_:
+            bytes_data = file_.read()
+        return self.can_from_bytes(bytes_data, strict=strict)
+
+    def can_from_bytes(self, bytes_data: bytes, *, strict: bool = True) -> bool:
+        """Check whether the bytes data is compatible with the model. If 'strict',
+        the function returns False if the model has an attribute already loaded
+        that would be changed.
+        """
+        try:
+            msg = srsly.msgpack_loads(bytes_data)
+        except ValueError:
+            return False
+        return self.can_from_dict(msg, strict=strict)
+
+    def can_from_dict(self, msg: Dict, *, strict: bool = True) -> bool:
+        """Check whether a dictionary is compatible with the model.
+        If 'strict', the function returns False if the model has an attribute
+        already loaded that would be changed.
+        """
+        if "nodes" not in msg.keys():
+            return False
+        nodes = list(self.walk())
+        if len(msg["nodes"]) != len(nodes):
+            return False
+
+        for i, node in enumerate(nodes):
+            info = msg["nodes"][i]
+            if strict and info["name"] != node.name:
+                return False
+            if len(msg["shims"][i]) != len(node.shims):
+                # TODO: The shims should have a check for this too, but
+                # for now we just check if the lengths match.
+                return False
+            for dim, value in info["dims"].items():
+                has_dim = node.has_dim(dim)
+                if has_dim is False:
+                    return False
+                elif has_dim and node.get_dim(dim) != value:
+                    return False
+            for param_name, value in msg["params"][i].items():
+                has_param = node.has_param(param_name)
+                if has_param is False:
+                    return False
+                elif has_param and value is not None:
+                    param = node.get_param(param_name)
+                    if param.shape != value.shape:
+                        return False
+            if strict:
+                for attr, value in msg["attrs"][i].items():
+                    if attr in node.attrs:
+                        try:
+
+                            serialized = serialize_attr(
+                                node.attrs[attr], node.attrs[attr], attr, node
+                            )
+                        except TypeError:
+                            continue
+                        if serialized != value:
+                            return False
+        return True
 
     def __add__(self, other: Any) -> "Model":
         """Apply the function bound to the '+' operator."""
@@ -652,51 +805,6 @@ def deserialize_attr(_: Any, value: Any, name: str, model: Model) -> Any:
     return srsly.msgpack_loads(value)
 
 
-def _jax_flatten_model(model):  # pragma: ignore
-    """A Jax flattener for Thinc models. Registering this (and the paired
-    unflatten function) allows Thinc models to be passed into Jax JIT-ed functions.
-
-    The model must have an attr "registered_constructor" that can rebuild the
-    model object via the layers registry, with no arguments. You should use a
-    constructor that doesn't allocate any parameters and works reasonably quickly.
-    """
-    registry_name = model.attrs["registry_name"]
-    msg = model.to_dict()
-    params = msg.pop("params")
-    param_values = []
-    param_keys = []
-    for i, param_info in enumerate(params):
-        for name, value in param_info.items():
-            param_values.append(value)
-            param_keys.append((i, name))
-    # param_values needs to be a flat list of leaf types, e.g. arrays. Notably,
-    # strings are not leaves!
-    # The aux data can be anything, but I think it shouldn't be variables?
-    return param_values, (registry_name, param_keys, msg)
-
-
-def _jax_unflatten_model(info, param_values):  # pragma: ignore
-    """The Jax unflattener, paired with jax_flatten_model"""
-    # This is pretty ugly. But I don't know where I can put this function
-    # that has access to the registry object without causing import circles?
-    from .config import registry
-
-    registry_name, param_keys, msg = info
-    model = registry.layers.get(registry_name)()
-    msg["params"] = [{} for _ in range(len(msg["nodes"]))]
-    for (i, name), value in zip(param_keys, param_values):
-        msg["params"][i][name] = value
-    return model.from_dict(msg)
-
-
-try:  # pragma: no cover
-    import jax.tree_util
-
-    jax.tree_util.register_pytree_node(Model, _jax_flatten_model, _jax_unflatten_model)
-except ImportError:  # pragma: no cover
-    pass
-
-
 _ModelT = TypeVar("_ModelT", bound=Model)
 
 
@@ -724,10 +832,20 @@ def set_dropout_rate(model: _ModelT, drop: float, attrs=["dropout_rate"]) -> _Mo
     return model
 
 
+def wrap_model_recursive(model: Model, wrapper: Callable[[Model], _ModelT]) -> _ModelT:
+    """Recursively wrap a model and its submodules. The model is updated
+    in-place."""
+    for node in list(model.walk()):
+        model.replace_node(node, wrapper(node))
+
+    return wrapper(model)
+
+
 __all__ = [
     "Model",
     "serialize_attr",
     "deserialize_attr",
     "change_attr_values",
     "set_dropout_rate",
+    "wrap_model_recursive",
 ]

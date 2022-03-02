@@ -1,21 +1,22 @@
 import pytest
-from thinc.api import chain, ReLu, reduce_max, Softmax, with_ragged
+from thinc.api import chain, Relu, reduce_max, Softmax, with_ragged
 from thinc.api import ParametricAttention, list2ragged, reduce_sum
-from thinc.util import DataValidationError
+from thinc.util import DataValidationError, data_validation
 
 
 def test_validation():
-    model = chain(ReLu(10), ReLu(10), with_ragged(reduce_max()), Softmax())
-    with pytest.raises(DataValidationError):
-        model.initialize(X=model.ops.alloc2f(1, 10), Y=model.ops.alloc2f(1, 10))
-    with pytest.raises(DataValidationError):
-        model.initialize(X=model.ops.alloc3f(1, 10, 1), Y=model.ops.alloc2f(1, 10))
-    with pytest.raises(DataValidationError):
-        model.initialize(X=[model.ops.alloc2f(1, 10)], Y=model.ops.alloc2f(1, 10))
+    model = chain(Relu(10), Relu(10), with_ragged(reduce_max()), Softmax())
+    with data_validation(True):
+        with pytest.raises(DataValidationError):
+            model.initialize(X=model.ops.alloc2f(1, 10), Y=model.ops.alloc2f(1, 10))
+        with pytest.raises(DataValidationError):
+            model.initialize(X=model.ops.alloc3f(1, 10, 1), Y=model.ops.alloc2f(1, 10))
+        with pytest.raises(DataValidationError):
+            model.initialize(X=[model.ops.alloc2f(1, 10)], Y=model.ops.alloc2f(1, 10))
 
 
 def test_validation_complex():
-    good_model = chain(list2ragged(), reduce_sum(), ReLu(12, dropout=0.5), ReLu(1))
+    good_model = chain(list2ragged(), reduce_sum(), Relu(12, dropout=0.5), Relu(1))
     X = [good_model.ops.xp.zeros((4, 75), dtype="f")]
     Y = good_model.ops.xp.zeros((1,), dtype="f")
     good_model.initialize(X, Y)
@@ -24,10 +25,11 @@ def test_validation_complex():
     bad_model = chain(
         list2ragged(),
         reduce_sum(),
-        ReLu(12, dropout=0.5),
-        # ERROR: Why can't I attach a ReLu to an attention layer?
+        Relu(12, dropout=0.5),
+        # ERROR: Why can't I attach a Relu to an attention layer?
         ParametricAttention(12),
-        ReLu(1),
+        Relu(1),
     )
-    with pytest.raises(DataValidationError):
-        bad_model.initialize(X, Y)
+    with data_validation(True):
+        with pytest.raises(DataValidationError):
+            bad_model.initialize(X, Y)

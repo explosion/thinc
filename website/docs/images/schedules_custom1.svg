@@ -1,0 +1,78 @@
+<svg height="179.758125pt" viewBox="0 0 1161.2 179.8" width="1161.171875pt" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <defs/>
+  <g id="figure_1">
+    <path d="M0 179.8h1161.2V0H0z" style="fill:none" id="patch_1"/>
+    <g id="axes_1">
+      <path d="M35.6 163h1116V0H35.6z" style="fill:none" id="patch_2"/>
+      <g id="matplotlib.axis_1">
+        <g id="xtick_1">
+          <g id="line2d_1">
+            <defs>
+              <path d="M0 0v3.5" id="m492378a727" style="stroke:#6a5f8e;stroke-width:0.8"/>
+            </defs>
+            <use style="fill:#6a5f8e;stroke:#6a5f8e;stroke-width:0.8" x="35.6" xlink:href="#m492378a727" y="163.1"/>
+          </g>
+          <g id="text_1">
+            <defs>
+              <path d="M31.8 66.4q-7.6 0-11.5-7.5-3.8-7.5-3.8-22.5t3.8-22.5q3.9-7.5 11.5-7.5 7.7 0 11.5 7.5T47 36.4q0 15-3.8 22.5t-11.5 7.5zm0 7.8q12.2 0 18.7-9.7T57 36.4Q57 18 50.5 8.3 44-1.4 31.8-1.4 19.5-1.4 13 8.3q-6.5 9.7-6.5 28 0 18.5 6.5 28.2 6.4 9.7 18.7 9.7z" id="DejaVuSans-48"/>
+            </defs>
+            <use xlink:href="#DejaVuSans-48" transform="matrix(.1 0 0 -.1 32.4 177.7)"/>
+          </g>
+        </g>
+        <g id="xtick_2">
+          <use style="fill:#6a5f8e;stroke:#6a5f8e;stroke-width:0.8" x="1151.6" xlink:href="#m492378a727" y="163.1" id="line2d_2"/>
+          <g id="text_2">
+            <defs>
+              <path d="M12.4 8.3h16.1v55.6L11 60.4v9l17.4 3.5h9.9V8.3h16V0H12.5z" id="DejaVuSans-49"/>
+            </defs>
+            <g style="fill:#6a5f8e" transform="matrix(.1 0 0 -.1 1142 177.7)">
+              <use xlink:href="#DejaVuSans-49"/>
+              <use x="63.6" xlink:href="#DejaVuSans-48"/>
+              <use x="127.2" xlink:href="#DejaVuSans-48"/>
+            </g>
+          </g>
+        </g>
+      </g>
+      <g id="matplotlib.axis_2">
+        <g id="ytick_1">
+          <g id="line2d_3">
+            <defs>
+              <path d="M0 0h-3.5" id="m10a4183ad5" style="stroke:#6a5f8e;stroke-width:0.8"/>
+            </defs>
+            <use style="fill:#6a5f8e;stroke:#6a5f8e;stroke-width:0.8" x="35.6" xlink:href="#m10a4183ad5" y="149.5"/>
+          </g>
+          <g id="text_3">
+            <defs>
+              <path d="M10.7 12.4H21V0H10.7z" id="DejaVuSans-46"/>
+            </defs>
+            <g style="fill:#6a5f8e" transform="matrix(.1 0 0 -.1 0 153.3)">
+              <use xlink:href="#DejaVuSans-48"/>
+              <use x="63.6" xlink:href="#DejaVuSans-46"/>
+              <use x="95.4" xlink:href="#DejaVuSans-48"/>
+              <use x="159" xlink:href="#DejaVuSans-48"/>
+              <use x="222.7" xlink:href="#DejaVuSans-49"/>
+            </g>
+          </g>
+        </g>
+        <g id="ytick_2">
+          <use style="fill:#6a5f8e;stroke:#6a5f8e;stroke-width:0.8" x="35.6" xlink:href="#m10a4183ad5" y="13.6" id="line2d_4"/>
+          <g style="fill:#6a5f8e" transform="matrix(.1 0 0 -.1 0 17.4)" id="text_4">
+            <use xlink:href="#DejaVuSans-48"/>
+            <use x="63.6" xlink:href="#DejaVuSans-46"/>
+            <use x="95.4" xlink:href="#DejaVuSans-49"/>
+            <use x="159" xlink:href="#DejaVuSans-48"/>
+            <use x="222.7" xlink:href="#DejaVuSans-48"/>
+          </g>
+        </g>
+      </g>
+      <path clip-path="url(#p42761aa7b2)" d="M35.6 149.5L46.8 137 57.9 13.6h11.2L80.3 137l11.1 12.4h11.2l11.1-12.4L125 13.6h11.2L147.2 137l11.2 12.4h11.1l11.2-12.4L192 13.6H203L214.2 137l11.1 12.4h11.2l11.2-12.4 11.1-123.5H270L281 137l11.2 12.4h11.2l11.1-12.4 11.2-123.5h11.1L348.1 137l11.2 12.4h11.1l11.2-12.4 11.1-123.5H404L415.1 137l11.1 12.4h11.2l11.1-12.4 11.2-123.5H471L482 137l11.2 12.4h11.1l11.2-12.4 11.2-123.5h11.1L549 137l11.1 12.4h11.2l11.2-12.4 11.1-123.5h11.2L615.9 137l11.2 12.4h11.2l11.1-12.4 11.2-123.5h11.1L683 137l11.2 12.4h11.1l11.2-12.4 11.1-123.5h11.2L750 137l11.1 12.4h11.2l11.1-12.4 11.2-123.5h11.2L816.8 137l11.2 12.4H839l11.2-12.4 11.2-123.5h11.1L883.8 137l11.1 12.4h11.2l11.2-12.4 11.1-123.5h11.2L950.7 137l11.2 12.4h11.2l11.1-12.4 11.2-123.5h11.1l11.2 123.5 11.2 12.4h11.1l11.2-12.4 11.1-123.5h11.2l11.2 123.5 11.1 12.4h11.2L1118 137l11.2-123.5h11.2l11.1 123.5" style="fill:none;stroke:#6955a1;stroke-linecap:square;stroke-width:4" id="line2d_5"/>
+      <path d="M35.6 163V0" style="fill:none;stroke:#6a5f8e;stroke-linecap:square;stroke-linejoin:miter;stroke-width:0.8" id="patch_3"/>
+      <path d="M35.6 163h1116" style="fill:none;stroke:#6a5f8e;stroke-linecap:square;stroke-linejoin:miter;stroke-width:0.8" id="patch_4"/>
+    </g>
+  </g>
+  <defs>
+    <clipPath id="p42761aa7b2">
+      <path d="M35.6 0h1116v163H35.6z"/>
+    </clipPath>
+  </defs>
+</svg>

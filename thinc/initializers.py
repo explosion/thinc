@@ -1,4 +1,4 @@
-from typing import Callable
+from typing import Callable, cast
 import numpy
 
 from .backends import Ops
@@ -12,13 +12,61 @@ from .util import partial
 
 # Initialize via numpy, before copying to ops. This makes it easier to work with
 # the different backends, because the backend won't affect the randomization.
-# It's especially helpful for JAX, which has a pretty intrincate PRNG scheme I
-# haven't figured out yet.
+
+
+def lecun_normal_init(ops: Ops, shape: Shape) -> FloatsXd:
+    scale = numpy.sqrt(1.0 / shape[1])
+    return ops.asarray_f(cast(FloatsXd, numpy.random.normal(0, scale, shape)))
+
+
+@registry.initializers("lecun_normal_init.v1")
+def configure_lecun_normal_init() -> Callable[[Shape], FloatsXd]:
+    return partial(lecun_normal_init)
+
+
+def he_normal_init(ops: Ops, shape: Shape) -> FloatsXd:
+    scale = numpy.sqrt(2.0 / shape[1])
+    return ops.asarray_f(cast(FloatsXd, numpy.random.normal(0, scale, shape)))
+
+
+@registry.initializers("he_normal_init.v1")
+def configure_he_normal_init() -> Callable[[Shape], FloatsXd]:
+    return partial(he_normal_init)
+
+
+def glorot_normal_init(ops: Ops, shape: Shape) -> FloatsXd:
+    scale = numpy.sqrt(2.0 / (shape[1] + shape[0]))
+    return ops.asarray_f(cast(FloatsXd, numpy.random.normal(0, scale, shape)))
+
+
+@registry.initializers("glorot_normal_init.v1")
+def configure_glorot_normal_init() -> Callable[[Shape], FloatsXd]:
+    return partial(glorot_normal_init)
+
+
+def he_uniform_init(ops: Ops, shape: Shape) -> FloatsXd:
+    scale = numpy.sqrt(6.0 / shape[1])
+    return ops.asarray_f(cast(FloatsXd, numpy.random.uniform(-scale, scale, shape)))
+
+
+@registry.initializers("he_uniform_init.v1")
+def configure_he_uniform_init() -> Callable[[Shape], FloatsXd]:
+    return partial(he_uniform_init)
+
+
+def lecun_uniform_init(ops: Ops, shape: Shape) -> FloatsXd:
+    scale = numpy.sqrt(3.0 / shape[1])
+    return ops.asarray_f(cast(FloatsXd, numpy.random.uniform(-scale, scale, shape)))
+
+
+@registry.initializers("lecun_uniform_init.v1")
+def configure_lecun_uniform_init() -> Callable[[Shape], FloatsXd]:
+    return partial(lecun_uniform_init)
 
 
 def glorot_uniform_init(ops: Ops, shape: Shape) -> FloatsXd:
     scale = numpy.sqrt(6.0 / (shape[0] + shape[1]))
-    return ops.asarray_f(numpy.random.uniform(-scale, scale, shape))
+    return ops.asarray_f(cast(FloatsXd, numpy.random.uniform(-scale, scale, shape)))
 
 
 @registry.initializers("glorot_uniform_init.v1")
@@ -39,7 +87,7 @@ def uniform_init(
     ops: Ops, shape: Shape, *, lo: float = -0.1, hi: float = 0.1
 ) -> FloatsXd:
     values = numpy.random.uniform(lo, hi, shape)
-    return ops.asarray_f(values.astype("float32"))
+    return ops.asarray_f(cast(FloatsXd, values.astype("float32")))
 
 
 @registry.initializers("uniform_init.v1")
@@ -49,19 +97,26 @@ def configure_uniform_init(
     return partial(uniform_init, lo=lo, hi=hi)
 
 
-def normal_init(ops: Ops, shape: Shape, *, fan_in: int = -1) -> FloatsXd:
-    if fan_in == -1:
-        fan_in = shape[1]
-    scale = ops.xp.sqrt(1.0 / fan_in)
+def normal_init(ops: Ops, shape: Shape, *, mean: float = 0) -> FloatsXd:
     size = int(ops.xp.prod(ops.xp.asarray(shape)))
-    inits = numpy.random.normal(scale=scale, size=size).astype("float32")
+    inits = cast(FloatsXd, numpy.random.normal(scale=mean, size=size).astype("float32"))
     inits = ops.reshape_f(inits, shape)
     return ops.asarray_f(inits)
 
 
 @registry.initializers("normal_init.v1")
-def configure_normal_init(*, fan_in: int = -1) -> Callable[[FloatsXd], FloatsXd]:
-    return partial(normal_init, fan_in=fan_in)
+def configure_normal_init(*, mean: float = 0) -> Callable[[FloatsXd], FloatsXd]:
+    return partial(normal_init, mean=mean)
 
 
-__all__ = ["normal_init", "uniform_init", "glorot_uniform_init", "zero_init"]
+__all__ = [
+    "normal_init",
+    "uniform_init",
+    "glorot_uniform_init",
+    "zero_init",
+    "lecun_uniform_init",
+    "he_uniform_init",
+    "glorot_normal_init",
+    "he_normal_init",
+    "lecun_normal_init",
+]

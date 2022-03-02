@@ -13,7 +13,11 @@ InT = Floats2d
 @registry.layers("LayerNorm.v1")
 def LayerNorm(nI: Optional[int] = None) -> Model[InT, InT]:
     return Model(
-        "layernorm", forward, init=init, dims={"nI": nI}, params={"G": None, "b": None}
+        "layernorm",
+        forward,
+        init=init,
+        dims={"nI": nI, "nO": nI},
+        params={"G": None, "b": None}
     )
 
 
@@ -39,12 +43,17 @@ def init(
     if X is not None:
         X_width = get_width(X)
         model.set_dim("nI", X_width)
-    if Y is not None:
+        model.set_dim("nO", X_width)
+    elif Y is not None:
         Y_width = get_width(Y)
         model.set_dim("nI", Y_width)
+        model.set_dim("nO", Y_width)
     nI = model.get_dim("nI")
+    if not model.has_dim("nO"):
+        model.set_dim("nO", nI)
     model.set_param("G", model.ops.alloc1f(nI) + 1)
     model.set_param("b", model.ops.alloc1f(nI))
+    assert model.get_dim("nO") is not None
     return model
 
 

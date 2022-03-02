@@ -1,14 +1,14 @@
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 import catalogue
 import contextlib
 import copy
-import itertools
 from io import BytesIO
 import numpy
 
 from ..backends import Ops, get_current_ops
+from ..optimizers import Optimizer
 from ..types import ArgsKwargs, ArrayXd
-from ..util import tensorflow2xp
+from ..util import get_array_module
 from .shim import Shim
 
 try:
@@ -29,7 +29,7 @@ except ImportError:  # pragma: no cover
 keras_model_fns = catalogue.create("thinc", "keras", entry_points=True)
 
 
-def maybe_handshake_model(keras_model, optimizer=None):
+def maybe_handshake_model(keras_model):
     """Call the required predict/compile/build APIs to initialize a model if it
     is a subclass of tf.keras.Model. This is required to be able to call set_weights
     on subclassed layers."""
@@ -57,15 +57,17 @@ def maybe_handshake_model(keras_model, optimizer=None):
         device = tf.test.gpu_device_name()
 
     compile_args = keras_model.eg_compile
-    if optimizer is not None:
-        compile_args = {**compile_args, "optimizer": optimizer}
 
     with tf.device(device):
         # Calling predict creates layers and weights for subclassed models
         keras_model.compile(**compile_args)
         keras_model.build(keras_model.eg_shape)
         keras_model.predict(keras_model.eg_x)
-        keras_model._make_train_function()
+        # Made public in 2.2.x
+        if hasattr(keras_model, "_make_train_function"):
+            keras_model._make_train_function()
+        else:
+            keras_model.make_train_function()
     return keras_model
 
 
@@ -76,6 +78,12 @@ class TensorFlowShim(Shim):
     Reference for custom training:
     https://www.tensorflow.org/tutorials/customization/custom_training_walkthrough
     """
+
+    gradients: Optional[List["tf.Tensor"]]
+
+    def __init__(self, model: Any, config=None, optimizer: Any = None):
+        super().__init__(model, config, optimizer)
+        self.gradients = None
 
     def __str__(self):
         lines: List[str] = []
@@ -119,32 +127,50 @@ class TensorFlowShim(Shim):
                 output, wrt_tensors, output_gradients=d_output
             )
             dX = all_gradients[: len(X.args)]
-            self.grads_for_optimization = all_gradients[1:]
+            opt_grads = all_gradients[1:]
+            # Accumulate gradients
+            if self.gradients is not None:
+                assert len(opt_grads) == len(self.gradients), "gradients must match"
+                variable: tf.Variable
+                for variable, new_variable in zip(self.gradients, opt_grads):
+                    variable.assign_add(new_variable)
+            else:
+                # Create variables from the grads to allow accumulation
+                self.gradients = [tf.Variable(f) for f in opt_grads]
             return ArgsKwargs(args=tuple(dX), kwargs={})
 
         return output, backprop
 
-    def finish_update(self, optimizer):
-        if not self._optimizer:
-            self._optimizer = self._create_optimizer(optimizer)
-        assert len(self.grads_for_optimization) == len(self._model.trainable_variables)
-        self._optimizer.apply_gradients(
-            zip(self.grads_for_optimization, self._model.trainable_variables)
-        )
-        self._update_tensorflow_averages(optimizer)
+    def finish_update(self, optimizer: Optimizer):
+        if self.gradients is None:
+            raise ValueError(
+                "There are no gradients for optimization. Be sure to call begin_update"
+                " before calling finish_update."
+            )
+        assert len(self.gradients) == len(self._model.trainable_variables)
+        grad: tf.Tensor
+        variable: tf.Variable
+        params = []
+        grads = []
+        shapes = []
 
-    def _create_optimizer(self, sgd):
-        if sgd.b1 != 0 and sgd.b2 != 0:
-            optimizer = tf.keras.optimizers.Adam(
-                learning_rate=sgd.learn_rate, beta_1=sgd.b1, beta_2=sgd.b2
-            )
-        elif sgd.b2 == 0:
-            optimizer = tf.keras.optimizers.SGD(
-                learning_rate=sgd.learn_rate, momentum=sgd.b1
-            )
-        else:  # pragma: no cover
-            raise NotImplementedError(f"Can't create TensorFlow optimizer for {sgd}")
-        return optimizer
+        for grad, variable in zip(self.gradients, self._model.trainable_variables):
+            param = variable.numpy()
+            grad = grad.numpy()
+            shapes.append((param.size, param.shape))
+            params.append(param.ravel())
+            grads.append(grad.ravel())
+        xp = get_array_module(params[0])
+        flat_params, flat_grads = optimizer(
+            (self.id, "tensorflow-shim"), xp.concatenate(params), xp.concatenate(grads)
+        )
+        start = 0
+        for grad, variable in zip(self.gradients, self._model.trainable_variables):
+            size, shape = shapes.pop(0)
+            param = flat_params[start : start + size].reshape(shape)
+            variable.assign(param)
+            start += size
+        self.gradients = None
 
     def _load_weights_from_state_dict(
         self, state_dict: Optional[Dict[str, ArrayXd]] = None
@@ -188,22 +214,6 @@ class TensorFlowShim(Shim):
         else:
             yield
 
-    def _update_tensorflow_averages(self, sgd, *, init_steps=1):
-        if getattr(sgd, "averages", None) is None:
-            return
-        # Collect parameters if we don't have them
-        layers = [l.weights for l in self._model.layers]
-        layers = itertools.chain(*layers)
-        for layer in layers:
-            key = f"tensorflow_{self.id}_{layer.name}"
-            sgd.nr_update[key] += 1
-            xp_param = tensorflow2xp(layer)
-            if key in sgd.averages:
-                sgd.ops.update_averages(sgd.averages[key], xp_param, sgd.nr_update[key])
-            else:
-                sgd.averages[key] = xp_param.copy()
-                sgd.nr_update[key] = init_steps
-
     def _clone_model(self):
         """similar to tf.keras.models.clone_model()
         But the tf.keras.models.clone_model changes the names of tf.Variables.
@@ -223,12 +233,12 @@ class TensorFlowShim(Shim):
         copied._load_weights_from_state_dict()
         return copied
 
-    def to_device(self, device):  # pragma: no cover
-        if device == "cpu":
+    def to_device(self, device_type: str, device_id: int):  # pragma: no cover
+        if device_type == "cpu":
             with tf.device("/CPU"):  # pragma: no cover
                 self._clone_model()
-        else:
-            with tf.device("/GPU:{}".format(device)):
+        elif device_type == "gpu":
+            with tf.device("/GPU:{}".format(device_id)):
                 self._clone_model()
 
     def to_bytes(self):

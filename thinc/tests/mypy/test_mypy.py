@@ -6,8 +6,6 @@ import sys
 
 import pytest
 
-from mypy import api as mypy_api
-
 # You can change the following variable to True during development to overwrite expected output with generated output
 GENERATE = False
 
@@ -23,6 +21,8 @@ cases = [
 def test_mypy_results(
     config_filename, python_filename, output_filename, tmpdir, monkeypatch
 ):
+    pytest.importorskip("mypy")
+    from mypy import api as mypy_api
     os.chdir(tmpdir)
     root_dir = Path(__file__).parent
     thinc_root_dir = Path(__file__).parent.parent.parent.parent
@@ -80,4 +80,5 @@ def test_generation_is_disabled():
     """
     Makes sure we don't accidentally leave generation on
     """
+    pytest.importorskip("mypy")
     assert not GENERATE

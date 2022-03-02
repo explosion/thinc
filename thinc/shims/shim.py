@@ -51,16 +51,18 @@ class Shim:  # pragma: no cover
     def copy(self):
         return copy.deepcopy(self)
 
-    def to_device(self, device: str):
+    def to_device(self, device_type: str, device_id: int):
         raise NotImplementedError
 
     def to_disk(self, path: Union[str, Path]):
         bytes_data = self.to_bytes()
-        with Path(path).open("wb") as file_:
+        path = Path(path) if isinstance(path, str) else path
+        with path.open("wb") as file_:
             file_.write(bytes_data)
 
     def from_disk(self, path: Union[str, Path]) -> "Shim":
-        with Path(path).open("rb") as file_:
+        path = Path(path) if isinstance(path, str) else path
+        with path.open("rb") as file_:
             bytes_data = file_.read()
         return self.from_bytes(bytes_data)
 

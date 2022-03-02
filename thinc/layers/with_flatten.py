@@ -12,7 +12,7 @@ OutT = List2d
 
 @registry.layers("with_flatten.v1")
 def with_flatten(layer: Model) -> Model[InT, OutT]:
-    return Model(f"with_flatten-{layer.name}", forward, layers=[layer], init=init)
+    return Model(f"with_flatten({layer.name})", forward, layers=[layer], init=init)
 
 
 def forward(
@@ -24,13 +24,11 @@ def forward(
     # Get the split points. We want n-1 splits for n items.
     arr = layer.ops.asarray1i([len(x) for x in Xnest[:-1]])
     splits = arr.cumsum()
-    Ynest = layer.ops.xp.split(Yflat, splits, axis=-1)
+    Ynest = layer.ops.xp.split(Yflat, splits, axis=0)
 
     def backprop(dYnest: OutT) -> InT:
         # I think the input/output types might be wrong here?
-        dYflat = []  # type: ignore
-        for d_item in dYnest:
-            dYflat.extend(d_item)  # type: ignore
+        dYflat = model.ops.flatten(dYnest)  # type: ignore
         dXflat = backprop_layer(dYflat)
         dXnest = layer.ops.xp.split(dXflat, splits, axis=-1)
         return dXnest

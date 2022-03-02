@@ -1,0 +1,240 @@
+.inline-code,
+.kbd
+    font-family: var(--font-code)
+    margin: 0
+
+    a &,
+    td &
+        color: inherit !important
+
+    &[data-prompt]:before
+        content: attr(data-prompt) " "
+        display: inline-block
+        vertical-align: middle
+        opacity: 0.5
+
+*:not(pre) > .inline-code,
+.kbd
+    white-space: nowrap
+    font-size: 70%
+    color: var(--syntax-text)
+    background: var(--color-code)
+    padding: 0 0.35em 0.2rem
+    box-decoration-break: clone
+
+.kbd
+    --shadow-color: var(--color-subtle)
+    font-family: var(--font-code)
+    box-shadow: inset 0 -1px 0 var(--shadow-color)
+    border: 1px solid var(--shadow-color)
+    text-transform: uppercase
+
+.wrap
+    white-space: pre-wrap !important
+    word-wrap: break-word
+
+.pre
+    display: block
+    position: relative
+    background: var(--color-code)
+    color: var(--syntax-text)
+    overflow: auto
+    width: 100%
+    max-width: 100%
+    white-space: pre
+    direction: ltr
+    margin-bottom: 4rem
+    padding: 2rem 2rem 1.5rem
+    font-size: var(--font-size-code)
+
+    code
+        line-height: 1.8
+        text-shadow: 1px 1px 0 var(--syntax-text-shadow)
+
+.small
+    font-size: var(--font-size-code-sm)
+    line-height: 1.65 !important
+
+.title
+    position: sticky
+    top: 0
+    left: 0
+    user-select: none
+    width: 100%
+    display: block
+
+.title-tag
+    font-family: var(--font-primary)
+    font-size: var(--font-size-code)
+    position: absolute
+    top: -2rem
+    right: -2rem
+    display: inline-block
+    background: var(--color-theme-dark)
+    color: var(--color-theme-contrast)
+    font-weight: bold
+    text-transform: uppercase
+    padding: 0.25rem 0.65rem 0.3rem
+    line-height: 1
+
+.title-tag-small
+    font-size: var(--font-size-xs)
+
+.github-title
+    position: relative
+    top: -1.25rem
+    left: -0.2rem
+    display: inline-block
+    font-family: var(--font-primary)
+    font-size: var(--font-size-sm)
+    white-space: initial
+    padding-top: 0
+
+.github-icon
+    margin-right: 0.35rem
+
+.max-height
+    display: block
+    height: 350px
+
+    &:after
+        content: ""
+        display: block
+        margin-bottom: 2rem
+
+.type-annotation,
+    white-space: nowrap
+    font-size: 75%
+    color: var(--color-theme-dark)
+    font-family: var(--font-code)
+
+.ndarray
+    font-style: italic
+    padding-right: 0.5rem
+
+    .inline-code
+        font-size: 75%
+
+.ndarray-shape
+    font-style: normal
+    font-size: 75%
+    color: var(--color-theme-dark-subtle)
+
+.screenshot
+    $border-radius: 5px
+    border-style: solid
+    border-color: var(--color-subtle)
+    background-color: var(--color-code)
+    border-width: 0 1px 1px 1px
+    box-shadow: 0 3px 10px var(--color-theme-shadow)
+    border-radius: $border-radius
+    position: relative
+    margin-bottom: 4rem
+
+    &:before
+        $color: var(--color-theme-dark-subtle)
+        content: ""
+        text-align: center
+        display: block
+        height: 20px
+        background: $color
+        border-style: solid
+        border-color: $color
+        border-width: 1px 1px 0 1px
+        border-top-left-radius: $border-radius
+        border-top-right-radius: $border-radius
+
+    &:after
+        $dot: 8px
+        $color: var(--color-theme-contrast)
+        position: absolute
+        top: 5px
+        left: 10px
+        content: ""
+        width: $dot
+        height: $dot
+        border-radius: 50%
+        background: $color
+        box-shadow: $dot * 1.75 0 0 $color, $dot * 3.5 0 0 $color
+
+    p
+        display: inline
+
+    img, span
+        border-bottom-left-radius: $border-radius
+        border-bottom-right-radius: $border-radius
+
+    p + &
+        margin-top: 5rem
+
+@media(max-width: 1000px)
+    .type-annotation, .ndarray
+        white-space: pre-wrap
+
+/* Syntax highlighting */
+
+\:global [class*="language-"] .token
+    &.comment, &.prolog, &.doctype, &.cdata, &.punctuation
+        color: var(--syntax-comment)
+
+    &.property, &.tag, &.constant, &.symbol
+        color: var(--syntax-tag)
+
+    &.boolean, &.number
+        color: var(--syntax-number)
+
+    &.selector, &.attr-name, &.string, &.char, &.regex, &.important
+        color: var(--syntax-string)
+
+    &.operator, &.entity, &.url, &.variable
+        color: var(--syntax-operator)
+
+    &.atrule, &.attr-value, &.function, &.builtin
+        color: var(--syntax-function)
+
+    &.keyword
+        color: var(--syntax-keyword)
+
+    &.decorator
+        color: var(--syntax-decorator)
+
+    &.italic
+        font-style: italic
+
+    &.inserted, &.deleted
+        padding: 0 0.75rem 0 0.5rem
+        margin-left: -2rem
+        margin-right: -2rem
+        display: block
+
+    &.inserted
+        color: var(--color-green-text)
+        background: linear-gradient(to right, var(--color-green-transparent) 80%, var(--color-code) 100%)
+
+    &.deleted
+        color: var(--color-red-text)
+        background: linear-gradient(to right, var(--color-red-transparent) 80%, var(--color-code) 100%)
+
+\:global [class*="language-"].type-annotation .token
+    &.builtin, &.boolean
+        color: var(--color-theme-dark-secondary)
+
+    &.operator
+        color: var(--syntax-comment)
+
+
+/* Line highlights */
+
+\:global .gatsby-highlight-code-line
+    $border: 5px
+    background: linear-gradient(to right, var(--color-theme-primary-light) 80%, var(--color-code) 100%)
+    border-left: $border solid var(--color-theme-primary)
+    display: block
+    margin-right: 2rem
+    margin-left: -2rem
+    padding-right: 2rem
+    padding-left: calc(1rem + #{$border + 1})
+
+    &:empty:before
+        // Fix issue where empty lines would disappear
+        content: " "

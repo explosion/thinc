@@ -1,7 +1,9 @@
 import pytest
 import numpy
-from thinc.api import NumpyOps, Model, Linear
-from thinc.api import with_array, with_padded, with_list, with_ragged, with_getitem
+import numpy.testing
+from thinc.api import NumpyOps, Model, Linear, noop
+from thinc.api import with_array2d, with_array, with_padded, with_list
+from thinc.api import with_ragged, with_getitem
 from thinc.types import Padded, Ragged
 
 
@@ -20,7 +22,13 @@ def ops():
 
 @pytest.fixture
 def list_input(shapes):
-    return [numpy.zeros(shape, dtype="f") for shape in shapes]
+    data = [numpy.zeros(shape, dtype="f") for shape in shapes]
+    for i, x in enumerate(data):
+        # Give values that make it easy to see where rows or columns mismatch.
+        x += i * 100
+        x += numpy.arange(x.shape[0]).reshape((-1, 1)) * 10 
+        x += numpy.arange(x.shape[1]).reshape((1, -1)) 
+    return data
 
 
 @pytest.fixture
@@ -53,6 +61,15 @@ def ragged_data_input(ragged_input):
     return (ragged_input.data, ragged_input.lengths)
 
 
+@pytest.fixture
+def noop_models():
+    return [
+        with_padded(noop()),
+        with_array(noop()),
+        with_array2d(noop()),
+        with_list(noop()),
+        with_ragged(noop())
+    ]
 # As an example operation, lets just trim the last dimension. That
 # should catch stuff that confuses the input and output.
 
@@ -64,7 +81,7 @@ def get_array_model():
 
         return X[:, :-1], backprop
 
-    return with_array(Model("trimarray", _trim_array_forward))
+    return with_array2d(Model("trimarray", _trim_array_forward))
 
 
 def get_list_model():
@@ -137,6 +154,40 @@ def check_transform_produces_correct_output_type_backward(model, inputs, checker
     assert checker(inputs, d_inputs)
 
 
+def check_transform_doesnt_change_noop_values(model, inputs, d_outputs):
+    # Check that if we're wrapping a noop() layer in the transform, we don't
+    # change the output values.
+    outputs, backprop = model.begin_update(inputs)
+    d_inputs = backprop(d_outputs)
+    if isinstance(outputs, list):
+        for i in range(len(outputs)):
+            numpy.testing.assert_equal(inputs[i], outputs[i])
+            numpy.testing.assert_equal(d_outputs[i], d_inputs[i])
+    elif isinstance(outputs, numpy.ndarray):
+        numpy.testing.assert_equal(inputs, outputs)
+        numpy.testing.assert_equal(d_outputs, d_inputs)
+    elif isinstance(outputs, Ragged):
+        numpy.testing.assert_equal(inputs.data, outputs.data)
+        numpy.testing.assert_equal(d_outputs.data, d_inputs.data)
+    elif isinstance(outputs, Padded):
+        numpy.testing.assert_equal(inputs.data, outputs.data)
+        numpy.testing.assert_equal(d_inputs.data, d_inputs.data)
+
+
+def test_noop_transforms(noop_models, ragged_input, padded_input, list_input):
+    # Make distinct backprop values,
+    # to check that the gradients get passed correctly
+    d_ragged = Ragged(ragged_input.data + 1, ragged_input.lengths)
+    d_padded = padded_input.copy()
+    d_padded.data += 1
+    d_list = [dx+1 for dx in list_input]
+    for model in noop_models:
+        print(model.name)
+        check_transform_doesnt_change_noop_values(model, padded_input, d_padded)
+        check_transform_doesnt_change_noop_values(model, list_input, d_list)
+        check_transform_doesnt_change_noop_values(model, ragged_input, d_ragged)
+
+    
 def test_with_array_initialize(ragged_input, padded_input, list_input, array_input):
     for inputs in (ragged_input, padded_input, list_input, array_input):
         check_initialize(get_array_model(), inputs)
