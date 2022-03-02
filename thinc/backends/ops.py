@@ -18,7 +18,6 @@ ArrayT2d_co = TypeVar(
     "ArrayT2d_co", bound=Union[Floats2d, Ints2d, Array2d], covariant=True
 )
 ArrayTXd = TypeVar("ArrayTXd", bound=ArrayXd)
-ArrayTXd_co = TypeVar("ArrayTXd_co", bound=ArrayXd, covariant=True)
 ArrayT234d = TypeVar(
     "ArrayT234d", bound=Union[Floats2d, Floats3d, Floats4d, Ints2d, Ints3d, Ints4d]
 )
@@ -243,11 +242,11 @@ class Ops:
 
     def flatten(
         self,
-        X: Sequence[ArrayTXd_co],
+        X: Sequence[ArrayTXd],
         dtype: Optional[DTypes] = None,
         pad: int = 0,
         ndim_if_empty: int = 2,
-    ) -> ArrayTXd_co:
+    ) -> ArrayTXd:
         """Flatten a list of arrays into one large array."""
         if X is None or len(X) == 0:
             return self.alloc((0,) * ndim_if_empty, dtype=dtype or "f")
