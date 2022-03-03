@@ -499,14 +499,17 @@ cdef void cpu_maxout(float* best__bo, int* which__bo,
         best__bo[i] = cands__bop[i*P + which__bo[i]]
 
 
-cdef void cpu_backprop_maxout(float* dX__bop,
-        const float* dX__bo, const int* which__bo, int B, int O, int P) nogil:
+cdef int cpu_backprop_maxout(float* dX__bop,
+        const float* dX__bo, const int* which__bo, int B, int O, int P) nogil except -1:
     for b in range(B):
         for o in range(O):
+            if which__bo[0] >= P:
+                raise IndexError(f"index {which__bo[0]} is out of bounds for maxout with size {P}")
             dX__bop[which__bo[0]] = dX__bo[0]
             dX__bop += P
             dX__bo += 1
             which__bo += 1
+    return 0
 
 
 def cpu_clip_gradient(weight_t[::1] gradient, weight_t threshold):
@@ -712,18 +715,21 @@ cdef void cpu_reduce_max(float* maxes__bo, int* which__bo,
         which__bo += O
 
 
-cdef void cpu_backprop_reduce_max(float* dX__to,
+cdef int cpu_backprop_reduce_max(float* dX__to,
         const float* d_maxes__bo, const int* which__bo, const int* lengths__b,
-        int B, int T, int O) nogil:
-    cdef int length, i, j
+        int B, int T, int O) nogil except -1:
+    cdef int length, i, item
     for length in lengths__b[:B]:
-        for i in range(length):
-            for j in range(O):
-                if which__bo[j] == i:
-                    dX__to[j] += d_maxes__bo[j]
-            dX__to += O
+        for i in range(O):
+            item = which__bo[i]
+            if item >= length:
+                raise IndexError(f"index {item} is out of bounds for sequence with length {length}")
+            dX__to[item * O + i] = d_maxes__bo[i]
+        dX__to += length * O
         d_maxes__bo += O
         which__bo += O
+
+    return 0
 
 
 def lstm_forward_training(

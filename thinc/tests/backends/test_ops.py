@@ -228,6 +228,11 @@ def test_backprop_maxout(ops, dtype):
         [[[0.0, 1.0, 0.0], [2.0, 0.0, 0.0]], [[0.0, 0.0, 3.0], [0.0, 4.0, 0.0]]],
     )
 
+    with pytest.raises(IndexError):
+        ops.backprop_maxout(
+            ops.asarray2f([[1.0, 2.0], [3.0, 4.0]]), ops.asarray2i([[1, 0], [3, 1]]), 3
+        )
+
 
 @pytest.mark.parametrize("ops", ALL_OPS)
 @settings(max_examples=MAX_EXAMPLES, deadline=None)
@@ -773,6 +778,13 @@ def test_backprop_reduce_max(ops, dtype):
             [4.0, 0.0, 6.0],
         ],
     )
+
+    with pytest.raises(IndexError):
+        ops.backprop_reduce_max(
+            ops.xp.arange(1, 7, dtype="f").reshape(2, 3),
+            ops.xp.array([[2, 3, 0], [1, 0, 1]]).astype("int32"),
+            ops.xp.array([3, 2], dtype="int32"),
+        )
 
 
 @pytest.mark.parametrize("ops,dtype", ops_with_dtypes(ALL_OPS, FLOAT_TYPES))
