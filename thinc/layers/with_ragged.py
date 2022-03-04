@@ -1,21 +1,7 @@
 from typing import Tuple, Callable, Optional, TypeVar, cast, List, Union
 
-from ..types import (
-    Padded,
-    Ragged,
-    Ints1d,
-    Array2d,
-    ListXd,
-    Floats1d,
-    Floats2d,
-    Floats3d,
-    Floats4d,
-    FloatsXd,
-    Ints2d,
-    Ints3d,
-    Ints4d,
-    IntsXd,
-)
+from ..types import Padded, Ragged, Array2d, ListXd, FloatsXd, IntsXd, Floats1d
+from ..types import Floats2d, Floats3d, Floats4d, Ints1d, Ints2d, Ints3d, Ints4d
 from ..model import Model
 from ..config import registry
 
@@ -147,10 +133,10 @@ def _padded_forward(
     def backprop(dYp: Padded):
         flattened = flatten(padded2list(dYp))
         dXr = get_dXr(Ragged(flattened, lengths))
-        return list2padded(cast(List[Array2d], unflatten(dXr.data, lengths)))
+        return list2padded(unflatten(dXr.data, lengths))
 
     return (
-        cast(SeqT, list2padded(cast(List[Array2d], unflatten(Yr.data, Yr.lengths)))),
+        cast(SeqT, list2padded(unflatten(Yr.data, Yr.lengths))),
         backprop,
     )
 

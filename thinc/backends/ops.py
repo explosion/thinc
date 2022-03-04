@@ -17,16 +17,11 @@ ArrayT2d = TypeVar("ArrayT2d", bound=Union[Floats2d, Ints2d, Array2d])
 ArrayT2d_co = TypeVar(
     "ArrayT2d_co", bound=Union[Floats2d, Ints2d, Array2d], covariant=True
 )
+ArrayT3d = TypeVar("ArrayT3d", bound=Union[Floats3d, Ints3d, Array3d])
+ArrayT3d_co = TypeVar(
+    "ArrayT3d_co", bound=Union[Floats3d, Ints3d, Array3d], covariant=True
+)
 ArrayTXd = TypeVar("ArrayTXd", bound=ArrayXd)
-ArrayT234d = TypeVar(
-    "ArrayT234d", bound=Union[Floats2d, Floats3d, Floats4d, Ints2d, Ints3d, Ints4d]
-)
-ArrayT123d = TypeVar(
-    "ArrayT123d", bound=Union[Floats1d, Floats2d, Floats3d, Ints1d, Ints2d, Ints3d]
-)
-ArrayT123d_co = TypeVar(
-    "ArrayT123d_co", bound=Union[Floats1d, Floats2d, Floats3d, Ints1d, Ints2d, Ints3d], covariant=True
-)
 
 
 FloatsT = TypeVar("FloatsT", bound=_Floats)
@@ -287,7 +282,7 @@ class Ops:
         assert len(unflat) == len(lengths)
         return cast(List[ArrayTXd], unflat)
 
-    def pad(self, seqs: List[ArrayT123d_co], round_to=1) -> ArrayT234d:
+    def pad(self, seqs: List[ArrayT2d_co], round_to=1) -> ArrayT3d_co:
         """Perform padding on a list of arrays so that they each have the same
         length, by taking the maximum dimension across each axis. This only
         works on non-empty sequences with the same `ndim` and `dtype`.
@@ -306,20 +301,20 @@ class Ops:
         # array sizes.
         length = (length + (round_to - 1)) // round_to * round_to
         final_shape = (len(seqs), length) + seqs[0].shape[1:]
-        output: ArrayT234d = self.alloc(final_shape, dtype=seqs[0].dtype)
+        output: ArrayT3d_co = self.alloc(final_shape, dtype=seqs[0].dtype)
         for i, arr in enumerate(seqs):
             # It's difficult to convince this that the dtypes will match.
             output[i, : arr.shape[0]] = arr # type: ignore[index, assignment, call-overload]
         return output
 
-    def unpad(self, padded: ArrayT234d, lengths: List[int]) -> List[ArrayT123d_co]:
+    def unpad(self, padded: ArrayT3d, lengths: List[int]) -> List[ArrayT2d_co]:
         """The reverse/backward operation of the `pad` function: transform an
         array back into a list of arrays, each with their original length.
         """
         output = []
         for i, length in enumerate(lengths):
             output.append(padded[i, :length])
-        return cast(List[ArrayT123d_co], output)
+        return cast(List[ArrayT2d_co], output)
 
     def list2padded(self, seqs: List[ArrayT2d_co]) -> Padded:
         """Pack a sequence of 2d arrays into a Padded datatype."""
@@ -344,7 +339,7 @@ class Ops:
         # direction: you're swapping elements between their original and sorted
         # position.
         seqs = [seqs[i] for i in indices_]
-        arr: Array3d = cast(Array3d, self.pad(seqs))
+        arr: Array3d = self.pad(seqs)
         assert arr.shape == (nB, nS, nO), (nB, nS, nO)
         arr = self.as_contig(arr.transpose((1, 0, 2)))
         assert arr.shape == (nS, nB, nO)
