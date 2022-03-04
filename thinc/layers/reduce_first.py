@@ -3,6 +3,7 @@ from typing import Callable, Tuple, cast, TypeVar
 from ..model import Model
 from ..config import registry
 from ..types import Ragged, ArrayXd
+from ..util import ArrayInfo
 
 OutT = TypeVar("OutT", bound=ArrayXd)
 OutT_co = TypeVar("OutT_co", bound=ArrayXd, covariant=True)
@@ -24,7 +25,10 @@ def forward(
     x_shape = Xr.dataXd.shape
     lengths = Xr.lengths
 
+    array_info = ArrayInfo.from_array(Y)
+
     def backprop(dY: OutT) -> Ragged:
+        array_info.check_consistency(dY)
         dX = cast(OutT, model.ops.alloc(x_shape, dtype=dY.dtype))
         dX[starts] = dY  # type: ignore[assignment]
         return Ragged(dX, lengths)

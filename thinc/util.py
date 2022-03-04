@@ -1,15 +1,5 @@
-from typing import (
-    Any,
-    Union,
-    Sequence,
-    cast,
-    Dict,
-    Optional,
-    Callable,
-    TypeVar,
-    Mapping,
-)
-from typing import List
+from typing import Any, Union, Sequence, cast, Dict, Optional, Callable, TypeVar
+from typing import List, Mapping, Tuple
 import numpy
 import random
 import functools
@@ -21,6 +11,7 @@ import tempfile
 import threading
 import contextlib
 from contextvars import ContextVar
+from dataclasses import dataclass
 
 DATA_VALIDATION: ContextVar[bool] = ContextVar("DATA_VALIDATION", default=False)
 
@@ -517,6 +508,28 @@ def set_torch_tensor_type_for_ops(ops):
         pass
 
 
+@dataclass
+class ArrayInfo:
+    """Container for info for checking array compatibility."""
+
+    shape: types.Shape
+    dtype: types.DTypes
+
+    @classmethod
+    def from_array(cls, arr: ArrayXd):
+        return cls(shape=arr.shape, dtype=arr.dtype)
+
+    def check_consistency(self, arr: ArrayXd):
+        if arr.shape != self.shape:
+            raise ValueError(
+                f"Shape mismatch in backprop. Y: {self.shape}, dY: {arr.shape}"
+            )
+        if arr.dtype != self.dtype:
+            raise ValueError(
+                f"Type mismatch in backprop. Y: {self.dtype}, dY: {arr.dtype}"
+            )
+
+
 __all__ = [
     "get_array_module",
     "fix_random_seed",
@@ -537,4 +550,5 @@ __all__ = [
     "make_tempfile",
     "use_nvtx_range",
     "set_torch_tensor_type_for_ops",
+    "ArrayInfo",
 ]
