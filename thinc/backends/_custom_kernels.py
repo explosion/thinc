@@ -1,3 +1,4 @@
+from typing import Optional, Tuple
 import re
 from pathlib import Path
 from collections import defaultdict
@@ -73,6 +74,8 @@ def clipped_linear(
     threads_per_block=128,
     num_blocks=128,
 ):
+    _check_compatible(X)
+
     out = X
     if not inplace:
         out = cupy.zeros_like(X, dtype="f")
@@ -85,6 +88,8 @@ def clipped_linear(
 
 
 def gelu(X, inplace=False, threshold=6.0, threads_per_block=128, num_blocks=128):
+    _check_compatible(X)
+
     out = X
     if not inplace:
         out = cupy.zeros_like(X, dtype="f")
@@ -96,25 +101,21 @@ def check_seq2col_lengths(lengths, B):
     if lengths is None:
         lengths = cupy.array([B], dtype="int32")
     else:
-        lengths = lengths.astype("int32")
-        assert cupy.all(lengths >= 0), "All sequence lengths must be >= 0"
-        assert cupy.sum(lengths) == B, "The lengths must sum up to the batch length"
-
+        _check_lengths(lengths, B)
     return lengths
 
 
-def seq2col(X, nW, *, lengths=None, out=None, threads_per_block=128, num_blocks=128):
+def seq2col(X, nW, *, lengths=None, threads_per_block=128, num_blocks=128):
+    _check_compatible(X)
+
     B = X.shape[0]
     nF = nW * 2 + 1
     I = X.shape[1]
 
-    assert X.dtype == "float32", "CUDA seq2col kernel can only handle float32"
-
     lengths = check_seq2col_lengths(lengths, B)
     nL = lengths.shape[0]
 
-    if out is None:
-        out = cupy.zeros((B, I * nF), dtype="f")
+    out = cupy.zeros((B, I * nF), dtype="f")
 
     if X.size != 0 and lengths.size != 0:
         seq2col_kernel(
@@ -124,56 +125,74 @@ def seq2col(X, nW, *, lengths=None, out=None, threads_per_block=128, num_blocks=
     return out
 
 
-def maxout(X, out=None, threads_per_block=128, num_blocks=128):
+def maxout(X, threads_per_block=128, num_blocks=128):
+    _check_compatible(X)
+
     B, I, P = X.shape
-    if out is None:
-        best = cupy.zeros((B, I), dtype="f")
-        which = cupy.zeros((B, I), dtype="i")
-    else:
-        best, which = None
+
+    out_shape = (B, I)
+    best = cupy.zeros(out_shape, dtype="f")
+    which = cupy.zeros(out_shape, dtype="i")
+
     maxout_kernel((num_blocks,), (threads_per_block,), (best, which, X, B, I, P))
     return best, which
 
 
-def mish(X, out=None, threshold=5, threads_per_block=128, num_blocks=128):
-    N = X.size
-    if out is None:
-        out = cupy.zeros(X.shape, dtype="f")
-    mish_kernel((num_blocks,), (threads_per_block,), (out, X, threshold, N))
+def mish(X, inplace=False, threshold=5, threads_per_block=128, num_blocks=128):
+    _check_compatible(X)
+
+    out = X
+    if not inplace:
+        out = cupy.zeros_like(X, dtype="f")
+    mish_kernel((num_blocks,), (threads_per_block,), (out, X, threshold, X.size))
     return out
 
 
-def reduce_sum(X, lengths, out=None, threads_per_block=128, num_blocks=128):
-    if out is None:
-        out = cupy.zeros((len(lengths), X.shape[1]), dtype="f")
+def reduce_sum(X, lengths, threads_per_block=128, num_blocks=128):
+    _check_compatible(X)
+
     B = len(lengths)
     T = X.shape[0]
     O = X.shape[1]
+
+    _check_lengths(lengths, T)
+
+    out = cupy.zeros((B, O), dtype="f")
+
     reduce_sum_kernel((num_blocks,), (threads_per_block,), (out, X, lengths, B, T, O))
     return out
 
 
-def reduce_mean(X, lengths, out=None, threads_per_block=128, num_blocks=128):
-    if out is None:
-        out = cupy.zeros((len(lengths), X.shape[1]), dtype="f")
+def reduce_mean(X, lengths, threads_per_block=128, num_blocks=128):
+    _check_compatible(X)
+
     B = len(lengths)
     T = X.shape[0]
     O = X.shape[1]
+
+    _check_lengths(lengths, T)
+
+    out = cupy.zeros((B, O), dtype="f")
+
     reduce_sum_kernel((num_blocks,), (threads_per_block,), (out, X, lengths, B, T, O))
     # Avoid divide by zero
     out /= lengths.reshape((-1, 1)) + 1e-10
     return out
 
 
-def reduce_max(X, lengths, out=None, threads_per_block=128, num_blocks=128):
-    if out is None:
-        maxes = cupy.zeros((len(lengths), X.shape[1]), dtype="f")
-        which = cupy.zeros((len(lengths), X.shape[1]), dtype="i")
-    else:
-        maxes, which = out
+def reduce_max(X, lengths, threads_per_block=128, num_blocks=128):
+    _check_compatible(X)
+
     B = len(lengths)
     T = X.shape[0]
     O = X.shape[1]
+
+    _check_lengths(lengths, T)
+
+    out_shape = (B, O)
+    maxes = cupy.zeros(out_shape, dtype="f")
+    which = cupy.zeros(out_shape, dtype="i")
+
     reduce_max_kernel(
         (num_blocks,), (threads_per_block,), (maxes, which, X, lengths, B, T, O)
     )
@@ -181,6 +200,8 @@ def reduce_max(X, lengths, out=None, threads_per_block=128, num_blocks=128):
 
 
 def swish(X, inplace=False, threshold=17.0, threads_per_block=128, num_blocks=128):
+    _check_compatible(X)
+
     out = X
     if not inplace:
         out = cupy.zeros_like(X, dtype="f")
@@ -188,24 +209,17 @@ def swish(X, inplace=False, threshold=17.0, threads_per_block=128, num_blocks=12
     return out
 
 
-def backprop_seq2col(
-    dY, nW, *, lengths=None, out=None, threads_per_block=128, num_blocks=128
-):
+def backprop_seq2col(dY, nW, *, lengths=None, threads_per_block=128, num_blocks=128):
+    _check_compatible(dY)
+
     B = dY.shape[0]
     nF = nW * 2 + 1
     I = dY.shape[1] // nF
 
-    assert dY.dtype == "float32", "CUDA backprop_seq2col kernel can only handle float32"
-
     lengths = check_seq2col_lengths(lengths, B)
     nL = lengths.shape[0]
 
-    if out is None:
-        out = cupy.zeros((B, I), dtype="f")
-    else:
-        assert (
-            out.dtype == "float32"
-        ), "CUDA backprop_seq2col kernel can only handle float32"
+    out = cupy.zeros((B, I), dtype="f")
 
     if dY.size != 0 and lengths.size != 0:
         backprop_seq2col_kernel(
@@ -226,6 +240,9 @@ def backprop_clipped_linear(
     threads_per_block=128,
     num_blocks=128,
 ):
+    _check_compatible(dY)
+    _check_compatible(X, dY.shape)
+
     out = dY
     if not inplace:
         out = cupy.zeros_like(dY, dtype="f")
@@ -240,6 +257,9 @@ def backprop_clipped_linear(
 def backprop_hard_swish(
     dY, X, inplace: bool = False, threads_per_block=128, num_blocks=128
 ):
+    _check_compatible(dY)
+    _check_compatible(X, dY.shape)
+
     out = dY
     if not inplace:
         out = cupy.zeros_like(dY, dtype="f")
@@ -252,6 +272,9 @@ def backprop_hard_swish(
 def backprop_hard_swish_mobilenet(
     dY, X, inplace: bool = False, threads_per_block=128, num_blocks=128
 ):
+    _check_compatible(dY)
+    _check_compatible(X, dY.shape)
+
     out = dY
     if not inplace:
         out = cupy.zeros_like(dY, dtype="f")
@@ -264,6 +287,9 @@ def backprop_hard_swish_mobilenet(
 def backprop_gelu(
     dY, X, inplace: bool = False, threshold=6.0, threads_per_block=128, num_blocks=128
 ):
+    _check_compatible(dY)
+    _check_compatible(X, dY.shape)
+
     out = dY
     if not inplace:
         out = cupy.zeros_like(dY, dtype="f")
@@ -273,34 +299,46 @@ def backprop_gelu(
     return out
 
 
-def backprop_maxout(dY, which, P, out=None, threads_per_block=128, num_blocks=128):
+def backprop_maxout(dY, which, P, threads_per_block=128, num_blocks=128):
+    _check_compatible(dY)
+
     B = dY.shape[0]
     I = dY.shape[1]
-    if out is None:
-        out = cupy.zeros((B, I, P), dtype="f")
+
+    out = cupy.zeros((B, I, P), dtype="f")
+
+    _check_which_maxout(which, B, I, P)
+
     backprop_maxout_kernel(
         (num_blocks,), (threads_per_block,), (out, dY, which, B, I, P)
     )
     return out
 
 
-def backprop_mish(dY, X, out=None, threshold=5, threads_per_block=128, num_blocks=128):
-    if out is None:
-        out = cupy.empty_like(X)
+def backprop_mish(
+    dY, X, inplace: bool = False, threshold=5, threads_per_block=128, num_blocks=128
+):
+    _check_compatible(dY)
+    _check_compatible(X, dY.shape)
+
+    out = dY
+    if not inplace:
+        out = cupy.zeros_like(dY, dtype="f")
     backprop_mish_kernel(
         (num_blocks,), (threads_per_block,), (out, dY, X, threshold, dY.size)
     )
     return out
 
 
-def backprop_reduce_sum(
-    d_sum, lengths, out=None, threads_per_block=128, num_blocks=128
-):
+def backprop_reduce_sum(d_sum, lengths, threads_per_block=128, num_blocks=128):
+    _check_compatible(d_sum)
+
     B = len(lengths)
     T = int(lengths.sum())
     O = d_sum.shape[1]
-    if out is None:
-        out = cupy.zeros((T, O), dtype="f")
+    _check_lengths(lengths, T)
+
+    out = cupy.zeros((T, O), dtype="f")
 
     backprop_reduce_sum_kernel(
         (num_blocks,), (threads_per_block,), (out, d_sum, lengths, B, T, O)
@@ -308,14 +346,15 @@ def backprop_reduce_sum(
     return out
 
 
-def backprop_reduce_mean(
-    d_mean, lengths, out=None, threads_per_block=128, num_blocks=128
-):
+def backprop_reduce_mean(d_mean, lengths, threads_per_block=128, num_blocks=128):
+    _check_compatible(d_mean)
+
     B = len(lengths)
     T = int(lengths.sum())
     O = d_mean.shape[1]
-    if out is None:
-        out = cupy.zeros((T, O), dtype="f")
+    _check_lengths(lengths, T)
+
+    out = cupy.zeros((T, O), dtype="f")
 
     backprop_reduce_mean_kernel(
         (num_blocks,), (threads_per_block,), (out, d_mean, lengths, B, T, O)
@@ -323,14 +362,17 @@ def backprop_reduce_mean(
     return out
 
 
-def backprop_reduce_max(
-    d_maxes, which, lengths, out=None, threads_per_block=128, num_blocks=128
-):
+def backprop_reduce_max(d_maxes, which, lengths, threads_per_block=128, num_blocks=128):
+    _check_compatible(d_maxes)
+
     B = len(lengths)
     T = int(lengths.sum())
     O = d_maxes.shape[1]
-    if out is None:
-        out = cupy.zeros((T, O), dtype="f")
+    _check_lengths(lengths, T)
+
+    out = cupy.zeros((T, O), dtype="f")
+
+    _check_which_reduce_max(which, (B, O), lengths)
 
     backprop_reduce_max_kernel(
         (num_blocks,), (threads_per_block,), (out, d_maxes, which, lengths, B, T, O)
@@ -341,6 +383,10 @@ def backprop_reduce_max(
 def backprop_swish(
     dY, X, Y, inplace=False, threshold=17.0, threads_per_block=128, num_blocks=128
 ):
+    _check_compatible(dY)
+    _check_compatible(X, dY.shape)
+    _check_compatible(Y, dY.shape)
+
     out = dY
     if not inplace:
         out = cupy.zeros_like(dY, dtype="f")
@@ -350,9 +396,9 @@ def backprop_swish(
     return out
 
 
-def hash(ids, seed, out=None, threads_per_block=128, num_blocks=128):
-    if out is None:
-        out = cupy.zeros((ids.shape[0], 4), dtype="uint32")
+def hash(ids, seed, threads_per_block=128, num_blocks=128):
+    out = cupy.zeros((ids.shape[0], 4), dtype="uint32")
+
     # sizeof(uint32_t) * 4
     out_size = 4 * 4
     in_size = 8  # sizeof(uint64_t)
@@ -363,3 +409,54 @@ def hash(ids, seed, out=None, threads_per_block=128, num_blocks=128):
         (out, ids, out_size, in_size, ids.shape[0], seed),
     )
     return out
+
+
+def _check_compatible(out, shape: Optional[Tuple] = None):
+    assert out.dtype == "float32", "CUDA kernel can only handle float32"
+    if shape is not None and out.shape != shape:
+        msg = f"array has incorrect shape, expected: {shape}, was: {out.shape}"
+        raise ValueError(msg)
+
+
+def _check_lengths(lengths, n_elems: int):
+    assert lengths.dtype == "int32", "lengths should be encoded as 32-bit integers"
+    if not cupy.all(lengths >= 0):
+        raise ValueError("all sequence lengths must be >= 0")
+    if cupy.sum(lengths) != n_elems:
+        raise IndexError("lengths must sum up to the batch size")
+
+
+def _check_which_maxout(which, B: int, I: int, P: int):
+    shape = (B, I)
+    msg = "maximum index (which) should be encoded as 32-bit integers"
+    assert which.dtype == "int32", msg
+    if which.shape != shape:
+        msg = f"maximum index (which) has incorrect shape, expected: {shape}, was: {which.shape}"
+        raise ValueError(msg)
+    if not _values_within_range(which, 0, P):
+        raise IndexError("maximum index (which) value out of bounds")
+
+
+_values_within_range = (
+    cupy.ReductionKernel(
+        "T x, T lower, T upper",
+        "bool r",
+        "x >= lower && x < upper",
+        "a & b",
+        "r = a",
+        "true",
+        "within_range",
+    )
+    if cupy is not None
+    else None
+)
+
+
+def _check_which_reduce_max(which, shape: Tuple, lengths):
+    msg = "maximum index (which) should be encoded as 32-bit integers"
+    assert which.dtype == "int32", msg
+    if which.shape != shape:
+        msg = f"maximum index (which) has incorrect shape, expected: {shape}, was: {which.shape}"
+        raise ValueError(msg)
+    if not cupy.all((which >= 0) & (which < cupy.expand_dims(lengths, -1))):
+        raise IndexError("maximum index (which) value out of bounds")
