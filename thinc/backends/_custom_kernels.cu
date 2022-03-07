@@ -3,8 +3,27 @@
 // This pattern ensures that all of the loop values are visited once, no matter
 // what grid parameters are used for the function.
 
-extern "C" __global__
-void seq2col(float* output, const float* X, const int* lengths,
+// We cannot include CUDA header for mathetmatical constants, since it requires
+// that the development headers of the CUDA toolkit are installed.
+
+template <typename T>
+struct Constants {};
+
+template <>
+struct Constants<double> {
+    static constexpr double INV_SQRT_2 = 0.7071067811865475;
+    static constexpr double INV_SQRT_2PI = 0.3989422804014327;
+};
+
+template <>
+struct Constants<float> {
+    static constexpr float INV_SQRT_2 = 0.70710677;
+    static constexpr float INV_SQRT_2PI = 0.3989423;
+};
+
+
+template <typename T>
+__global__ void seq2col(T* output, const T* X, const int* lengths,
         int nW, int B, int I, int nL)
 {
     // Let's say nW is 1 (it usually is). Then we want to take:
@@ -82,19 +101,18 @@ void seq2col(float* output, const float* X, const int* lengths,
 }
 
 
-extern "C" __global__
-void maxout(float* best, int* which,
-        const float* cands, int B, int O, int P)
+template <typename T>
+__global__ void maxout(T* best, int* which, const T* cands, int B, int O, int P)
 {
     int _loop_start = blockIdx.x * blockDim.x + threadIdx.x;
     int _loop_stride = blockDim.x * gridDim.x;
     for (int bo = _loop_start; bo < B * O; bo += _loop_stride)
     {
         // Go to the candidates at the output we're working on
-        const float* cands_bo = &cands[bo * P];
+        const T* cands_bo = &cands[bo * P];
 
         int best_idx = 0;
-        float best_val = cands_bo[0];
+        T best_val = cands_bo[0];
         for (int p = 1; p < P; ++p)
         {
             if (cands_bo[p] > best_val) {
@@ -108,58 +126,60 @@ void maxout(float* best, int* which,
     }
 }
 
-extern "C" __global__
-void clipped_linear(float* Y, const float* X, double slope, double offset, double min_val, double max_val, int N)
+
+template <typename T>
+__global__ void clipped_linear(T* Y, const T* X, double slope, double offset, double min_val, double max_val, int N)
 {
     int _loop_start = blockIdx.x * blockDim.x + threadIdx.x;
     int _loop_stride = blockDim.x * gridDim.x;
 
     for (int i = _loop_start; i < N; i += _loop_stride)
     {
-        float y = X[i] * slope + offset;
+        T y = X[i] * slope + offset;
         Y[i] = min(max(y, min_val), max_val);
     }
 }
 
-extern "C" __global__
-void gelu(float* Y, const float* X, double threshold, int N)
-{
-    const float INV_SQRT_2 = 0.7071067811865475;
 
+template <typename T>
+__global__ void gelu(T* Y, const T* X, double threshold, int N)
+{
     int _loop_start = blockIdx.x * blockDim.x + threadIdx.x;
     int _loop_stride = blockDim.x * gridDim.x;
 
     for (int i = _loop_start; i < N; i += _loop_stride)
     {
-        float x = X[i];
+        T x = X[i];
         if (x >= threshold) {
             Y[i] = x;
         } else if (x <= -threshold) {
             Y[i] = 0.0;
         } else {
-            float cdf = 0.5 * (1.0 + erff(INV_SQRT_2 * x));
+            T cdf = 0.5 * (1.0 + erf(Constants<T>::INV_SQRT_2 * x));
             Y[i] = x * cdf;
         }
     }
 }
 
-extern "C" __global__
-void mish(float* Y, const float* X, double threshold, int N)
+
+template <typename T>
+__global__ void mish(T* Y, const T* X, double threshold, int N)
 {
     int _loop_start = blockIdx.x * blockDim.x + threadIdx.x;
     int _loop_stride = blockDim.x * gridDim.x;
-    float one = 1.;
+    T one = 1.;
     for (int i = _loop_start; i < N; i += _loop_stride)
     {
         if (X[i] >= threshold)
-	    Y[i] = X[i];
-	else
-            Y[i] = X[i] * tanhf(logf(one + expf(X[i])));
+            Y[i] = X[i];
+        else
+            Y[i] = X[i] * tanh(log(one + exp(X[i])));
     }
 }
 
-extern "C" __global__
-void swish(float* Y, const float* X, double threshold, int N)
+
+template <typename T>
+__global__ void swish(T* Y, const T* X, double threshold, int N)
 {
     int _loop_start = blockIdx.x * blockDim.x + threadIdx.x;
     int _loop_stride = blockDim.x * gridDim.x;
@@ -171,15 +191,16 @@ void swish(float* Y, const float* X, double threshold, int N)
         } else if (X[i] <= -threshold) {
             Y[i] = 0.0;
         } else {
-            float logistic_cdf = 1.0 / (1.0 + expf(-X[i]));
+            T logistic_cdf = 1.0 / (1.0 + exp(-X[i]));
             Y[i] = X[i] * logistic_cdf;
         }
     }
 }
 
-extern "C" __global__
-void reduce_sum(float* output,
-    const float* X, const int* lengths, int B, int T, int O)
+
+template <typename U>
+__global__ void reduce_sum(U* output, const U* X,
+    const int* lengths, int B, int T, int O)
 {
     // Compute sums of a batch of concatenated sequences
     int _loop_start = blockIdx.x * blockDim.x + threadIdx.x;
@@ -187,7 +208,7 @@ void reduce_sum(float* output,
     for (int b = _loop_start; b < B; b += _loop_stride)
     {
         // Go to the regions we're working on
-	    float* output_b = &output[b*O];
+	    U* output_b = &output[b*O];
         // Find the sequence item we're working on
 	    int t = 0;
         for (int i=0; i < b; ++i) {
@@ -197,7 +218,7 @@ void reduce_sum(float* output,
         // Each invocation of the kernel sums one batch.
         for (int i=0; i < length; ++i) // Iterate over rows
         {
-	        const float* X_t = &X[(t+i)*O];
+	        const U* X_t = &X[(t+i)*O];
             for (int j=0; j < O; ++j)
             {
               output_b[j] += X_t[j];
@@ -207,9 +228,9 @@ void reduce_sum(float* output,
 }
 
 
-extern "C" __global__
-void reduce_max(float* maxes, int* which,
-    const float* X, const int* lengths, int B, int T, int O)
+template <typename U>
+__global__ void reduce_max(U* maxes, int* which,
+    const U* X, const int* lengths, int B, int T, int O)
 {
     int _loop_start = blockIdx.x * blockDim.x + threadIdx.x;
     int _loop_stride = blockDim.x * gridDim.x;
@@ -217,10 +238,10 @@ void reduce_max(float* maxes, int* which,
     {
 
         // Go to the regions we're working on
-        float* maxes_b = &maxes[b*O];
+        U* maxes_b = &maxes[b*O];
         int* which_b = &which[b*O];
         // Find the sequence item we're working on
-        const float* X_t = X;
+        const U* X_t = X;
         for (int i=0; i < b; ++i) {
 	        X_t += lengths[i] * O;
         }
@@ -247,8 +268,9 @@ void reduce_max(float* maxes, int* which,
     }
 }
 
-extern "C" __global__
-void backprop_seq2col(float* d_seqs, const float* d_cols, const int* lengths,
+
+template <typename T>
+__global__ void backprop_seq2col(T* d_seqs, const T* d_cols, const int* lengths,
         int nW, int B, int I, int nL)
 {
     // Here's what we're doing, if we had 2d indexing.
@@ -312,17 +334,18 @@ void backprop_seq2col(float* d_seqs, const float* d_cols, const int* lengths,
     }
 }
 
-extern "C" __global__
-void backprop_clipped_linear(float* dX, const float* dY, const float* X, double slope, double offset, double min_val, double max_val, int N)
+
+template <typename T>
+__global__ void backprop_clipped_linear(T* dX, const T* dY, const T* X, double slope, double offset, double min_val, double max_val, int N)
 {
     int _loop_start = blockIdx.x * blockDim.x + threadIdx.x;
     int _loop_stride = blockDim.x * gridDim.x;
-    float low = (min_val - offset) / slope;
-    float high = (max_val - offset) / slope;
+    T low = (min_val - offset) / slope;
+    T high = (max_val - offset) / slope;
 
     for (int i = _loop_start; i < N; i += _loop_stride)
     {
-        float x = X[i];
+        T x = X[i];
 
         if (low < x && x < high) {
             dX[i] = dY[i] * slope;
@@ -332,8 +355,9 @@ void backprop_clipped_linear(float* dX, const float* dY, const float* X, double 
     }
 }
 
-extern "C" __global__
-void backprop_hard_swish(float* dX, const float* dY, const float* X, int N)
+
+template <typename T>
+__global__ void backprop_hard_swish(T* dX, const T* dY, const T* X, int N)
 {
     int _loop_start = blockIdx.x * blockDim.x + threadIdx.x;
     int _loop_stride = blockDim.x * gridDim.x;
@@ -350,8 +374,9 @@ void backprop_hard_swish(float* dX, const float* dY, const float* X, int N)
     }
 }
 
-extern "C" __global__
-void backprop_hard_swish_mobilenet(float* dX, const float* dY, const float* X, int N)
+
+template <typename T>
+__global__ void backprop_hard_swish_mobilenet(T* dX, const T* dY, const T* X, int N)
 {
     int _loop_start = blockIdx.x * blockDim.x + threadIdx.x;
     int _loop_stride = blockDim.x * gridDim.x;
@@ -368,44 +393,44 @@ void backprop_hard_swish_mobilenet(float* dX, const float* dY, const float* X, i
     }
 }
 
-extern "C" __global__
-void backprop_gelu(float* dX, const float* dY, const float* X,
+
+
+template <typename T>
+__global__ void backprop_gelu(T* dX, const T* dY, const T* X,
     double threshold, int N)
 {
-    const float INV_SQRT_2PI = 0.3989422804014327;
-    const float INV_SQRT_2 = 0.7071067811865475;
 
     int _loop_start = blockIdx.x * blockDim.x + threadIdx.x;
     int _loop_stride = blockDim.x * gridDim.x;
 
     for (int i = _loop_start; i < N; i += _loop_stride)
     {
-        float x = X[i];
+        T x = X[i];
 
         if (x >= threshold) {
             dX[i] = dY[i];
         } else if (x <= -threshold) {
             dX[i] = 0.0;
         } else {
-            float cdf = 0.5 * (1.0 + erff(INV_SQRT_2 * x));
-            float pdf = INV_SQRT_2PI * expf(-0.5 * x * x);
+            T cdf = 0.5 * (1.0 + erf(Constants<T>::INV_SQRT_2 * x));
+            T pdf = Constants<T>::INV_SQRT_2PI * exp(-0.5 * x * x);
             dX[i] = dY[i] * (cdf + x * pdf);
         }
     }
 }
 
 
-extern "C" __global__
-void backprop_maxout(float* dX,
-    const float* dY, const int* which, int B, int O, int P)
+template <typename T>
+__global__ void backprop_maxout(T* dX,
+    const T* dY, const int* which, int B, int O, int P)
 {
     int _loop_start = blockIdx.x * blockDim.x + threadIdx.x;
     int _loop_stride = blockDim.x * gridDim.x;
     for (int b = _loop_start; b < B; b += _loop_stride)
     {
         // Go to the regions we're working on
-        float* dX_b = &dX[b*O*P];
-        const float* dY_b = &dY[b*O];
+        T* dX_b = &dX[b*O*P];
+        const T* dY_b = &dY[b*O];
         const int* which_b = &which[b*O];
         for (int i=0; i < O; ++i)
             dX_b[(i*P)+which_b[i]] = dY_b[i];
@@ -413,58 +438,59 @@ void backprop_maxout(float* dX,
 }
 
 
-extern "C" __global__
-void backprop_mish(float* dX,
-    const float* dY, const float* X, double threshold, int N)
+template <typename T>
+__global__ void backprop_mish(T* dX,
+    const T* dY, const T* X, double threshold, int N)
 {
     int _loop_start = blockIdx.x * blockDim.x + threadIdx.x;
     int _loop_stride = blockDim.x * gridDim.x;
     for (int i = _loop_start; i < N; i += _loop_stride)
     {
-        float x = X[i];
+        T x = X[i];
         if (x >= threshold)
         {
             dX[i] = dY[i];
         } else
         {
-            float exp_x = exp(x);
-            float exp_2x = exp(2*x);
-            float exp_3x = exp(3*x);
+            T exp_x = exp(x);
+            T exp_2x = exp(2*x);
+            T exp_3x = exp(3*x);
 
-            float omega = (4. * (x+1)) + (4 * exp_2x) + exp_3x + exp_x * (4.*x+6);
-            float delta = 2 * exp_x + exp_2x + 2;
+            T omega = (4. * (x+1)) + (4 * exp_2x) + exp_3x + exp_x * (4.*x+6);
+            T delta = 2 * exp_x + exp_2x + 2;
             dX[i] = dY[i] * ((exp_x * omega) / (delta * delta));
         }
     }
 }
 
 
-extern "C" __global__
-void backprop_swish(float* dX, const float* dY, const float* X,
-    const float* Y, double threshold, int N)
+template <typename T>
+__global__ void backprop_swish(T* dX, const T* dY, const T* X,
+    const T* Y, double threshold, int N)
 {
     int _loop_start = blockIdx.x * blockDim.x + threadIdx.x;
     int _loop_stride = blockDim.x * gridDim.x;
 
     for (int i = _loop_start; i < N; i += _loop_stride)
     {
-        float x = X[i];
-        float y = Y[i];
+        T x = X[i];
+        T y = Y[i];
 
         if (x >= threshold) {
             dX[i] = dY[i];
         } else if (x <= -threshold) {
             dX[i] = 0.0;
         } else {
-            float cdf = 1.0 / (1 + exp(-x));
-            float d = y + cdf * (1 - y);
+            T cdf = 1.0 / (1 + exp(-x));
+            T d = y + cdf * (1 - y);
             dX[i] = dY[i] * d;
         }
     }
 }
 
-extern "C" __global__
-void backprop_reduce_sum(float* dX, const float* d_sum, const int* lengths,
+
+template <typename U>
+__global__ void backprop_reduce_sum(U* dX, const U* d_sum, const int* lengths,
     int B, int T, int O)
 {
     int _loop_start = blockIdx.x * blockDim.x + threadIdx.x;
@@ -490,8 +516,8 @@ void backprop_reduce_sum(float* dX, const float* d_sum, const int* lengths,
 }
 
 
-extern "C" __global__
-void backprop_reduce_mean(float* dX, const float* d_mean, const int* lengths,
+template <typename U>
+__global__ void backprop_reduce_mean(U* dX, const U* d_mean, const int* lengths,
     int B, int T, int O)
 {
     int _loop_start = blockIdx.x * blockDim.x + threadIdx.x;
@@ -509,8 +535,8 @@ void backprop_reduce_mean(float* dX, const float* d_mean, const int* lengths,
         if (lengths[b] == 0)
             continue;
 
-        float* dX_t = &dX[t * O];
-        const float* d_mean_b = &d_mean[b * O];
+        U* dX_t = &dX[t * O];
+        const U* d_mean_b = &d_mean[b * O];
         int lengths_b = lengths[b];
         for (int i=0; i < O; ++i)
         {
@@ -520,9 +546,9 @@ void backprop_reduce_mean(float* dX, const float* d_mean, const int* lengths,
 }
 
 
-extern "C" __global__
-void backprop_reduce_max(float* dX,
-    const float* d_maxes, const int* which, const int* lengths, int B, int T, int O)
+template <typename U>
+__global__ void backprop_reduce_max(U* dX, const U* d_maxes,
+    const int* which, const int* lengths, int B, int T, int O)
 {
     int _loop_start = blockIdx.x * blockDim.x + threadIdx.x;
     int _loop_stride = blockDim.x * gridDim.x;
@@ -547,8 +573,8 @@ void backprop_reduce_max(float* dX,
         int index_of_t = t-seq_start;
         // Get the rows we're dealing with, to avoid cluttering the loop
         // with the index math.
-        float* dX_t = &dX[t*O];
-        const float* d_maxes_b = &d_maxes[b*O];
+        U* dX_t = &dX[t*O];
+        const U* d_maxes_b = &d_maxes[b*O];
         const int* which_b = &which[b*O];
         // Now loop over our row.
         for (int i=0; i < O; ++i)

@@ -9,23 +9,64 @@ except ImportError:
     cupy = None
 
 
-kernel_re = re.compile(r"extern \"C\" __global__.+?(?=extern|$)", re.DOTALL)
-name_re = re.compile(r"(?<=void )\w+(?=\()")
+PWD = Path(__file__).parent
+KERNELS_SRC = (PWD / "_custom_kernels.cu").read_text(encoding="utf8")
+KERNELS_LIST = [
+    "backprop_clipped_linear<double>",
+    "backprop_clipped_linear<float>",
+    "backprop_gelu<double>",
+    "backprop_gelu<float>",
+    "backprop_hard_swish<double>",
+    "backprop_hard_swish<float>",
+    "backprop_hard_swish_mobilenet<double>",
+    "backprop_hard_swish_mobilenet<float>",
+    "backprop_maxout<double>",
+    "backprop_maxout<float>",
+    "backprop_mish<double>",
+    "backprop_mish<float>",
+    "backprop_reduce_max<double>",
+    "backprop_reduce_max<float>",
+    "backprop_reduce_mean<double>",
+    "backprop_reduce_mean<float>",
+    "backprop_reduce_sum<double>",
+    "backprop_reduce_sum<float>",
+    "backprop_seq2col<double>",
+    "backprop_seq2col<float>",
+    "backprop_swish<double>",
+    "backprop_swish<float>",
+    "clipped_linear<double>",
+    "clipped_linear<float>",
+    "gelu<double>",
+    "gelu<float>",
+    "maxout<double>",
+    "maxout<float>",
+    "mish<double>",
+    "mish<float>",
+    "reduce_max<double>",
+    "reduce_max<float>",
+    "reduce_sum<double>",
+    "reduce_sum<float>",
+    "seq2col<double>",
+    "seq2col<float>",
+    "swish<double>",
+    "swish<float>",
+]
+KERNELS = (
+    cupy.RawModule(
+        code=KERNELS_SRC, options=("--std=c++11",), name_expressions=KERNELS_LIST
+    )
+    if cupy is not None
+    else None
+)
 
 
-def parse_kernels(src):
-    kernels = {}
-    for kernel in kernel_re.findall(src):
-        name = name_re.search(kernel).group()
-        kernels[name] = kernel
-    return kernels
-
-
-def compile_kernels(src):
-    if cupy is None:
-        return defaultdict(lambda: None)
-    kernels = parse_kernels(src)
-    return {name: cupy.RawKernel(src, name) for name, src in kernels.items()}
+def _get_kernel(name):
+    """A small wrapper around KERNELS.get_function that verifies first that
+    compiler kernels are available (cupy is installed)."""
+    if KERNELS is None:
+        return None
+    else:
+        return KERNELS.get_function(name)
 
 
 def compile_mmh(src):
@@ -34,34 +75,53 @@ def compile_mmh(src):
     return cupy.RawKernel(src, "hash_data")
 
 
-PWD = Path(__file__).parent
-SRC = (PWD / "_custom_kernels.cu").read_text(encoding="utf8")
-KERNELS = compile_kernels(SRC)
-
 MMH_SRC = (PWD / "_murmur3.cu").read_text(encoding="utf8")
-KERNELS["hash"] = compile_mmh(MMH_SRC)
 
-clipped_linear_kernel = KERNELS["clipped_linear"]
-gelu_kernel = KERNELS["gelu"]
+
+clipped_linear_kernel_float = _get_kernel("clipped_linear<float>")
+clipped_linear_kernel_double = _get_kernel("clipped_linear<double>")
+gelu_kernel_float = _get_kernel("gelu<float>")
+gelu_kernel_double = _get_kernel("gelu<double>")
 hash_data_kernel = compile_mmh(MMH_SRC)
-maxout_kernel = KERNELS["maxout"]
-mish_kernel = KERNELS["mish"]
-reduce_max_kernel = KERNELS["reduce_max"]
-reduce_sum_kernel = KERNELS["reduce_sum"]
-seq2col_kernel = KERNELS["seq2col"]
-swish_kernel = KERNELS["swish"]
+maxout_kernel_float = _get_kernel("maxout<float>")
+maxout_kernel_double = _get_kernel("maxout<double>")
+mish_kernel_float = _get_kernel("mish<float>")
+mish_kernel_double = _get_kernel("mish<double>")
+reduce_max_kernel_float = _get_kernel("reduce_max<float>")
+reduce_max_kernel_double = _get_kernel("reduce_max<double>")
+reduce_sum_kernel_float = _get_kernel("reduce_sum<float>")
+reduce_sum_kernel_double = _get_kernel("reduce_sum<double>")
+seq2col_kernel_float = _get_kernel("seq2col<float>")
+seq2col_kernel_double = _get_kernel("seq2col<double>")
+swish_kernel_float = _get_kernel("swish<float>")
+swish_kernel_double = _get_kernel("swish<double>")
 
-backprop_clipped_linear_kernel = KERNELS["backprop_clipped_linear"]
-backprop_gelu_kernel = KERNELS["backprop_gelu"]
-backprop_hard_swish_kernel = KERNELS["backprop_hard_swish"]
-backprop_hard_swish_mobilenet_kernel = KERNELS["backprop_hard_swish_mobilenet"]
-backprop_maxout_kernel = KERNELS["backprop_maxout"]
-backprop_mish_kernel = KERNELS["backprop_mish"]
-backprop_reduce_max_kernel = KERNELS["backprop_reduce_max"]
-backprop_reduce_mean_kernel = KERNELS["backprop_reduce_mean"]
-backprop_reduce_sum_kernel = KERNELS["backprop_reduce_sum"]
-backprop_seq2col_kernel = KERNELS["backprop_seq2col"]
-backprop_swish_kernel = KERNELS["backprop_swish"]
+backprop_clipped_linear_kernel_double = _get_kernel("backprop_clipped_linear<double>")
+backprop_clipped_linear_kernel_float = _get_kernel("backprop_clipped_linear<float>")
+backprop_gelu_kernel_double = _get_kernel("backprop_gelu<double>")
+backprop_gelu_kernel_float = _get_kernel("backprop_gelu<float>")
+backprop_hard_swish_kernel_double = _get_kernel("backprop_hard_swish<double>")
+backprop_hard_swish_kernel_float = _get_kernel("backprop_hard_swish<float>")
+backprop_hard_swish_mobilenet_kernel_double = _get_kernel(
+    "backprop_hard_swish_mobilenet<double>"
+)
+backprop_hard_swish_mobilenet_kernel_float = _get_kernel(
+    "backprop_hard_swish_mobilenet<float>"
+)
+backprop_maxout_kernel_double = _get_kernel("backprop_maxout<double>")
+backprop_maxout_kernel_float = _get_kernel("backprop_maxout<float>")
+backprop_mish_kernel_double = _get_kernel("backprop_mish<double>")
+backprop_mish_kernel_float = _get_kernel("backprop_mish<float>")
+backprop_reduce_max_kernel_double = _get_kernel("backprop_reduce_max<double>")
+backprop_reduce_max_kernel_float = _get_kernel("backprop_reduce_max<float>")
+backprop_reduce_mean_kernel_double = _get_kernel("backprop_reduce_mean<double>")
+backprop_reduce_mean_kernel_float = _get_kernel("backprop_reduce_mean<float>")
+backprop_reduce_sum_kernel_double = _get_kernel("backprop_reduce_sum<double>")
+backprop_reduce_sum_kernel_float = _get_kernel("backprop_reduce_sum<float>")
+backprop_seq2col_kernel_double = _get_kernel("backprop_seq2col<double>")
+backprop_seq2col_kernel_float = _get_kernel("backprop_seq2col<float>")
+backprop_swish_kernel_double = _get_kernel("backprop_swish<double>")
+backprop_swish_kernel_float = _get_kernel("backprop_swish<float>")
 
 
 def clipped_linear(
@@ -74,26 +134,40 @@ def clipped_linear(
     threads_per_block=128,
     num_blocks=128,
 ):
-    _check_compatible(X)
+    _is_float_array(X)
 
     out = X
     if not inplace:
-        out = cupy.zeros_like(X, dtype="f")
-    clipped_linear_kernel(
-        (num_blocks,),
-        (threads_per_block,),
-        (out, X, slope, offset, min_val, max_val, X.size),
-    )
+        out = cupy.zeros_like(X)
+    if X.dtype == "float32":
+        clipped_linear_kernel_float(
+            (num_blocks,),
+            (threads_per_block,),
+            (out, X, slope, offset, min_val, max_val, X.size),
+        )
+    else:
+        clipped_linear_kernel_double(
+            (num_blocks,),
+            (threads_per_block,),
+            (out, X, slope, offset, min_val, max_val, X.size),
+        )
     return out
 
 
 def gelu(X, inplace=False, threshold=6.0, threads_per_block=128, num_blocks=128):
-    _check_compatible(X)
+    _is_float_array(X)
 
     out = X
     if not inplace:
-        out = cupy.zeros_like(X, dtype="f")
-    gelu_kernel((num_blocks,), (threads_per_block,), (out, X, threshold, X.size))
+        out = cupy.zeros_like(X)
+    if X.dtype == "float32":
+        gelu_kernel_float(
+            (num_blocks,), (threads_per_block,), (out, X, threshold, X.size)
+        )
+    else:
+        gelu_kernel_double(
+            (num_blocks,), (threads_per_block,), (out, X, threshold, X.size)
+        )
     return out
 
 
@@ -106,7 +180,7 @@ def check_seq2col_lengths(lengths, B):
 
 
 def seq2col(X, nW, *, lengths=None, threads_per_block=128, num_blocks=128):
-    _check_compatible(X)
+    _is_float_array(X)
 
     B = X.shape[0]
     nF = nW * 2 + 1
@@ -115,41 +189,63 @@ def seq2col(X, nW, *, lengths=None, threads_per_block=128, num_blocks=128):
     lengths = check_seq2col_lengths(lengths, B)
     nL = lengths.shape[0]
 
-    out = cupy.zeros((B, I * nF), dtype="f")
+    out = cupy.zeros((B, I * nF), dtype=X.dtype)
 
     if X.size != 0 and lengths.size != 0:
-        seq2col_kernel(
-            (num_blocks,), (threads_per_block,), (out, X, lengths, nW, B, I, nL)
-        )
+        if X.dtype == "float32":
+            seq2col_kernel_float(
+                (num_blocks,), (threads_per_block,), (out, X, lengths, nW, B, I, nL)
+            )
+        else:
+            seq2col_kernel_double(
+                (num_blocks,), (threads_per_block,), (out, X, lengths, nW, B, I, nL)
+            )
 
     return out
 
 
 def maxout(X, threads_per_block=128, num_blocks=128):
-    _check_compatible(X)
+    _is_float_array(X)
 
     B, I, P = X.shape
 
     out_shape = (B, I)
-    best = cupy.zeros(out_shape, dtype="f")
+    best = cupy.zeros(out_shape, dtype=X.dtype)
     which = cupy.zeros(out_shape, dtype="i")
 
-    maxout_kernel((num_blocks,), (threads_per_block,), (best, which, X, B, I, P))
+    if X.dtype == "float32":
+        maxout_kernel_float(
+            (num_blocks,), (threads_per_block,), (best, which, X, B, I, P)
+        )
+    else:
+        maxout_kernel_double(
+            (num_blocks,), (threads_per_block,), (best, which, X, B, I, P)
+        )
+
     return best, which
 
 
 def mish(X, inplace=False, threshold=5, threads_per_block=128, num_blocks=128):
-    _check_compatible(X)
+    _is_float_array(X)
 
     out = X
     if not inplace:
-        out = cupy.zeros_like(X, dtype="f")
-    mish_kernel((num_blocks,), (threads_per_block,), (out, X, threshold, X.size))
+        out = cupy.zeros_like(X)
+
+    if X.dtype == "float32":
+        mish_kernel_float(
+            (num_blocks,), (threads_per_block,), (out, X, threshold, X.size)
+        )
+    else:
+        mish_kernel_double(
+            (num_blocks,), (threads_per_block,), (out, X, threshold, X.size)
+        )
+
     return out
 
 
 def reduce_sum(X, lengths, threads_per_block=128, num_blocks=128):
-    _check_compatible(X)
+    _is_float_array(X)
 
     B = len(lengths)
     T = X.shape[0]
@@ -157,14 +253,22 @@ def reduce_sum(X, lengths, threads_per_block=128, num_blocks=128):
 
     _check_lengths(lengths, T)
 
-    out = cupy.zeros((B, O), dtype="f")
+    out = cupy.zeros((B, O), dtype=X.dtype)
 
-    reduce_sum_kernel((num_blocks,), (threads_per_block,), (out, X, lengths, B, T, O))
+    if X.dtype == "float32":
+        reduce_sum_kernel_float(
+            (num_blocks,), (threads_per_block,), (out, X, lengths, B, T, O)
+        )
+    else:
+        reduce_sum_kernel_double(
+            (num_blocks,), (threads_per_block,), (out, X, lengths, B, T, O)
+        )
+
     return out
 
 
 def reduce_mean(X, lengths, threads_per_block=128, num_blocks=128):
-    _check_compatible(X)
+    _is_float_array(X)
 
     B = len(lengths)
     T = X.shape[0]
@@ -172,16 +276,24 @@ def reduce_mean(X, lengths, threads_per_block=128, num_blocks=128):
 
     _check_lengths(lengths, T)
 
-    out = cupy.zeros((B, O), dtype="f")
+    out = cupy.zeros((B, O), dtype=X.dtype)
 
-    reduce_sum_kernel((num_blocks,), (threads_per_block,), (out, X, lengths, B, T, O))
+    if X.dtype == "float32":
+        reduce_sum_kernel_float(
+            (num_blocks,), (threads_per_block,), (out, X, lengths, B, T, O)
+        )
+    else:
+        reduce_sum_kernel_double(
+            (num_blocks,), (threads_per_block,), (out, X, lengths, B, T, O)
+        )
+
     # Avoid divide by zero
     out /= lengths.reshape((-1, 1)) + 1e-10
     return out
 
 
 def reduce_max(X, lengths, threads_per_block=128, num_blocks=128):
-    _check_compatible(X)
+    _is_float_array(X)
 
     B = len(lengths)
     T = X.shape[0]
@@ -190,27 +302,40 @@ def reduce_max(X, lengths, threads_per_block=128, num_blocks=128):
     _check_lengths(lengths, T)
 
     out_shape = (B, O)
-    maxes = cupy.zeros(out_shape, dtype="f")
+    maxes = cupy.zeros(out_shape, dtype=X.dtype)
     which = cupy.zeros(out_shape, dtype="i")
 
-    reduce_max_kernel(
-        (num_blocks,), (threads_per_block,), (maxes, which, X, lengths, B, T, O)
-    )
+    if X.dtype == "float32":
+        reduce_max_kernel_float(
+            (num_blocks,), (threads_per_block,), (maxes, which, X, lengths, B, T, O)
+        )
+    else:
+        reduce_max_kernel_double(
+            (num_blocks,), (threads_per_block,), (maxes, which, X, lengths, B, T, O)
+        )
+
     return maxes, which
 
 
 def swish(X, inplace=False, threshold=17.0, threads_per_block=128, num_blocks=128):
-    _check_compatible(X)
+    _is_float_array(X)
 
     out = X
     if not inplace:
-        out = cupy.zeros_like(X, dtype="f")
-    swish_kernel((num_blocks,), (threads_per_block,), (out, X, threshold, X.size))
+        out = cupy.zeros_like(X)
+    if X.dtype == "float32":
+        swish_kernel_float(
+            (num_blocks,), (threads_per_block,), (out, X, threshold, X.size)
+        )
+    else:
+        swish_kernel_double(
+            (num_blocks,), (threads_per_block,), (out, X, threshold, X.size)
+        )
     return out
 
 
 def backprop_seq2col(dY, nW, *, lengths=None, threads_per_block=128, num_blocks=128):
-    _check_compatible(dY)
+    _is_float_array(dY)
 
     B = dY.shape[0]
     nF = nW * 2 + 1
@@ -219,12 +344,17 @@ def backprop_seq2col(dY, nW, *, lengths=None, threads_per_block=128, num_blocks=
     lengths = check_seq2col_lengths(lengths, B)
     nL = lengths.shape[0]
 
-    out = cupy.zeros((B, I), dtype="f")
+    out = cupy.zeros((B, I), dtype=dY.dtype)
 
     if dY.size != 0 and lengths.size != 0:
-        backprop_seq2col_kernel(
-            (num_blocks,), (threads_per_block,), (out, dY, lengths, nW, B, I, nL)
-        )
+        if dY.dtype == "float32":
+            backprop_seq2col_kernel_float(
+                (num_blocks,), (threads_per_block,), (out, dY, lengths, nW, B, I, nL)
+            )
+        else:
+            backprop_seq2col_kernel_double(
+                (num_blocks,), (threads_per_block,), (out, dY, lengths, nW, B, I, nL)
+            )
 
     return out
 
@@ -240,159 +370,227 @@ def backprop_clipped_linear(
     threads_per_block=128,
     num_blocks=128,
 ):
-    _check_compatible(dY)
-    _check_compatible(X, dY.shape)
+    _is_float_array(dY)
+    _is_float_array(X, shape=dY.shape)
 
     out = dY
     if not inplace:
-        out = cupy.zeros_like(dY, dtype="f")
-    backprop_clipped_linear_kernel(
-        (num_blocks,),
-        (threads_per_block,),
-        (out, dY, X, slope, offset, min_val, max_val, out.size),
-    )
+        out = cupy.zeros_like(dY)
+
+    if dY.dtype == "float32":
+        backprop_clipped_linear_kernel_float(
+            (num_blocks,),
+            (threads_per_block,),
+            (out, dY, X, slope, offset, min_val, max_val, out.size),
+        )
+    else:
+        backprop_clipped_linear_kernel_double(
+            (num_blocks,),
+            (threads_per_block,),
+            (out, dY, X, slope, offset, min_val, max_val, out.size),
+        )
+
     return out
 
 
 def backprop_hard_swish(
     dY, X, inplace: bool = False, threads_per_block=128, num_blocks=128
 ):
-    _check_compatible(dY)
-    _check_compatible(X, dY.shape)
+    _is_float_array(dY)
+    _is_float_array(X, shape=dY.shape)
 
     out = dY
     if not inplace:
-        out = cupy.zeros_like(dY, dtype="f")
-    backprop_hard_swish_kernel(
-        (num_blocks,), (threads_per_block,), (out, dY, X, out.size)
-    )
+        out = cupy.zeros_like(dY)
+
+    if dY.dtype == "float32":
+        backprop_hard_swish_kernel_float(
+            (num_blocks,), (threads_per_block,), (out, dY, X, out.size)
+        )
+    else:
+        backprop_hard_swish_kernel_double(
+            (num_blocks,), (threads_per_block,), (out, dY, X, out.size)
+        )
+
     return out
 
 
 def backprop_hard_swish_mobilenet(
     dY, X, inplace: bool = False, threads_per_block=128, num_blocks=128
 ):
-    _check_compatible(dY)
-    _check_compatible(X, dY.shape)
+    _is_float_array(dY)
+    _is_float_array(X, shape=dY.shape)
 
     out = dY
     if not inplace:
-        out = cupy.zeros_like(dY, dtype="f")
-    backprop_hard_swish_mobilenet_kernel(
-        (num_blocks,), (threads_per_block,), (out, dY, X, out.size)
-    )
+        out = cupy.zeros_like(dY)
+
+    if dY.dtype == "float32":
+        backprop_hard_swish_mobilenet_kernel_float(
+            (num_blocks,), (threads_per_block,), (out, dY, X, out.size)
+        )
+    else:
+        backprop_hard_swish_mobilenet_kernel_double(
+            (num_blocks,), (threads_per_block,), (out, dY, X, out.size)
+        )
+
     return out
 
 
 def backprop_gelu(
     dY, X, inplace: bool = False, threshold=6.0, threads_per_block=128, num_blocks=128
 ):
-    _check_compatible(dY)
-    _check_compatible(X, dY.shape)
+    _is_float_array(dY)
+    _is_float_array(X, shape=dY.shape)
 
     out = dY
     if not inplace:
-        out = cupy.zeros_like(dY, dtype="f")
-    backprop_gelu_kernel(
-        (num_blocks,), (threads_per_block,), (out, dY, X, threshold, out.size)
-    )
+        out = cupy.zeros_like(dY)
+
+    if dY.dtype == "float32":
+        backprop_gelu_kernel_float(
+            (num_blocks,), (threads_per_block,), (out, dY, X, threshold, out.size)
+        )
+    else:
+        backprop_gelu_kernel_double(
+            (num_blocks,), (threads_per_block,), (out, dY, X, threshold, out.size)
+        )
+
     return out
 
 
 def backprop_maxout(dY, which, P, threads_per_block=128, num_blocks=128):
-    _check_compatible(dY)
+    _is_float_array(dY)
 
     B = dY.shape[0]
     I = dY.shape[1]
 
-    out = cupy.zeros((B, I, P), dtype="f")
+    out = cupy.zeros((B, I, P), dtype=dY.dtype)
 
     _check_which_maxout(which, B, I, P)
 
-    backprop_maxout_kernel(
-        (num_blocks,), (threads_per_block,), (out, dY, which, B, I, P)
-    )
+    if dY.dtype == "float32":
+        backprop_maxout_kernel_float(
+            (num_blocks,), (threads_per_block,), (out, dY, which, B, I, P)
+        )
+    else:
+        backprop_maxout_kernel_double(
+            (num_blocks,), (threads_per_block,), (out, dY, which, B, I, P)
+        )
+
     return out
 
 
 def backprop_mish(
     dY, X, inplace: bool = False, threshold=5, threads_per_block=128, num_blocks=128
 ):
-    _check_compatible(dY)
-    _check_compatible(X, dY.shape)
+    _is_float_array(dY)
+    _is_float_array(X, shape=dY.shape)
 
     out = dY
     if not inplace:
-        out = cupy.zeros_like(dY, dtype="f")
-    backprop_mish_kernel(
-        (num_blocks,), (threads_per_block,), (out, dY, X, threshold, dY.size)
-    )
+        out = cupy.zeros_like(dY)
+
+    if dY.dtype == "float32":
+        backprop_mish_kernel_float(
+            (num_blocks,), (threads_per_block,), (out, dY, X, threshold, dY.size)
+        )
+    else:
+        backprop_mish_kernel_double(
+            (num_blocks,), (threads_per_block,), (out, dY, X, threshold, dY.size)
+        )
+
     return out
 
 
 def backprop_reduce_sum(d_sum, lengths, threads_per_block=128, num_blocks=128):
-    _check_compatible(d_sum)
+    _is_float_array(d_sum)
 
     B = len(lengths)
     T = int(lengths.sum())
     O = d_sum.shape[1]
     _check_lengths(lengths, T)
 
-    out = cupy.zeros((T, O), dtype="f")
+    out = cupy.zeros((T, O), dtype=d_sum.dtype)
 
-    backprop_reduce_sum_kernel(
-        (num_blocks,), (threads_per_block,), (out, d_sum, lengths, B, T, O)
-    )
+    if d_sum.dtype == "float32":
+        backprop_reduce_sum_kernel_float(
+            (num_blocks,), (threads_per_block,), (out, d_sum, lengths, B, T, O)
+        )
+    else:
+        backprop_reduce_sum_kernel_double(
+            (num_blocks,), (threads_per_block,), (out, d_sum, lengths, B, T, O)
+        )
+
     return out
 
 
 def backprop_reduce_mean(d_mean, lengths, threads_per_block=128, num_blocks=128):
-    _check_compatible(d_mean)
+    _is_float_array(d_mean)
 
     B = len(lengths)
     T = int(lengths.sum())
     O = d_mean.shape[1]
     _check_lengths(lengths, T)
 
-    out = cupy.zeros((T, O), dtype="f")
+    out = cupy.zeros((T, O), dtype=d_mean.dtype)
 
-    backprop_reduce_mean_kernel(
-        (num_blocks,), (threads_per_block,), (out, d_mean, lengths, B, T, O)
-    )
+    if d_mean.dtype == "float32":
+        backprop_reduce_mean_kernel_float(
+            (num_blocks,), (threads_per_block,), (out, d_mean, lengths, B, T, O)
+        )
+    else:
+        backprop_reduce_mean_kernel_double(
+            (num_blocks,), (threads_per_block,), (out, d_mean, lengths, B, T, O)
+        )
+
     return out
 
 
 def backprop_reduce_max(d_maxes, which, lengths, threads_per_block=128, num_blocks=128):
-    _check_compatible(d_maxes)
+    _is_float_array(d_maxes)
 
     B = len(lengths)
     T = int(lengths.sum())
     O = d_maxes.shape[1]
     _check_lengths(lengths, T)
 
-    out = cupy.zeros((T, O), dtype="f")
+    out = cupy.zeros((T, O), dtype=d_maxes.dtype)
 
     _check_which_reduce_max(which, (B, O), lengths)
 
-    backprop_reduce_max_kernel(
-        (num_blocks,), (threads_per_block,), (out, d_maxes, which, lengths, B, T, O)
-    )
+    if d_maxes.dtype == "float32":
+        backprop_reduce_max_kernel_float(
+            (num_blocks,), (threads_per_block,), (out, d_maxes, which, lengths, B, T, O)
+        )
+    else:
+        backprop_reduce_max_kernel_double(
+            (num_blocks,), (threads_per_block,), (out, d_maxes, which, lengths, B, T, O)
+        )
+
     return out
 
 
 def backprop_swish(
     dY, X, Y, inplace=False, threshold=17.0, threads_per_block=128, num_blocks=128
 ):
-    _check_compatible(dY)
-    _check_compatible(X, dY.shape)
-    _check_compatible(Y, dY.shape)
+    _is_float_array(dY)
+    _is_float_array(X, shape=dY.shape)
+    _is_float_array(Y, shape=dY.shape)
 
     out = dY
     if not inplace:
-        out = cupy.zeros_like(dY, dtype="f")
-    backprop_swish_kernel(
-        (num_blocks,), (threads_per_block,), (out, dY, X, Y, threshold, out.size)
-    )
+        out = cupy.zeros_like(dY)
+
+    if dY.dtype == "float32":
+        backprop_swish_kernel_float(
+            (num_blocks,), (threads_per_block,), (out, dY, X, Y, threshold, out.size)
+        )
+    else:
+        backprop_swish_kernel_double(
+            (num_blocks,), (threads_per_block,), (out, dY, X, Y, threshold, out.size)
+        )
+
     return out
 
 
@@ -411,8 +609,11 @@ def hash(ids, seed, threads_per_block=128, num_blocks=128):
     return out
 
 
-def _check_compatible(out, shape: Optional[Tuple] = None):
-    assert out.dtype == "float32", "CUDA kernel can only handle float32"
+def _is_float_array(out, *, shape: Optional[Tuple] = None):
+    assert out.dtype in (
+        "float32",
+        "float64",
+    ), "CUDA kernel can only handle float32 and float64"
     if shape is not None and out.shape != shape:
         msg = f"array has incorrect shape, expected: {shape}, was: {out.shape}"
         raise ValueError(msg)

@@ -1035,15 +1035,17 @@ def test_clipped_linear(ops, x):
     x_thinc = ops.xp.asarray([x])
     assert ops.xp.isclose(ops.clipped_linear(x_thinc, max_val=6.0), ops.relu_k(x_thinc))
     assert ops.xp.isclose(
-        ops.backprop_clipped_linear(1.0, x_thinc, max_val=6.0),
-        ops.backprop_relu_k(1.0, x_thinc),
+        ops.backprop_clipped_linear(ops.asarray1f([1.0]), x_thinc, max_val=6.0),
+        ops.backprop_relu_k(ops.asarray1f([1.0]), x_thinc),
     )
     assert ops.xp.isclose(
         ops.clipped_linear(x_thinc, slope=0.2, offset=0.5), ops.hard_sigmoid(x_thinc)
     )
     assert ops.xp.isclose(
-        ops.backprop_clipped_linear(1.0, x_thinc, slope=0.2, offset=0.5),
-        ops.backprop_hard_sigmoid(1.0, x_thinc),
+        ops.backprop_clipped_linear(
+            ops.asarray1f([1.0]), x_thinc, slope=0.2, offset=0.5
+        ),
+        ops.backprop_hard_sigmoid(ops.asarray1f([1.0]), x_thinc),
     )
 
 
