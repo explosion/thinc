@@ -349,11 +349,11 @@ Create a random mask for applying dropout, with a certain percent of the mask
 deactivated during training, resulting in a more robust network and less
 overfitting.
 
-| Argument    | Type                     | Description                                                |
-| ----------- | ------------------------ | ---------------------------------------------------------- |
-| `shape`     | <tt>Shape</tt>           | The input shape.                                           |
-| `drop`      | <tt>Optional[float]</tt> | The dropout rate.                                          |
-| **RETURNS** | <tt>Floats</tt>          | A mask specifying a 0 where a neuron should be deactivated.|
+| Argument    | Type                     | Description                                                 |
+| ----------- | ------------------------ | ----------------------------------------------------------- |
+| `shape`     | <tt>Shape</tt>           | The input shape.                                            |
+| `drop`      | <tt>Optional[float]</tt> | The dropout rate.                                           |
+| **RETURNS** | <tt>Floats</tt>          | A mask specifying a 0 where a neuron should be deactivated. |
 
 ### Ops.alloc {#alloc tag="method"}
 
@@ -1074,3 +1074,18 @@ Set the current backend object.
 | Argument | Type         | Description         |
 | -------- | ------------ | ------------------- |
 | `ops`    | <tt>Ops</tt> | The backend object. |
+
+### set_gpu_allocator {#set_gpu_allocator tag="function"}
+
+Set the CuPy GPU memory allocator.
+
+| Argument    | Type         | Description                           |
+| ----------- | ------------ | ------------------------------------- |
+| `allocator` | <tt>str</tt> | Either `"pytorch"` or `"tensorflow"`. |
+
+```python
+### Example
+from thinc.api set_gpu_allocator
+
+set_gpu_allocator("pytorch")
+```

@@ -13,7 +13,8 @@ except ImportError:  # pragma: no cover
     pass
 
 from ..util import torch2xp, xp2torch, convert_recursive, iterate_recursive
-from ..backends import get_current_ops
+from ..backends import get_current_ops, context_pools, CupyOps
+from ..backends import set_gpu_allocator
 from ..optimizers import Optimizer
 from ..types import ArgsKwargs, FloatsXd
 from .pytorch_grad_scaler import PyTorchGradScaler
@@ -49,6 +50,14 @@ class PyTorchShim(Shim):
         self._grad_scaler = grad_scaler
 
         self._mixed_precision = mixed_precision
+
+        if CupyOps.xp is not None and isinstance(get_current_ops(), CupyOps):
+            pools = context_pools.get()
+            if "pytorch" not in pools:
+                from cupy import get_default_memory_pool
+
+                set_gpu_allocator("pytorch")
+                get_default_memory_pool().free_all_blocks()
 
     def __call__(self, inputs, is_train):
         if is_train:
