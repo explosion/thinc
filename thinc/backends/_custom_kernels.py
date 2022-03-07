@@ -428,9 +428,8 @@ def _check_lengths(lengths, n_elems: int):
 
 def _check_which_maxout(which, B: int, I: int, P: int):
     shape = (B, I)
-    assert (
-        which.dtype == "int32"
-    ), "maximum index (which) should be encoded as 32-bit integers"
+    msg = "maximum index (which) should be encoded as 32-bit integers"
+    assert which.dtype == "int32", msg
     if which.shape != shape:
         msg = f"maximum index (which) has incorrect shape, expected: {shape}, was: {which.shape}"
         raise ValueError(msg)
@@ -454,9 +453,8 @@ _values_within_range = (
 
 
 def _check_which_reduce_max(which, shape: Tuple, lengths):
-    assert (
-        which.dtype == "int32"
-    ), "maximum index (which) should be encoded as 32-bit integers"
+    msg = "maximum index (which) should be encoded as 32-bit integers"
+    assert which.dtype == "int32", msg
     if which.shape != shape:
         msg = f"maximum index (which) has incorrect shape, expected: {shape}, was: {which.shape}"
         raise ValueError(msg)
