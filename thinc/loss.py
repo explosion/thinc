@@ -192,12 +192,14 @@ class SequenceCategoricalCrossentropy(Loss):
         names: Optional[List[str]] = None,
         missing_value: Optional[Union[str, int]] = None,
         neg_prefix: Optional[str] = None,
+        label_smoothing: float = 0.0,
     ):
         self.cc = CategoricalCrossentropy(
             normalize=False,
             names=names,
             missing_value=missing_value,
             neg_prefix=neg_prefix,
+            label_smoothing=label_smoothing
         )
         self.normalize = normalize
 
