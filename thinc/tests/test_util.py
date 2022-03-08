@@ -1,9 +1,12 @@
 import pytest
 import numpy
+from hypothesis import given
 from thinc.api import get_width, Ragged, Padded
 from thinc.util import get_array_module, is_numpy_array, to_categorical
 from thinc.util import convert_recursive
 from thinc.types import ArgsKwargs
+
+from . import strategies
 
 
 @pytest.mark.parametrize(
@@ -43,7 +46,8 @@ def test_array_module_cpu_gpu_helpers():
     assert not is_numpy_array((1, 2))
 
 
-def test_to_categorical():
+@given(label_smoothing=strategies.floats(min_value=0.0, max_value=0.5))
+def test_to_categorical(label_smoothing):
     # Test without n_classes
     one_hot = to_categorical(numpy.asarray([1, 2], dtype="i"))
     assert one_hot.shape == (2, 3)
@@ -61,11 +65,23 @@ def test_to_categorical():
     ]
     labels = [numpy.random.randint(0, nc, shape) for shape in shapes]
     one_hots = [to_categorical(label, nc) for label in labels]
-    for label, one_hot, expected_shape in zip(labels, one_hots, expected_shapes):
+    smooths = [to_categorical(label, nc, label_smoothing) for label in labels]
+    for i in range(len(expected_shapes)):
+        label = labels[i]
+        one_hot = one_hots[i]
+        expected_shape = expected_shapes[i]
+        smooth = smooths[i]
         assert one_hot.shape == expected_shape
+        assert smooth.shape == expected_shape
         assert numpy.array_equal(one_hot, one_hot.astype(bool))
         assert numpy.all(one_hot.sum(axis=-1) == 1)
         assert numpy.all(numpy.argmax(one_hot, -1).reshape(label.shape) == label)
+        assert numpy.all(smooth.argmax(axis=-1) == one_hot.argmax(axis=-1))
+        assert numpy.all(numpy.isclose(numpy.sum(smooth, axis=-1), 1.0))
+        assert numpy.isclose(numpy.max(smooth), 1 - label_smoothing)
+        assert numpy.isclose(
+            numpy.min(smooth), label_smoothing / (smooth.shape[-1] - 1)
+        )
 
 
 def test_convert_recursive():
