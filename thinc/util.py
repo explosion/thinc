@@ -208,7 +208,7 @@ def to_categorical(
     n_classes: Optional[int] = None,
     label_smoothing: float = 0.0,
 ) -> FloatsXd:
-    assert label_smoothing >= 0 and label_smoothing < 1
+    assert label_smoothing >= 0 and label_smoothing < 0.5
     xp = get_array_module(Y)
     if n_classes is None:
         n_classes = int(numpy.max(Y) + 1)  # type: ignore
