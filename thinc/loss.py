@@ -124,12 +124,12 @@ class CategoricalCrossentropy(Loss):
         return truths, mask
 
     def __call__(
-        self, guesses: Floats2d, truths: IntsOrFloatsOrStrs
+        self, guesses: Floats2d, truths
     ) -> Tuple[Floats2d, float]:
         d_truth = self.get_grad(guesses, truths)
         return (d_truth, self._get_loss_from_grad(d_truth))
 
-    def get_grad(self, guesses: Floats2d, truths: IntsOrFloatsOrStrs) -> Floats2d:
+    def get_grad(self, guesses: Floats2d, truths) -> Floats2d:
         target, mask = self.convert_truths(truths, guesses)
         xp = get_array_module(target)
         if guesses.shape != target.shape:  # pragma: no cover
@@ -184,6 +184,24 @@ def configure_CategoricalCrossentropy_v2(
     )
 
 
+@registry.losses("CategoricalCrossentropy.v3")
+def configure_CategoricalCrossentropy_v3(
+    *,
+    normalize: bool = True,
+    names: Optional[List[str]] = None,
+    missing_value: Optional[Union[str, int]] = None,
+    neg_prefix: Optional[str] = None,
+    label_smoothing: float = 0.0
+) -> CategoricalCrossentropy:
+    return CategoricalCrossentropy(
+        normalize=normalize,
+        names=names,
+        missing_value=missing_value,
+        neg_prefix=neg_prefix,
+        label_smoothing=label_smoothing
+    )
+
+
 class SequenceCategoricalCrossentropy(Loss):
     def __init__(
         self,
@@ -204,14 +222,14 @@ class SequenceCategoricalCrossentropy(Loss):
         self.normalize = normalize
 
     def __call__(
-        self, guesses: List[Floats2d], truths: List[Union[Ints1d, Floats2d]]
+        self, guesses: List[Floats2d], truths: List[IntsOrFloatsOrStrs]
     ) -> Tuple[List[Floats2d], float]:
         grads = self.get_grad(guesses, truths)
         loss = self._get_loss_from_grad(grads)
         return grads, loss
 
     def get_grad(
-        self, guesses: List[Floats2d], truths: List[Union[Ints1d, Floats2d]]
+        self, guesses: List[Floats2d], truths: List[IntsOrFloatsOrStrs]
     ) -> List[Floats2d]:
         err = "Cannot calculate SequenceCategoricalCrossentropy loss: guesses and truths must be same length"
         if len(guesses) != len(truths):  # pragma: no cover
@@ -226,7 +244,7 @@ class SequenceCategoricalCrossentropy(Loss):
         return d_scores
 
     def get_loss(
-        self, guesses: List[Floats2d], truths: List[Union[Ints1d, Floats2d]]
+        self, guesses: List[Floats2d], truths: List[IntsOrFloatsOrStrs]
     ) -> float:
         return self._get_loss_from_grad(self.get_grad(guesses, truths))
 
@@ -253,6 +271,23 @@ def configure_SequenceCategoricalCrossentropy_v2(
 ) -> SequenceCategoricalCrossentropy:
     return SequenceCategoricalCrossentropy(
         normalize=normalize, names=names, neg_prefix=neg_prefix
+    )
+
+
+@registry.losses("SequenceCategoricalCrossentropy.v3")
+def configure_SequenceCategoricalCrossentropy_v3(
+    *,
+    normalize: bool = True,
+    names: Optional[List[str]] = None,
+    missing_value: Optional[Union[str, int]] = None,
+    neg_prefix: Optional[str] = None,
+    label_smoothing: float = 0.0
+) -> SequenceCategoricalCrossentropy:
+    return SequenceCategoricalCrossentropy(
+        normalize=normalize, names=names,
+        missing_value=missing_value,
+        neg_prefix=neg_prefix,
+        label_smoothing=label_smoothing
     )
 
 
