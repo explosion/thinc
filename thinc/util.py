@@ -209,7 +209,12 @@ def to_categorical(
     *,
     label_smoothing: float = 0.0,
 ) -> FloatsXd:
-    assert label_smoothing >= 0 and label_smoothing < 0.5
+    if not 0.0 <= label_smoothing < 0.5:
+        raise ValueError(
+            "label_smoothing should be greater or "
+            "equal to 0.0 and less than 0.5, "
+            "but {} was given".format(label_smoothing)
+        )
     xp = get_array_module(Y)
     if n_classes is None:
         n_classes = int(numpy.max(Y) + 1)  # type: ignore
