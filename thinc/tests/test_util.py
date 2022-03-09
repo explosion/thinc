@@ -65,7 +65,7 @@ def test_to_categorical(label_smoothing):
     ]
     labels = [numpy.random.randint(0, nc, shape) for shape in shapes]
     one_hots = [to_categorical(label, nc) for label in labels]
-    smooths = [to_categorical(label, nc, label_smoothing) for label in labels]
+    smooths = [to_categorical(label, nc, label_smoothing=label_smoothing) for label in labels]
     for i in range(len(expected_shapes)):
         label = labels[i]
         one_hot = one_hots[i]
