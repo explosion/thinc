@@ -182,7 +182,7 @@ class CupyOps(Ops):
             return super().backprop_hard_swish_mobilenet(dY, X, inplace=inplace)
 
     def mish(self, X, threshold=20.0, inplace=False):
-        if X.dtype in ("float32", "float64") and not inplace:
+        if X.dtype in ("float32", "float64"):
             return _custom_kernels.mish(X, inplace=inplace, threshold=threshold)
         else:
             return super().mish(X, threshold, inplace)
@@ -202,11 +202,7 @@ class CupyOps(Ops):
             return super().swish(X, inplace=inplace)
 
     def backprop_swish(self, dY, X, Y, inplace=False):
-        if (
-            X.dtype == dY.dtype
-            and X.dtype == Y.dtype
-            and X.dtype in ("float32", "float64")
-        ):
+        if X.dtype == dY.dtype == Y.dtype and X.dtype in ("float32", "float64"):
             return _custom_kernels.backprop_swish(
                 dY, X, Y, inplace=inplace, threshold=17.0
             )
@@ -252,7 +248,7 @@ class CupyOps(Ops):
             super().reduce_mean(X, lengths)
 
     def backprop_reduce_mean(self, d_means, lengths):
-        if X.dtype in ("float32", "float64") and lengths.dtype == "int32":
+        if d_means.dtype in ("float32", "float64") and lengths.dtype == "int32":
             return _custom_kernels.backprop_reduce_mean(d_means, lengths)
         else:
             super().backprop_reduce_mean(d_means, lengths)
