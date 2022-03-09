@@ -57,8 +57,18 @@ Calculate the scalar loss. Typically returns a float.
 
 <inline-list>
 
+A flexible implementation of the common categorical cross-entropy loss that
+works on various data types. The **Guesses** should represent probabilities and
+are expected to be in the range of <tt>[0, 1]</tt>. They can both represent exclusive
+classes from multi-class cross-entropy (generally coming from a <tt>softmax</tt> layer)
+or could be classwise binary decisions for multi-label cross-entropy (<tt>sigmoid</tt> layer).
+The **Truths** are most commonly provided as labels in <tt>Ints1d</tt>, 
+<tt>List[int]</tt> or <tt>List[str]</tt> format. 
+Alternatively, users can provide a <tt>Floats2d</tt> which to encode
+label-confidence.
+
 - **Guesses:** <tt>Floats2d</tt>
-- **Truths:** <tt>Union[Ints1d, Floats2d]</tt>
+- **Truths:** <tt>Union[Ints1d, List[int], List[str], Floats2d]</tt>
 - **Gradient:** <tt>Floats2d</tt>
 - **Loss:** <tt>float</tt>
 
@@ -84,18 +94,25 @@ normalize = true
 | Argument       | Type          |  Description                                      |
 | -------------- | ------------- | ------------------------------------------------- |
 | _keyword-only_ |               |                                                   |
+| `names`    | <tt>List[str]</tt> | Label names. Has to be provided when using with List[str] as truths |
 | `normalize`    | <tt>bool</tt> | Normalize and divide by number of examples given. |
+| `neg_prefix` | <tt>str</tt> | Symbol that indicates that a label is negative e.g. "!sci-fi". |
+| `missing_value` | <tt>Union[str, int]</tt> | Symbol for "missing value" among the labels. |
+| `label_smoothing` | <tt>float</tt> | Smoothing-coefficient for label-smoothing in range of [0, 0.5].|
 
 ### SequenceCategoricalCrossentropy {#sequence_categorical_crossentropy tag="class"}
 
 <inline-list>
 
 - **Guesses:** <tt>List[Floats2d]</tt>
-- **Truths:** <tt>List[Union[Ints1d, Floats2d]]</tt>
+- **Truths:** <tt>List[Union[Ints1d, List[int], List[str], Floats2d]]</tt>
 - **Gradient:** <tt>List[Floats2d]</tt>
 - **Loss:** <tt>List[float]</tt>
 
 </inline-list>
+
+This loss runs the <tt>CategoricalCrossentropy<\tt> over a <tt>List<\tt> 
+of **Guesses** and **Truths**. 
 
 <grid>
 
@@ -117,7 +134,12 @@ normalize = true
 | Argument       | Type          |  Description                                      |
 | -------------- | ------------- | ------------------------------------------------- |
 | _keyword-only_ |               |                                                   |
+| `names`    | <tt>List[str]</tt> | Label names. Has to be provided when using with List[str] as truths |
 | `normalize`    | <tt>bool</tt> | Normalize and divide by number of examples given. |
+| `neg_prefix` | <tt>str</tt> | Symbol that indicates that a label is negative e.g. "!sci-fi". |
+| `missing_value` | <tt>Union[str, int]</tt> | Symbol for "missing value" among the labels. |
+| `label_smoothing` | <tt>float</tt> | Smoothing-coefficient for label-smoothing in range of [0, 0.5].|
+
 
 ### L2Distance {#l2distance tag="class"}
 
