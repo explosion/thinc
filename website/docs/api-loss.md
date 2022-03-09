@@ -58,11 +58,11 @@ Calculate the scalar loss. Typically returns a float.
 <inline-list>
 
 A flexible implementation of the common categorical cross-entropy loss that
-works on various data types. The **Guesses** should represent probabilities and
+works on various data types. The `guesses` should represent probabilities and
 are expected to be in the range of <tt>[0, 1]</tt>. They can both represent
 exclusive classes from multi-class cross-entropy (generally coming from a
 <tt>softmax</tt> layer) or could be classwise binary decisions for multi-label
-cross-entropy (<tt>sigmoid</tt> layer). The **Truths** are most commonly
+cross-entropy (<tt>sigmoid</tt> layer). The `truths` are most commonly
 provided as labels in <tt>Ints1d</tt>, <tt>List[int]</tt> or <tt>List[str]</tt>
 format. Alternatively, users can provide a <tt>Floats2d</tt> which to encode
 label-confidence.
