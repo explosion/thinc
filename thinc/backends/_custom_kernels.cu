@@ -3,7 +3,7 @@
 // This pattern ensures that all of the loop values are visited once, no matter
 // what grid parameters are used for the function.
 
-// We cannot include CUDA header for mathetmatical constants, since it requires
+// We cannot include CUDA header for mathematical constants, since it requires
 // that the development headers of the CUDA toolkit are installed.
 
 template <typename T>
