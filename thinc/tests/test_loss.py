@@ -291,7 +291,9 @@ def test_cosine_unmatched():
         ("CategoricalCrossentropy.v1", {}, (scores0, labels0)),
         ("SequenceCategoricalCrossentropy.v1", {}, ([scores0], [labels0])),
         ("CategoricalCrossentropy.v2", {"neg_prefix": "!"}, (scores0, labels0)),
+        ("CategoricalCrossentropy.v3", {"neg_prefix": "!"}, (scores0, labels0)),
         ("SequenceCategoricalCrossentropy.v2", {"neg_prefix": "!"}, ([scores0], [labels0])),
+        ("SequenceCategoricalCrossentropy.v3", {"neg_prefix": "!"}, ([scores0], [labels0])),
         ("L2Distance.v1", {}, (scores0, scores0)),
         (
             "CosineDistance.v1",
