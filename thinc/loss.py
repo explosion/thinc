@@ -191,14 +191,14 @@ def configure_CategoricalCrossentropy_v3(
     names: Optional[List[str]] = None,
     missing_value: Optional[Union[str, int]] = None,
     neg_prefix: Optional[str] = None,
-    label_smoothing: float = 0.0
+    label_smoothing: float = 0.0,
 ) -> CategoricalCrossentropy:
     return CategoricalCrossentropy(
         normalize=normalize,
         names=names,
         missing_value=missing_value,
         neg_prefix=neg_prefix,
-        label_smoothing=label_smoothing
+        label_smoothing=label_smoothing,
     )
 
 
@@ -217,7 +217,7 @@ class SequenceCategoricalCrossentropy(Loss):
             names=names,
             missing_value=missing_value,
             neg_prefix=neg_prefix,
-            label_smoothing=label_smoothing
+            label_smoothing=label_smoothing,
         )
         self.normalize = normalize
 
@@ -281,13 +281,14 @@ def configure_SequenceCategoricalCrossentropy_v3(
     names: Optional[List[str]] = None,
     missing_value: Optional[Union[str, int]] = None,
     neg_prefix: Optional[str] = None,
-    label_smoothing: float = 0.0
+    label_smoothing: float = 0.0,
 ) -> SequenceCategoricalCrossentropy:
     return SequenceCategoricalCrossentropy(
-        normalize=normalize, names=names,
+        normalize=normalize,
+        names=names,
         missing_value=missing_value,
         neg_prefix=neg_prefix,
-        label_smoothing=label_smoothing
+        label_smoothing=label_smoothing,
     )
 
 
