@@ -94,7 +94,7 @@ normalize = true
 | Argument          | Type                     |  Description                                                        |
 | ----------------- | ------------------------ | ------------------------------------------------------------------- |
 | _keyword-only_    |                          |                                                                     |
-| `names`           | <tt>List[str]</tt>       | Label names. Has to be provided when using with List[str] as truths |
+| `names`           | <tt>List[str]</tt>       | Label names. Has to be provided when using with List[str] as truths. |
 | `normalize`       | <tt>bool</tt>            | Normalize and divide by number of examples given.                   |
 | `neg_prefix`      | <tt>str</tt>             | Symbol that indicates that a label is negative e.g. "!sci-fi".      |
 | `missing_value`   | <tt>Union[str, int]</tt> | Symbol for "missing value" among the labels.                        |
