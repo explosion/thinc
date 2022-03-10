@@ -213,7 +213,12 @@ def to_categorical(
         raise ValueError(
             "label_smoothing should be greater or "
             "equal to 0.0 and less than 0.5, "
-            f"but {label_smoothing} was given"
+            f"but {label_smoothing} was provided."
+        )
+    if not n_classes > 1:
+        raise ValueError(
+            "n_classes should be greater than 1, but "
+            f"{n_classes} was provided."
         )
     xp = get_array_module(Y)
     if n_classes is None:
