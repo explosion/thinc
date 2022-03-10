@@ -932,7 +932,7 @@ blocks.
 
 </inline-list>
 
-Backpropagate `Gelu` activation
+Backpropagate GELU activation
 [(Hendrycks and Gimpel, 2016)](https://arxiv.org/abs/1606.08415).
 
 | Argument    | Type              | Description                                         |
