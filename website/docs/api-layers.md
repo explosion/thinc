@@ -434,13 +434,15 @@ low-precision scenarios.
 | `nO`           | <tt>Optional[int]</tt>             | The size of the output vectors.                                                                                              |
 | `nI`           | <tt>Optional[int]</tt>             | The size of the input vectors.                                                                                               |
 | _keyword-only_ |                                    |                                                                                                                              |
-| `init_W`       | <tt>Callable</tt>                  | A function to initialize the weights matrix. Defaults to [`he_normal_init`](/docs/api-initializers#he_normal_init) |
+| `init_W`       | <tt>Callable</tt>                  | A function to initialize the weights matrix. Defaults to [`glorot_uniform_init`](/docs/api-initializers#glorot_uniform_init) |
 | `init_b`       | <tt>Callable</tt>                  | A function to initialize the bias vector. Defaults to [`zero_init`](/docs/api-initializers#zero_init).                       |
 | `dropout`      | <tt>Optional[float]</tt>           | Dropout rate to avoid overfitting.                                                                                           |
 | `normalize`    | <tt>bool</tt>                      | Whether or not to apply [layer normalization](#layernorm), (default: False).                                                 |
+| `k`          | <tt>float</tt>                      | Maximum value, (default: 6.0).                                                 |
 | **RETURNS**    | <tt>Model[Floats2d, Floats2d]</tt> | The created dense layer.                                                                                                     |
+
 ```python
-https://github.com/explosion/thinc/blob/master/thinc/layers/clipped_linear.py
+https://github.com/explosion/thinc/blob/master/thinc/layers/clipped_linear.py#L132
 ```
 
 
@@ -459,6 +461,23 @@ A dense layer with `hard_sigmoid` activation function, which is
 a fast linear approximation of `sigmoid` 
 defined as `max(0, min(1, x * 0.2 + 0.5))`.
 
+
+| Argument       | Type                               | Description                                                                                                                  |
+| -------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `nO`           | <tt>Optional[int]</tt>             | The size of the output vectors.                                                                                              |
+| `nI`           | <tt>Optional[int]</tt>             | The size of the input vectors.                                                                                               |
+| _keyword-only_ |                                    |                                                                                                                              |
+| `init_W`       | <tt>Callable</tt>                  | A function to initialize the weights matrix. Defaults to [`glorot_uniform_init`](/docs/api-initializers#glorot_uniform_init) |
+| `init_b`       | <tt>Callable</tt>                  | A function to initialize the bias vector. Defaults to [`zero_init`](/docs/api-initializers#zero_init).                       |
+| `dropout`      | <tt>Optional[float]</tt>           | Dropout rate to avoid overfitting.                                                                                           |
+| `normalize`    | <tt>bool</tt>                      | Whether or not to apply [layer normalization](#layernorm), (default: False).                                                 |
+| **RETURNS**    | <tt>Model[Floats2d, Floats2d]</tt> | The created dense layer.                                                                                                     |
+
+```python
+https://github.com/explosion/thinc/blob/master/thinc/layers/clipped_linear.py#L90
+```
+
+
 ### HardTanh {#hadtanh tag="function"}
 
 <inline-list>
@@ -473,6 +492,21 @@ defined as `max(0, min(1, x * 0.2 + 0.5))`.
 A dense layer with `hard_tanh` activation function, which is
 a fast linear approximation of `tanh`: 
 defined as `max(-1, min(1, x))`.
+
+| Argument       | Type                               | Description                                                                                                                  |
+| -------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `nO`           | <tt>Optional[int]</tt>             | The size of the output vectors.                                                                                              |
+| `nI`           | <tt>Optional[int]</tt>             | The size of the input vectors.                                                                                               |
+| _keyword-only_ |                                    |                                                                                                                              |
+| `init_W`       | <tt>Callable</tt>                  | A function to initialize the weights matrix. Defaults to [`glorot_uniform_init`](/docs/api-initializers#glorot_uniform_init) |
+| `init_b`       | <tt>Callable</tt>                  | A function to initialize the bias vector. Defaults to [`zero_init`](/docs/api-initializers#zero_init).                       |
+| `dropout`      | <tt>Optional[float]</tt>           | Dropout rate to avoid overfitting.                                                                                           |
+| `normalize`    | <tt>bool</tt>                      | Whether or not to apply [layer normalization](#layernorm), (default: False).                                                 |
+| **RETURNS**    | <tt>Model[Floats2d, Floats2d]</tt> | The created dense layer.                                                                                                     |
+
+```python
+https://github.com/explosion/thinc/blob/master/thinc/layers/clipped_linear.py#L111
+```
 
 ### ClippedLinear {#clippedlinear tag="function"}
 
@@ -489,6 +523,24 @@ A dense layer implementing a flexible clipped linear activation function of the
 form `max(min_value, min(max_value, x * slope + offset))`. It is used
 to implement [`ReluK`](#reluk), [`HardSigmoid`](#hardsigmoid) and [`HardTanh`](#hardtanh).
 
+| Argument       | Type                               | Description                                                                                                                  |
+| -------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `nO`           | <tt>Optional[int]</tt>             | The size of the output vectors.                                                                                              |
+| `nI`           | <tt>Optional[int]</tt>             | The size of the input vectors.                                                                                               |
+| _keyword-only_ |                                    |                                                                                                                              |
+| `init_W`       | <tt>Callable</tt>                  | A function to initialize the weights matrix. Defaults to [`glorot_uniform_init`](/docs/api-initializers#glorot_uniform_init) |
+| `init_b`       | <tt>Callable</tt>                  | A function to initialize the bias vector. Defaults to [`zero_init`](/docs/api-initializers#zero_init).                       |
+| `dropout`      | <tt>Optional[float]</tt>           | Dropout rate to avoid overfitting.                                                                                           |
+| `normalize`    | <tt>bool</tt>                      | Whether or not to apply [layer normalization](#layernorm), (default: False).                                                 |
+| `slope`    | <tt>float</tt>                      | The slope of the linear function: `input * slope`.                                                 |
+| `offset`    | <tt>float</tt>                      | The offset or intercept of the linear function: `input * slope + offset`.                                                 |
+| `min_val`    | <tt>float</tt>                      | Minimum value to clip to.                                                 |
+| `max_val`    | <tt>float</tt>                      | Maximum value to clip to.                                                 |
+| **RETURNS**    | <tt>Model[Floats2d, Floats2d]</tt> | The created dense layer.                                                                                                     |
+
+```python
+https://github.com/explosion/thinc/blob/master/thinc/layers/clipped_linear.py
+```
 
 ### HardSwish {#hardswish tag="function"}
 
@@ -504,6 +556,21 @@ to implement [`ReluK`](#reluk), [`HardSigmoid`](#hardsigmoid) and [`HardTanh`](#
 A dense layer implementing the `hard_swish` activation function, which
 is a fast linear approximation of `swish`: `x * hard_sigmoid(x)`.
 
+| Argument       | Type                               | Description                                                                                                                  |
+| -------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `nO`           | <tt>Optional[int]</tt>             | The size of the output vectors.                                                                                              |
+| `nI`           | <tt>Optional[int]</tt>             | The size of the input vectors.                                                                                               |
+| _keyword-only_ |                                    |                                                                                                                              |
+| `init_W`       | <tt>Callable</tt>                  | A function to initialize the weights matrix. Defaults to [`he_normal_init`](/docs/api-initializers#he_normal_init) |
+| `init_b`       | <tt>Callable</tt>                  | A function to initialize the bias vector. Defaults to [`zero_init`](/docs/api-initializers#zero_init).                       |
+| `dropout`      | <tt>Optional[float]</tt>           | Dropout rate to avoid overfitting.                                                                                           |
+| `normalize`    | <tt>bool</tt>                      | Whether or not to apply [layer normalization](#layernorm), (default: False).                                                 |
+| **RETURNS**    | <tt>Model[Floats2d, Floats2d]</tt> | The created dense layer.                                                                                                     |
+
+```python
+https://github.com/explosion/thinc/blob/master/thinc/layers/hard_swish.py
+```
+
 ### HardSwishMobileNet {#hardtanh tag="function"}
 
 <inline-list>
@@ -517,6 +584,22 @@ is a fast linear approximation of `swish`: `x * hard_sigmoid(x)`.
 
 A dense layer implementing the a variant of the fast linear 
 `hard_swish` activation function used in `MobileNetV3` [(Howard et al., 2019)](https://arxiv.org/abs/1905.02244) defined as `x * (relu6(x + 3) / 6)`.
+
+
+| Argument       | Type                               | Description                                                                                                                  |
+| -------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `nO`           | <tt>Optional[int]</tt>             | The size of the output vectors.                                                                                              |
+| `nI`           | <tt>Optional[int]</tt>             | The size of the input vectors.                                                                                               |
+| _keyword-only_ |                                    |                                                                                                                              |
+| `init_W`       | <tt>Callable</tt>                  | A function to initialize the weights matrix. Defaults to [`he_normal_init`](/docs/api-initializers#he_normal_init) |
+| `init_b`       | <tt>Callable</tt>                  | A function to initialize the bias vector. Defaults to [`zero_init`](/docs/api-initializers#zero_init).                       |
+| `dropout`      | <tt>Optional[float]</tt>           | Dropout rate to avoid overfitting.                                                                                           |
+| `normalize`    | <tt>bool</tt>                      | Whether or not to apply [layer normalization](#layernorm), (default: False).                                                 |
+| **RETURNS**    | <tt>Model[Floats2d, Floats2d]</tt> | The created dense layer.                                                                                                     |
+
+```python
+https://github.com/explosion/thinc/blob/master/thinc/layers/hard_swish_mobilenet.py
+```
 
 
 ### MultiSoftmax {#multisoftmax tag="function"}
