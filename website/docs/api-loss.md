@@ -70,8 +70,9 @@ are expected to be in the range of `[0, 1]`. They can both represent exclusive
 classes from multi-class cross-entropy (generally coming from a `softmax` layer)
 or could be classwise binary decisions for multi-label cross-entropy (`sigmoid`
 layer). The `truths` are most commonly provided as labels in `Ints1d`,
-`List[int]` or `List[str]` format. Alternatively, users can provide a `Floats2d`
-which to encode label-confidence.
+`List[int]` or `List[str]` format. 
+Alternatively, users can provide `truths` as a `Floats2d` for
+example to encode label-confidences.
 
 <grid>
 
