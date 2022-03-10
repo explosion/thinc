@@ -358,7 +358,7 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/mish.py
 
 </inline-list>
 
-A dense layer with the `swish` activation function
+A dense layer with the Swish activation function
 [(Ramachandran et al., 2017)](https://arxiv.org/abs/1710.05941v2). Swish is a
 self-gating non-monotonic activation function similar to [`gelu`](#gelu):
 whereas [`Gelu`](#gelu) uses the CDF of the Gaussian distribution Φ for
