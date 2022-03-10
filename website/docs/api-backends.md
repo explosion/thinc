@@ -836,6 +836,7 @@ Compute the Mish activation
 | ----------- | ----------------- | ----------------------------------------------- |
 | `X`         | <tt>Floats2d</tt> | The inputs.                                     |
 | `threshold` | <tt>float</tt>    | Maximum value at which to apply the activation. |
+| `inplace`   | <tt>bool</tt>     | Apply Mish to `X` in-place.                     |
 | **RETURNS** | <tt>Floats2d</tt> | The outputs.                                    |
 
 ### Ops.backprop_mish {#backprop_softplus tag="method"}
@@ -851,12 +852,13 @@ Compute the Mish activation
 Backpropagate the Mish activation
 ([Misra, 2019](https://arxiv.org/pdf/1908.08681.pdf)).
 
-| Argument    | Type              | Description                      |
-| ----------- | ----------------- | -------------------------------- |
-| `dY`        | <tt>Floats2d</tt> | Gradients of the output array.   |
-| `X`         | <tt>Floats2d</tt> | The inputs to the forward pass.  |
-| `threshold` | <tt>float</tt>    | Threshold from the forward pass. |
-| **RETURNS** | <tt>Floats2d</tt> | The gradient of the input.       |
+| Argument    | Type              | Description                           |
+| ----------- | ----------------- | ------------------------------------- |
+| `dY`        | <tt>Floats2d</tt> | Gradients of the output array.        |
+| `X`         | <tt>Floats2d</tt> | The inputs to the forward pass.       |
+| `threshold` | <tt>float</tt>    | Threshold from the forward pass.      |
+| `inplace`   | <tt>bool</tt>     | Apply Mish backprop to `dY` in-place. |
+| **RETURNS** | <tt>Floats2d</tt> | The gradient of the input.            |
 
 ### Ops.reduce_sum {#reduce_sum tag="method"}
 
