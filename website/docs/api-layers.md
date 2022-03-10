@@ -347,6 +347,178 @@ A dense layer with Mish activation
 https://github.com/explosion/thinc/blob/master/thinc/layers/mish.py
 ```
 
+### Swish {#swish tag="function"}
+
+<inline-list>
+
+- **Input:** <ndarray shape="batch_size, nI">Floats2d</ndarray>
+- **Output:** <ndarray shape="batch_size, nO">Floats2d</ndarray>
+- **Parameters:** <ndarray shape="nO, nI">W</ndarray>,
+  <ndarray shape="nO,">b</ndarray>
+
+</inline-list>
+
+A dense layer with the `swish` activation function [(Ramachandran et al., 2017)](https://arxiv.org/abs/1710.05941v2). Swish is a self-gating non-monotonic activation function similar to [`gelu`](#gelu):
+whereas [`Gelu`](#gelu) uses the CDF of the Gaussian distribution Φ for 
+self-gating `x * Φ(x)` `swish` uses the logistic CDF  `x * σ(x)`.
+Sometimes referred to as "SiLU" for "Sigmoid Linear Unit".
+
+| Argument       | Type                               | Description                                                                                                                  |
+| -------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `nO`           | <tt>Optional[int]</tt>             | The size of the output vectors.                                                                                              |
+| `nI`           | <tt>Optional[int]</tt>             | The size of the input vectors.                                                                                               |
+| _keyword-only_ |                                    |                                                                                                                              |
+| `init_W`       | <tt>Callable</tt>                  | A function to initialize the weights matrix. Defaults to [`he_normal_init`](/docs/api-initializers#he_normal_init) |
+| `init_b`       | <tt>Callable</tt>                  | A function to initialize the bias vector. Defaults to [`zero_init`](/docs/api-initializers#zero_init).                       |
+| `dropout`      | <tt>Optional[float]</tt>           | Dropout rate to avoid overfitting.                                                                                           |
+| `normalize`    | <tt>bool</tt>                      | Whether or not to apply [layer normalization](#layernorm), (default: False).                                                 |
+| **RETURNS**    | <tt>Model[Floats2d, Floats2d]</tt> | The created dense layer.                                                                                                     |
+
+```python
+https://github.com/explosion/thinc/blob/master/thinc/layers/swish.py
+```
+
+### Gelu {#gelu tag="function"}
+
+<inline-list>
+
+- **Input:** <ndarray shape="batch_size, nI">Floats2d</ndarray>
+- **Output:** <ndarray shape="batch_size, nO">Floats2d</ndarray>
+- **Parameters:** <ndarray shape="nO, nI">W</ndarray>,
+  <ndarray shape="nO,">b</ndarray>
+
+</inline-list>
+
+A dense layer with the `gelu` activation function [(Ramachandran et al., 2017)](https://arxiv.org/abs/1710.05941v2). The `gelu` or "Gaussian Error Linear Unit" is 
+a self-gating non-monotonic activation function similar to [`swish`](#swish):
+whereas [`Gelu`](#gelu) uses the CDF of the Gaussian distribution Φ for 
+self-gating `x * Φ(x)` the `swish` activation uses the logistic CDF σ and 
+computes `x * σ(x)`. Various approximations exist, but 
+`thinc` implements the exact `gelu`.
+The use of `gelu` is popular within transformer feed-forward blocks.
+
+
+| Argument       | Type                               | Description                                                                                                                  |
+| -------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `nO`           | <tt>Optional[int]</tt>             | The size of the output vectors.                                                                                              |
+| `nI`           | <tt>Optional[int]</tt>             | The size of the input vectors.                                                                                               |
+| _keyword-only_ |                                    |                                                                                                                              |
+| `init_W`       | <tt>Callable</tt>                  | A function to initialize the weights matrix. Defaults to [`he_normal_init`](/docs/api-initializers#he_normal_init) |
+| `init_b`       | <tt>Callable</tt>                  | A function to initialize the bias vector. Defaults to [`zero_init`](/docs/api-initializers#zero_init).                       |
+| `dropout`      | <tt>Optional[float]</tt>           | Dropout rate to avoid overfitting.                                                                                           |
+| `normalize`    | <tt>bool</tt>                      | Whether or not to apply [layer normalization](#layernorm), (default: False).                                                 |
+| **RETURNS**    | <tt>Model[Floats2d, Floats2d]</tt> | The created dense layer.                                                                                                     |
+```python
+https://github.com/explosion/thinc/blob/master/thinc/layers/gelu.py
+```
+
+### ReluK {#reluk tag="function"}
+
+<inline-list>
+
+- **Input:** <ndarray shape="batch_size, nI">Floats2d</ndarray>
+- **Output:** <ndarray shape="batch_size, nO">Floats2d</ndarray>
+- **Parameters:** <ndarray shape="nO, nI">W</ndarray>,
+  <ndarray shape="nO,">b</ndarray>
+
+</inline-list>
+
+A dense layer with the `relu` activation function where the 
+maximum value is clipped at `k`. A common choice is `k=6`
+introduced for convolutional deep belief networks [(Krizhevsky, 2010)](https://www.cs.toronto.edu/~kriz/conv-cifar10-aug2010.pdf). The resulting function `relu6` is commonly used in 
+low-precision scenarios.
+
+
+| Argument       | Type                               | Description                                                                                                                  |
+| -------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `nO`           | <tt>Optional[int]</tt>             | The size of the output vectors.                                                                                              |
+| `nI`           | <tt>Optional[int]</tt>             | The size of the input vectors.                                                                                               |
+| _keyword-only_ |                                    |                                                                                                                              |
+| `init_W`       | <tt>Callable</tt>                  | A function to initialize the weights matrix. Defaults to [`he_normal_init`](/docs/api-initializers#he_normal_init) |
+| `init_b`       | <tt>Callable</tt>                  | A function to initialize the bias vector. Defaults to [`zero_init`](/docs/api-initializers#zero_init).                       |
+| `dropout`      | <tt>Optional[float]</tt>           | Dropout rate to avoid overfitting.                                                                                           |
+| `normalize`    | <tt>bool</tt>                      | Whether or not to apply [layer normalization](#layernorm), (default: False).                                                 |
+| **RETURNS**    | <tt>Model[Floats2d, Floats2d]</tt> | The created dense layer.                                                                                                     |
+```python
+https://github.com/explosion/thinc/blob/master/thinc/layers/clipped_linear.py
+```
+
+
+### HardSigmoid {#hardsigmoid tag="function"}
+
+<inline-list>
+
+- **Input:** <ndarray shape="batch_size, nI">Floats2d</ndarray>
+- **Output:** <ndarray shape="batch_size, nO">Floats2d</ndarray>
+- **Parameters:** <ndarray shape="nO, nI">W</ndarray>,
+  <ndarray shape="nO,">b</ndarray>
+
+</inline-list>
+
+A dense layer with `hard_sigmoid` activation function, which is
+a fast linear approximation of `sigmoid` 
+defined as `max(0, min(1, x * 0.2 + 0.5))`.
+
+### HardTanh {#hadtanh tag="function"}
+
+<inline-list>
+
+- **Input:** <ndarray shape="batch_size, nI">Floats2d</ndarray>
+- **Output:** <ndarray shape="batch_size, nO">Floats2d</ndarray>
+- **Parameters:** <ndarray shape="nO, nI">W</ndarray>,
+  <ndarray shape="nO,">b</ndarray>
+
+</inline-list>
+
+A dense layer with `hard_tanh` activation function, which is
+a fast linear approximation of `tanh`: 
+defined as `max(-1, min(1, x))`.
+
+### ClippedLinear {#clippedlinear tag="function"}
+
+<inline-list>
+
+- **Input:** <ndarray shape="batch_size, nI">Floats2d</ndarray>
+- **Output:** <ndarray shape="batch_size, nO">Floats2d</ndarray>
+- **Parameters:** <ndarray shape="nO, nI">W</ndarray>,
+  <ndarray shape="nO,">b</ndarray>
+
+</inline-list>
+
+A dense layer implementing a flexible clipped linear activation function of the 
+form `max(min_value, min(max_value, x * slope + offset))`. It is used
+to implement [`ReluK`](#reluk), [`HardSigmoid`](#hardsigmoid) and [`HardTanh`](#hardtanh).
+
+
+### HardSwish {#hardswish tag="function"}
+
+<inline-list>
+
+- **Input:** <ndarray shape="batch_size, nI">Floats2d</ndarray>
+- **Output:** <ndarray shape="batch_size, nO">Floats2d</ndarray>
+- **Parameters:** <ndarray shape="nO, nI">W</ndarray>,
+  <ndarray shape="nO,">b</ndarray>
+
+</inline-list>
+
+A dense layer implementing the `hard_swish` activation function, which
+is a fast linear approximation of `swish`: `x * hard_sigmoid(x)`.
+
+### HardSwishMobileNet {#hardtanh tag="function"}
+
+<inline-list>
+
+- **Input:** <ndarray shape="batch_size, nI">Floats2d</ndarray>
+- **Output:** <ndarray shape="batch_size, nO">Floats2d</ndarray>
+- **Parameters:** <ndarray shape="nO, nI">W</ndarray>,
+  <ndarray shape="nO,">b</ndarray>
+
+</inline-list>
+
+A dense layer implementing the a variant of the fast linear 
+`hard_swish` activation function used in `MobileNetV3` [(Howard et al., 2019)](https://arxiv.org/abs/1905.02244) defined as `x * (relu6(x + 3) / 6)`.
+
+
 ### MultiSoftmax {#multisoftmax tag="function"}
 
 <inline-list>
