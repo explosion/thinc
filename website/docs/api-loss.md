@@ -97,7 +97,7 @@ normalize = true
 | `normalize`       | <tt>bool</tt>            | Normalize and divide by number of examples given.                                                                                                |
 | `neg_prefix`      | <tt>str</tt>             | Prefix used to indicate that a label is negative e.g. "!sci-fi".                                                                                 |
 | `missing_value`   | <tt>Union[str, int]</tt> | Specific label that indicates the value is missing and should not be considered for training/evaluation purposes, e.g. empty string `""` or `0`. |
-| `label_smoothing` | <tt>float</tt>           | Smoothing-coefficient for label-smoothing in range of [0, 0.5].                                                                                  |
+| `label_smoothing` | <tt>float</tt>           | Smoothing-coefficient for label-smoothing in range of [0, 0.5[.                                                                                  |
 
 ### SequenceCategoricalCrossentropy {#sequence_categorical_crossentropy tag="class"}
 
