@@ -939,7 +939,7 @@ Backpropagate GELU activation
 | ----------- | ----------------- | --------------------------------------------------- |
 | `dY`        | <tt>Floats2d</tt> | Gradients of the output array.                      |
 | `X`         | <tt>Floats2d</tt> | The inputs to the forward pass.                     |
-| `inplace`   | <tt>bool</tt>     | If `True`, the `dY` array may be modified in place. |
+| `inplace`   | <tt>bool</tt>     | If `True`, the `dY` array is modified in place. |
 | **RETURNS** | <tt>Floats2d</tt> | The gradient of the input.                          |
 
 ### Ops.relu_k {#relu_k tag="method"}
