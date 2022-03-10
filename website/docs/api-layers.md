@@ -570,7 +570,7 @@ linear approximation of `swish`: `x * hard_sigmoid(x)`.
 https://github.com/explosion/thinc/blob/master/thinc/layers/hard_swish.py
 ```
 
-### HardSwishMobileNet {#hardtanh tag="function"}
+### HardSwishMobileNet {#hardswishmobilenet tag="function"}
 
 <inline-list>
 
