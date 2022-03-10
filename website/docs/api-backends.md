@@ -152,12 +152,13 @@ Given an `(M, N)` sequence of vectors, return an `(M, N*(nW*2+1))` sequence. The
 new sequence is constructed by concatenating `nW` preceding and succeeding
 vectors onto each column in the sequence, to extract a window of features.
 
-| Argument    | Type                      | Description                                                       |
-| ----------- | ------------------------- | ----------------------------------------------------------------- |
-| `seq`       | <tt>Floats2d</tt>         | The original sequence.                                           |
-| `nW`        | <tt>int</tt>              | The window size.                                                  |
-| `lengths`   | <tt>Optional[Ints1d]</tt> | Sequence lengths, introduces padding around sequences.            |
-| **RETURNS** | <tt>Floats2d</tt>         | The created sequence containing preceding and succeeding vectors. |
+| Argument       | Type                      | Description                                                       |
+| -------------- | ------------------------- | ----------------------------------------------------------------- |
+| `seq`          | <tt>Floats2d</tt>         | The original sequence.                                            |
+| `nW`           | <tt>int</tt>              | The window size.                                                  |
+| _keyword-only_ |                           |                                                                   |
+| `lengths`      | <tt>Optional[Ints1d]</tt> | Sequence lengths, introduces padding around sequences.            |
+| **RETURNS**    | <tt>Floats2d</tt>         | The created sequence containing preceding and succeeding vectors. |
 
 ### Ops.backprop_seq2col {#backprop_seq2col tag="method"}
 
@@ -173,12 +174,13 @@ The reverse/backward operation of the `seq2col` function: calculate the gradient
 of the original `(M, N)` sequence, as a function of the gradient of the output
 `(M, N*(nW*2+1))` sequence.
 
-| Argument    | Type                      | Description                                            |
-| ----------- | ------------------------- | ------------------------------------------------------ |
-| `dY`        | <tt>Floats2d</tt>         | Gradient of the output sequence.                       |
-| `nW`        | <tt>int</tt>              | The window size.                                       |
-| `lengths`   | <tt>Optional[Ints1d]</tt> | Sequence lengths, introduces padding around sequences. |
-| **RETURNS** | <tt>Floats2d</tt>         | Gradient of the original sequence.                     |
+| Argument       | Type                      | Description                                            |
+| -------------- | ------------------------- | ------------------------------------------------------ |
+| `dY`           | <tt>Floats2d</tt>         | Gradient of the output sequence.                       |
+| `nW`           | <tt>int</tt>              | The window size.                                       |
+| _keyword-only_ |                           |                                                        |
+| `lengths`      | <tt>Optional[Ints1d]</tt> | Sequence lengths, introduces padding around sequences. |
+| **RETURNS**    | <tt>Floats2d</tt>         | Gradient of the original sequence.                     |
 
 ### Ops.gemm {#gemm tag="method"}
 
@@ -645,14 +647,14 @@ Calculate the derivative of the `tanh` function.
 
 Calculate the softmax function. The resulting array will sum up to 1.
 
-| Argument       | Type              | Description                                          |
-| -------------- | ----------------- | ---------------------------------------------------- |
-| `x`            | <tt>FloatsXd</tt> | The input values.                                    |
-| _keyword-only_ |                   |                                                      |
-| `inplace`      | <tt>bool</tt>     | If `True`, the array may be modified in place.       |
-| `axis`         | <tt>int</tt>      | The dimension to normalize over.                     |
+| Argument       | Type              | Description                                            |
+| -------------- | ----------------- | ------------------------------------------------------ |
+| `x`            | <tt>FloatsXd</tt> | The input values.                                      |
+| _keyword-only_ |                   |                                                        |
+| `inplace`      | <tt>bool</tt>     | If `True`, the array may be modified in place.         |
+| `axis`         | <tt>int</tt>      | The dimension to normalize over.                       |
 | `temperature`  | <tt>float</tt>    | The value to divide the unnormalized probabilities by. |
-| **RETURNS**    | <tt>FloatsXd</tt> | The normalized output values.                        |
+| **RETURNS**    | <tt>FloatsXd</tt> | The normalized output values.                          |
 
 ### Ops.backprop_softmax {#backprop_softmax tag="method"}
 
@@ -664,14 +666,14 @@ Calculate the softmax function. The resulting array will sum up to 1.
 
 </inline-list>
 
-| Argument       | Type              | Description                                          |
-| -------------- | ----------------- | ---------------------------------------------------- |
-| `Y`            | <tt>FloatsXd</tt> | Output array.                                        |
-| `dY`           | <tt>FloatsXd</tt> | Gradients of the output array.                       |
-| _keyword-only_ |                   |                                                      |
-| `axis`         | <tt>int</tt>      | The dimension that was normalized over.              |
+| Argument       | Type              | Description                                            |
+| -------------- | ----------------- | ------------------------------------------------------ |
+| `Y`            | <tt>FloatsXd</tt> | Output array.                                          |
+| `dY`           | <tt>FloatsXd</tt> | Gradients of the output array.                         |
+| _keyword-only_ |                   |                                                        |
+| `axis`         | <tt>int</tt>      | The dimension that was normalized over.                |
 | `temperature`  | <tt>float</tt>    | The value to divide the unnormalized probabilities by. |
-| **RETURNS**    | <tt>FloatsXd</tt> | The gradients of the input array.                    |
+| **RETURNS**    | <tt>FloatsXd</tt> | The gradients of the input array.                      |
 
 ### Ops.softmax_sequences {#softmax_sequences tag="method"}
 
