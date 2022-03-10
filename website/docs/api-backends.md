@@ -645,13 +645,14 @@ Calculate the derivative of the `tanh` function.
 
 Calculate the softmax function. The resulting array will sum up to 1.
 
-| Argument       | Type              | Description                                    |
-| -------------- | ----------------- | ---------------------------------------------- |
-| `x`            | <tt>FloatsXd</tt> | The input values.                              |
-| _keyword-only_ |                   |                                                |
-| `inplace`      | <tt>bool</tt>     | If `True`, the array may be modified in place. |
-| `axis`         | <tt>int</tt>      | The dimension to normalize over.               |
-| **RETURNS**    | <tt>FloatsXd</tt> | The normalized output values.                  |
+| Argument       | Type              | Description                                          |
+| -------------- | ----------------- | ---------------------------------------------------- |
+| `x`            | <tt>FloatsXd</tt> | The input values.                                    |
+| _keyword-only_ |                   |                                                      |
+| `inplace`      | <tt>bool</tt>     | If `True`, the array may be modified in place.       |
+| `axis`         | <tt>int</tt>      | The dimension to normalize over.                     |
+| `temperature`  | <tt>float</tt>    | The value to divide the unnormalized probabilies by. |
+| **RETURNS**    | <tt>FloatsXd</tt> | The normalized output values.                        |
 
 ### Ops.backprop_softmax {#backprop_softmax tag="method"}
 
@@ -663,13 +664,14 @@ Calculate the softmax function. The resulting array will sum up to 1.
 
 </inline-list>
 
-| Argument       | Type              | Description                             |
-| -------------- | ----------------- | --------------------------------------- |
-| `Y`            | <tt>FloatsXd</tt> | Output array.                           |
-| `dY`           | <tt>FloatsXd</tt> | Gradients of the output array.          |
-| _keyword-only_ |                   |                                         |
-| `axis`         | <tt>int</tt>      | The dimension that was normalized over. |
-| **RETURNS**    | <tt>FloatsXd</tt> | The gradients of the input array.       |
+| Argument       | Type              | Description                                          |
+| -------------- | ----------------- | ---------------------------------------------------- |
+| `Y`            | <tt>FloatsXd</tt> | Output array.                                        |
+| `dY`           | <tt>FloatsXd</tt> | Gradients of the output array.                       |
+| _keyword-only_ |                   |                                                      |
+| `axis`         | <tt>int</tt>      | The dimension that was normalized over.              |
+| `temperature`  | <tt>float</tt>    | The value to divide the unnormalized probabilies by. |
+| **RETURNS**    | <tt>FloatsXd</tt> | The gradients of the input array.                    |
 
 ### Ops.softmax_sequences {#softmax_sequences tag="method"}
 
