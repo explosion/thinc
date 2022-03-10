@@ -154,7 +154,7 @@ vectors onto each column in the sequence, to extract a window of features.
 
 | Argument    | Type                      | Description                                                       |
 | ----------- | ------------------------- | ----------------------------------------------------------------- |
-| `seq`       | <tt>Floats2d</tt>         | The original sequence .                                           |
+| `seq`       | <tt>Floats2d</tt>         | The original sequence.                                           |
 | `nW`        | <tt>int</tt>              | The window size.                                                  |
 | `lengths`   | <tt>Optional[Ints1d]</tt> | Sequence lengths, introduces padding around sequences.            |
 | **RETURNS** | <tt>Floats2d</tt>         | The created sequence containing preceding and succeeding vectors. |
@@ -651,7 +651,7 @@ Calculate the softmax function. The resulting array will sum up to 1.
 | _keyword-only_ |                   |                                                      |
 | `inplace`      | <tt>bool</tt>     | If `True`, the array may be modified in place.       |
 | `axis`         | <tt>int</tt>      | The dimension to normalize over.                     |
-| `temperature`  | <tt>float</tt>    | The value to divide the unnormalized probabilies by. |
+| `temperature`  | <tt>float</tt>    | The value to divide the unnormalized probabilities by. |
 | **RETURNS**    | <tt>FloatsXd</tt> | The normalized output values.                        |
 
 ### Ops.backprop_softmax {#backprop_softmax tag="method"}
@@ -670,7 +670,7 @@ Calculate the softmax function. The resulting array will sum up to 1.
 | `dY`           | <tt>FloatsXd</tt> | Gradients of the output array.                       |
 | _keyword-only_ |                   |                                                      |
 | `axis`         | <tt>int</tt>      | The dimension that was normalized over.              |
-| `temperature`  | <tt>float</tt>    | The value to divide the unnormalized probabilies by. |
+| `temperature`  | <tt>float</tt>    | The value to divide the unnormalized probabilities by. |
 | **RETURNS**    | <tt>FloatsXd</tt> | The gradients of the input array.                    |
 
 ### Ops.softmax_sequences {#softmax_sequences tag="method"}
