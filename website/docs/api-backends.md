@@ -152,11 +152,12 @@ Given an `(M, N)` sequence of vectors, return an `(M, N*(nW*2+1))` sequence. The
 new sequence is constructed by concatenating `nW` preceding and succeeding
 vectors onto each column in the sequence, to extract a window of features.
 
-| Argument    | Type              | Description                                                       |
-| ----------- | ----------------- | ----------------------------------------------------------------- |
-| `seq`       | <tt>Floats2d</tt> | The original sequence .                                           |
-| `nW`        | <tt>int</tt>      | The window size.                                                  |
-| **RETURNS** | <tt>Floats2d</tt> | The created sequence containing preceding and succeeding vectors. |
+| Argument    | Type                      | Description                                                       |
+| ----------- | ------------------------- | ----------------------------------------------------------------- |
+| `seq`       | <tt>Floats2d</tt>         | The original sequence .                                           |
+| `nW`        | <tt>int</tt>              | The window size.                                                  |
+| `lengths`   | <tt>Optional[Ints1d]</tt> | Sequence lengths, introduces padding around sequences.            |
+| **RETURNS** | <tt>Floats2d</tt>         | The created sequence containing preceding and succeeding vectors. |
 
 ### Ops.backprop_seq2col {#backprop_seq2col tag="method"}
 
@@ -172,11 +173,12 @@ The reverse/backward operation of the `seq2col` function: calculate the gradient
 of the original `(M, N)` sequence, as a function of the gradient of the output
 `(M, N*(nW*2+1))` sequence.
 
-| Argument    | Type              | Description                        |
-| ----------- | ----------------- | ---------------------------------- |
-| `dY`        | <tt>Floats2d</tt> | Gradient of the output sequence.   |
-| `nW`        | <tt>int</tt>      | The window size.                   |
-| **RETURNS** | <tt>Floats2d</tt> | Gradient of the original sequence. |
+| Argument    | Type                      | Description                                            |
+| ----------- | ------------------------- | ------------------------------------------------------ |
+| `dY`        | <tt>Floats2d</tt>         | Gradient of the output sequence.                       |
+| `nW`        | <tt>int</tt>              | The window size.                                       |
+| `lengths`   | <tt>Optional[Ints1d]</tt> | Sequence lengths, introduces padding around sequences. |
+| **RETURNS** | <tt>Floats2d</tt>         | Gradient of the original sequence.                     |
 
 ### Ops.gemm {#gemm tag="method"}
 
