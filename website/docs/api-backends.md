@@ -907,7 +907,7 @@ Backpropagate the Swish activation
 
 </inline-list>
 
-. Gelu or "Gaussian Error Linear Unit"
+GELU or "Gaussian Error Linear Unit"
 [(Hendrycks and Gimpel, 2016)](https://arxiv.org/abs/1606.08415) is a
 self-gating non-monotonic activation function similar to [`swish`](#swish):
 whereas [`Gelu`](#gelu) uses the CDF of the Gaussian distribution Φ for
