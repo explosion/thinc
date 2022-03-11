@@ -477,7 +477,7 @@ approximation of sigmoid, defined as `max(0, min(1, x * 0.2 + 0.5))`.
 https://github.com/explosion/thinc/blob/master/thinc/layers/clipped_linear.py#L90
 ```
 
-### HardTanh {#hadtanh tag="function"}
+### HardTanh {#hardtanh tag="function"}
 
 <inline-list>
 
