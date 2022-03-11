@@ -865,10 +865,10 @@ Backpropagate the Mish activation
 </inline-list>
 
 Swish [(Ramachandran et al., 2017)](https://arxiv.org/abs/1710.05941v2) is a
-self-gating non-monotonic activation function similar to [`gelu`](#gelu):
-whereas [`Gelu`](#gelu) uses the CDF of the Gaussian distribution Φ for
-self-gating `x * Φ(x)` `swish` uses the logistic CDF `x * σ(x)`. Sometimes
-referred to as "SiLU" for "Sigmoid Linear Unit".
+self-gating non-monotonic activation function similar to [GELU](#gelu): whereas
+[GELU](#gelu) uses the CDF of the Gaussian distribution Φ for self-gating
+`x * Φ(x)` Swish uses the logistic CDF `x * σ(x)`. Sometimes referred to as
+"SiLU" for "Sigmoid Linear Unit".
 
 | Argument    | Type              | Description                                |
 | ----------- | ----------------- | ------------------------------------------ |
@@ -909,11 +909,11 @@ Backpropagate the Swish activation
 
 GELU or "Gaussian Error Linear Unit"
 [(Hendrycks and Gimpel, 2016)](https://arxiv.org/abs/1606.08415) is a
-self-gating non-monotonic activation function similar to [`swish`](#swish):
-whereas [`Gelu`](#gelu) uses the CDF of the Gaussian distribution Φ for
-self-gating `x * Φ(x)` the `swish` activation uses the logistic CDF σ and
-computes `x * σ(x)`. Various approximations exist, but `thinc` implements the
-exact GELU. The use of GELU is popular within transformer feed-forward blocks.
+self-gating non-monotonic activation function similar to [Swish](#swish):
+whereas [GELU](#gelu) uses the CDF of the Gaussian distribution Φ for
+self-gating `x * Φ(x)` the Swish activation uses the logistic CDF σ and computes
+`x * σ(x)`. Various approximations exist, but `thinc` implements the exact GELU.
+The use of GELU is popular within transformer feed-forward blocks.
 
 | Argument    | Type              | Description                                |
 | ----------- | ----------------- | ------------------------------------------ |
@@ -931,7 +931,7 @@ exact GELU. The use of GELU is popular within transformer feed-forward blocks.
 
 </inline-list>
 
-Backpropagate GELU activation
+Backpropagate the GELU activation
 [(Hendrycks and Gimpel, 2016)](https://arxiv.org/abs/1606.08415).
 
 | Argument    | Type              | Description                                     |
@@ -973,7 +973,7 @@ The resulting function `relu6` is commonly used in low-precision scenarios.
 
 </inline-list>
 
-Backpropagate `relu_k` activation.
+Backpropagate the ReLU-k activation.
 
 | Argument    | Type              | Description                                     |
 | ----------- | ----------------- | ----------------------------------------------- |
@@ -992,8 +992,8 @@ Backpropagate `relu_k` activation.
 
 </inline-list>
 
-The hard sigmoid activation function is a fast linear approximation of `sigmoid`
-defined as `max(0, min(1, x * 0.2 + 0.5))`.
+The hard sigmoid activation function is a fast linear approximation of the
+sigmoid activation, defined as `max(0, min(1, x * 0.2 + 0.5))`.
 
 | Argument    | Type              | Description                                |
 | ----------- | ----------------- | ------------------------------------------ |
@@ -1011,7 +1011,7 @@ defined as `max(0, min(1, x * 0.2 + 0.5))`.
 
 </inline-list>
 
-Backpropagate `hard_sigmoid` activation.
+Backpropagate the hard sigmoid activation.
 
 | Argument    | Type              | Description                                     |
 | ----------- | ----------------- | ----------------------------------------------- |
@@ -1049,7 +1049,7 @@ defined as `max(-1, min(1, x))`.
 
 </inline-list>
 
-Backpropagate `hard_tanh` activation.
+Backpropagate the hard tanh activation.
 
 | Argument    | Type              | Description                                     |
 | ----------- | ----------------- | ----------------------------------------------- |
@@ -1093,7 +1093,7 @@ Flexible clipped linear activation function of the form
 
 </inline-list>
 
-Backpropagate `clipped_linear` activation.
+Backpropagate the clipped linear activation.
 
 | Argument    | Type              | Description                                                               |
 | ----------- | ----------------- | ------------------------------------------------------------------------- |
@@ -1135,7 +1135,7 @@ The hard Swish activation function is a fast linear approximation of Swish:
 
 </inline-list>
 
-Backpropagate `hard_swish` activation.
+Backpropagate the hard Swish activation.
 
 | Argument    | Type              | Description                                     |
 | ----------- | ----------------- | ----------------------------------------------- |
@@ -1154,9 +1154,9 @@ Backpropagate `hard_swish` activation.
 
 </inline-list>
 
-A variant of the fast linear hard Swish activation function used in
-`MobileNetV3` [(Howard et al., 2019)](https://arxiv.org/abs/1905.02244) defined
-as `x * (relu6(x + 3) / 6)`.
+A variant of the fast hard Swish activation function used in `MobileNetV3`
+[(Howard et al., 2019)](https://arxiv.org/abs/1905.02244) defined as
+`x * (relu6(x + 3) / 6)`.
 
 | Argument    | Type              | Description                                |
 | ----------- | ----------------- | ------------------------------------------ |
@@ -1174,7 +1174,7 @@ as `x * (relu6(x + 3) / 6)`.
 
 </inline-list>
 
-Backpropagate `hard_swish_mobilenet` activation.
+Backpropagate the hard Swish MobileNet activation.
 
 | Argument    | Type              | Description                                     |
 | ----------- | ----------------- | ----------------------------------------------- |
