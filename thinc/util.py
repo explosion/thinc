@@ -216,17 +216,24 @@ def to_categorical(
             "equal to 0.0 and less than 0.5, "
             f"but {label_smoothing} was provided."
         )
-    if n_classes is not None and not n_classes > 1:
-        raise ValueError(
-            "n_classes should be greater than 1, but "
-            f"{n_classes} was provided."
-        )
-    xp = get_array_module(Y)
+
     if n_classes is None:
         n_classes = int(numpy.max(Y) + 1)  # type: ignore
-    label_distr = xp.full(
-        (n_classes, n_classes), label_smoothing / (n_classes - 1), dtype="float32"
-    )
+
+    if label_smoothing == 0.0:
+        if n_classes == 0:
+            raise ValueError("n_classes should be at least 1")
+        nongold_prob = 0.0
+    else:
+        if not n_classes > 1:
+            raise ValueError(
+                "n_classes should be greater than 1 when label smoothing is enabled,"
+                f"but {n_classes} was provided."
+            )
+        nongold_prob = label_smoothing / (n_classes - 1)
+
+    xp = get_array_module(Y)
+    label_distr = xp.full((n_classes, n_classes), nongold_prob, dtype="float32")
     xp.fill_diagonal(label_distr, 1 - label_smoothing)
     return label_distr[Y]
 
