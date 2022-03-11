@@ -960,7 +960,7 @@ The resulting function `relu6` is commonly used in low-precision scenarios.
 | ----------- | ----------------- | ------------------------------------------ |
 | `X`         | <tt>FloatsXd</tt> | The inputs.                                |
 | `inplace`   | <tt>bool</tt>     | If `True`, the array is modified in place. |
-| `k`         | <tt>float</tt>    | Maximum value, (default: 6.0).             |
+| `k`         | <tt>float</tt>    | Maximum value (default: 6.0).              |
 | **RETURNS** | <tt>FloatsXd</tt> | The outputs.                               |
 
 ### Ops.backprop_relu_k {#backprop_relu_k tag="method"}
