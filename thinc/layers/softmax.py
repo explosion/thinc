@@ -4,7 +4,7 @@ from ..model import Model
 from ..config import registry
 from ..types import Floats2d, Floats1d
 from ..initializers import zero_init
-from ..util import get_width, partial
+from ..util import get_width, partial, ArrayInfo
 
 
 InT = Floats2d
@@ -66,7 +66,10 @@ def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Call
     if normalize:
         Y = model.ops.softmax(Y, temperature=temperature)
 
+    array_info = ArrayInfo.from_array(Y)
+
     def backprop(dY: InT) -> OutT:
+        array_info.check_consistency(dY)
         if temperature != 1.0:
             dY = dY / temperature
 

@@ -1,6 +1,7 @@
 from thinc.api import Linear, SGD, PyTorchWrapper, PyTorchWrapper_v2
 from thinc.api import xp2torch, torch2xp, ArgsKwargs, use_ops
 from thinc.api import chain, get_current_ops, Relu
+from thinc.backends import context_pools
 from thinc.shims.pytorch_grad_scaler import PyTorchGradScaler
 from thinc.util import has_torch, has_torch_amp, has_torch_gpu
 import numpy
@@ -82,6 +83,8 @@ def test_pytorch_wrapper_thinc_input(nN, nI, nO, mixed_precision):
                 grad_scaler=PyTorchGradScaler(enabled=True, init_scale=2.0 ** 16),
             ).initialize(),
         )
+        # pytorch allocator is set in PyTorchShim
+        assert "pytorch" in context_pools.get()
         sgd = SGD(0.001)
         X = ops.xp.zeros((nN, nI), dtype="f")
         X += ops.xp.random.uniform(size=X.size).reshape(X.shape)

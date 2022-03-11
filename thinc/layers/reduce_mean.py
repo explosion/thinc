@@ -3,6 +3,7 @@ from typing import Tuple, Callable, cast
 from ..types import Floats2d, Ragged
 from ..model import Model
 from ..config import registry
+from ..util import ArrayInfo
 
 
 InT = Ragged
@@ -18,7 +19,10 @@ def forward(model: Model[InT, OutT], Xr: InT, is_train: bool) -> Tuple[OutT, Cal
     Y = model.ops.reduce_mean(cast(Floats2d, Xr.data), Xr.lengths)
     lengths = Xr.lengths
 
+    array_info = ArrayInfo.from_array(Y)
+
     def backprop(dY: OutT) -> InT:
+        array_info.check_consistency(dY)
         return Ragged(model.ops.backprop_reduce_mean(dY, lengths), lengths)
 
     return Y, backprop
