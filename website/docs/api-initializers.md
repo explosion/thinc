@@ -88,7 +88,7 @@ computed as: `scale = sqrt(3.0 / data.shape[1])`.
 
 ### lecun_normal_init {#lecun_normal_init tag="function"}
 Initialize from a normal distribution with `scale` parameter
-computed as: `variance = sqrt(1.0 / data.shape[1])`
+computed as: `variance = sqrt(1.0 / data.shape[1])`.
 
 
 | Argument    | Type              | Description                           |
