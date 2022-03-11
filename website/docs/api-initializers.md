@@ -55,7 +55,7 @@ parameter computed by the method introduced by Xavier Glorot
 
 Initialize from a uniform distribution with `scale` parameter
 computed by the method introduced in [He et al., 2015](https://arxiv.org/abs/1502.01852): 
-`scale = sqrt(6.0 / data.shape[1])`
+`scale = sqrt(6.0 / data.shape[1])`.
 
 | Argument    | Type              | Description                           |
 | ----------- | ----------------- | ------------------------------------- |
