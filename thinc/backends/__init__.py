@@ -1,5 +1,5 @@
 import contextlib
-from typing import Type, Dict, Any, Callable, Optional
+from typing import Type, Dict, Any, Callable, Optional, cast
 
 from contextvars import ContextVar
 import threading
@@ -10,16 +10,16 @@ from .numpy_ops import NumpyOps
 from ._cupy_allocators import cupy_tensorflow_allocator, cupy_pytorch_allocator
 from ._param_server import ParamServer
 from ..util import assert_tensorflow_installed, assert_pytorch_installed
-from ..util import is_cupy_array
+from ..util import is_cupy_array, set_torch_tensor_type_for_ops, require_cpu
 from .. import registry
 
 
-context_ops: ContextVar[NumpyOps] = ContextVar("context_ops", default=NumpyOps())
+context_ops: ContextVar[Optional[Ops]] = ContextVar("context_ops", default=None)
 context_pools: ContextVar[dict] = ContextVar("context_pools", default={})
 
 # Internal use of thread-local storage only for detecting cases where a Jupyter
 # notebook might not have preserved contextvars across cells.
-_GLOBAL_STATE = {"ops": NumpyOps()}
+_GLOBAL_STATE = {"ops": None}
 
 
 def set_gpu_allocator(allocator: str) -> None:  # pragma: no cover
@@ -79,6 +79,10 @@ def _import_extra_cpu_backends():
         from thinc_apple_ops import AppleOps
     except ImportError:
         pass
+    try:
+        from thinc_bigendian_ops import BigEndianOps
+    except ImportError:
+        pass
 
 
 def get_ops(name: str, **kwargs) -> Ops:
@@ -90,8 +94,10 @@ def get_ops(name: str, **kwargs) -> Ops:
 
     cls: Optional[Callable[..., Ops]] = None
     if name == "cpu":
-        _import_extra_cpu_backends()
-        cls = ops_by_name.get("apple", ops_by_name.get("numpy"))
+        _import_extra_cpu_backends()        
+        cls = ops_by_name.get("numpy")
+        cls = ops_by_name.get("apple", cls)
+        cls = ops_by_name.get("bigendian", cls)
     else:
         cls = ops_by_name.get(name)
 
@@ -114,19 +120,24 @@ def use_ops(name: str, **kwargs):
     """Change the backend to execute on for the scope of the block."""
     current_ops = get_current_ops()
     set_current_ops(get_ops(name, **kwargs))
-    yield
-    set_current_ops(current_ops)
+    try:
+        yield
+    finally:
+        set_current_ops(current_ops)
 
 
 def get_current_ops() -> Ops:
     """Get the current backend object."""
-    return context_ops.get()
+    if context_ops.get() is None:
+        require_cpu()
+    return cast(Ops, context_ops.get())
 
 
 def set_current_ops(ops: Ops) -> None:
     """Change the current backend object."""
     context_ops.set(ops)
     _get_thread_state().ops = ops
+    set_torch_tensor_type_for_ops(ops)
 
 
 def contextvars_eq_thread_ops() -> bool:

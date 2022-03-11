@@ -24,6 +24,7 @@ def tuplify(layer1: Model[InT, Any], layer2: Model[InT, Any], *layers) -> Model[
         tuplify_forward,
         init=init,
         layers=layers,
+        dims={"nI": None},
     )
 
 

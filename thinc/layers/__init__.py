@@ -12,13 +12,19 @@ from .maxout import Maxout
 from .mish import Mish
 from .multisoftmax import MultiSoftmax
 from .parametricattention import ParametricAttention
-from .pytorchwrapper import PyTorchWrapper, PyTorchRNNWrapper
+from .pytorchwrapper import PyTorchWrapper, PyTorchWrapper_v2
+from .pytorchwrapper import PyTorchRNNWrapper
 from .relu import Relu
+from .clipped_linear import ClippedLinear, ReluK, HardSigmoid, HardTanh
+from .hard_swish import HardSwish
+from .hard_swish_mobilenet import HardSwishMobilenet
+from .swish import Swish
+from .gelu import Gelu
 from .resizable import resizable
 from .sigmoid_activation import sigmoid_activation
 from .sigmoid import Sigmoid
 from .softmax_activation import softmax_activation
-from .softmax import Softmax
+from .softmax import Softmax, Softmax_v2
 from .sparselinear import SparseLinear
 from .tensorflowwrapper import TensorFlowWrapper, keras_subclass
 from .mxnetwrapper import MXNetWrapper
@@ -82,12 +88,13 @@ __all__ = [
     "ParametricAttention",
     "PyTorchLSTM",
     "PyTorchWrapper",
+    "PyTorchWrapper_v2",
     "PyTorchRNNWrapper",
     "Relu",
     "sigmoid_activation",
-    "Sigmoid"
-    "softmax_activation",
+    "Sigmoid" "softmax_activation",
     "Softmax",
+    "Softmax_v2",
     "SparseLinear",
     "TensorFlowWrapper",
     "add",

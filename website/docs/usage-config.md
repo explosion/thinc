@@ -756,7 +756,7 @@ log_level = "INFO"
 Note that if you're only filling and not resolving a config, Thinc will **not**
 load or call any registered functions, and it won't be able to validate the
 return values of registered functions against any types defined in the base
-schema. If you neeed to check that all functions exist and their return values
+schema. If you need to check that all functions exist and their return values
 match, use [`registry.resolve`](/docs/api-config#registry-resolve) instead.
 
 </infobox>

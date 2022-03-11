@@ -1,3 +1,5 @@
+import math
+
 from typing import Optional, List, Tuple, Sequence, Union, cast, TypeVar
 from typing import Iterator, overload
 import numpy
@@ -14,6 +16,9 @@ from ..util import get_array_module, is_xp_array, to_numpy
 ArrayT = TypeVar("ArrayT", bound=ArrayXd)
 FloatsT = TypeVar("FloatsT", bound=_Floats)
 FloatsType = TypeVar("FloatsType", bound=FloatsXd)
+SQRT2PI = math.sqrt(2.0 / math.pi)
+INV_SQRT2 = 1.0 / math.sqrt(2.0)
+INV_SQRT_2PI = 1.0 / math.sqrt(2.0 * math.pi)
 
 
 class Ops:
@@ -26,8 +31,11 @@ class Ops:
         self.device_type = device_type
         self.device_id = device_id
 
-    def to_numpy(self, data):  # pragma: no cover
+    def to_numpy(self, data, *, byte_order=None):  # pragma: no cover
         if isinstance(data, numpy.ndarray):
+            if byte_order:
+                dtype = data.dtype.newbyteorder(byte_order)
+                data = numpy.asarray(data, dtype=dtype)
             return data
         else:
             raise ValueError("Cannot convert non-numpy from base Ops class")
@@ -144,14 +152,17 @@ class Ops:
             i += output[-1]
         return output
 
-    def seq2col(self, seq: Floats2d, nW: int) -> Floats2d:
+    def seq2col(
+        self, seq: Floats2d, nW: int, *, lengths: Optional[Ints1d] = None
+    ) -> Floats2d:
         """Given an (M, N) sequence of vectors, return an (M, N*(nW*2+1))
         sequence. The new sequence is constructed by concatenating nW preceding
         and succeeding vectors onto each column in the sequence, to extract a
         window of features.
         """
-        # This is a test implementation that only supports nW=1
+        # This is a test implementation that only supports nW=1 and lengths=None
         assert nW == 1
+        assert lengths == None
         B = seq.shape[0]
         I = seq.shape[1]
         cols = self.alloc3f(B, (nW * 2 + 1), I)
@@ -161,13 +172,16 @@ class Ops:
         cols[:-nW, nW + 1 :] = self.reshape3f(seq[nW:], -1, nW, I)
         return self.reshape2f(cols, B, I * (2 * nW + 1))
 
-    def backprop_seq2col(self, dY: Floats2d, nW: int) -> Floats2d:
+    def backprop_seq2col(
+        self, dY: Floats2d, nW: int, *, lengths: Optional[Ints1d] = None
+    ) -> Floats2d:
         """The reverse/backward operation of the `seq2col` function: calculate
         the gradient of the original `(M, N)` sequence, as a function of the
         gradient of the output `(M, N*(nW*2+1))` sequence.
         """
-        # This is a test implementation that only supports nW=1
+        # This is a test implementation that only supports nW=1 and lengths=None
         assert nW == 1
+        assert lengths == None
         nF = nW * 2 + 1
         B = dY.shape[0]
         I = dY.shape[1] // nF
@@ -569,8 +583,8 @@ class Ops:
     def sigmoid(self, X: FloatsType, *, inplace: bool = False) -> FloatsType:
         if inplace:
             self.xp.exp(-X, out=X)
-            X += 1.0 # type: ignore
-            X **= -1.0 # type: ignore
+            X += 1.0  # type: ignore
+            X **= -1.0  # type: ignore
             return cast(FloatsType, X)
         else:
             return cast(FloatsType, 1.0 / (1.0 + self.xp.exp(-X)))
@@ -591,7 +605,16 @@ class Ops:
         else:
             return 1 - Y ** 2
 
-    def softmax(self, x: FloatsT, *, inplace: bool = False, axis: int = -1) -> FloatsT:
+    def softmax(
+        self,
+        x: FloatsT,
+        *,
+        inplace: bool = False,
+        axis: int = -1,
+        temperature: float = 1.0,
+    ) -> FloatsT:
+        if temperature != 1.0:
+            x = x / temperature
         maxes = self.xp.max(x, axis=axis, keepdims=True)
         shifted = x - maxes
         new_x = self.xp.exp(shifted)
@@ -611,7 +634,12 @@ class Ops:
         new_x /= summed
         return new_x
 
-    def backprop_softmax(self, Y: FloatsT, dY: FloatsT, *, axis: int = -1) -> FloatsT:
+    def backprop_softmax(
+        self, Y: FloatsT, dY: FloatsT, *, axis: int = -1, temperature: float = 1.0
+    ) -> FloatsT:
+        if temperature != 1.0:
+            dY = dY / temperature
+
         dX = Y * dY
         dX -= Y * dX.sum(axis=axis, keepdims=True)
         return dX
@@ -680,39 +708,228 @@ class Ops:
         dY *= Y > 0
         return dY
 
-    def mish(self, X: Floats2d, threshold: float = 20.0) -> Floats2d:
-        Y = self.alloc2f(*X.shape, dtype=X.dtype)
+    def clipped_linear(
+        self,
+        X: FloatsType,
+        slope: float = 1.0,
+        offset: float = 0.0,
+        min_val: float = 0.0,
+        max_val: float = 1.0,
+        inplace: bool = False,
+    ) -> FloatsType:
+        if inplace:
+            X *= slope  # type: ignore
+            X += offset  # type: ignore
+            return cast(FloatsType, self.xp.clip(X, min_val, max_val, out=X))
+        out = X * slope + offset  # type: ignore
+        return cast(FloatsType, self.xp.clip(out, min_val, max_val))
+
+    def backprop_clipped_linear(
+        self,
+        dY: FloatsType,
+        X: FloatsType,
+        slope: float = 1.0,
+        offset: float = 0.0,
+        min_val: float = 0.0,
+        max_val: float = 1.0,
+        inplace: bool = False,
+    ) -> FloatsType:
+        low = (min_val - offset) / slope
+        high = (max_val - offset) / slope
+        slope = self.xp.float64(slope).astype(X.dtype)
+        zero = self.xp.float64(0.0).astype(X.dtype)
+        dX = self.xp.where((low < X) & (X < high), slope, zero)
+        if inplace:
+            dY *= dX
+            return dY
+        return dY * dX
+
+    def relu_k(
+        self, X: FloatsType, n: float = 6.0, inplace: bool = False
+    ) -> FloatsType:
+        return self.clipped_linear(X, max_val=n, inplace=inplace)
+
+    def backprop_relu_k(
+        self, dY: FloatsType, X: FloatsType, n: float = 6.0, inplace: bool = False
+    ) -> FloatsType:
+        return self.backprop_clipped_linear(dY, X, max_val=n, inplace=inplace)
+
+    def hard_sigmoid(self, X: FloatsType, inplace: bool = False) -> FloatsType:
+        return self.clipped_linear(X, slope=0.2, offset=0.5)
+
+    def backprop_hard_sigmoid(
+        self, dY: FloatsType, X: FloatsType, inplace: bool = False
+    ) -> FloatsType:
+        return self.backprop_clipped_linear(dY, X, slope=0.2, offset=0.5)
+
+    def hard_tanh(self, X: FloatsType, inplace: bool = False) -> FloatsType:
+        return self.clipped_linear(X, min_val=-1.0, max_val=1.0)
+
+    def backprop_hard_tanh(
+        self, dY: FloatsType, X: FloatsType, inplace: bool = False
+    ) -> FloatsType:
+        return self.backprop_clipped_linear(dY, X, min_val=-1.0, max_val=1.0)
+
+    def swish(self, X: FloatsType, inplace: bool = False) -> FloatsType:
+        if inplace:
+            X *= self.sigmoid(X)  # type: ignore
+            return cast(FloatsType, X)
+        out = X * self.sigmoid(X)  # type: ignore
+        return cast(FloatsType, out)
+
+    def backprop_swish(
+        self, dY: FloatsType, X: FloatsType, Y: FloatsType, inplace: bool = False
+    ) -> FloatsType:
+        Y = Y + self.sigmoid(X) * (1 - Y)  # type: ignore
+        if inplace:
+            dY *= Y  # type: ignore
+            return cast(FloatsType, dY)
+        out = dY * Y  # type: ignore
+        return cast(FloatsType, out)
+
+    # Following https://www.scitepress.org/Papers/2019/74696/74696.pdf
+    def hard_swish(self, X: FloatsType, inplace: bool = False) -> FloatsType:
+        if inplace:
+            X *= self.hard_sigmoid(X)  # type: ignore
+            return cast(FloatsType, X)
+        out = X * self.hard_sigmoid(X)  # type: ignore
+        return cast(FloatsType, out)
+
+    def backprop_hard_swish(
+        self, dY: FloatsType, X: FloatsType, inplace: bool = False
+    ) -> FloatsType:
+        dX = X * 0.4 + 0.5
+        dX[X > 2.5] = 1.0
+        dX[X < -2.5] = 0
+        if inplace:
+            dY *= dX
+            return dY
+        return dY * dX
+
+    # From https://arxiv.org/pdf/1905.02244v5.pdf
+    def hard_swish_mobilenet(self, X: FloatsType, inplace: bool = False) -> FloatsType:
+        if inplace:
+            X *= self.relu_k(X + 3) / 6
+            return X
+        return X * (self.relu_k(X + 3) / 6)
+
+    def backprop_hard_swish_mobilenet(
+        self, dY: FloatsType, X: FloatsType, inplace: bool = False
+    ) -> FloatsType:
+        dX = (1 / 6) * (X * 2.0 + 3.0)
+        dX[X > 3.0] = 1.0
+        dX[X < -3.0] = 0
+        if inplace:
+            dY *= dX
+            return dY
+        return dX * dY
+
+    # Code snippet taken from:
+    # https://www.johndcook.com/blog/2009/01/19/stand-alone-error-function-erf/
+    def erf(self, X: FloatsType) -> FloatsType:
+        # save the sign of x
+        sign = self.xp.sign(X)
+        X = self.xp.abs(X)
+
+        a1 = 0.254829592
+        a2 = -0.284496736
+        a3 = 1.421413741
+        a4 = -1.453152027
+        a5 = 1.061405429
+        p = 0.3275911
+
+        t = 1.0 / (1.0 + p * X)
+        y = 1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * self.xp.exp(
+            -X * X
+        )
+        out = sign * y
+        out = out.astype(X.dtype)
+        return out
+
+    def sechsq(self, X: FloatsType) -> FloatsType:
+        return (1 / self.xp.cosh(X)) ** 2
+
+    def gelu_approx(self, X: FloatsType, inplace: bool = False) -> FloatsType:
+        tmp = 1.0 + self.xp.tanh(SQRT2PI * (X + 0.044715 * self.xp.power(X, 3)))
+        tmp *= 0.5
+        tmp = tmp.astype(X.dtype)
+        if inplace:
+            X *= tmp
+            return X
+        Y = self.xp.zeros_like(X)
+        Y += tmp
+        Y *= X
+        return cast(FloatsType, Y)
+
+    def backprop_gelu_approx(
+        self, dY: FloatsType, X: FloatsType, inplace: bool = False
+    ) -> FloatsType:
+        dX = self.alloc_f(X.shape)
+        Xp3 = self.xp.power(X, 3)
+        tmp = 0.5 * self.xp.tanh(0.0356774 * Xp3 + 0.797885 * X)
+        tmp += (0.0535161 * Xp3 + 0.398942 * X) * self.sechsq(
+            0.0356774 * Xp3 + 0.797885 * X
+        )
+        tmp += 0.5
+        dX += tmp
+        if inplace:
+            dY *= dX
+            return dY
+        return dY * dX
+
+    def gelu(self, X: FloatsType, inplace: bool = False) -> FloatsType:
+        # GELU(x) = x · Φ(x)
+        cdf = gaussian_cdf(self, X)
+        if inplace:
+            X *= cdf  # type: ignore
+            return X
+        return X * cdf  # type: ignore
+
+    def backprop_gelu(
+        self, dY: FloatsType, X: FloatsType, inplace: bool = False
+    ) -> FloatsType:
+        # GELU'(x) = Φ(x) + x · PDF(x)
+        dX = gaussian_cdf(self, X) + X * gaussian_pdf(self, X)  # type: ignore
+        if inplace:
+            dY *= dX
+            return dY
+        return dY * dX
+
+    def mish(
+        self, X: FloatsType, threshold: float = 20.0, inplace: bool = False
+    ) -> FloatsType:
         tmp = X * self.xp.tanh(self.xp.log(1.0 + self.xp.exp(X)))
-        for i in range(X.shape[0]):
-            for j in range(X.shape[1]):
-                if X[i, j] >= threshold:
-                    Y[i, j] = X[i, j]
-                else:
-                    Y[i, j] = tmp[i, j]
-        return Y
+        Y = self.xp.where(X >= threshold, X, tmp)
+        if inplace:
+            X[:] = Y
+            return X
+        else:
+            return Y
 
     def backprop_mish(
         self,
-        dY: Floats2d,
+        dY: FloatsType,
         X: Floats2d,
         threshold: float = 20.0,
-        out: Optional[Floats2d] = None,
-    ) -> Floats2d:
+        inplace: bool = False,
+    ) -> FloatsType:
         xp = get_array_module(X)
         indices = X < threshold
         Xsub = X[indices]
         dYsub = dY[indices]
         omega = 4.0 * (Xsub + 1.0)
         omega += 4.0 * xp.exp(2.0 * Xsub)
+        omega += xp.exp(3.0 * Xsub)
         omega += xp.exp(Xsub) * ((4.0 * Xsub) + 6.0)
-        delta = 2.0 * xp.exp(Xsub)
-        delta += xp.exp(2.0 * Xsub)
-        delta += 2.0
+        delta = xp.exp(Xsub) + 1.0
+        delta *= delta
+        delta += 1.0
         dXsub = dYsub * ((xp.exp(Xsub) * omega) / (delta ** 2))
-        if out is None:
-            out = xp.zeros(dY.shape, dtype="f")
         # Gradient when above threshold will ignore softplus.
-        out[:] = dY + dY * self.dtanh(X)
+        if inplace:
+            out = dY
+        else:
+            out = xp.copy(dY)
         out[indices] = dXsub
         return out
 
@@ -811,7 +1028,9 @@ class Ops:
         dX = self.alloc2f(lengths.sum(), d_maxes.shape[1])
         start = 0
         for i, length in enumerate(lengths):
-            dX[start : start + length, which[i]] = d_maxes[i]
+            self.xp.put_along_axis(
+                dX[start : start + length], which[i].reshape((1, -1)), d_maxes[i], 0
+            )
             start += length
         return dX
 
@@ -1152,3 +1371,13 @@ def dsigmoid(Y: ArrayT) -> ArrayT:
 
 def dtanh(Y: ArrayT) -> ArrayT:
     return 1 - Y ** 2
+
+
+def gaussian_cdf(ops: Ops, X: FloatsType) -> FloatsType:
+    """Gaussian CDF for distribution with mean 0 and stdev 1."""
+    return 0.5 * (1.0 + ops.erf(INV_SQRT2 * X))
+
+
+def gaussian_pdf(ops: Ops, X: FloatsType) -> FloatsType:
+    """Gaussian PDF for distribution with mean 0 and stdev 1."""
+    return INV_SQRT_2PI * ops.xp.exp(-0.5 * X * X)

@@ -1,6 +1,7 @@
 from typing import Any, Optional, cast
 import contextlib
 from io import BytesIO
+import itertools
 import srsly
 
 try:
@@ -11,8 +12,9 @@ try:
 except ImportError:  # pragma: no cover
     pass
 
-from ..util import torch2xp, xp2torch, convert_recursive
-from ..backends import get_current_ops
+from ..util import torch2xp, xp2torch, convert_recursive, iterate_recursive
+from ..backends import get_current_ops, context_pools, CupyOps
+from ..backends import set_gpu_allocator
 from ..optimizers import Optimizer
 from ..types import ArgsKwargs, FloatsXd
 from .pytorch_grad_scaler import PyTorchGradScaler
@@ -48,6 +50,14 @@ class PyTorchShim(Shim):
         self._grad_scaler = grad_scaler
 
         self._mixed_precision = mixed_precision
+
+        if CupyOps.xp is not None and isinstance(get_current_ops(), CupyOps):
+            pools = context_pools.get()
+            if "pytorch" not in pools:
+                from cupy import get_default_memory_pool
+
+                set_gpu_allocator("pytorch")
+                get_default_memory_pool().free_all_blocks()
 
     def __call__(self, inputs, is_train):
         if is_train:
@@ -87,27 +97,37 @@ class PyTorchShim(Shim):
             # backprop'ed through the succeeding layer to get the same effect as loss
             # scaling.
             grads.kwargs["grad_tensors"] = self._grad_scaler.scale(
-                grads.kwargs["grad_tensors"]
+                grads.kwargs["grad_tensors"], inplace=True
             )
 
             torch.autograd.backward(*grads.args, **grads.kwargs)
-            return convert_recursive(
-                lambda x: hasattr(x, "grad"), lambda x: x.grad, inputs
-            )
+
+            # Unscale weights and check for overflows during backprop.
+            grad_tensors = []
+            for torch_data in itertools.chain(
+                self._model.parameters(),
+                iterate_recursive(lambda x: hasattr(x, "grad"), inputs),
+            ):
+                if torch_data.grad is not None:
+                    grad_tensors.append(torch_data.grad)
+            found_inf = self._grad_scaler.unscale(grad_tensors)
+
+            # If there was an over/underflow, return zeroed-out gradients.
+            if found_inf:
+                grad_get = lambda x: x.grad.zero_() if x.grad is not None else x.grad
+            else:
+                grad_get = lambda x: x.grad
+
+            return convert_recursive(lambda x: hasattr(x, "grad"), grad_get, inputs)
 
         return output, backprop
 
     def finish_update(self, optimizer: Optimizer):
-        # Unscale weights and check for overflows during backprop.
-        grad_tensors = []
         for name, torch_data in self._model.named_parameters():
             if torch_data.grad is not None:
-                grad_tensors.append(torch_data.grad)
-        found_inf = self._grad_scaler.unscale(grad_tensors)
-
-        for name, torch_data in self._model.named_parameters():
-            if torch_data.grad is not None:
-                if not found_inf:  # Skip weight update if any gradient overflowed.
+                if (
+                    not self._grad_scaler.found_inf
+                ):  # Skip weight update if any gradient overflowed.
                     param, grad = optimizer(
                         (self.id, name),
                         cast(FloatsXd, torch2xp(torch_data.data)),

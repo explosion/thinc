@@ -22,6 +22,7 @@ def pytest_runtest_setup(item):
 
 @pytest.fixture()
 def pathy_fixture():
+    pytest.importorskip("pathy")
     import tempfile
     import shutil
     from pathy import use_fs, Pathy

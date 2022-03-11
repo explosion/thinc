@@ -13,7 +13,7 @@ from libc.string cimport memcpy
 from libc.math cimport isnan
 from cymem.cymem cimport Pool
 from preshed.maps cimport PreshMap
-from murmurhash.mrmr cimport hash64, hash128_x86, hash128_x64
+from murmurhash.mrmr cimport hash64
 cimport numpy as np
 cimport blis.cy
 
@@ -163,26 +163,31 @@ class NumpyOps(Ops):
             &dY[0, 0], &which[0, 0], B, O, P)
         return dX
 
-    def mish(self, const float[:, ::1] X, threshold=20.0):
-        shape = [X.shape[i] for i in range(X.ndim)]
-        cdef np.ndarray Y = self.alloc(tuple(shape), dtype="f")
-        cpu_mish(<float*>Y.data,
-            &X[0, 0], threshold, X.size)
-        return Y
-
-    def backprop_mish(self, const float[:, ::1] dY, const float[:, ::1] X,
-            threshold=20.0, out=None):
-        shape = [X.shape[i] for i in range(X.ndim)]
-        cdef np.ndarray dX = self.alloc(tuple(shape), dtype="f")
-        cpu_backprop_mish(<float*>dX.data,
-            &dY[0, 0], &X[0, 0], threshold, X.size)
-        if out is not None:
-            out[:] = dX
-            return out
+    def mish(self, np.ndarray X, threshold=20.0, inplace: bool = False):
+        cdef np.ndarray Y
+        if X.dtype == "float32":
+            if inplace:
+                Y = X
+            else:
+                Y = self.xp.empty_like(X)
+            cpu_mish(<float*>Y.data, <float *>X.data, threshold, X.size)
+            return Y
         else:
-            return dX
+            return super().mish(X, threshold, inplace)
 
-    def seq2col(self, const float[:, ::1] seq, int nW):
+    def backprop_mish(self, np.ndarray dY, np.ndarray X, threshold=20.0, inplace=False):
+        cdef np.ndarray dX
+        if dY.dtype == "float32" and X.dtype == "float32":
+            if inplace:
+                dX = dY
+            else:
+                dX = self.xp.empty_like(X)
+            cpu_backprop_mish(<float*>dX.data, <float*>dY.data, <float*>X.data, threshold, X.size)
+            return dX
+        else:
+            return super().backprop_mish(dY, X, threshold, inplace)
+
+    def seq2col(self, const float[:, ::1] seq, int nW, *, const int[::1] lengths=None):
         """Given an (M, N) sequence of vectors, return an (M, N*(nW*2+1))
         sequence. The new sequence is constructed by concatenating nW preceding
         and succeeding vectors onto each column in the sequence, to extract a
@@ -190,16 +195,28 @@ class NumpyOps(Ops):
         """
         cdef int B = seq.shape[0]
         cdef int I = seq.shape[1]
+
+        lengths = check_seq2col_lengths(self, lengths, B)
+        cdef int nL = lengths.shape[0]
+
         cdef np.ndarray cols = self.alloc((B, (2*nW + 1) * I), dtype="float32")
-        seq2col(<float*>cols.data, &seq[0,0], nW, B, I)
+
+        if seq.size != 0 and lengths.size != 0:
+            seq2col(<float*>cols.data, &seq[0,0], &lengths[0], nW, B, I, nL)
+
         return cols
 
-    def backprop_seq2col(self, const float[:, ::1] dY, int nW):
+    def backprop_seq2col(self, const float[:, ::1] dY, int nW, *, const int[::1] lengths=None):
         cdef int B = dY.shape[0]
         cdef int nF = nW*2+1
         cdef int I = dY.shape[1] / nF
+
+        lengths = check_seq2col_lengths(self, lengths, B)
+        cdef int nL = lengths.shape[0]
+
         cdef np.ndarray dX = self.alloc((B, I), dtype='float32')
-        backprop_seq2col(<float*>dX.data, &dY[0,0], B, I, nW)
+        if dY.size != 0 and lengths.size != 0:
+            backprop_seq2col(<float*>dX.data, &dY[0,0], &lengths[0], B, I, nW, nL)
         return dX
 
     @cython.boundscheck(False)
@@ -208,18 +225,10 @@ class NumpyOps(Ops):
         """Hash a sequence of 64-bit keys into a table with 4 32-bit keys."""
         # Written to mirror the GPU implementation
         cdef np.ndarray[uint32_t, ndim=2] keys = self.alloc((ids.shape[0], 4), dtype='uint32')
-        cdef int i, j
-        cdef unsigned char entropy[16] # 128/8=16
-        cdef size_t n_items = len(ids)
-        cdef size_t in_size = sizeof(uint64_t)
-        src = <unsigned char*>&ids[0]
-        dest = <unsigned char*>keys.data
-        for i in range(n_items):
-            hash128_x64(<void*>src, in_size, seed, entropy)
-            for j in range(16):
-                dest[j] = entropy[j]
-            src += in_size
-            dest += 16
+        cdef int i
+        cdef uint32_t* dest = <uint32_t*>keys.data
+        for i in range(len(ids)):
+            MurmurHash3_x86_128_uint64(ids[i], seed, &dest[i*4])
         return keys
 
     def reduce_mean(self, const float[:, ::1] X, int[::1] lengths):
@@ -369,7 +378,17 @@ class NumpyOps(Ops):
         return out_
 
 
-cdef void seq2col(float* output, const float* X, int nW, int B, int I) nogil:
+def check_seq2col_lengths(ops, lengths, B):
+    if lengths is None:
+        lengths = ops.asarray1i([B])
+    else:
+        assert ops.xp.all(ops.xp.array(lengths) >= 0), "All sequence lengths must be >= 0"
+        assert ops.xp.sum(lengths) == B, "The lengths must sum up to the batch length"
+
+    return lengths
+
+
+cdef void seq2col(float* output, const float* X, const int* L, int nW, int B, int I, int nL) nogil:
     '''
     Let's say nW is 1 (it usually is). Then we want to take:
 
@@ -401,23 +420,41 @@ cdef void seq2col(float* output, const float* X, int nW, int B, int I) nogil:
     * x_start=-3, x_end=13 : (1-2) * 3, (1+2+1) * 3
     * x_start=0, x_end=16 : (2-2) * 3, (2+2+1) * 3
 
+    If lengths > 1, then the sequence lengths dictate
+    the boundaries/padding rather than the begin/end
+    of X.
     '''
+
     nF = nW * 2 + 1
-    for i in range(B):
-        o_start = i * I * nF
-        x_start = (i-nW) * I
-        x_end = (i+nW+1) * I
-        if x_start < 0:
-            o_start += -x_start
-            x_start = 0
-        if x_end >= B * I:
-            x_end = B * I
-        memcpy(&output[o_start],
-            &X[x_start], (x_end-x_start) * sizeof(output[0]))
+
+    seq_start = 0
+    for i in range(nL):
+        # Calculate the bounds of the next sequence.
+        seq_end = seq_start + L[i]
+
+        # Four-argument range loop only works with constant step.
+        for j in range(seq_start, seq_end):
+            # Find the unconstrained window around b, which
+            # may be out of the sequence bounds.
+            window_start = j - nW
+            window_end = j + nW + 1
+
+            # Find the sequence-constrained window around b.
+            x_start = max(seq_start, window_start)
+            x_end = min(seq_end, window_end)
+            n_elems = x_end - x_start
+
+            out_offset = x_start - window_start
+
+            memcpy(output + (j * nF * I) + (out_offset * I),
+                   X + (x_start * I),
+                   n_elems * I * sizeof(output[0]))
+
+        seq_start += L[i]
 
 
 cdef void backprop_seq2col(float* d_seqs,
-        const float* d_cols, int B, int I, int nW) nogil:
+        const float* d_cols, const int* L, int B, int I, int nW, int nL) nogil:
     # Here's what we're doing, if we had 2d indexing.
     #for i in range(B):
     #    d_seq[i] += d_cols[i-2, 4]
@@ -425,19 +462,34 @@ cdef void backprop_seq2col(float* d_seqs,
     #    d_seq[i] += d_cols[i, 2]
     #    d_seq[i] += d_cols[i+1, 1]
     #    d_seq[i] += d_cols[i+2, 0]
-    cdef int col_feat
+
     nF = nW * 2 + 1
-    for i in range(B):
-        seq_row = i * I
-        col_feat = nF * I
-        for f in range(-nW, nW+1):
-            col_row = (i+f) * (I * nF)
-            col_feat -= I
-            if col_row >= 0 and (col_row < (B*I*nF)):
-                j = col_row + col_feat
-                if j >= 0 and (j+I) < (B*I*nF):
-                    VecVec.add_i(&d_seqs[seq_row],
-                        &d_cols[j], 1., I)
+
+    seq_start = 0
+    for i in range(nL):
+        # Calculate the bounds of the next sequence.
+        seq_end = seq_start + L[i]
+
+        for j in range(seq_start, seq_end):
+            # Find the unconstrained window around b, which
+            # may be out of the sequence bounds.
+            window_begin = j - nW
+            window_end = j + nW + 1
+
+            # Find the sequence-constrained window around b.
+            d_seqs_begin = max(seq_start, window_begin)
+            d_seqs_end = min(seq_end, window_end)
+            n_elems = d_seqs_end - d_seqs_begin
+
+            # If the left window is cut short, we want to
+            # start by the same amount in the output.
+            out_offset = d_seqs_begin - window_begin
+
+            VecVec.add_i(&d_seqs[d_seqs_begin * I],
+                         &d_cols[(j * nF * I) + (out_offset * I)],
+                         1., n_elems * I)
+
+        seq_start += L[i]
 
 
 cdef void cpu_maxout(float* best__bo, int* which__bo,
@@ -506,7 +558,7 @@ cdef void _adam_momentum(weight_t* gradient, weight_t* mom1, weight_t* mom2,
         int nr_weight, weight_t beta1, weight_t beta2, weight_t eps,
         weight_t learn_rate) nogil:
     # Calculate Adam on CPU, fused.
-    # Assumes the learning rate adustment is calculated by the caller;
+    # Assumes the learning rate adjustment is calculated by the caller;
     # a_t = learn_rate * sqrt(1-beta2**timestep) / (1-beta1**timestep)
     cdef weight_t one_minus_beta1 = 1-beta1
     cdef weight_t one_minus_beta2 = 1-beta2
@@ -1170,3 +1222,39 @@ cdef void cpu_lstm_gates_bwd(
         dGt3[i*4+1] = d_hi * dsigmoid(hi)  # 1b
         dGt3[i*4+2] = d_ho * dsigmoid(ho)  # 1c
         dGt3[i*4+3] = d_hc * dtanh(hc)  # 1d
+
+
+cdef void MurmurHash3_x86_128_uint64(
+    const uint64_t val,
+    const uint32_t seed,
+    uint32_t *out
+) nogil:
+    cdef uint64_t h1, h2
+
+    h1 = val
+    h1 *= 0x87c37b91114253d5ull
+    h1 = (h1 << 31) | (h1 >> 33)
+    h1 *= 0x4cf5ad432745937full
+    h1 ^= seed
+    h1 ^= 8
+    h2 = seed
+    h2 ^= 8
+    h1 += h2
+    h2 += h1
+    h1 ^= h1 >> 33
+    h1 *= 0xff51afd7ed558ccdull
+    h1 ^= h1 >> 33
+    h1 *= 0xc4ceb9fe1a85ec53ull
+    h1 ^= h1 >> 33
+    h2 ^= h2 >> 33
+    h2 *= 0xff51afd7ed558ccdull
+    h2 ^= h2 >> 33
+    h2 *= 0xc4ceb9fe1a85ec53ull
+    h2 ^= h2 >> 33
+    h1 += h2
+    h2 += h1
+
+    out[0] = h1 & 0xffffffffu
+    out[1] = h1 >> 32
+    out[2] = h2 & 0xffffffffu
+    out[3] = h2 >> 32

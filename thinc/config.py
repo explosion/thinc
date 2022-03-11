@@ -1,5 +1,5 @@
 from typing import Union, Dict, Any, Optional, List, Tuple, Callable, Type
-from typing import Iterable, Sequence
+from typing import Iterable, Sequence, cast
 from types import GeneratorType
 from dataclasses import dataclass
 from configparser import ConfigParser, ExtendedInterpolation, MAX_INTERPOLATION_DEPTH
@@ -340,7 +340,10 @@ class Config(dict):
         account for subsections, which should always follow their parent.
         """
         sort_map = {section: i for i, section in enumerate(self.section_order)}
-        sort_key = lambda x: (sort_map.get(x[0].split(".")[0], len(sort_map)), x[0])
+        sort_key = lambda x: (
+            sort_map.get(x[0].split(".")[0], len(sort_map)),
+            _mask_positional_args(x[0]),
+        )
         return dict(sorted(data.items(), key=sort_key))
 
     def _set_overrides(self, config: "ConfigParser", overrides: Dict[str, Any]) -> None:
@@ -456,6 +459,20 @@ class Config(dict):
         return self.from_str(text, interpolate=interpolate, overrides=overrides)
 
 
+def _mask_positional_args(name: str) -> List[Optional[str]]:
+    """Create a section name representation that masks names
+    of positional arguments to retain their order in sorts."""
+
+    stable_name = cast(List[Optional[str]], name.split("."))
+
+    # Remove names of sections that are a positional argument.
+    for i in range(1, len(stable_name)):
+        if stable_name[i - 1] == "*":
+            stable_name[i] = None
+
+    return stable_name
+
+
 def try_load_json(value: str) -> Any:
     """Load a JSON string if possible, otherwise default to original value."""
     try:
@@ -556,7 +573,7 @@ class ConfigValidationError(ValueError):
         ATTRIBUTES:
         config (Union[Config, Dict[str, Dict[str, Any]], str]): The config.
         errors (Iterable[Dict[str, Any]]): The errors.
-        error_types (Set[str]): All "type" values defined in the erorrs, if
+        error_types (Set[str]): All "type" values defined in the errors, if
             available. This is most relevant for the pydantic errors that define
             types like "type_error.integer". This attribute makes it easy to
             check if a config validation error includes errors of a certain
