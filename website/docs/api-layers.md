@@ -1012,8 +1012,8 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/map_list.py
 
 <inline-list>
 
-- **Input:** <ndarray shape="batch_size, nI">Floats2d</ndarray>
-- **Output:** <ndarray shape="batch_size, nO">Floats2d</ndarray>
+- **Input:** <ndarray shape="batch_size, nI">Floats2d, Ragged</ndarray>
+- **Output:** <ndarray shape="batch_size, nO">Floats2d, Ragged</ndarray>
 - **Attrs:** `window_size` <tt>int</tt>
 
 </inline-list>
@@ -1024,10 +1024,10 @@ and a window of surrounding vectors. This is one step in a convolution. If the
 concatenating three contextual vectors from the left, and three from the right,
 to each input vector. In general, `nO` equals `nI * (2 * window_size + 1)`.
 
-| Argument      | Type                               | Description                                                                    |
-| ------------- | ---------------------------------- | ------------------------------------------------------------------------------ |
-| `window_size` | <tt>int</tt>                       | The window size (default 1) that determines the number of surrounding vectors. |
-| **RETURNS**   | <tt>Model[Floats2d, Floats2d]</tt> | The created layer for adding context to vectors.                               |
+| Argument      | Type                     | Description                                                                    |
+| ------------- | ------------------------ | ------------------------------------------------------------------------------ |
+| `window_size` | <tt>int</tt>             | The window size (default 1) that determines the number of surrounding vectors. |
+| **RETURNS**   | <tt>Model[InT, InT]</tt> | The created layer for adding context to vectors.                               |
 
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/expand_window.py
