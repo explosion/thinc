@@ -1144,7 +1144,7 @@ Backpropagate the hard Swish activation.
 | `inplace`   | <tt>bool</tt>     | If `True`, the `dY` array is modified in place. |
 | **RETURNS** | <tt>FloatsXd</tt> | The gradient of the input.                      |
 
-### Ops.hard_swish_mobilenet {#hard_swish tag="method"}
+### Ops.hard_swish_mobilenet {#hard_swish_mobilenet tag="method"}
 
 <inline-list>
 
