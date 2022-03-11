@@ -76,7 +76,7 @@ computed by the method introduced in [He et al., 2015](https://arxiv.org/abs/150
 
 ### lecun_uniform_init {#lecun_uniform_init tag="function"}
 Initialize from a uniform distribution with `scale` parameter
-computed as: `scale = sqrt(3.0 / data.shape[1])`
+computed as: `scale = sqrt(3.0 / data.shape[1])`.
 
 
 | Argument    | Type              | Description                           |
