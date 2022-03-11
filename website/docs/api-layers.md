@@ -441,7 +441,7 @@ The resulting function `relu6` is commonly used in low-precision scenarios.
 | `init_b`       | <tt>Callable</tt>                  | A function to initialize the bias vector. Defaults to [`zero_init`](/docs/api-initializers#zero_init).                       |
 | `dropout`      | <tt>Optional[float]</tt>           | Dropout rate to avoid overfitting.                                                                                           |
 | `normalize`    | <tt>bool</tt>                      | Whether or not to apply [layer normalization](#layernorm). Defaults to `False`.                                                 |
-| `k`            | <tt>float</tt>                     | Maximum value, (default: 6.0).                                                                                               |
+| `k`            | <tt>float</tt>                     | Maximum value. Defaults to `6.0`..                                                                                               |
 | **RETURNS**    | <tt>Model[Floats2d, Floats2d]</tt> | The created dense layer.                                                                                                     |
 
 ```python
