@@ -951,8 +951,8 @@ Backpropagate the GELU activation
 
 </inline-list>
 
-ReLU activation function with the maximum value clipped at `k`. A common
-choice is `k=6` introduced for convolutional deep belief networks
+ReLU activation function with the maximum value clipped at `k`. A common choice
+is `k=6` introduced for convolutional deep belief networks
 [(Krizhevsky, 2010)](https://www.cs.toronto.edu/~kriz/conv-cifar10-aug2010.pdf).
 The resulting function `relu6` is commonly used in low-precision scenarios.
 
