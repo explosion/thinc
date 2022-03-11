@@ -712,6 +712,25 @@ def test_reduce_max(ops):
 
 
 @pytest.mark.parametrize("ops", ALL_OPS)
+def test_backprop_reduce_max(ops):
+    dX = ops.backprop_reduce_max(
+        ops.xp.arange(1, 7, dtype="f").reshape(2, 3),
+        ops.xp.array([[2, 1, 0], [1, 0, 1]]).astype("int32"),
+        ops.xp.array([3, 2], dtype="int32"),
+    )
+    ops.xp.testing.assert_allclose(
+        dX,
+        [
+            [0.0, 0.0, 3.0],
+            [0.0, 2.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [0.0, 5.0, 0.0],
+            [4.0, 0.0, 6.0],
+        ],
+    )
+
+
+@pytest.mark.parametrize("ops", ALL_OPS)
 @settings(max_examples=MAX_EXAMPLES, deadline=None)
 @given(X=strategies.arrays_BI())
 def test_mish(ops, X):
