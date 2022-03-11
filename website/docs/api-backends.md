@@ -865,10 +865,10 @@ Backpropagate the Mish activation
 </inline-list>
 
 Swish [(Ramachandran et al., 2017)](https://arxiv.org/abs/1710.05941v2) is a
-self-gating non-monotonic activation function similar to [GELU](#gelu): whereas
-[GELU](#gelu) uses the CDF of the Gaussian distribution Φ for self-gating
-`x * Φ(x)` Swish uses the logistic CDF `x * σ(x)`. Sometimes referred to as
-"SiLU" for "Sigmoid Linear Unit".
+self-gating non-monotonic activation function similar to the [GELU](#gelu)
+activation: whereas [GELU](#gelu) uses the CDF of the Gaussian distribution Φ
+for self-gating `x * Φ(x)`, Swish uses the logistic CDF `x * σ(x)`. Sometimes
+referred to as "SiLU" for "Sigmoid Linear Unit".
 
 | Argument    | Type              | Description                                |
 | ----------- | ----------------- | ------------------------------------------ |
@@ -909,11 +909,11 @@ Backpropagate the Swish activation
 
 GELU or "Gaussian Error Linear Unit"
 [(Hendrycks and Gimpel, 2016)](https://arxiv.org/abs/1606.08415) is a
-self-gating non-monotonic activation function similar to [Swish](#swish):
-whereas [GELU](#gelu) uses the CDF of the Gaussian distribution Φ for
-self-gating `x * Φ(x)` the Swish activation uses the logistic CDF σ and computes
-`x * σ(x)`. Various approximations exist, but `thinc` implements the exact GELU.
-The use of GELU is popular within transformer feed-forward blocks.
+self-gating non-monotonic activation function similar to the [Swish](#swish)
+activation: whereas [GELU](#gelu) uses the CDF of the Gaussian distribution Φ
+for self-gating `x * Φ(x)` the Swish activation uses the logistic CDF σ and
+computes `x * σ(x)`. Various approximations exist, but `thinc` implements the
+exact GELU. The use of GELU is popular within transformer feed-forward blocks.
 
 | Argument    | Type              | Description                                |
 | ----------- | ----------------- | ------------------------------------------ |
@@ -1030,7 +1030,7 @@ Backpropagate the hard sigmoid activation.
 
 </inline-list>
 
-The hard tanh activation function is a fast linear approximation of tanh:
+The hard tanh activation function is a fast linear approximation of tanh,
 defined as `max(-1, min(1, x))`.
 
 | Argument    | Type              | Description                                |
@@ -1070,8 +1070,8 @@ Backpropagate the hard tanh activation.
 
 Flexible clipped linear activation function of the form
 `max(min_value, min(max_value, x * slope + offset))`. It is used to implement
-[`relu_k`](#reluk), [`hard_sigmoid`](#hard_sigmoid) and
-[`hard_tanh`](#hard_tanh).
+the [`relu_k`](#reluk), [`hard_sigmoid`](#hard_sigmoid), and
+[`hard_tanh`](#hard_tanh) methods.
 
 | Argument    | Type              | Description                                                               |
 | ----------- | ----------------- | ------------------------------------------------------------------------- |
@@ -1155,7 +1155,7 @@ Backpropagate the hard Swish activation.
 </inline-list>
 
 A variant of the fast hard Swish activation function used in `MobileNetV3`
-[(Howard et al., 2019)](https://arxiv.org/abs/1905.02244) defined as
+[(Howard et al., 2019)](https://arxiv.org/abs/1905.02244), defined as
 `x * (relu6(x + 3) / 6)`.
 
 | Argument    | Type              | Description                                |

@@ -360,9 +360,9 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/mish.py
 
 A dense layer with the Swish activation function
 [(Ramachandran et al., 2017)](https://arxiv.org/abs/1710.05941v2). Swish is a
-self-gating non-monotonic activation function similar to [`gelu`](#gelu):
-whereas [`Gelu`](#gelu) uses the CDF of the Gaussian distribution Φ for
-self-gating `x * Φ(x)` `swish` uses the logistic CDF `x * σ(x)`. Sometimes
+self-gating non-monotonic activation function similar to the [GELU](#gelu)
+activation: whereas [GELU](#gelu) uses the CDF of the Gaussian distribution Φ
+for self-gating `x * Φ(x)`, Swish uses the logistic CDF `x * σ(x)`. Sometimes
 referred to as "SiLU" for "Sigmoid Linear Unit".
 
 | Argument       | Type                               | Description                                                                                                        |
@@ -391,14 +391,14 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/swish.py
 
 </inline-list>
 
-A dense layer with the `gelu` activation function
-[(Hendrycks and Gimpel, 2016)](https://arxiv.org/abs/1606.08415). The `gelu` or
+A dense layer with the GELU activation function
+[(Hendrycks and Gimpel, 2016)](https://arxiv.org/abs/1606.08415). The GELU or
 "Gaussian Error Linear Unit" is a self-gating non-monotonic activation function
-similar to [`swish`](#swish): whereas [`Gelu`](#gelu) uses the CDF of the
-Gaussian distribution Φ for self-gating `x * Φ(x)` the `swish` activation uses
-the logistic CDF σ and computes `x * σ(x)`. Various approximations exist, but
-`thinc` implements the exact `gelu`. The use of `gelu` is popular within
-transformer feed-forward blocks.
+similar to [Swish](#swish): whereas [GELU](#gelu) uses the CDF of the Gaussian
+distribution Φ for self-gating `x * Φ(x)` the Swish activation uses the logistic
+CDF σ and computes `x * σ(x)`. Various approximations exist, but `thinc`
+implements the exact GELU. The use of GELU is popular within transformer
+feed-forward blocks.
 
 | Argument       | Type                               | Description                                                                                                        |
 | -------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
@@ -426,7 +426,7 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/gelu.py
 
 </inline-list>
 
-A dense layer with the `relu` activation function where the maximum value is
+A dense layer with the ReLU activation function where the maximum value is
 clipped at `k`. A common choice is `k=6` introduced for convolutional deep
 belief networks
 [(Krizhevsky, 2010)](https://www.cs.toronto.edu/~kriz/conv-cifar10-aug2010.pdf).
@@ -459,8 +459,8 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/clipped_linear.py#L1
 
 </inline-list>
 
-A dense layer with `hard_sigmoid` activation function, which is a fast linear
-approximation of `sigmoid` defined as `max(0, min(1, x * 0.2 + 0.5))`.
+A dense layer with hard sigmoid activation function, which is a fast linear
+approximation of sigmoid, defined as `max(0, min(1, x * 0.2 + 0.5))`.
 
 | Argument       | Type                               | Description                                                                                                                  |
 | -------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
@@ -488,8 +488,8 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/clipped_linear.py#L9
 
 </inline-list>
 
-A dense layer with `hard_tanh` activation function, which is a fast linear
-approximation of `tanh`: defined as `max(-1, min(1, x))`.
+A dense layer with hard tanh activation function, which is a fast linear
+approximation of tanh, defined as `max(-1, min(1, x))`.
 
 | Argument       | Type                               | Description                                                                                                                  |
 | -------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
@@ -519,8 +519,8 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/clipped_linear.py#L1
 
 A dense layer implementing a flexible clipped linear activation function of the
 form `max(min_value, min(max_value, x * slope + offset))`. It is used to
-implement [`ReluK`](#reluk), [`HardSigmoid`](#hardsigmoid) and
-[`HardTanh`](#hardtanh).
+implement the [`ReluK`](#reluk), [`HardSigmoid`](#hardsigmoid), and
+[`HardTanh`](#hardtanh) layers.
 
 | Argument       | Type                               | Description                                                                                                                  |
 | -------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
@@ -552,8 +552,8 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/clipped_linear.py
 
 </inline-list>
 
-A dense layer implementing the `hard_swish` activation function, which is a fast
-linear approximation of `swish`: `x * hard_sigmoid(x)`.
+A dense layer implementing the hard Swish activation function, which is a fast
+linear approximation of Swish: `x * hard_sigmoid(x)`.
 
 | Argument       | Type                               | Description                                                                                                        |
 | -------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
@@ -581,9 +581,9 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/hard_swish.py
 
 </inline-list>
 
-A dense layer implementing the a variant of the fast linear `hard_swish`
+A dense layer implementing the a variant of the fast linear hard Swish
 activation function used in `MobileNetV3`
-[(Howard et al., 2019)](https://arxiv.org/abs/1905.02244) defined as
+[(Howard et al., 2019)](https://arxiv.org/abs/1905.02244), defined as
 `x * (relu6(x + 3) / 6)`.
 
 | Argument       | Type                               | Description                                                                                                        |
