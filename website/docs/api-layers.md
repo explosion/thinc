@@ -358,7 +358,7 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/mish.py
 
 </inline-list>
 
-A dense layer with the `swish` activation function
+A dense layer with the Swish activation function
 [(Ramachandran et al., 2017)](https://arxiv.org/abs/1710.05941v2). Swish is a
 self-gating non-monotonic activation function similar to [`gelu`](#gelu):
 whereas `gelu` uses the CDF of the Gaussian distribution Φ for
@@ -373,7 +373,7 @@ referred to as "SiLU" for "Sigmoid Linear Unit".
 | `init_W`       | <tt>Callable</tt>                  | A function to initialize the weights matrix. Defaults to [`he_normal_init`](/docs/api-initializers#he_normal_init) |
 | `init_b`       | <tt>Callable</tt>                  | A function to initialize the bias vector. Defaults to [`zero_init`](/docs/api-initializers#zero_init).             |
 | `dropout`      | <tt>Optional[float]</tt>           | Dropout rate to avoid overfitting.                                                                                 |
-| `normalize`    | <tt>bool</tt>                      | Whether or not to apply [layer normalization](#layernorm), (default: False).                                       |
+| `normalize`    | <tt>bool</tt>                      | Whether or not to apply [layer normalization](#layernorm). Defaults to `False`.                                       |
 | **RETURNS**    | <tt>Model[Floats2d, Floats2d]</tt> | The created dense layer.                                                                                           |
 
 ```python
@@ -391,14 +391,22 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/swish.py
 
 </inline-list>
 
-A dense layer with the `gelu` activation function
-[(Hendrycks and Gimpel, 2016)](https://arxiv.org/abs/1606.08415). The `gelu` or
+A dense layer with the GELU activation function
+[(Hendrycks and Gimpel, 2016)](https://arxiv.org/abs/1606.08415). The GELU or
 "Gaussian Error Linear Unit" is a self-gating non-monotonic activation function
+<<<<<<< HEAD
 similar to [`swish`](#swish): whereas `gelu` uses the CDF of the
 Gaussian distribution Φ for self-gating `x * Φ(x)` the `swish` activation uses
 the logistic CDF σ and computes `x * σ(x)`. Various approximations exist, but
 `thinc` implements the exact `gelu`. The use of `gelu` is popular within
 transformer feed-forward blocks.
+=======
+similar to [Swish](#swish): whereas [GELU](#gelu) uses the CDF of the Gaussian
+distribution Φ for self-gating `x * Φ(x)` the Swish activation uses the logistic
+CDF σ and computes `x * σ(x)`. Various approximations exist, but `thinc`
+implements the exact GELU. The use of GELU is popular within transformer
+feed-forward blocks.
+>>>>>>> 0a558b6fb05b9e68257b2b2d6bc0adbf8efc1f16
 
 | Argument       | Type                               | Description                                                                                                        |
 | -------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
@@ -408,7 +416,7 @@ transformer feed-forward blocks.
 | `init_W`       | <tt>Callable</tt>                  | A function to initialize the weights matrix. Defaults to [`he_normal_init`](/docs/api-initializers#he_normal_init) |
 | `init_b`       | <tt>Callable</tt>                  | A function to initialize the bias vector. Defaults to [`zero_init`](/docs/api-initializers#zero_init).             |
 | `dropout`      | <tt>Optional[float]</tt>           | Dropout rate to avoid overfitting.                                                                                 |
-| `normalize`    | <tt>bool</tt>                      | Whether or not to apply [layer normalization](#layernorm), (default: False).                                       |
+| `normalize`    | <tt>bool</tt>                      | Whether or not to apply [layer normalization](#layernorm). Defaults to `False`.                                       |
 | **RETURNS**    | <tt>Model[Floats2d, Floats2d]</tt> | The created dense layer.                                                                                           |
 
 ```python
@@ -426,7 +434,7 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/gelu.py
 
 </inline-list>
 
-A dense layer with the `relu` activation function where the maximum value is
+A dense layer with the ReLU activation function where the maximum value is
 clipped at `k`. A common choice is `k=6` introduced for convolutional deep
 belief networks
 [(Krizhevsky, 2010)](https://www.cs.toronto.edu/~kriz/conv-cifar10-aug2010.pdf).
@@ -440,8 +448,8 @@ The resulting function `relu6` is commonly used in low-precision scenarios.
 | `init_W`       | <tt>Callable</tt>                  | A function to initialize the weights matrix. Defaults to [`glorot_uniform_init`](/docs/api-initializers#glorot_uniform_init) |
 | `init_b`       | <tt>Callable</tt>                  | A function to initialize the bias vector. Defaults to [`zero_init`](/docs/api-initializers#zero_init).                       |
 | `dropout`      | <tt>Optional[float]</tt>           | Dropout rate to avoid overfitting.                                                                                           |
-| `normalize`    | <tt>bool</tt>                      | Whether or not to apply [layer normalization](#layernorm), (default: False).                                                 |
-| `k`            | <tt>float</tt>                     | Maximum value, (default: 6.0).                                                                                               |
+| `normalize`    | <tt>bool</tt>                      | Whether or not to apply [layer normalization](#layernorm). Defaults to `False`.                                                 |
+| `k`            | <tt>float</tt>                     | Maximum value. Defaults to `6.0`..                                                                                               |
 | **RETURNS**    | <tt>Model[Floats2d, Floats2d]</tt> | The created dense layer.                                                                                                     |
 
 ```python
@@ -459,8 +467,8 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/clipped_linear.py#L1
 
 </inline-list>
 
-A dense layer with `hard_sigmoid` activation function, which is a fast linear
-approximation of `sigmoid` defined as `max(0, min(1, x * 0.2 + 0.5))`.
+A dense layer with hard sigmoid activation function, which is a fast linear
+approximation of sigmoid, defined as `max(0, min(1, x * 0.2 + 0.5))`.
 
 | Argument       | Type                               | Description                                                                                                                  |
 | -------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
@@ -470,14 +478,14 @@ approximation of `sigmoid` defined as `max(0, min(1, x * 0.2 + 0.5))`.
 | `init_W`       | <tt>Callable</tt>                  | A function to initialize the weights matrix. Defaults to [`glorot_uniform_init`](/docs/api-initializers#glorot_uniform_init) |
 | `init_b`       | <tt>Callable</tt>                  | A function to initialize the bias vector. Defaults to [`zero_init`](/docs/api-initializers#zero_init).                       |
 | `dropout`      | <tt>Optional[float]</tt>           | Dropout rate to avoid overfitting.                                                                                           |
-| `normalize`    | <tt>bool</tt>                      | Whether or not to apply [layer normalization](#layernorm), (default: False).                                                 |
+| `normalize`    | <tt>bool</tt>                      | Whether or not to apply [layer normalization](#layernorm). Defaults to `False`.                                                 |
 | **RETURNS**    | <tt>Model[Floats2d, Floats2d]</tt> | The created dense layer.                                                                                                     |
 
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/clipped_linear.py#L90
 ```
 
-### HardTanh {#hadtanh tag="function"}
+### HardTanh {#hardtanh tag="function"}
 
 <inline-list>
 
@@ -488,8 +496,8 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/clipped_linear.py#L9
 
 </inline-list>
 
-A dense layer with `hard_tanh` activation function, which is a fast linear
-approximation of `tanh`: defined as `max(-1, min(1, x))`.
+A dense layer with hard tanh activation function, which is a fast linear
+approximation of tanh, defined as `max(-1, min(1, x))`.
 
 | Argument       | Type                               | Description                                                                                                                  |
 | -------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
@@ -499,7 +507,7 @@ approximation of `tanh`: defined as `max(-1, min(1, x))`.
 | `init_W`       | <tt>Callable</tt>                  | A function to initialize the weights matrix. Defaults to [`glorot_uniform_init`](/docs/api-initializers#glorot_uniform_init) |
 | `init_b`       | <tt>Callable</tt>                  | A function to initialize the bias vector. Defaults to [`zero_init`](/docs/api-initializers#zero_init).                       |
 | `dropout`      | <tt>Optional[float]</tt>           | Dropout rate to avoid overfitting.                                                                                           |
-| `normalize`    | <tt>bool</tt>                      | Whether or not to apply [layer normalization](#layernorm), (default: False).                                                 |
+| `normalize`    | <tt>bool</tt>                      | Whether or not to apply [layer normalization](#layernorm). Defaults to `False`.                                                 |
 | **RETURNS**    | <tt>Model[Floats2d, Floats2d]</tt> | The created dense layer.                                                                                                     |
 
 ```python
@@ -519,8 +527,8 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/clipped_linear.py#L1
 
 A dense layer implementing a flexible clipped linear activation function of the
 form `max(min_value, min(max_value, x * slope + offset))`. It is used to
-implement [`ReluK`](#reluk), [`HardSigmoid`](#hardsigmoid) and
-[`HardTanh`](#hardtanh).
+implement the [`ReluK`](#reluk), [`HardSigmoid`](#hardsigmoid), and
+[`HardTanh`](#hardtanh) layers.
 
 | Argument       | Type                               | Description                                                                                                                  |
 | -------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
@@ -530,7 +538,7 @@ implement [`ReluK`](#reluk), [`HardSigmoid`](#hardsigmoid) and
 | `init_W`       | <tt>Callable</tt>                  | A function to initialize the weights matrix. Defaults to [`glorot_uniform_init`](/docs/api-initializers#glorot_uniform_init) |
 | `init_b`       | <tt>Callable</tt>                  | A function to initialize the bias vector. Defaults to [`zero_init`](/docs/api-initializers#zero_init).                       |
 | `dropout`      | <tt>Optional[float]</tt>           | Dropout rate to avoid overfitting.                                                                                           |
-| `normalize`    | <tt>bool</tt>                      | Whether or not to apply [layer normalization](#layernorm), (default: False).                                                 |
+| `normalize`    | <tt>bool</tt>                      | Whether or not to apply [layer normalization](#layernorm). Defaults to `False`.                                                 |
 | `slope`        | <tt>float</tt>                     | The slope of the linear function: `input * slope`.                                                                           |
 | `offset`       | <tt>float</tt>                     | The offset or intercept of the linear function: `input * slope + offset`.                                                    |
 | `min_val`      | <tt>float</tt>                     | Minimum value to clip to.                                                                                                    |
@@ -552,8 +560,8 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/clipped_linear.py
 
 </inline-list>
 
-A dense layer implementing the `hard_swish` activation function, which is a fast
-linear approximation of `swish`: `x * hard_sigmoid(x)`.
+A dense layer implementing the hard Swish activation function, which is a fast
+linear approximation of Swish: `x * hard_sigmoid(x)`.
 
 | Argument       | Type                               | Description                                                                                                        |
 | -------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
@@ -563,14 +571,14 @@ linear approximation of `swish`: `x * hard_sigmoid(x)`.
 | `init_W`       | <tt>Callable</tt>                  | A function to initialize the weights matrix. Defaults to [`he_normal_init`](/docs/api-initializers#he_normal_init) |
 | `init_b`       | <tt>Callable</tt>                  | A function to initialize the bias vector. Defaults to [`zero_init`](/docs/api-initializers#zero_init).             |
 | `dropout`      | <tt>Optional[float]</tt>           | Dropout rate to avoid overfitting.                                                                                 |
-| `normalize`    | <tt>bool</tt>                      | Whether or not to apply [layer normalization](#layernorm), (default: False).                                       |
+| `normalize`    | <tt>bool</tt>                      | Whether or not to apply [layer normalization](#layernorm). Defaults to `False`.                                       |
 | **RETURNS**    | <tt>Model[Floats2d, Floats2d]</tt> | The created dense layer.                                                                                           |
 
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/hard_swish.py
 ```
 
-### HardSwishMobileNet {#hardtanh tag="function"}
+### HardSwishMobileNet {#hardswishmobilenet tag="function"}
 
 <inline-list>
 
@@ -581,9 +589,9 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/hard_swish.py
 
 </inline-list>
 
-A dense layer implementing the a variant of the fast linear `hard_swish`
+A dense layer implementing the a variant of the fast linear hard Swish
 activation function used in `MobileNetV3`
-[(Howard et al., 2019)](https://arxiv.org/abs/1905.02244) defined as
+[(Howard et al., 2019)](https://arxiv.org/abs/1905.02244), defined as
 `x * (relu6(x + 3) / 6)`.
 
 | Argument       | Type                               | Description                                                                                                        |
@@ -594,7 +602,7 @@ activation function used in `MobileNetV3`
 | `init_W`       | <tt>Callable</tt>                  | A function to initialize the weights matrix. Defaults to [`he_normal_init`](/docs/api-initializers#he_normal_init) |
 | `init_b`       | <tt>Callable</tt>                  | A function to initialize the bias vector. Defaults to [`zero_init`](/docs/api-initializers#zero_init).             |
 | `dropout`      | <tt>Optional[float]</tt>           | Dropout rate to avoid overfitting.                                                                                 |
-| `normalize`    | <tt>bool</tt>                      | Whether or not to apply [layer normalization](#layernorm), (default: False).                                       |
+| `normalize`    | <tt>bool</tt>                      | Whether or not to apply [layer normalization](#layernorm). Defaults to `False`.                                       |
 | **RETURNS**    | <tt>Model[Floats2d, Floats2d]</tt> | The created dense layer.                                                                                           |
 
 ```python

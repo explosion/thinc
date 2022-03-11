@@ -55,7 +55,7 @@ parameter computed by the method introduced by Xavier Glorot
 
 Initialize from a uniform distribution with `scale` parameter
 computed by the method introduced in [He et al., 2015](https://arxiv.org/abs/1502.01852): 
-`scale = sqrt(6.0 / data.shape[1])`
+`scale = sqrt(6.0 / data.shape[1])`.
 
 | Argument    | Type              | Description                           |
 | ----------- | ----------------- | ------------------------------------- |
@@ -66,7 +66,7 @@ computed by the method introduced in [He et al., 2015](https://arxiv.org/abs/150
 ### he_normal_init {#he_normal_init tag="function"}
 Initialize from a normal distribution with `scale` parameter
 computed by the method introduced in [He et al., 2015](https://arxiv.org/abs/1502.01852): 
-`scale = sqrt(2.0 / data.shape[1])`
+`scale = sqrt(2.0 / data.shape[1])`.
 
 | Argument    | Type              | Description                           |
 | ----------- | ----------------- | ------------------------------------- |
@@ -76,7 +76,7 @@ computed by the method introduced in [He et al., 2015](https://arxiv.org/abs/150
 
 ### lecun_uniform_init {#lecun_uniform_init tag="function"}
 Initialize from a uniform distribution with `scale` parameter
-computed as: `scale = sqrt(3.0 / data.shape[1])`
+computed as: `scale = sqrt(3.0 / data.shape[1])`.
 
 
 | Argument    | Type              | Description                           |
@@ -88,7 +88,7 @@ computed as: `scale = sqrt(3.0 / data.shape[1])`
 
 ### lecun_normal_init {#lecun_normal_init tag="function"}
 Initialize from a normal distribution with `scale` parameter
-computed as: `variance = sqrt(1.0 / data.shape[1])`
+computed as: `variance = sqrt(1.0 / data.shape[1])`.
 
 
 | Argument    | Type              | Description                           |
