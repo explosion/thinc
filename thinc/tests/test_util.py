@@ -65,7 +65,9 @@ def test_to_categorical(label_smoothing):
     ]
     labels = [numpy.random.randint(0, nc, shape) for shape in shapes]
     one_hots = [to_categorical(label, nc) for label in labels]
-    smooths = [to_categorical(label, nc, label_smoothing=label_smoothing) for label in labels]
+    smooths = [
+        to_categorical(label, nc, label_smoothing=label_smoothing) for label in labels
+    ]
     for i in range(len(expected_shapes)):
         label = labels[i]
         one_hot = one_hots[i]
@@ -82,6 +84,34 @@ def test_to_categorical(label_smoothing):
         assert numpy.isclose(
             numpy.min(smooth), label_smoothing / (smooth.shape[-1] - 1)
         )
+
+    # At least one class is required without label smoothing.
+    numpy.testing.assert_allclose(
+        to_categorical(numpy.asarray([0, 0, 0]), 1), [[1.0], [1.0], [1.0]]
+    )
+    numpy.testing.assert_allclose(
+        to_categorical(numpy.asarray([0, 0, 0])), [[1.0], [1.0], [1.0]]
+    )
+    with pytest.raises(ValueError, match=r"n_classes should be at least 1"):
+        to_categorical(numpy.asarray([0, 0, 0]), 0)
+
+    # At least two classes are required with label smoothing.
+    numpy.testing.assert_allclose(
+        to_categorical(numpy.asarray([0, 1, 0]), 2, label_smoothing=0.01),
+        [[0.99, 0.01], [0.01, 0.99], [0.99, 0.01]],
+    )
+    numpy.testing.assert_allclose(
+        to_categorical(numpy.asarray([0, 1, 0]), label_smoothing=0.01),
+        [[0.99, 0.01], [0.01, 0.99], [0.99, 0.01]],
+    )
+    with pytest.raises(
+        ValueError, match=r"n_classes should be greater than 1.*label smoothing.*but 1"
+    ):
+        to_categorical(numpy.asarray([0, 1, 0]), 1, label_smoothing=0.01),
+    with pytest.raises(
+        ValueError, match=r"n_classes should be greater than 1.*label smoothing.*but 1"
+    ):
+        to_categorical(numpy.asarray([0, 0, 0]), label_smoothing=0.01),
 
 
 def test_convert_recursive():
