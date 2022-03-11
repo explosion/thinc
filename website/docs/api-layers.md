@@ -563,7 +563,7 @@ linear approximation of Swish: `x * hard_sigmoid(x)`.
 | `init_W`       | <tt>Callable</tt>                  | A function to initialize the weights matrix. Defaults to [`he_normal_init`](/docs/api-initializers#he_normal_init) |
 | `init_b`       | <tt>Callable</tt>                  | A function to initialize the bias vector. Defaults to [`zero_init`](/docs/api-initializers#zero_init).             |
 | `dropout`      | <tt>Optional[float]</tt>           | Dropout rate to avoid overfitting.                                                                                 |
-| `normalize`    | <tt>bool</tt>                      | Whether or not to apply [layer normalization](#layernorm), (default: False).                                       |
+| `normalize`    | <tt>bool</tt>                      | Whether or not to apply [layer normalization](#layernorm). Defaults to `False`.                                       |
 | **RETURNS**    | <tt>Model[Floats2d, Floats2d]</tt> | The created dense layer.                                                                                           |
 
 ```python
