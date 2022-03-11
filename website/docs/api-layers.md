@@ -360,10 +360,10 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/mish.py
 
 A dense layer with the Swish activation function
 [(Ramachandran et al., 2017)](https://arxiv.org/abs/1710.05941v2). Swish is a
-self-gating non-monotonic activation function similar to [`gelu`](#gelu):
-whereas `gelu` uses the CDF of the Gaussian distribution Φ for
-self-gating `x * Φ(x)` `swish` uses the logistic CDF `x * σ(x)`. Sometimes
-referred to as "SiLU" for "Sigmoid Linear Unit".
+self-gating non-monotonic activation function similar to [`GELU`](#gelu):
+whereas GELU uses the CDF of the Gaussian distribution Φ for self-gating
+`x * Φ(x)` Swish uses the logistic CDF `x * σ(x)`. Sometimes referred to as
+"SiLU" for "Sigmoid Linear Unit".
 
 | Argument       | Type                               | Description                                                                                                        |
 | -------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
@@ -394,11 +394,11 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/swish.py
 A dense layer with the GELU activation function
 [(Hendrycks and Gimpel, 2016)](https://arxiv.org/abs/1606.08415). The GELU or
 "Gaussian Error Linear Unit" is a self-gating non-monotonic activation function
-similar to [`swish`](#swish): whereas `gelu` uses the CDF of the
-Gaussian distribution Φ for self-gating `x * Φ(x)` the `swish` activation uses
-the logistic CDF σ and computes `x * σ(x)`. Various approximations exist, but
-`thinc` implements the exact `gelu`. The use of `gelu` is popular within
-transformer feed-forward blocks.
+similar to [Swish](#swish): whereas GELU uses the CDF of the Gaussian
+distribution Φ for self-gating `x * Φ(x)` the Swish activation uses the logistic
+CDF σ and computes `x * σ(x)`. Various approximations exist, but `thinc`
+implements the exact GELU. The use of GELU is popular within transformer
+feed-forward blocks.
 
 | Argument       | Type                               | Description                                                                                                        |
 | -------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
