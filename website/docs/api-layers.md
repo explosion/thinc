@@ -394,19 +394,11 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/swish.py
 A dense layer with the GELU activation function
 [(Hendrycks and Gimpel, 2016)](https://arxiv.org/abs/1606.08415). The GELU or
 "Gaussian Error Linear Unit" is a self-gating non-monotonic activation function
-<<<<<<< HEAD
 similar to [`swish`](#swish): whereas `gelu` uses the CDF of the
 Gaussian distribution Φ for self-gating `x * Φ(x)` the `swish` activation uses
 the logistic CDF σ and computes `x * σ(x)`. Various approximations exist, but
 `thinc` implements the exact `gelu`. The use of `gelu` is popular within
 transformer feed-forward blocks.
-=======
-similar to [Swish](#swish): whereas [GELU](#gelu) uses the CDF of the Gaussian
-distribution Φ for self-gating `x * Φ(x)` the Swish activation uses the logistic
-CDF σ and computes `x * σ(x)`. Various approximations exist, but `thinc`
-implements the exact GELU. The use of GELU is popular within transformer
-feed-forward blocks.
->>>>>>> 0a558b6fb05b9e68257b2b2d6bc0adbf8efc1f16
 
 | Argument       | Type                               | Description                                                                                                        |
 | -------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
