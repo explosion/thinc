@@ -590,12 +590,12 @@ two separate arrays.
 
 Calculate the sigmoid function.
 
-| Argument       | Type              | Description                                    |
-| -------------- | ----------------- | ---------------------------------------------- |
-| `X`            | <tt>FloatsXd</tt> | The input values.                              |
-| _keyword-only_ |                   |                                                |
-| `inplace`      | <tt>bool</tt>     | If `True`, the array may be modified in place. |
-| **RETURNS**    | <tt>FloatsXd</tt> | The output values, i.e. `S(X)`.                |
+| Argument       | Type              | Description                                |
+| -------------- | ----------------- | ------------------------------------------ |
+| `X`            | <tt>FloatsXd</tt> | The input values.                          |
+| _keyword-only_ |                   |                                            |
+| `inplace`      | <tt>bool</tt>     | If `True`, the array is modified in place. |
+| **RETURNS**    | <tt>FloatsXd</tt> | The output values, i.e. `S(X)`.            |
 
 ### Ops.dsigmoid {#dsigmoid tag="method"}
 
@@ -609,12 +609,12 @@ Calculate the sigmoid function.
 
 Calculate the derivative of the `sigmoid` function.
 
-| Argument       | Type              | Description                                    |
-| -------------- | ----------------- | ---------------------------------------------- |
-| `Y`            | <tt>FloatsXd</tt> | The input values.                              |
-| _keyword-only_ |                   |                                                |
-| `inplace`      | <tt>bool</tt>     | If `True`, the array may be modified in place. |
-| **RETURNS**    | <tt>FloatsXd</tt> | The output values, i.e. `dS(Y)`.               |
+| Argument       | Type              | Description                                |
+| -------------- | ----------------- | ------------------------------------------ |
+| `Y`            | <tt>FloatsXd</tt> | The input values.                          |
+| _keyword-only_ |                   |                                            |
+| `inplace`      | <tt>bool</tt>     | If `True`, the array is modified in place. |
+| **RETURNS**    | <tt>FloatsXd</tt> | The output values, i.e. `dS(Y)`.           |
 
 ### Ops.dtanh {#dtanh tag="method"}
 
@@ -628,12 +628,12 @@ Calculate the derivative of the `sigmoid` function.
 
 Calculate the derivative of the `tanh` function.
 
-| Argument       | Type              | Description                                    |
-| -------------- | ----------------- | ---------------------------------------------- |
-| `Y`            | <tt>FloatsXd</tt> | The input values.                              |
-| _keyword-only_ |                   |                                                |
-| `inplace`      | <tt>bool</tt>     | If `True`, the array may be modified in place. |
-| **RETURNS**    | <tt>FloatsXd</tt> | The output values, i.e. `dtanh(Y)`.            |
+| Argument       | Type              | Description                                |
+| -------------- | ----------------- | ------------------------------------------ |
+| `Y`            | <tt>FloatsXd</tt> | The input values.                          |
+| _keyword-only_ |                   |                                            |
+| `inplace`      | <tt>bool</tt>     | If `True`, the array is modified in place. |
+| **RETURNS**    | <tt>FloatsXd</tt> | The output values, i.e. `dtanh(Y)`.        |
 
 ### Ops.softmax {#softmax tag="method"}
 
@@ -651,7 +651,7 @@ Calculate the softmax function. The resulting array will sum up to 1.
 | -------------- | ----------------- | ------------------------------------------------------ |
 | `x`            | <tt>FloatsXd</tt> | The input values.                                      |
 | _keyword-only_ |                   |                                                        |
-| `inplace`      | <tt>bool</tt>     | If `True`, the array may be modified in place.         |
+| `inplace`      | <tt>bool</tt>     | If `True`, the array is modified in place.             |
 | `axis`         | <tt>int</tt>      | The dimension to normalize over.                       |
 | `temperature`  | <tt>float</tt>    | The value to divide the unnormalized probabilities by. |
 | **RETURNS**    | <tt>FloatsXd</tt> | The normalized output values.                          |
@@ -685,14 +685,14 @@ Calculate the softmax function. The resulting array will sum up to 1.
 
 </inline-list>
 
-| Argument       | Type              | Description                                    |
-| -------------- | ----------------- | ---------------------------------------------- |
-| `Xs`           | <tt>Floats2d</tt> | An 2d array of input sequences.                |
-| `lengths`      | <tt>Ints1d</tt>   | The lengths of the input sequences.            |
-| _keyword-only_ |                   |                                                |
-| `inplace`      | <tt>bool</tt>     | If `True`, the array may be modified in place. |
-| `axis`         | <tt>int</tt>      | The dimension to normalize over.               |
-| **RETURNS**    | <tt>Floats2d</tt> | The normalized output values.                  |
+| Argument       | Type              | Description                                |
+| -------------- | ----------------- | ------------------------------------------ |
+| `Xs`           | <tt>Floats2d</tt> | An 2d array of input sequences.            |
+| `lengths`      | <tt>Ints1d</tt>   | The lengths of the input sequences.        |
+| _keyword-only_ |                   |                                            |
+| `inplace`      | <tt>bool</tt>     | If `True`, the array is modified in place. |
+| `axis`         | <tt>int</tt>      | The dimension to normalize over.           |
+| **RETURNS**    | <tt>Floats2d</tt> | The normalized output values.              |
 
 ### Ops.backprop_softmax_sequences {#backprop_softmax_sequences tag="method"}
 
@@ -796,12 +796,12 @@ Compute the gradients for the `recurrent_lstm` operation via backpropagation.
 
 </inline-list>
 
-| Argument       | Type              | Description                                    |
-| -------------- | ----------------- | ---------------------------------------------- |
-| `X`            | <tt>Floats2d</tt> | The inputs.                                    |
-| _keyword-only_ |                   |                                                |
-| `inplace`      | <tt>bool</tt>     | If `True`, the array may be modified in place. |
-| **RETURNS**    | <tt>Floats2d</tt> | The outputs.                                   |
+| Argument       | Type              | Description                                |
+| -------------- | ----------------- | ------------------------------------------ |
+| `X`            | <tt>Floats2d</tt> | The inputs.                                |
+| _keyword-only_ |                   |                                            |
+| `inplace`      | <tt>bool</tt>     | If `True`, the array is modified in place. |
+| **RETURNS**    | <tt>Floats2d</tt> | The outputs.                               |
 
 ### Ops.backprop_relu {#relu tag="method"}
 
@@ -813,13 +813,13 @@ Compute the gradients for the `recurrent_lstm` operation via backpropagation.
 
 </inline-list>
 
-| Argument       | Type              | Description                                    |
-| -------------- | ----------------- | ---------------------------------------------- |
-| `dY`           | <tt>Floats2d</tt> | Gradients of the output array.                 |
-| `Y`            | <tt>Floats2d</tt> | The output from the forward pass.              |
-| _keyword-only_ |                   |                                                |
-| `inplace`      | <tt>bool</tt>     | If `True`, the array may be modified in place. |
-| **RETURNS**    | <tt>Floats2d</tt> | The gradient of the input.                     |
+| Argument       | Type              | Description                                |
+| -------------- | ----------------- | ------------------------------------------ |
+| `dY`           | <tt>Floats2d</tt> | Gradients of the output array.             |
+| `Y`            | <tt>Floats2d</tt> | The output from the forward pass.          |
+| _keyword-only_ |                   |                                            |
+| `inplace`      | <tt>bool</tt>     | If `True`, the array is modified in place. |
+| **RETURNS**    | <tt>Floats2d</tt> | The gradient of the input.                 |
 
 ### Ops.mish {#mish tag="method"}
 
@@ -836,12 +836,12 @@ Compute the Mish activation
 
 | Argument    | Type              | Description                                     |
 | ----------- | ----------------- | ----------------------------------------------- |
-| `X`         | <tt>Floats2d</tt> | The inputs.                                     |
+| `X`         | <tt>FloatsXd</tt> | The inputs.                                     |
 | `threshold` | <tt>float</tt>    | Maximum value at which to apply the activation. |
 | `inplace`   | <tt>bool</tt>     | Apply Mish to `X` in-place.                     |
-| **RETURNS** | <tt>Floats2d</tt> | The outputs.                                    |
+| **RETURNS** | <tt>FloatsXd</tt> | The outputs.                                    |
 
-### Ops.backprop_mish {#backprop_softplus tag="method"}
+### Ops.backprop_mish {#backprop_mish tag="method"}
 
 <inline-list>
 
@@ -856,11 +856,340 @@ Backpropagate the Mish activation
 
 | Argument    | Type              | Description                           |
 | ----------- | ----------------- | ------------------------------------- |
-| `dY`        | <tt>Floats2d</tt> | Gradients of the output array.        |
-| `X`         | <tt>Floats2d</tt> | The inputs to the forward pass.       |
+| `dY`        | <tt>FloatsXd</tt> | Gradients of the output array.        |
+| `X`         | <tt>FloatsXd</tt> | The inputs to the forward pass.       |
 | `threshold` | <tt>float</tt>    | Threshold from the forward pass.      |
 | `inplace`   | <tt>bool</tt>     | Apply Mish backprop to `dY` in-place. |
-| **RETURNS** | <tt>Floats2d</tt> | The gradient of the input.            |
+| **RETURNS** | <tt>FloatsXd</tt> | The gradient of the input.            |
+
+### Ops.swish {#swish tag="method"}
+
+<inline-list>
+
+- **default:** <i name="yes"></i>
+- **numpy:** <i name="no"></i>
+- **cupy:** <i name="yes"></i>
+
+</inline-list>
+
+Swish [(Ramachandran et al., 2017)](https://arxiv.org/abs/1710.05941v2) is a
+self-gating non-monotonic activation function similar to the [GELU](#gelu)
+activation: whereas [GELU](#gelu) uses the CDF of the Gaussian distribution Φ
+for self-gating `x * Φ(x)`, Swish uses the logistic CDF `x * σ(x)`. Sometimes
+referred to as "SiLU" for "Sigmoid Linear Unit".
+
+| Argument    | Type              | Description                                |
+| ----------- | ----------------- | ------------------------------------------ |
+| `X`         | <tt>FloatsXd</tt> | The inputs.                                |
+| `inplace`   | <tt>bool</tt>     | If `True`, the array is modified in place. |
+| **RETURNS** | <tt>FloatsXd</tt> | The outputs.                               |
+
+### Ops.backprop_swish {#backprop_swish tag="method"}
+
+<inline-list>
+
+- **default:** <i name="yes"></i>
+- **numpy:** <i name="no"></i>
+- **cupy:** <i name="yes"></i>
+
+</inline-list>
+
+Backpropagate the Swish activation
+[(Ramachandran et al., 2017)](https://arxiv.org/abs/1710.05941v2).
+
+| Argument    | Type              | Description                                     |
+| ----------- | ----------------- | ----------------------------------------------- |
+| `dY`        | <tt>FloatsXd</tt> | Gradients of the output array.                  |
+| `X`         | <tt>FloatsXd</tt> | The inputs to the forward pass.                 |
+| `Y`         | <tt>FloatsXd</tt> | The outputs to the forward pass.                |
+| `inplace`   | <tt>bool</tt>     | If `True`, the `dY` array is modified in place. |
+| **RETURNS** | <tt>FloatsXd</tt> | The gradient of the input.                      |
+
+### Ops.gelu {#gelu tag="method"}
+
+<inline-list>
+
+- **default:** <i name="yes"></i>
+- **numpy:** <i name="no"></i>
+- **cupy:** <i name="yes"></i>
+
+</inline-list>
+
+GELU or "Gaussian Error Linear Unit"
+[(Hendrycks and Gimpel, 2016)](https://arxiv.org/abs/1606.08415) is a
+self-gating non-monotonic activation function similar to the [Swish](#swish)
+activation: whereas [GELU](#gelu) uses the CDF of the Gaussian distribution Φ
+for self-gating `x * Φ(x)` the Swish activation uses the logistic CDF σ and
+computes `x * σ(x)`. Various approximations exist, but `thinc` implements the
+exact GELU. The use of GELU is popular within transformer feed-forward blocks.
+
+| Argument    | Type              | Description                                |
+| ----------- | ----------------- | ------------------------------------------ |
+| `X`         | <tt>FloatsXd</tt> | The inputs.                                |
+| `inplace`   | <tt>bool</tt>     | If `True`, the array is modified in place. |
+| **RETURNS** | <tt>FloatsXd</tt> | The outputs.                               |
+
+### Ops.backprop_gelu {#backprop_gelu tag="method"}
+
+<inline-list>
+
+- **default:** <i name="yes"></i>
+- **numpy:** <i name="no"></i>
+- **cupy:** <i name="yes"></i>
+
+</inline-list>
+
+Backpropagate the GELU activation
+[(Hendrycks and Gimpel, 2016)](https://arxiv.org/abs/1606.08415).
+
+| Argument    | Type              | Description                                     |
+| ----------- | ----------------- | ----------------------------------------------- |
+| `dY`        | <tt>FloatsXd</tt> | Gradients of the output array.                  |
+| `X`         | <tt>FloatsXd</tt> | The inputs to the forward pass.                 |
+| `inplace`   | <tt>bool</tt>     | If `True`, the `dY` array is modified in place. |
+| **RETURNS** | <tt>FloatsXd</tt> | The gradient of the input.                      |
+
+### Ops.relu_k {#relu_k tag="method"}
+
+<inline-list>
+
+- **default:** <i name="yes"></i>
+- **numpy:** <i name="no"></i>
+- **cupy:** <i name="yes"></i>
+
+</inline-list>
+
+ReLU activation function with the maximum value clipped at `k`. A common choice
+is `k=6` introduced for convolutional deep belief networks
+[(Krizhevsky, 2010)](https://www.cs.toronto.edu/~kriz/conv-cifar10-aug2010.pdf).
+The resulting function `relu6` is commonly used in low-precision scenarios.
+
+| Argument    | Type              | Description                                |
+| ----------- | ----------------- | ------------------------------------------ |
+| `X`         | <tt>FloatsXd</tt> | The inputs.                                |
+| `inplace`   | <tt>bool</tt>     | If `True`, the array is modified in place. |
+| `k`         | <tt>float</tt>    | Maximum value (default: 6.0).              |
+| **RETURNS** | <tt>FloatsXd</tt> | The outputs.                               |
+
+### Ops.backprop_relu_k {#backprop_relu_k tag="method"}
+
+<inline-list>
+
+- **default:** <i name="yes"></i>
+- **numpy:** <i name="no"></i>
+- **cupy:** <i name="yes"></i>
+
+</inline-list>
+
+Backpropagate the ReLU-k activation.
+
+| Argument    | Type              | Description                                     |
+| ----------- | ----------------- | ----------------------------------------------- |
+| `dY`        | <tt>FloatsXd</tt> | Gradients of the output array.                  |
+| `X`         | <tt>FloatsXd</tt> | The inputs to the forward pass.                 |
+| `inplace`   | <tt>bool</tt>     | If `True`, the `dY` array is modified in place. |
+| **RETURNS** | <tt>FloatsXd</tt> | The gradient of the input.                      |
+
+### Ops.hard_sigmoid {#hard_sigmoid tag="method"}
+
+<inline-list>
+
+- **default:** <i name="yes"></i>
+- **numpy:** <i name="no"></i>
+- **cupy:** <i name="yes"></i>
+
+</inline-list>
+
+The hard sigmoid activation function is a fast linear approximation of the
+sigmoid activation, defined as `max(0, min(1, x * 0.2 + 0.5))`.
+
+| Argument    | Type              | Description                                |
+| ----------- | ----------------- | ------------------------------------------ |
+| `X`         | <tt>FloatsXd</tt> | The inputs.                                |
+| `inplace`   | <tt>bool</tt>     | If `True`, the array is modified in place. |
+| **RETURNS** | <tt>FloatsXd</tt> | The outputs.                               |
+
+### Ops.backprop_hard_sigmoid {#backprop_hard_sigmoid tag="method"}
+
+<inline-list>
+
+- **default:** <i name="yes"></i>
+- **numpy:** <i name="no"></i>
+- **cupy:** <i name="yes"></i>
+
+</inline-list>
+
+Backpropagate the hard sigmoid activation.
+
+| Argument    | Type              | Description                                     |
+| ----------- | ----------------- | ----------------------------------------------- |
+| `dY`        | <tt>FloatsXd</tt> | Gradients of the output array.                  |
+| `X`         | <tt>FloatsXd</tt> | The inputs to the forward pass.                 |
+| `inplace`   | <tt>bool</tt>     | If `True`, the `dY` array is modified in place. |
+| **RETURNS** | <tt>FloatsXd</tt> | The gradient of the input.                      |
+
+### Ops.hard_tanh {#hard_tanh tag="method"}
+
+<inline-list>
+
+- **default:** <i name="yes"></i>
+- **numpy:** <i name="no"></i>
+- **cupy:** <i name="yes"></i>
+
+</inline-list>
+
+The hard tanh activation function is a fast linear approximation of tanh,
+defined as `max(-1, min(1, x))`.
+
+| Argument    | Type              | Description                                |
+| ----------- | ----------------- | ------------------------------------------ |
+| `X`         | <tt>FloatsXd</tt> | The inputs.                                |
+| `inplace`   | <tt>bool</tt>     | If `True`, the array is modified in place. |
+| **RETURNS** | <tt>FloatsXd</tt> | The outputs.                               |
+
+### Ops.backprop_hard_tanh {#backprop_hard_tanh tag="method"}
+
+<inline-list>
+
+- **default:** <i name="yes"></i>
+- **numpy:** <i name="no"></i>
+- **cupy:** <i name="yes"></i>
+
+</inline-list>
+
+Backpropagate the hard tanh activation.
+
+| Argument    | Type              | Description                                     |
+| ----------- | ----------------- | ----------------------------------------------- |
+| `dY`        | <tt>FloatsXd</tt> | Gradients of the output array.                  |
+| `X`         | <tt>FloatsXd</tt> | The inputs to the forward pass.                 |
+| `inplace`   | <tt>bool</tt>     | If `True`, the `dY` array is modified in place. |
+| **RETURNS** | <tt>FloatsXd</tt> | The gradient of the input.                      |
+
+### Ops.clipped_linear {#clipped_linear tag="method"}
+
+<inline-list>
+
+- **default:** <i name="yes"></i>
+- **numpy:** <i name="no"></i>
+- **cupy:** <i name="yes"></i>
+
+</inline-list>
+
+Flexible clipped linear activation function of the form
+`max(min_value, min(max_value, x * slope + offset))`. It is used to implement
+the [`relu_k`](#reluk), [`hard_sigmoid`](#hard_sigmoid), and
+[`hard_tanh`](#hard_tanh) methods.
+
+| Argument    | Type              | Description                                                               |
+| ----------- | ----------------- | ------------------------------------------------------------------------- |
+| `X`         | <tt>FloatsXd</tt> | The inputs.                                                               |
+| `inplace`   | <tt>bool</tt>     | If `True`, the array is modified in place.                                |
+| `slope`     | <tt>float</tt>    | The slope of the linear function: `input * slope`.                        |
+| `offset`    | <tt>float</tt>    | The offset or intercept of the linear function: `input * slope + offset`. |
+| `min_val`   | <tt>float</tt>    | Minimum value to clip to.                                                 |
+| `max_val`   | <tt>float</tt>    | Maximum value to clip to.                                                 |
+| **RETURNS** | <tt>FloatsXd</tt> | The outputs.                                                              |
+
+### Ops.backprop_clipped_linear {#backprop_clipped_linear tag="method"}
+
+<inline-list>
+
+- **default:** <i name="yes"></i>
+- **numpy:** <i name="no"></i>
+- **cupy:** <i name="yes"></i>
+
+</inline-list>
+
+Backpropagate the clipped linear activation.
+
+| Argument    | Type              | Description                                                               |
+| ----------- | ----------------- | ------------------------------------------------------------------------- |
+| `dY`        | <tt>FloatsXd</tt> | Gradients of the output array.                                            |
+| `X`         | <tt>FloatsXd</tt> | The inputs to the forward pass.                                           |
+| `slope`     | <tt>float</tt>    | The slope of the linear function: `input * slope`.                        |
+| `offset`    | <tt>float</tt>    | The offset or intercept of the linear function: `input * slope + offset`. |
+| `min_val`   | <tt>float</tt>    | Minimum value to clip to.                                                 |
+| `max_val`   | <tt>float</tt>    | Maximum value to clip to.                                                 |
+| `inplace`   | <tt>bool</tt>     | If `True`, the `dY` array is modified in place.                           |
+| **RETURNS** | <tt>FloatsXd</tt> | The gradient of the input.                                                |
+
+### Ops.hard_swish {#hard_swish tag="method"}
+
+<inline-list>
+
+- **default:** <i name="yes"></i>
+- **numpy:** <i name="no"></i>
+- **cupy:** <i name="yes"></i>
+
+</inline-list>
+
+The hard Swish activation function is a fast linear approximation of Swish:
+`x * hard_sigmoid(x)`.
+
+| Argument    | Type              | Description                                |
+| ----------- | ----------------- | ------------------------------------------ |
+| `X`         | <tt>FloatsXd</tt> | The inputs.                                |
+| `inplace`   | <tt>bool</tt>     | If `True`, the array is modified in place. |
+| **RETURNS** | <tt>FloatsXd</tt> | The outputs.                               |
+
+### Ops.backprop_hard_swish {#backprop_hard_swish tag="method"}
+
+<inline-list>
+
+- **default:** <i name="yes"></i>
+- **numpy:** <i name="no"></i>
+- **cupy:** <i name="yes"></i>
+
+</inline-list>
+
+Backpropagate the hard Swish activation.
+
+| Argument    | Type              | Description                                     |
+| ----------- | ----------------- | ----------------------------------------------- |
+| `dY`        | <tt>FloatsXd</tt> | Gradients of the output array.                  |
+| `X`         | <tt>FloatsXd</tt> | The inputs to the forward pass.                 |
+| `inplace`   | <tt>bool</tt>     | If `True`, the `dY` array is modified in place. |
+| **RETURNS** | <tt>FloatsXd</tt> | The gradient of the input.                      |
+
+### Ops.hard_swish_mobilenet {#hard_swish_mobilenet tag="method"}
+
+<inline-list>
+
+- **default:** <i name="yes"></i>
+- **numpy:** <i name="no"></i>
+- **cupy:** <i name="yes"></i>
+
+</inline-list>
+
+A variant of the fast hard Swish activation function used in `MobileNetV3`
+[(Howard et al., 2019)](https://arxiv.org/abs/1905.02244), defined as
+`x * (relu6(x + 3) / 6)`.
+
+| Argument    | Type              | Description                                |
+| ----------- | ----------------- | ------------------------------------------ |
+| `X`         | <tt>FloatsXd</tt> | The inputs.                                |
+| `inplace`   | <tt>bool</tt>     | If `True`, the array is modified in place. |
+| **RETURNS** | <tt>FloatsXd</tt> | The outputs.                               |
+
+### Ops.backprop_hard_swish_mobilenet {#backprop_hard_swish_mobilenet tag="method"}
+
+<inline-list>
+
+- **default:** <i name="yes"></i>
+- **numpy:** <i name="no"></i>
+- **cupy:** <i name="yes"></i>
+
+</inline-list>
+
+Backpropagate the hard Swish MobileNet activation.
+
+| Argument    | Type              | Description                                     |
+| ----------- | ----------------- | ----------------------------------------------- |
+| `dY`        | <tt>FloatsXd</tt> | Gradients of the output array.                  |
+| `X`         | <tt>FloatsXd</tt> | The inputs to the forward pass.                 |
+| `inplace`   | <tt>bool</tt>     | If `True`, the `dY` array is modified in place. |
+| **RETURNS** | <tt>FloatsXd</tt> | The gradient of the input.                      |
 
 ### Ops.reduce_sum {#reduce_sum tag="method"}
 

@@ -26,11 +26,70 @@ Initialize from a normal distribution, with `scale = sqrt(1 / fan_in)`.
 
 ### glorot_uniform_init {#glorot_uniform_init tag="function"}
 
-Initialize with the randomization introduced by Xavier Glorot
-([Glorot and Bengio, 2010](http://proceedings.mlr.press/v9/glorot10a/glorot10a.pdf),
-which is a uniform distribution centered on zero, with
+Initialize from a uniform distribution with `scale` 
+parameter computed by the method introduced by Xavier Glorot
+([Glorot and Bengio, 2010])(http://proceedings.mlr.press/v9/glorot10a/glorot10a.pdf):
 `scale = sqrt(6.0 / (data.shape[0] + data.shape[1]))`. Usually used in
 [`Relu`](/docs/api-layers#relu) layers.
+
+| Argument    | Type              | Description                           |
+| ----------- | ----------------- | ------------------------------------- |
+| `ops`       | <tt>Ops</tt>      | The backend object, e.g. `model.ops`. |
+| `shape`     | <tt>Shape</tt>    | The data shape.                       |
+| **RETURNS** | <tt>FloatsXd</tt> | The initialized array.                |
+
+### glorot_normal_init {#glorot_normal_init tag="function"}
+
+Initialize from a normal distribution with `scale` 
+parameter computed by the method introduced by Xavier Glorot
+([Glorot and Bengio, 2010])(http://proceedings.mlr.press/v9/glorot10a/glorot10a.pdf):
+`scale = sqrt(2.0 / (data.shape[0] + data.shape[1]))`.
+
+| Argument    | Type              | Description                           |
+| ----------- | ----------------- | ------------------------------------- |
+| `ops`       | <tt>Ops</tt>      | The backend object, e.g. `model.ops`. |
+| `shape`     | <tt>Shape</tt>    | The data shape.                       |
+| **RETURNS** | <tt>FloatsXd</tt> | The initialized array.                |
+
+### he_uniform_init {#he_uniform_init tag="function"}
+
+Initialize from a uniform distribution with `scale` parameter
+computed by the method introduced in [He et al., 2015](https://arxiv.org/abs/1502.01852): 
+`scale = sqrt(6.0 / data.shape[1])`.
+
+| Argument    | Type              | Description                           |
+| ----------- | ----------------- | ------------------------------------- |
+| `ops`       | <tt>Ops</tt>      | The backend object, e.g. `model.ops`. |
+| `shape`     | <tt>Shape</tt>    | The data shape.                       |
+| **RETURNS** | <tt>FloatsXd</tt> | The initialized array.                |
+
+### he_normal_init {#he_normal_init tag="function"}
+Initialize from a normal distribution with `scale` parameter
+computed by the method introduced in [He et al., 2015](https://arxiv.org/abs/1502.01852): 
+`scale = sqrt(2.0 / data.shape[1])`.
+
+| Argument    | Type              | Description                           |
+| ----------- | ----------------- | ------------------------------------- |
+| `ops`       | <tt>Ops</tt>      | The backend object, e.g. `model.ops`. |
+| `shape`     | <tt>Shape</tt>    | The data shape.                       |
+| **RETURNS** | <tt>FloatsXd</tt> | The initialized array.                |
+
+### lecun_uniform_init {#lecun_uniform_init tag="function"}
+Initialize from a uniform distribution with `scale` parameter
+computed as: `scale = sqrt(3.0 / data.shape[1])`.
+
+
+| Argument    | Type              | Description                           |
+| ----------- | ----------------- | ------------------------------------- |
+| `ops`       | <tt>Ops</tt>      | The backend object, e.g. `model.ops`. |
+| `shape`     | <tt>Shape</tt>    | The data shape.                       |
+| **RETURNS** | <tt>FloatsXd</tt> | The initialized array.                |
+
+
+### lecun_normal_init {#lecun_normal_init tag="function"}
+Initialize from a normal distribution with `scale` parameter
+computed as: `variance = sqrt(1.0 / data.shape[1])`.
+
 
 | Argument    | Type              | Description                           |
 | ----------- | ----------------- | ------------------------------------- |
