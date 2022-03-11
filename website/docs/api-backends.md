@@ -951,7 +951,7 @@ Backpropagate GELU activation
 
 </inline-list>
 
-`Relu` activation function with the maximum value is clipped at `k`. A common
+ReLU activation function with the maximum value is clipped at `k`. A common
 choice is `k=6` introduced for convolutional deep belief networks
 [(Krizhevsky, 2010)](https://www.cs.toronto.edu/~kriz/conv-cifar10-aug2010.pdf).
 The resulting function `relu6` is commonly used in low-precision scenarios.
@@ -973,7 +973,7 @@ The resulting function `relu6` is commonly used in low-precision scenarios.
 
 </inline-list>
 
-Backpropagate `ReluK` activation.
+Backpropagate `relu_k` activation.
 
 | Argument    | Type              | Description                                     |
 | ----------- | ----------------- | ----------------------------------------------- |
@@ -992,8 +992,8 @@ Backpropagate `ReluK` activation.
 
 </inline-list>
 
-The `hard_sigmoid` activation function is a fast linear approximation of
-`sigmoid` defined as `max(0, min(1, x * 0.2 + 0.5))`.
+The hard sigmoid activation function is a fast linear approximation of `sigmoid`
+defined as `max(0, min(1, x * 0.2 + 0.5))`.
 
 | Argument    | Type              | Description                                |
 | ----------- | ----------------- | ------------------------------------------ |
@@ -1030,7 +1030,7 @@ Backpropagate `hard_sigmoid` activation.
 
 </inline-list>
 
-The `hard_tanh` activation function is a fast linear approximation of `tanh`:
+The hard tanh activation function is a fast linear approximation of tanh:
 defined as `max(-1, min(1, x))`.
 
 | Argument    | Type              | Description                                |
@@ -1116,7 +1116,7 @@ Backpropagate `clipped_linear` activation.
 
 </inline-list>
 
-The `hard_swish` activation function is a fast linear approximation of `swish`:
+The hard Swish activation function is a fast linear approximation of Swish:
 `x * hard_sigmoid(x)`.
 
 | Argument    | Type              | Description                                |
@@ -1154,7 +1154,7 @@ Backpropagate `hard_swish` activation.
 
 </inline-list>
 
-A variant of the fast linear `hard_swish` activation function used in
+A variant of the fast linear hard Swish activation function used in
 `MobileNetV3` [(Howard et al., 2019)](https://arxiv.org/abs/1905.02244) defined
 as `x * (relu6(x + 3) / 6)`.
 
