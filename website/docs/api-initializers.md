@@ -66,7 +66,7 @@ computed by the method introduced in [He et al., 2015](https://arxiv.org/abs/150
 ### he_normal_init {#he_normal_init tag="function"}
 Initialize from a normal distribution with `scale` parameter
 computed by the method introduced in [He et al., 2015](https://arxiv.org/abs/1502.01852): 
-`scale = sqrt(2.0 / data.shape[1])`
+`scale = sqrt(2.0 / data.shape[1])`.
 
 | Argument    | Type              | Description                           |
 | ----------- | ----------------- | ------------------------------------- |
