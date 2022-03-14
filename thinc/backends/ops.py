@@ -131,6 +131,15 @@ class Ops:
 
         return SizedGenerator(_iter_items, len(sizes))
 
+    # Computed as in "Logistic regression in rare events data"
+    # G King, L Zeng - Political analysis, 2001
+    def balanced_class_weights(self, labels: Ints1d):
+        xp = get_array_module(labels)
+        classes, freqs = xp.unique(labels, return_counts=True)
+        N_x, N_c = len(labels), len(classes)
+        weights = [N_x / (N_c * freq) for freq in freqs]
+        return weights
+
     def _get_batch(self, sequence, indices):
         if isinstance(sequence, list):
             subseq = [sequence[i] for i in indices]
