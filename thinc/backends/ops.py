@@ -612,7 +612,7 @@ class Ops:
             Y += 1.0
             return Y
         else:
-            return 1 - Y ** 2
+            return 1 - Y**2
 
     def softmax(
         self,
@@ -933,7 +933,7 @@ class Ops:
         delta = xp.exp(Xsub) + 1.0
         delta *= delta
         delta += 1.0
-        dXsub = dYsub * ((xp.exp(Xsub) * omega) / (delta ** 2))
+        dXsub = dYsub * ((xp.exp(Xsub) * omega) / (delta**2))
         # Gradient when above threshold will ignore softplus.
         if inplace:
             out = dY
@@ -1379,7 +1379,7 @@ def dsigmoid(Y: ArrayT) -> ArrayT:
 
 
 def dtanh(Y: ArrayT) -> ArrayT:
-    return 1 - Y ** 2
+    return 1 - Y**2
 
 
 def gaussian_cdf(ops: Ops, X: FloatsType) -> FloatsType:
