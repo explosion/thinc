@@ -22,6 +22,7 @@ ArrayT3d_co = TypeVar(
     "ArrayT3d_co", bound=Union[Floats3d, Ints3d, Array3d], covariant=True
 )
 ArrayTXd = TypeVar("ArrayTXd", bound=ArrayXd)
+ArrayTXd_co = TypeVar("ArrayTXd_co", bound=ArrayXd, covariant=True)
 
 
 FloatsT = TypeVar("FloatsT", bound=_Floats)
@@ -264,23 +265,23 @@ class Ops:
 
     def unflatten(
         self, X: ArrayTXd, lengths: Ints1d, pad: int = 0
-    ) -> List[ArrayTXd]:
+    ) -> List[ArrayTXd_co]:
         """The reverse/backward operation of the `flatten` function: unflatten
         a large array into a list of arrays according to the given lengths.
         """
-        unflat = []
+        unflat: List[ArrayTXd_co] = []
         pad = int(pad)
         for length in lengths:
             length = int(length)
             if pad >= 1 and length != 0:
                 X = cast(ArrayTXd, X[pad:])
-            unflat.append(X[:length])
+            unflat.append(cast(ArrayTXd_co, X[:length]))
             X = cast(ArrayTXd, X[length:])
         if pad >= 1:
             X = cast(ArrayTXd, X[pad:])
         assert len(X) == 0
         assert len(unflat) == len(lengths)
-        return cast(List[ArrayTXd], unflat)
+        return unflat
 
     def pad(self, seqs: List[ArrayT2d_co], round_to=1) -> ArrayT3d_co:
         """Perform padding on a list of arrays so that they each have the same

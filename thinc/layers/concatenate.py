@@ -107,7 +107,7 @@ def _list_forward(
     Ys = [model.ops.xp.concatenate(Y, axis=0) for Y in Ys]
     widths = [Y.shape[1] for Y in Ys]
     out_array = model.ops.xp.hstack(Ys)
-    output = model.ops.unflatten(out_array, lengths)
+    output = cast(OutT, model.ops.unflatten(out_array, lengths))
 
     def backprop(d_output: List[Array2d]) -> InT:
         d_out_array = model.ops.xp.concatenate(d_output, axis=0)
@@ -123,7 +123,7 @@ def _list_forward(
             start += width
         return dX
 
-    return cast(OutT, output), backprop
+    return output, backprop
 
 
 def init(
