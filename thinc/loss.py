@@ -1,5 +1,8 @@
+from math import isclose
+
 from typing import Tuple, List, cast, TypeVar, Generic, Any, Union, Optional
 from typing import Dict
+from thinc.layers.softmax import validate_class_priors
 
 from .types import Floats2d, Ints1d
 from .util import get_array_module, to_categorical
@@ -47,12 +50,17 @@ class CategoricalCrossentropy(Loss):
         missing_value: Optional[Union[str, int]] = None,
         neg_prefix: Optional[str] = None,
         label_smoothing: float = 0.0,
+        class_priors: Optional[List[float]] = None
     ):
         self.normalize = normalize
         self.names = names
         self.missing_value = missing_value
         self.neg_prefix = neg_prefix
         self.label_smoothing = label_smoothing
+        if class_priors is not None:
+            _validate_class_priors(class_priors)
+        self.class_priors = class_priors
+
         if names is not None:
             self._name_to_i = {name: i for i, name in enumerate(names)}
         else:
@@ -143,6 +151,12 @@ class CategoricalCrossentropy(Loss):
             raise ValueError(err)
         difference = guesses - target
         difference *= mask
+        # Weight samples proportinal to the marginals.
+        if self.class_priors is not None:
+            cp = xp.asarray(self.class_priors)
+            cp = xp.tile(cp, (guesses.shape[0], 1))
+            sample_weights = (target * cp).sum(axis=1)
+            difference *= xp.expand_dims(sample_weights, 1)
         if self.normalize:
             difference = difference / guesses.shape[0]
         return difference
@@ -417,6 +431,13 @@ def _make_mask_by_value(truths, guesses, missing_value) -> Floats2d:
             mask[labels == missing_value] = 0.0
 
     return mask
+
+
+def _validate_class_priors(class_priors: List[float]):
+    if not all([0.0 <= x <= 1.0 for x in class_priors]):
+        raise ValueError("All class-priors has to be between 0 and 1")
+    elif not isclose(sum(class_priors), 1.0):
+        raise ValueError("Class priors have to sum to 1.")
 
 
 __all__ = [
