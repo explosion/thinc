@@ -683,7 +683,7 @@ class Ops:
         return dX, d_params
 
     def maxout(self, X: Floats3d) -> Tuple[Floats2d, Ints2d]:
-        which = X.argmax(axis=-1, keepdims=False)
+        which = X.argmax(axis=-1)
         return X.max(axis=-1), which
 
     def backprop_maxout(self, dY: Floats2d, which: Ints2d, P: int) -> Floats3d:
