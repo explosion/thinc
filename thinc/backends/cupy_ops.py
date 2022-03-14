@@ -33,11 +33,25 @@ class CupyOps(Ops):
         self.device_type = device_type
         self.device_id = device_id
 
-    def to_numpy(self, data):
-        if isinstance(data, numpy.ndarray):
-            return data
+    def to_numpy(self, data, *, byte_order=None):
+        if not isinstance(data, numpy.ndarray):
+            data = data.get()
+        if byte_order:
+            dtype = data.dtype.newbyteorder(byte_order)
+            data = numpy.asarray(data, dtype=dtype)
+        return data
+
+    def gelu(self, X, inplace=False):
+        if X.dtype == "float32":
+            return _custom_kernels.gelu(X, inplace=inplace, threshold=6.0)
         else:
-            return data.get()
+            return super().gelu(X, inplace=inplace)
+
+    def backprop_gelu(self, dY, X, inplace=False):
+        if X.dtype == "float32" and dY.dtype == "float32":
+            return _custom_kernels.backprop_gelu(dY, X, inplace=inplace, threshold=6.0)
+        else:
+            return super().backprop_gelu(dY, X, inplace=inplace)
 
     def gemm(self, x, y, out=None, trans1=False, trans2=False):
         if isinstance(x, numpy.ndarray) or isinstance(y, numpy.ndarray):
@@ -90,11 +104,102 @@ class CupyOps(Ops):
         dY *= Y > 0
         return dY
 
-    def mish(self, X, threshold=20.0):
-        return _custom_kernels.mish(X, threshold=threshold, out=None)
+    def clipped_linear(
+        self,
+        X,
+        slope: float = 1.0,
+        offset: float = 0.0,
+        min_val: float = 0.0,
+        max_val: float = 1.0,
+        inplace: bool = False,
+    ):
+        if X.dtype == "float32":
+            return _custom_kernels.clipped_linear(
+                X,
+                inplace=inplace,
+                slope=slope,
+                offset=offset,
+                min_val=min_val,
+                max_val=max_val,
+            )
+        else:
+            return super().clipped_linear(
+                X,
+                inplace=inplace,
+                slope=slope,
+                offset=offset,
+                min_val=min_val,
+                max_val=max_val,
+            )
 
-    def backprop_mish(self, dY, X, threshold=20.0, out=None):
-        return _custom_kernels.backprop_mish(dY, X, threshold=threshold, out=out)
+    def backprop_clipped_linear(
+        self,
+        dY,
+        X,
+        slope: float = 1.0,
+        offset: float = 0.0,
+        min_val: float = 0.0,
+        max_val: float = 1.0,
+        inplace: bool = False,
+    ):
+        if X.dtype == "float32" and dY.dtype == "float32":
+            return _custom_kernels.backprop_clipped_linear(
+                dY=dY,
+                X=X,
+                slope=slope,
+                offset=offset,
+                min_val=min_val,
+                max_val=max_val,
+                inplace=inplace,
+            )
+        else:
+            return super().backprop_clipped_linear(
+                dY=dY,
+                X=X,
+                slope=slope,
+                offset=offset,
+                min_val=min_val,
+                max_val=max_val,
+                inplace=inplace,
+            )
+
+    def backprop_hard_swish(self, dY, X, inplace: bool = False):
+        if X.dtype == "float32" and dY.dtype == "float32":
+            return _custom_kernels.backprop_hard_swish(dY, X, inplace=inplace)
+        else:
+            return super().backprop_hard_swish(dY, X, inplace=inplace)
+
+    def backprop_hard_swish_mobilenet(self, dY, X, inplace: bool = False):
+        if X.dtype == "float32" and dY.dtype == "float32":
+            return _custom_kernels.backprop_hard_swish_mobilenet(dY, X, inplace=inplace)
+        else:
+            return super().backprop_hard_swish_mobilenet(dY, X, inplace=inplace)
+
+    def mish(self, X, threshold=20.0, inplace=False):
+        if X.dtype == "float32" and not inplace:
+            return _custom_kernels.mish(X, threshold=threshold, out=None)
+        else:
+            return super().mish(X, threshold, inplace)
+
+    def backprop_mish(self, dY, X, threshold=20.0, inplace=False):
+        if dY.dtype == "float32" and X.dtype == "float32" and not inplace:
+            return _custom_kernels.backprop_mish(dY, X, threshold=threshold)
+        else:
+            return super().backprop_mish(dY, X, threshold, inplace)
+
+    def swish(self, X, inplace=False):
+        if X.dtype == "float32":
+            return _custom_kernels.swish(X, inplace=inplace, threshold=17.0)
+        else:
+            return super().swish(X, inplace=inplace)
+
+    def backprop_swish(self, dY, X, Y, inplace=False):
+        if X.dtype == "float32" and dY.dtype == "float32":
+            return _custom_kernels.backprop_swish(
+                dY, X, Y, inplace=inplace, threshold=17.0
+            )
+        else:
+            return super().backprop_swish(dY, X, Y, inplace=inplace)
 
     def clip_gradient(self, gradient, threshold):
         # We do not use CuPy's linalg.norm, since it uses scalar reductions
@@ -108,15 +213,15 @@ class CupyOps(Ops):
         gradient *= cupy.minimum(threshold, grad_norm) / grad_norm
         return gradient
 
-    def seq2col(self, seq, nW):
+    def seq2col(self, seq, nW, *, lengths=None):
         """Given an (M, N) sequence of vectors, return an (M, N*(nW*2+1)) sequence.
         The new sequence is constructed by concatenating nW preceding and succeeding
         vectors onto each column in the sequence, to extract a window of features.
         """
-        return _custom_kernels.seq2col(seq, nW)
+        return _custom_kernels.seq2col(seq, nW, lengths=lengths)
 
-    def backprop_seq2col(self, dY, nW):
-        return _custom_kernels.backprop_seq2col(dY, nW)
+    def backprop_seq2col(self, dY, nW, *, lengths=None):
+        return _custom_kernels.backprop_seq2col(dY, nW, lengths=lengths)
 
     def reduce_mean(self, X, lengths):
         return _custom_kernels.reduce_mean(X, lengths)

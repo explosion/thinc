@@ -1,5 +1,5 @@
 from typing import Any, Union, Sequence, cast, Dict, Optional, Callable, TypeVar
-from typing import List
+from typing import List, Tuple
 import numpy
 import random
 import functools
@@ -11,6 +11,7 @@ import tempfile
 import threading
 import contextlib
 from contextvars import ContextVar
+from dataclasses import dataclass
 
 DATA_VALIDATION: ContextVar[bool] = ContextVar("DATA_VALIDATION", default=False)
 
@@ -30,9 +31,11 @@ try:  # pragma: no cover
 
     has_torch = True
     has_torch_gpu = torch.cuda.device_count() != 0
+    has_torch_amp = not torch.cuda.amp.common.amp_definitely_not_available()
 except ImportError:  # pragma: no cover
     has_torch = False
     has_torch_gpu = False
+    has_torch_amp = False
 
 try:  # pragma: no cover
     import tensorflow.experimental.dlpack
@@ -162,14 +165,9 @@ def require_cpu() -> bool:  # pragma: no cover
     """Use CPU through best available backend."""
     from .backends import set_current_ops, get_ops
 
-    try:
-        import torch
-
-        torch.set_default_tensor_type("torch.FloatTensor")
-    except ImportError:
-        pass
-
-    set_current_ops(get_ops("cpu"))
+    ops = get_ops("cpu")
+    set_current_ops(ops)
+    set_torch_tensor_type_for_ops(ops)
 
     return True
 
@@ -203,23 +201,41 @@ def copy_array(dst: ArrayXd, src: ArrayXd) -> None:  # pragma: no cover
         src = cupy.array(src, copy=False)
         cupy.copyto(dst, src)
     else:
-        numpy.copyto(dst, src)
+        numpy.copyto(dst, src)  # type: ignore
 
 
-def to_categorical(Y: IntsXd, n_classes: Optional[int] = None) -> FloatsXd:
-    # From keras
-    xp = get_array_module(Y)
-    if xp is cupy:  # pragma: no cover
-        Y = Y.get()
-    keep_shapes: List[int] = list(Y.shape)
-    Y = numpy.array(Y, dtype="int").ravel()  # type: ignore
+def to_categorical(
+    Y: IntsXd,
+    n_classes: Optional[int] = None,
+    *,
+    label_smoothing: float = 0.0,
+) -> FloatsXd:
+    if not 0.0 <= label_smoothing < 0.5:
+        raise ValueError(
+            "label_smoothing should be greater or "
+            "equal to 0.0 and less than 0.5, "
+            f"but {label_smoothing} was provided."
+        )
+
     if n_classes is None:
-        n_classes = int(numpy.max(Y) + 1)
-    keep_shapes.append(n_classes)
-    n = Y.shape[0]
-    categorical = numpy.zeros((n, n_classes), dtype="float32")
-    categorical[numpy.arange(n), Y] = 1
-    return xp.asarray(categorical).reshape(keep_shapes)
+        n_classes = int(numpy.max(Y) + 1)  # type: ignore
+
+    if label_smoothing == 0.0:
+        if n_classes == 0:
+            raise ValueError("n_classes should be at least 1")
+        nongold_prob = 0.0
+    else:
+        if not n_classes > 1:
+            raise ValueError(
+                "n_classes should be greater than 1 when label smoothing is enabled,"
+                f"but {n_classes} was provided."
+            )
+        nongold_prob = label_smoothing / (n_classes - 1)
+
+    xp = get_array_module(Y)
+    label_distr = xp.full((n_classes, n_classes), nongold_prob, dtype="float32")
+    xp.fill_diagonal(label_distr, 1 - label_smoothing)
+    return label_distr[Y]
 
 
 def get_width(
@@ -295,6 +311,24 @@ def convert_recursive(
         return tuple(convert_recursive(is_match, convert_item, item) for item in obj)
     else:
         return obj
+
+
+def iterate_recursive(is_match: Callable[[Any], bool], obj: Any) -> Any:
+    """Either yield a single value if it matches a given function, or recursively
+    walk over potentially nested lists, tuples and dicts yielding matching
+    values. Also supports the ArgsKwargs dataclass.
+    """
+    if is_match(obj):
+        yield obj
+    elif isinstance(obj, ArgsKwargs):
+        yield from iterate_recursive(is_match, list(obj.items()))
+    elif isinstance(obj, dict):
+        for key, value in obj.items():
+            yield from iterate_recursive(is_match, key)
+            yield from iterate_recursive(is_match, value)
+    elif isinstance(obj, list) or isinstance(obj, tuple):
+        for item in obj:
+            yield from iterate_recursive(is_match, item)
 
 
 def xp2torch(
@@ -480,6 +514,44 @@ def use_nvtx_range(message: int, id_color: int = -1):
         yield
 
 
+def set_torch_tensor_type_for_ops(ops):
+    """Set the PyTorch default tensor type for the given ops. This is a
+    no-op if PyTorch is not available."""
+    from .backends.cupy_ops import CupyOps
+
+    try:
+        import torch
+
+        if CupyOps.xp is not None and isinstance(ops, CupyOps):
+            torch.set_default_tensor_type("torch.cuda.FloatTensor")
+        else:
+            torch.set_default_tensor_type("torch.FloatTensor")
+    except ImportError:
+        pass
+
+
+@dataclass
+class ArrayInfo:
+    """Container for info for checking array compatibility."""
+
+    shape: types.Shape
+    dtype: types.DTypes
+
+    @classmethod
+    def from_array(cls, arr: ArrayXd):
+        return cls(shape=arr.shape, dtype=arr.dtype)
+
+    def check_consistency(self, arr: ArrayXd):
+        if arr.shape != self.shape:
+            raise ValueError(
+                f"Shape mismatch in backprop. Y: {self.shape}, dY: {arr.shape}"
+            )
+        if arr.dtype != self.dtype:
+            raise ValueError(
+                f"Type mismatch in backprop. Y: {self.dtype}, dY: {arr.dtype}"
+            )
+
+
 __all__ = [
     "get_array_module",
     "fix_random_seed",
@@ -499,4 +571,6 @@ __all__ = [
     "DataValidationError",
     "make_tempfile",
     "use_nvtx_range",
+    "set_torch_tensor_type_for_ops",
+    "ArrayInfo",
 ]

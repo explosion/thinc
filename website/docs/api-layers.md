@@ -222,13 +222,13 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/linear.py
 A linear (aka dense) layer, followed by a sigmoid activation. This is usually
 used as an output layer for multi-label classification (in contrast to the
 `Softmax` layer, which is used for problems where exactly one class is correct
-per example. 
+per example.
 
 | Argument    | Type                               | Description                      |
 | ----------- | ---------------------------------- | -------------------------------- |
 | `nOs`       | <tt>Tuple[int, ...]</tt>           | The sizes of the output vectors. |
 | `nI`        | <tt>Optional[int]</tt>             | The size of the input vectors.   |
-| **RETURNS** | <tt>Model[Floats2d, Floats2d]</tt> | The created sigmoid layer. |
+| **RETURNS** | <tt>Model[Floats2d, Floats2d]</tt> | The created sigmoid layer.       |
 
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/sigmoid.py
@@ -243,12 +243,12 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/sigmoid.py
 
 </inline-list>
 
-Apply the sigmoid logistic function as an activation to the inputs. This is often
-used as an output activation for multi-label classification, because each element
-of the output vectors will be between `0` and `1`.
+Apply the sigmoid logistic function as an activation to the inputs. This is
+often used as an output activation for multi-label classification, because each
+element of the output vectors will be between `0` and `1`.
 
-| Argument    | Type                               | Description                   |
-| ----------- | ---------------------------------- | ----------------------------- |
+| Argument    | Type                               | Description                             |
+| ----------- | ---------------------------------- | --------------------------------------- |
 | **RETURNS** | <tt>Model[Floats2d, Floats2d]</tt> | The created `sigmoid_activation` layer. |
 
 ```python
@@ -345,6 +345,260 @@ A dense layer with Mish activation
 
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/mish.py
+```
+
+### Swish {#swish tag="function"}
+
+<inline-list>
+
+- **Input:** <ndarray shape="batch_size, nI">Floats2d</ndarray>
+- **Output:** <ndarray shape="batch_size, nO">Floats2d</ndarray>
+- **Parameters:** <ndarray shape="nO, nI">W</ndarray>,
+  <ndarray shape="nO,">b</ndarray>
+
+</inline-list>
+
+A dense layer with the Swish activation function
+[(Ramachandran et al., 2017)](https://arxiv.org/abs/1710.05941v2). Swish is a
+self-gating non-monotonic activation function similar to [`GELU`](#gelu):
+whereas GELU uses the CDF of the Gaussian distribution Φ for self-gating
+`x * Φ(x)` Swish uses the logistic CDF `x * σ(x)`. Sometimes referred to as
+"SiLU" for "Sigmoid Linear Unit".
+
+| Argument       | Type                               | Description                                                                                                        |
+| -------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `nO`           | <tt>Optional[int]</tt>             | The size of the output vectors.                                                                                    |
+| `nI`           | <tt>Optional[int]</tt>             | The size of the input vectors.                                                                                     |
+| _keyword-only_ |                                    |                                                                                                                    |
+| `init_W`       | <tt>Callable</tt>                  | A function to initialize the weights matrix. Defaults to [`he_normal_init`](/docs/api-initializers#he_normal_init) |
+| `init_b`       | <tt>Callable</tt>                  | A function to initialize the bias vector. Defaults to [`zero_init`](/docs/api-initializers#zero_init).             |
+| `dropout`      | <tt>Optional[float]</tt>           | Dropout rate to avoid overfitting.                                                                                 |
+| `normalize`    | <tt>bool</tt>                      | Whether or not to apply [layer normalization](#layernorm). Defaults to `False`.                                    |
+| **RETURNS**    | <tt>Model[Floats2d, Floats2d]</tt> | The created dense layer.                                                                                           |
+
+```python
+https://github.com/explosion/thinc/blob/master/thinc/layers/swish.py
+```
+
+### Gelu {#gelu tag="function"}
+
+<inline-list>
+
+- **Input:** <ndarray shape="batch_size, nI">Floats2d</ndarray>
+- **Output:** <ndarray shape="batch_size, nO">Floats2d</ndarray>
+- **Parameters:** <ndarray shape="nO, nI">W</ndarray>,
+  <ndarray shape="nO,">b</ndarray>
+
+</inline-list>
+
+A dense layer with the GELU activation function
+[(Hendrycks and Gimpel, 2016)](https://arxiv.org/abs/1606.08415). The GELU or
+"Gaussian Error Linear Unit" is a self-gating non-monotonic activation function
+similar to [Swish](#swish): whereas GELU uses the CDF of the Gaussian
+distribution Φ for self-gating `x * Φ(x)` the Swish activation uses the logistic
+CDF σ and computes `x * σ(x)`. Various approximations exist, but `thinc`
+implements the exact GELU. The use of GELU is popular within transformer
+feed-forward blocks.
+
+| Argument       | Type                               | Description                                                                                                        |
+| -------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `nO`           | <tt>Optional[int]</tt>             | The size of the output vectors.                                                                                    |
+| `nI`           | <tt>Optional[int]</tt>             | The size of the input vectors.                                                                                     |
+| _keyword-only_ |                                    |                                                                                                                    |
+| `init_W`       | <tt>Callable</tt>                  | A function to initialize the weights matrix. Defaults to [`he_normal_init`](/docs/api-initializers#he_normal_init) |
+| `init_b`       | <tt>Callable</tt>                  | A function to initialize the bias vector. Defaults to [`zero_init`](/docs/api-initializers#zero_init).             |
+| `dropout`      | <tt>Optional[float]</tt>           | Dropout rate to avoid overfitting.                                                                                 |
+| `normalize`    | <tt>bool</tt>                      | Whether or not to apply [layer normalization](#layernorm). Defaults to `False`.                                    |
+| **RETURNS**    | <tt>Model[Floats2d, Floats2d]</tt> | The created dense layer.                                                                                           |
+
+```python
+https://github.com/explosion/thinc/blob/master/thinc/layers/gelu.py
+```
+
+### ReluK {#reluk tag="function"}
+
+<inline-list>
+
+- **Input:** <ndarray shape="batch_size, nI">Floats2d</ndarray>
+- **Output:** <ndarray shape="batch_size, nO">Floats2d</ndarray>
+- **Parameters:** <ndarray shape="nO, nI">W</ndarray>,
+  <ndarray shape="nO,">b</ndarray>
+
+</inline-list>
+
+A dense layer with the ReLU activation function where the maximum value is
+clipped at `k`. A common choice is `k=6` introduced for convolutional deep
+belief networks
+[(Krizhevsky, 2010)](https://www.cs.toronto.edu/~kriz/conv-cifar10-aug2010.pdf).
+The resulting function `relu6` is commonly used in low-precision scenarios.
+
+| Argument       | Type                               | Description                                                                                                                  |
+| -------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `nO`           | <tt>Optional[int]</tt>             | The size of the output vectors.                                                                                              |
+| `nI`           | <tt>Optional[int]</tt>             | The size of the input vectors.                                                                                               |
+| _keyword-only_ |                                    |                                                                                                                              |
+| `init_W`       | <tt>Callable</tt>                  | A function to initialize the weights matrix. Defaults to [`glorot_uniform_init`](/docs/api-initializers#glorot_uniform_init) |
+| `init_b`       | <tt>Callable</tt>                  | A function to initialize the bias vector. Defaults to [`zero_init`](/docs/api-initializers#zero_init).                       |
+| `dropout`      | <tt>Optional[float]</tt>           | Dropout rate to avoid overfitting.                                                                                           |
+| `normalize`    | <tt>bool</tt>                      | Whether or not to apply [layer normalization](#layernorm). Defaults to `False`.                                              |
+| `k`            | <tt>float</tt>                     | Maximum value. Defaults to `6.0`..                                                                                           |
+| **RETURNS**    | <tt>Model[Floats2d, Floats2d]</tt> | The created dense layer.                                                                                                     |
+
+```python
+https://github.com/explosion/thinc/blob/master/thinc/layers/clipped_linear.py#L132
+```
+
+### HardSigmoid {#hardsigmoid tag="function"}
+
+<inline-list>
+
+- **Input:** <ndarray shape="batch_size, nI">Floats2d</ndarray>
+- **Output:** <ndarray shape="batch_size, nO">Floats2d</ndarray>
+- **Parameters:** <ndarray shape="nO, nI">W</ndarray>,
+  <ndarray shape="nO,">b</ndarray>
+
+</inline-list>
+
+A dense layer with hard sigmoid activation function, which is a fast linear
+approximation of sigmoid, defined as `max(0, min(1, x * 0.2 + 0.5))`.
+
+| Argument       | Type                               | Description                                                                                                                  |
+| -------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `nO`           | <tt>Optional[int]</tt>             | The size of the output vectors.                                                                                              |
+| `nI`           | <tt>Optional[int]</tt>             | The size of the input vectors.                                                                                               |
+| _keyword-only_ |                                    |                                                                                                                              |
+| `init_W`       | <tt>Callable</tt>                  | A function to initialize the weights matrix. Defaults to [`glorot_uniform_init`](/docs/api-initializers#glorot_uniform_init) |
+| `init_b`       | <tt>Callable</tt>                  | A function to initialize the bias vector. Defaults to [`zero_init`](/docs/api-initializers#zero_init).                       |
+| `dropout`      | <tt>Optional[float]</tt>           | Dropout rate to avoid overfitting.                                                                                           |
+| `normalize`    | <tt>bool</tt>                      | Whether or not to apply [layer normalization](#layernorm). Defaults to `False`.                                              |
+| **RETURNS**    | <tt>Model[Floats2d, Floats2d]</tt> | The created dense layer.                                                                                                     |
+
+```python
+https://github.com/explosion/thinc/blob/master/thinc/layers/clipped_linear.py#L90
+```
+
+### HardTanh {#hardtanh tag="function"}
+
+<inline-list>
+
+- **Input:** <ndarray shape="batch_size, nI">Floats2d</ndarray>
+- **Output:** <ndarray shape="batch_size, nO">Floats2d</ndarray>
+- **Parameters:** <ndarray shape="nO, nI">W</ndarray>,
+  <ndarray shape="nO,">b</ndarray>
+
+</inline-list>
+
+A dense layer with hard tanh activation function, which is a fast linear
+approximation of tanh, defined as `max(-1, min(1, x))`.
+
+| Argument       | Type                               | Description                                                                                                                  |
+| -------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `nO`           | <tt>Optional[int]</tt>             | The size of the output vectors.                                                                                              |
+| `nI`           | <tt>Optional[int]</tt>             | The size of the input vectors.                                                                                               |
+| _keyword-only_ |                                    |                                                                                                                              |
+| `init_W`       | <tt>Callable</tt>                  | A function to initialize the weights matrix. Defaults to [`glorot_uniform_init`](/docs/api-initializers#glorot_uniform_init) |
+| `init_b`       | <tt>Callable</tt>                  | A function to initialize the bias vector. Defaults to [`zero_init`](/docs/api-initializers#zero_init).                       |
+| `dropout`      | <tt>Optional[float]</tt>           | Dropout rate to avoid overfitting.                                                                                           |
+| `normalize`    | <tt>bool</tt>                      | Whether or not to apply [layer normalization](#layernorm). Defaults to `False`.                                              |
+| **RETURNS**    | <tt>Model[Floats2d, Floats2d]</tt> | The created dense layer.                                                                                                     |
+
+```python
+https://github.com/explosion/thinc/blob/master/thinc/layers/clipped_linear.py#L111
+```
+
+### ClippedLinear {#clippedlinear tag="function"}
+
+<inline-list>
+
+- **Input:** <ndarray shape="batch_size, nI">Floats2d</ndarray>
+- **Output:** <ndarray shape="batch_size, nO">Floats2d</ndarray>
+- **Parameters:** <ndarray shape="nO, nI">W</ndarray>,
+  <ndarray shape="nO,">b</ndarray>
+
+</inline-list>
+
+A dense layer implementing a flexible clipped linear activation function of the
+form `max(min_value, min(max_value, x * slope + offset))`. It is used to
+implement the [`ReluK`](#reluk), [`HardSigmoid`](#hardsigmoid), and
+[`HardTanh`](#hardtanh) layers.
+
+| Argument       | Type                               | Description                                                                                                                  |
+| -------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `nO`           | <tt>Optional[int]</tt>             | The size of the output vectors.                                                                                              |
+| `nI`           | <tt>Optional[int]</tt>             | The size of the input vectors.                                                                                               |
+| _keyword-only_ |                                    |                                                                                                                              |
+| `init_W`       | <tt>Callable</tt>                  | A function to initialize the weights matrix. Defaults to [`glorot_uniform_init`](/docs/api-initializers#glorot_uniform_init) |
+| `init_b`       | <tt>Callable</tt>                  | A function to initialize the bias vector. Defaults to [`zero_init`](/docs/api-initializers#zero_init).                       |
+| `dropout`      | <tt>Optional[float]</tt>           | Dropout rate to avoid overfitting.                                                                                           |
+| `normalize`    | <tt>bool</tt>                      | Whether or not to apply [layer normalization](#layernorm). Defaults to `False`.                                              |
+| `slope`        | <tt>float</tt>                     | The slope of the linear function: `input * slope`.                                                                           |
+| `offset`       | <tt>float</tt>                     | The offset or intercept of the linear function: `input * slope + offset`.                                                    |
+| `min_val`      | <tt>float</tt>                     | Minimum value to clip to.                                                                                                    |
+| `max_val`      | <tt>float</tt>                     | Maximum value to clip to.                                                                                                    |
+| **RETURNS**    | <tt>Model[Floats2d, Floats2d]</tt> | The created dense layer.                                                                                                     |
+
+```python
+https://github.com/explosion/thinc/blob/master/thinc/layers/clipped_linear.py
+```
+
+### HardSwish {#hardswish tag="function"}
+
+<inline-list>
+
+- **Input:** <ndarray shape="batch_size, nI">Floats2d</ndarray>
+- **Output:** <ndarray shape="batch_size, nO">Floats2d</ndarray>
+- **Parameters:** <ndarray shape="nO, nI">W</ndarray>,
+  <ndarray shape="nO,">b</ndarray>
+
+</inline-list>
+
+A dense layer implementing the hard Swish activation function, which is a fast
+linear approximation of Swish: `x * hard_sigmoid(x)`.
+
+| Argument       | Type                               | Description                                                                                                        |
+| -------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `nO`           | <tt>Optional[int]</tt>             | The size of the output vectors.                                                                                    |
+| `nI`           | <tt>Optional[int]</tt>             | The size of the input vectors.                                                                                     |
+| _keyword-only_ |                                    |                                                                                                                    |
+| `init_W`       | <tt>Callable</tt>                  | A function to initialize the weights matrix. Defaults to [`he_normal_init`](/docs/api-initializers#he_normal_init) |
+| `init_b`       | <tt>Callable</tt>                  | A function to initialize the bias vector. Defaults to [`zero_init`](/docs/api-initializers#zero_init).             |
+| `dropout`      | <tt>Optional[float]</tt>           | Dropout rate to avoid overfitting.                                                                                 |
+| `normalize`    | <tt>bool</tt>                      | Whether or not to apply [layer normalization](#layernorm). Defaults to `False`.                                    |
+| **RETURNS**    | <tt>Model[Floats2d, Floats2d]</tt> | The created dense layer.                                                                                           |
+
+```python
+https://github.com/explosion/thinc/blob/master/thinc/layers/hard_swish.py
+```
+
+### HardSwishMobileNet {#hardswishmobilenet tag="function"}
+
+<inline-list>
+
+- **Input:** <ndarray shape="batch_size, nI">Floats2d</ndarray>
+- **Output:** <ndarray shape="batch_size, nO">Floats2d</ndarray>
+- **Parameters:** <ndarray shape="nO, nI">W</ndarray>,
+  <ndarray shape="nO,">b</ndarray>
+
+</inline-list>
+
+A dense layer implementing the a variant of the fast linear hard Swish
+activation function used in `MobileNetV3`
+[(Howard et al., 2019)](https://arxiv.org/abs/1905.02244), defined as
+`x * (relu6(x + 3) / 6)`.
+
+| Argument       | Type                               | Description                                                                                                        |
+| -------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `nO`           | <tt>Optional[int]</tt>             | The size of the output vectors.                                                                                    |
+| `nI`           | <tt>Optional[int]</tt>             | The size of the input vectors.                                                                                     |
+| _keyword-only_ |                                    |                                                                                                                    |
+| `init_W`       | <tt>Callable</tt>                  | A function to initialize the weights matrix. Defaults to [`he_normal_init`](/docs/api-initializers#he_normal_init) |
+| `init_b`       | <tt>Callable</tt>                  | A function to initialize the bias vector. Defaults to [`zero_init`](/docs/api-initializers#zero_init).             |
+| `dropout`      | <tt>Optional[float]</tt>           | Dropout rate to avoid overfitting.                                                                                 |
+| `normalize`    | <tt>bool</tt>                      | Whether or not to apply [layer normalization](#layernorm). Defaults to `False`.                                    |
+| **RETURNS**    | <tt>Model[Floats2d, Floats2d]</tt> | The created dense layer.                                                                                           |
+
+```python
+https://github.com/explosion/thinc/blob/master/thinc/layers/hard_swish_mobilenet.py
 ```
 
 ### MultiSoftmax {#multisoftmax tag="function"}
@@ -454,6 +708,49 @@ distribution.
 https://github.com/explosion/thinc/blob/master/thinc/layers/softmax.py
 ```
 
+### Softmax_v2 {#softmax_v2 tag="function"}
+
+<inline-list>
+
+- **Input:** <ndarray shape="batch_size, nI">Floats2d</ndarray>
+- **Output:** <ndarray shape="batch_size, nO">Floats2d</ndarray>
+- **Parameters:** <ndarray shape="nO, nI">W</ndarray>,
+  <ndarray shape="nO,">b</ndarray>
+
+</inline-list>
+
+A dense layer with a softmax activation. This is usually used as a prediction
+layer. Vectors produced by the softmax function sum to 1, and have values
+between 0 and 1, so each vector can be interpreted as a probability
+distribution.
+
+`Softmax_v2` supports outputting unnormalized probabilities during inference by
+using `normalize_outputs=False` as an argument. This is useful when we are only
+interested in finding the top-k classes, but not their probabilities. Computing
+unnormalized probabilities is faster, because it skips the expensive
+normalization step.
+
+The `temperature` argument of `Softmax_v2` provides control of the softmax
+distribution. Values larger than 1 increase entropy and values between 0 and 1
+(exclusive) decrease entropy of the distribution. The default temperature of 1
+will calculate the unmodified softmax distribution. `temperature` is not used
+during inference when `normalize_outputs=False`.
+
+| Argument            | Type                               | Description                                                                                              |
+| ------------------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `nO`                | <tt>Optional[int]</tt>             | The size of the output vectors.                                                                          |
+| `nI`                | <tt>Optional[int]</tt>             | The size of the input vectors.                                                                           |
+| _keyword-only_      |                                    |                                                                                                          |
+| `init_W`            | <tt>Callable</tt>                  | A function to initialize the weights matrix. Defaults to [`zero_init`](/docs/api-initializers#zero_init) |
+| `init_b`            | <tt>Callable</tt>                  | A function to initialize the bias vector. Defaults to [`zero_init`](/docs/api-initializers#zero_init).   |
+| `normalize_outputs` | <tt>bool</tt>                      | Return normalized probabilities during inference. Defaults to `True`.                                    |
+| `temperature`       | <tt>float</tt>                     | Temperature to divide logits by. Defaults to `1.0`.                                                      |
+| **RETURNS**         | <tt>Model[Floats2d, Floats2d]</tt> | The created softmax layer.                                                                               |
+
+```python
+https://github.com/explosion/thinc/blob/master/thinc/layers/softmax.py
+```
+
 ### SparseLinear {#sparselinear tag="function"}
 
 <inline-list>
@@ -536,8 +833,8 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/reduce_first.py
 
 ### reduce_last {#reduce_last tag="function"}
 
-Pooling layer that reduces the dimensions of the data by selecting the last
-item of each sequence. This is typically used after multi-head attention or recurrent
+Pooling layer that reduces the dimensions of the data by selecting the last item
+of each sequence. This is typically used after multi-head attention or recurrent
 neural network layers such as LSTMs, which can learn to assign a good feature
 representation for the sequence to its final element.
 
@@ -555,8 +852,6 @@ representation for the sequence to its final element.
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/reduce_last.py
 ```
-
-
 
 ### reduce_max {#reduce_max tag="function"}
 
@@ -706,7 +1001,7 @@ Map a child layer across list inputs.
 
 | Argument    | Type                                  | Description             |
 | ----------- | ------------------------------------- | ----------------------- |
-| `layer`   | <tt>Model[InT, OutT]</tt>               | The child layer to map. |
+| `layer`     | <tt>Model[InT, OutT]</tt>             | The child layer to map. |
 | **RETURNS** | <tt>Model[List[InT], List[OutT]]</tt> | The composed model.     |
 
 ```python
@@ -717,8 +1012,8 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/map_list.py
 
 <inline-list>
 
-- **Input:** <ndarray shape="batch_size, nI">Floats2d</ndarray>
-- **Output:** <ndarray shape="batch_size, nO">Floats2d</ndarray>
+- **Input:** <ndarray shape="batch_size, nI">Floats2d, Ragged</ndarray>
+- **Output:** <ndarray shape="batch_size, nO">Floats2d, Ragged</ndarray>
 - **Attrs:** `window_size` <tt>int</tt>
 
 </inline-list>
@@ -729,10 +1024,10 @@ and a window of surrounding vectors. This is one step in a convolution. If the
 concatenating three contextual vectors from the left, and three from the right,
 to each input vector. In general, `nO` equals `nI * (2 * window_size + 1)`.
 
-| Argument      | Type                               | Description                                                                    |
-| ------------- | ---------------------------------- | ------------------------------------------------------------------------------ |
-| `window_size` | <tt>int</tt>                       | The window size (default 1) that determines the number of surrounding vectors. |
-| **RETURNS**   | <tt>Model[Floats2d, Floats2d]</tt> | The created layer for adding context to vectors.                               |
+| Argument      | Type                     | Description                                                                    |
+| ------------- | ------------------------ | ------------------------------------------------------------------------------ |
+| `window_size` | <tt>int</tt>             | The window size (default 1) that determines the number of surrounding vectors. |
+| **RETURNS**   | <tt>Model[InT, InT]</tt> | The created layer for adding context to vectors.                               |
 
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/expand_window.py
@@ -1006,9 +1301,9 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/strings2arrays.py
 
 </inline-list>
 
-Transform sequence data into a contiguous array on the way into and out of a model.
-Handles a variety of sequence types: lists, padded and ragged. If the input is
-an array, it is passed through unchanged.
+Transform sequence data into a contiguous array on the way into and out of a
+model. Handles a variety of sequence types: lists, padded and ragged. If the
+input is an array, it is passed through unchanged.
 
 | Argument       | Type                             | Description                   |
 | -------------- | -------------------------------- | ----------------------------- |
@@ -1031,10 +1326,10 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/with_array2d.py
 
 Transform sequence data into a contiguous two-dimensional array on the way into
 and out of a model. In comparison to the `with_array` layer, the behavior of
-this layer mostly differs on `Padded` inputs, as this layer merges the batch
-and length axes to form a two-dimensional array.
-Handles a variety of sequence types: lists, padded and ragged.
-If the input is a two-dimensional array, it is passed through unchanged.
+this layer mostly differs on `Padded` inputs, as this layer merges the batch and
+length axes to form a two-dimensional array. Handles a variety of sequence
+types: lists, padded and ragged. If the input is a two-dimensional array, it is
+passed through unchanged.
 
 | Argument       | Type                             | Description                   |
 | -------------- | -------------------------------- | ----------------------------- |
@@ -1231,8 +1526,8 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/with_debug.py
 
 </inline-list>
 
-Layer that wraps any layer and marks the forward and backprop passes as an
-NVTX range. This can be helpful when profiling GPU performance of a layer.
+Layer that wraps any layer and marks the forward and backprop passes as an NVTX
+range. This can be helpful when profiling GPU performance of a layer.
 
 ```python
 ### Example
@@ -1242,19 +1537,18 @@ model = with_nvtx_range(Linear(2, 5))
 model.initialize()
 ```
 
-| Argument         | Type                   | Description                                                                                               |
-| ---------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------|
-| `layer`          | <tt>Model</tt>         | The layer to wrap.                                                                                        |
+| Argument         | Type                   | Description                                                                     |
+| ---------------- | ---------------------- | ------------------------------------------------------------------------------- |
+| `layer`          | <tt>Model</tt>         | The layer to wrap.                                                              |
 | `name`           | <tt>Optional[str]</tt> | Optional name for the wrapped layer. Defaults to the name of the wrapped layer. |
-| _keyword-only_   |                        |                                                                                                           |
-| `forward_color`  | <tt>int</tt>           | Identifier of the color to use for the forward pass                                                       |
-| `backprop_color` | <tt>int</tt>           | Identifier of the color to use for the backward pass                                                      |
-| **RETURNS**      | <tt>Model</tt>         | The wrapped layer.                                                                                        |
+| _keyword-only_   |                        |                                                                                 |
+| `forward_color`  | <tt>int</tt>           | Identifier of the color to use for the forward pass                             |
+| `backprop_color` | <tt>int</tt>           | Identifier of the color to use for the backward pass                            |
+| **RETURNS**      | <tt>Model</tt>         | The wrapped layer.                                                              |
 
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/with_nvtx_range.py
 ```
-
 
 ---
 
