@@ -17,6 +17,10 @@ jobs:
 - job: 'Test'
   variables:
     NOTEBOOK_KERNEL: "thinc-notebook-tests"
+    ${{ if eq(variables['python.version'], '3.6') }}:
+      PYTORCH_VERSION: "1.5.0"
+    ${{ if ne(variables['python.version'], '3.6') }}:
+      PYTORCH_VERSION: "1.11.0"
   strategy:
     matrix:
       Python36Linux:
@@ -59,6 +63,7 @@ jobs:
   pool:
     vmImage: $(imageName)
 
+
   steps:
   - task: UsePythonVersion@0
     inputs:
@@ -100,10 +105,12 @@ jobs:
       pip install -r requirements.txt
       pip install "tensorflow~=2.5.0"
       pip install "mxnet; sys_platform != 'win32'"
-      pip install "torch==1.9.0+cpu" -f https://download.pytorch.org/whl/torch_stable.html
+      pip install "torch==${PYTORCH_VERSION}+cpu" -f https://download.pytorch.org/whl/torch_stable.html
       pip install ipykernel pydot graphviz
       python -m ipykernel install --name thinc-notebook-tests --user
     displayName: 'Install test dependencies'
+    env:
+      PYTORCH_VERSION: ${{ variables.PYTORCH_VERSION }}
 
   - script: |
       python -m pytest --pyargs thinc --cov=thinc --cov-report=term
