@@ -2,7 +2,6 @@ from math import isclose
 
 from typing import Tuple, List, cast, TypeVar, Generic, Any, Union, Optional
 from typing import Dict
-from thinc.layers.softmax import validate_class_priors
 
 from .types import Floats2d, Ints1d
 from .util import get_array_module, to_categorical
