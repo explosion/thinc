@@ -49,14 +49,14 @@ class CategoricalCrossentropy(Loss):
         missing_value: Optional[Union[str, int]] = None,
         neg_prefix: Optional[str] = None,
         label_smoothing: float = 0.0,
-        class_priors: Optional[List[float]] = None,
+        class_weights: Optional[List[float]] = None,
     ):
         self.normalize = normalize
         self.names = names
         self.missing_value = missing_value
         self.neg_prefix = neg_prefix
         self.label_smoothing = label_smoothing
-        self.class_priors = class_priors
+        self.class_weights = class_weights
 
         if names is not None:
             self._name_to_i = {name: i for i, name in enumerate(names)}
@@ -149,16 +149,16 @@ class CategoricalCrossentropy(Loss):
         difference = guesses - target
         difference *= mask
         # Weight samples proportinal to the marginals.
-        if self.class_priors is not None:
-            if target.shape[1] != len(self.class_priors):
+        if self.class_weights is not None:
+            if target.shape[1] != len(self.class_weights):
                 raise ValueError(
                     "The number of classes in the "
                     "target and in class weights "
                     "has to be equal, but found "
                     f"{target.shape[1]} and "
-                    f"{len(self.class_priors)}"
+                    f"{len(self.class_weights)}"
                 )
-            cp = xp.asarray(self.class_priors)
+            cp = xp.asarray(self.class_weights)
             cp = xp.tile(cp, (guesses.shape[0], 1))
             sample_weights = (target * cp).sum(axis=1)
             difference *= xp.expand_dims(sample_weights, 1)
