@@ -2,22 +2,8 @@ from typing import Tuple, Callable, Optional, TypeVar, Union, cast, List
 
 from ..model import Model
 from ..config import registry
-from ..types import (
-    Padded,
-    Ragged,
-    ArrayXd,
-    Array3d,
-    Floats1d,
-    Floats2d,
-    Floats3d,
-    Floats4d,
-    FloatsXd,
-    Ints1d,
-    Ints2d,
-    Ints3d,
-    Ints4d,
-    IntsXd,
-)
+from ..types import Padded, Ragged, ArrayXd, Array3d, Floats1d, Floats2d, Ints4d
+from ..types import Floats3d, Floats4d, FloatsXd, Ints1d, Ints2d, Ints3d, IntsXd
 
 ArrayXd_co = TypeVar("ArrayXd_co", bound=ArrayXd, covariant=True)
 SeqT = TypeVar(

@@ -1,6 +1,6 @@
 from typing import Tuple, Callable, Optional, TypeVar, Union, cast, List
 
-from ..types import Padded, Ragged, Floats3d, Ints1d, Floats2d, Array2d, List2d
+from ..types import Padded, Ragged, Floats3d, Ints1d, Array2d
 from ..model import Model
 from ..config import registry
 from ..util import is_xp_array
@@ -8,11 +8,11 @@ from ..util import is_xp_array
 
 PaddedData = Tuple[Floats3d, Ints1d, Ints1d, Ints1d]
 SeqT = TypeVar(
-    "SeqT", bound=Union[Padded, Ragged, List2d, List[Array2d], PaddedData, Floats3d]
+    "SeqT", bound=Union[Padded, Ragged, List[Array2d], PaddedData, Floats3d]
 )
 SeqT_co = TypeVar(
     "SeqT_co",
-    bound=Union[Padded, Ragged, List2d, List[Array2d], PaddedData, Floats3d],
+    bound=Union[Padded, Ragged, List[Array2d], PaddedData, Floats3d],
     covariant=True,
 )
 
@@ -65,7 +65,7 @@ def _get_padded(model: Model[SeqT_co, SeqT_co], seq: SeqT) -> Padded:
         return seq
     elif isinstance(seq, Ragged):
         return model.ops.list2padded(
-            cast(List[Array2d], model.ops.unflatten(seq.data, seq.lengths))
+            model.ops.unflatten(seq.data, seq.lengths)
         )
     elif _is_padded_data(seq):
         return Padded(*seq)  # type: ignore[misc]
@@ -123,18 +123,18 @@ def _ragged_forward(
     # of assigning to temporaries where possible, so memory can be reclaimed
     # sooner.
     Yp, get_dXp = layer(
-        list2padded(cast(List[Array2d], unflatten(Xr.data, Xr.lengths))), is_train
+        list2padded(unflatten(Xr.data, Xr.lengths)), is_train
     )
 
     def backprop(dYr: Ragged):
         flattened = flatten(
             padded2list(
                 get_dXp(
-                    list2padded(cast(List[Array2d], unflatten(dYr.data, dYr.lengths)))
+                    list2padded(unflatten(dYr.data, dYr.lengths))
                 )
             ),
         )
-        return Ragged(cast(Floats2d, flattened), dYr.lengths)
+        return Ragged(flattened, dYr.lengths)
 
     flattened = flatten(padded2list(Yp))
     return cast(SeqT, Ragged(flattened, Xr.lengths)), backprop

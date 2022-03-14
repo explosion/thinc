@@ -19,7 +19,7 @@ def forward(model: Model[InT, InT], X: InT, is_train: bool) -> Tuple[InT, Callab
     if isinstance(X, Ragged):
         return _expand_window_ragged(model, X)
     else:
-        return _expand_window_floats(model, cast(Floats2d, X))
+        return _expand_window_floats(model, X)
 
 
 def _expand_window_floats(model: Model[InT, InT], X: Floats2d) -> Tuple[InT, Callable]:

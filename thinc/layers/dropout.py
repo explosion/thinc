@@ -2,21 +2,8 @@ from typing import Tuple, Callable, List, TypeVar, cast, Union
 
 from ..model import Model
 from ..config import registry
-from ..types import (
-    ArrayXd,
-    Ragged,
-    Padded,
-    Ints1d,
-    Ints2d,
-    Ints3d,
-    Ints4d,
-    Floats1d,
-    Floats2d,
-    Floats3d,
-    Floats4d,
-    FloatsXd,
-    IntsXd,
-)
+from ..types import Ints1d, Ints2d, Ints3d, Ints4d, Floats1d, Floats2d, Floats3d
+from ..types import ArrayXd, Ragged, Padded, FloatsXd, IntsXd, Floats4d
 
 
 InT = TypeVar(
@@ -76,15 +63,12 @@ def forward(
     if rate == 0 or not is_enabled:
         return_value, backprop = X, lambda dY: dY
     elif isinstance(X, Ragged):
-        return_value, backprop = _dropout_ragged(model, cast(Ragged, X), is_train)
+        return _dropout_ragged(model, X, is_train)
     elif isinstance(X, Padded):
-        return_value, backprop = _dropout_padded(model, cast(Padded, X), is_train)
+        return _dropout_padded(model, X, is_train)
     elif isinstance(X, List):
-        return_value, backprop = _dropout_lists(model, cast(List[ArrayXd], X), is_train)
-    else:
-        return_value, backprop = _dropout_array(model, cast(ArrayXd, X), is_train)
-    return cast(InT_co, return_value), backprop
-
+        return _dropout_lists(model, X, is_train)
+    return _dropout_array(model, cast(ArrayXd, X), is_train)
 
 def _dropout_array(
     model: Model[InT, InT], X: ArrayXd, is_train: bool

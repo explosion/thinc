@@ -1,18 +1,18 @@
 from typing import Tuple, Callable, List, Optional, TypeVar, Union, cast, Sequence
 
-from ..types import Padded, Ragged, Floats2d, List2d, Array2d
+from ..types import Padded, Ragged, Floats2d, Array2d
 from ..model import Model
 from ..config import registry
 
-List2d_co = TypeVar("List2d_co", bound=Union[List2d, List[Array2d]], covariant=True)
-SeqT = TypeVar("SeqT", bound=Union[Padded, Ragged, List2d, List[Array2d]])
+Array2d_co = TypeVar("Array2d_co", bound=Array2d, covariant=True)
+SeqT = TypeVar("SeqT", bound=Union[Padded, Ragged, List[Array2d]])
 SeqT_co = TypeVar(
-    "SeqT_co", bound=Union[Padded, Ragged, List2d, List[Array2d]], covariant=True
+    "SeqT_co", bound=Union[Padded, Ragged, List[Array2d]], covariant=True
 )
 
 
 @registry.layers("with_list.v1")
-def with_list(layer: Model[List2d_co, List2d_co]) -> Model[SeqT_co, SeqT_co]:
+def with_list(layer: Model[List[Array2d_co], List[Array2d_co]]) -> Model[SeqT_co, SeqT_co]:
     return Model(
         f"with_list({layer.name})",
         forward,
@@ -65,7 +65,7 @@ def _ragged_forward(
     # are potentially large on GPU. So we make nested function calls instead
     # of assigning to temporaries where possible, so memory can be reclaimed
     # sooner.
-    Ys, get_dXs = layer(cast(List[Array2d], unflatten(Xr.data, Xr.lengths)), is_train)
+    Ys, get_dXs = layer(unflatten(Xr.data, Xr.lengths), is_train)
 
     def backprop(dYr: Ragged):
         return Ragged(
@@ -94,4 +94,4 @@ def _padded_forward(
     def backprop(dYp):
         return list2padded(get_dXs(padded2list(dYp)))
 
-    return cast(SeqT, list2padded(cast(List[Floats2d], Ys))), backprop
+    return cast(SeqT, list2padded(Ys)), backprop

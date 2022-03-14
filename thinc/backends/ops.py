@@ -238,11 +238,11 @@ class Ops:
 
     def flatten(
         self,
-        X: Sequence[ArrayTXd],
+        X: Sequence[ArrayTXd_co],
         dtype: Optional[DTypes] = None,
         pad: int = 0,
         ndim_if_empty: int = 2,
-    ) -> ArrayTXd:
+    ) -> ArrayTXd_co:
         """Flatten a list of arrays into one large array."""
         if X is None or len(X) == 0:
             return self.alloc((0,) * ndim_if_empty, dtype=dtype or "f")

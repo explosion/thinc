@@ -1,12 +1,12 @@
-from typing import Tuple, Callable, Optional, TypeVar
+from typing import Tuple, Callable, Optional
 import numpy
 
 from ..model import Model
 from ..config import registry
-from ..types import Floats2d, Ints2d
+from ..types import Ints2d, Floats2d
 
 
-InT = TypeVar("InT", Floats2d, Ints2d)
+InT = Ints2d
 OutT = Floats2d
 
 

@@ -725,7 +725,7 @@ Construct `n` copies of a layer, with distinct weights. For example,
 | ----------- | -------------------| ---------------------------------- |
 | `orig`      | <tt>Model</tt>     | The layer to copy.                 |
 | `n`         | <tt>int</tt>       | The number of copies to construct. |
-| **RETURNS** | <tt>Model<tt>, ... | The composed model.                |
+| **RETURNS** | <tt>Model</tt>, ... | The composed model.                |
 
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/clone.py
@@ -1055,7 +1055,7 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/strings2arrays.py
 
 <inline-list>
 
-- **Input / output:** <tt>Union[Padded, Ragged, List[Array2d], ArrayXd]</tt>
+- **Input / output:** <tt>Union[Padded, Ragged, List[ArrayXd], ArrayXd]</tt>
 
 </inline-list>
 

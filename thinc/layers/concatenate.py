@@ -123,7 +123,7 @@ def _list_forward(
             start += width
         return dX
 
-    return output, backprop
+    return cast(OutT, output), backprop
 
 
 def init(

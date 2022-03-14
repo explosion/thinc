@@ -1,4 +1,4 @@
-from typing import Tuple, Callable, cast, List, TypeVar, Union
+from typing import Tuple, Callable, cast, List, TypeVar, Any
 
 from ..types import Padded, Array2d
 from ..model import Model
@@ -16,12 +16,12 @@ def padded2list() -> Model[InT, OutT]:
     return Model(f"padded2list", forward)
 
 
-def forward(model: Model[InT, OutT], Xp: InT, is_train: bool) -> Tuple[OutT, Callable]:
-    Ys = model.ops.padded2list(Xp)
+def forward(model: Model[InT, OutT], Xp: InT, is_train: bool) -> Tuple[OutT, Callable[[OutT], InT]]:
+    Ys: OutT = model.ops.padded2list(Xp)
 
     def backprop(dYs: OutT) -> InT:
         dYp = model.ops.list2padded(dYs)
         assert isinstance(dYp, Padded)
         return dYp
 
-    return cast(OutT, Ys), backprop
+    return Ys, backprop

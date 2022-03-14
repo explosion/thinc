@@ -65,7 +65,7 @@ def forward(
     elif _is_ragged_data(Xseq):
         Y, backprop = _tuple_forward(layer, cast(RaggedData, Xseq), is_train)
     else:
-        Y, backprop = _list_forward(layer, cast(List[Array2d], Xseq), is_train)
+        Y, backprop = _list_forward(layer, cast(List, Xseq), is_train)
     return cast(Tuple[SeqT, Callable], (Y, backprop))
 
 
@@ -142,7 +142,7 @@ def _padded_forward(
 
 
 def _list_forward(
-    layer: Model[Ragged, Ragged], Xs: List[Array2d], is_train: bool
+    layer: Model[Ragged, Ragged], Xs: List, is_train: bool
 ) -> Tuple[SeqT, Callable]:
     # Assign these to locals, to keep code a bit shorter.
     flatten = layer.ops.flatten
