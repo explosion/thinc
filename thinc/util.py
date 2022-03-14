@@ -1,6 +1,7 @@
 from typing import Any, Union, Sequence, cast, Dict, Optional, Callable, TypeVar
 from typing import List, Tuple
 import numpy
+from packaging.version import Version
 import random
 import functools
 from wasabi import table
@@ -31,11 +32,16 @@ try:  # pragma: no cover
 
     has_torch = True
     has_torch_gpu = torch.cuda.device_count() != 0
-    has_torch_amp = hasattr(torch.cuda.amp, "common") and not torch.cuda.amp.common.amp_definitely_not_available()
+    has_torch_amp = (
+        hasattr(torch.cuda.amp, "common")
+        and not torch.cuda.amp.common.amp_definitely_not_available()
+    )
+    torch_version = Version(str(torch.__version__))
 except ImportError:  # pragma: no cover
     has_torch = False
     has_torch_gpu = False
     has_torch_amp = False
+    torch_version = Version("0.0.0")
 
 try:  # pragma: no cover
     import tensorflow.experimental.dlpack
