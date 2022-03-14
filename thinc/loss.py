@@ -56,8 +56,6 @@ class CategoricalCrossentropy(Loss):
         self.missing_value = missing_value
         self.neg_prefix = neg_prefix
         self.label_smoothing = label_smoothing
-        if class_priors is not None:
-            _validate_class_priors(class_priors)
         self.class_priors = class_priors
 
         if names is not None:
@@ -152,6 +150,12 @@ class CategoricalCrossentropy(Loss):
         difference *= mask
         # Weight samples proportinal to the marginals.
         if self.class_priors is not None:
+            if target.shape[1] != len(self.class_priors):
+                raise ValueError("The number of classes in the "
+                                 "target and in class weights "
+                                 "has to be equal, but found "
+                                 f"{target.shape[1]} and "
+                                 f"{len(self.class_priors)}")
             cp = xp.asarray(self.class_priors)
             cp = xp.tile(cp, (guesses.shape[0], 1))
             sample_weights = (target * cp).sum(axis=1)
@@ -430,13 +434,6 @@ def _make_mask_by_value(truths, guesses, missing_value) -> Floats2d:
             mask[labels == missing_value] = 0.0
 
     return mask
-
-
-def _validate_class_priors(class_priors: List[float]):
-    if not all([0.0 <= x <= 1.0 for x in class_priors]):
-        raise ValueError("All class-priors has to be between 0 and 1")
-    elif not isclose(sum(class_priors), 1.0):
-        raise ValueError("Class priors have to sum to 1.")
 
 
 __all__ = [
