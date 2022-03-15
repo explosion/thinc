@@ -54,22 +54,22 @@ def with_ragged(layer: Model[Ragged, Ragged]) -> Model[SeqT_co, SeqT_co]:
 
 def forward(
     model: Model[SeqT_co, SeqT_co], Xseq: SeqT, is_train: bool
-) -> Tuple[SeqT, Callable]:
+) -> Tuple[SeqT_co, Callable]:
     layer: Model[Ragged, Ragged] = model.layers[0]
     if isinstance(Xseq, Ragged):
         ragged_Y, backprop = layer(Xseq, is_train)
-        Y = cast(SeqT, ragged_Y)
+        Y = cast(SeqT_co, ragged_Y)
     elif isinstance(Xseq, Padded):
         padded_Y, backprop = _padded_forward(layer, cast(Padded, Xseq), is_train)
-        Y = cast(SeqT, padded_Y)
+        Y = cast(SeqT_co, padded_Y)
     elif _is_ragged_data(Xseq):
         ragged_data_Y, backprop = _tuple_forward(
             layer, cast(RaggedData, Xseq), is_train
         )
-        Y = cast(SeqT, ragged_data_Y)
+        Y = cast(SeqT_co, ragged_data_Y)
     else:
         list_Y, backprop = _list_forward(layer, cast(List, Xseq), is_train)
-        Y = cast(SeqT, list_Y)
+        Y = cast(SeqT_co, list_Y)
     return Y, backprop
 
 

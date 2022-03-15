@@ -31,14 +31,13 @@ def forward(
     final_shape = list(initial_shape[:-1]) + [layer.get_dim("nO")]
     nB = X.shape[0]
     nT = X.shape[1]
-    X2d = cast(InT, model.ops.reshape(X, (-1, X.shape[2])))
+    X2d = model.ops.reshape(X, (-1, X.shape[2]))
     Y2d, Y2d_backprop = layer(X2d, is_train=is_train)
-    Y = model.ops.reshape3f(Y2d, *final_shape)
+    Y = model.ops.reshape3(Y2d, *final_shape)
 
     def backprop(dY: InT) -> InT:
-        dY_floats = model.ops.asarray3f(cast(Floats3d, dY))
-        reshaped = model.ops.reshape2f(dY_floats, nB * nT, -1)
-        return Y2d_backprop(model.ops.reshape3f(reshaped, *initial_shape))
+        reshaped = model.ops.reshape2(dY, nB * nT, -1)
+        return Y2d_backprop(model.ops.reshape3(reshaped, *initial_shape))
 
     return Y, backprop
 

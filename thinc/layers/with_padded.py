@@ -28,26 +28,25 @@ def with_padded(layer: Model[Padded, Padded]) -> Model[SeqT_co, SeqT_co]:
 
 def forward(
     model: Model[SeqT_co, SeqT_co], Xseq: SeqT, is_train: bool
-) -> Tuple[SeqT, Callable]:
+) -> Tuple[SeqT_co, Callable]:
     layer: Model[Padded, Padded] = model.layers[0]
-    Y: SeqT
     if isinstance(Xseq, Padded):
         padded_Y, backprop = layer(Xseq, is_train)
-        Y = cast(SeqT, padded_Y)
+        Y = cast(SeqT_co, padded_Y)
     elif isinstance(Xseq, Ragged):
         ragged_Y, backprop = _ragged_forward(layer, cast(Ragged, Xseq), is_train)
-        Y = cast(SeqT, ragged_Y)
+        Y = cast(SeqT_co, ragged_Y)
     elif _is_padded_data(Xseq):
         padded_data_Y, backprop = _tuple_forward(
             layer, cast(PaddedData, Xseq), is_train
         )
-        Y = cast(SeqT, padded_data_Y)
+        Y = cast(SeqT_co, padded_data_Y)
     elif is_xp_array(Xseq):
         floats3d_Y, backprop = _array_forward(layer, cast(Floats3d, Xseq), is_train)
-        Y = cast(SeqT, floats3d_Y)
+        Y = cast(SeqT_co, floats3d_Y)
     else:
         list_Y, backprop = _list_forward(layer, cast(List[Array2d], Xseq), is_train)
-        Y = cast(SeqT, list_Y)
+        Y = cast(SeqT_co, list_Y)
     return Y, backprop
 
 

@@ -68,24 +68,24 @@ def with_array(
 
 def forward(
     model: Model[SeqT_co, SeqT_co], Xseq: SeqT, is_train: bool
-) -> Tuple[SeqT, Callable]:
+) -> Tuple[SeqT_co, Callable]:
     if isinstance(Xseq, Ragged):
         ragged_return_value, backprop = _ragged_forward(
             cast(Model[Ragged, Ragged], model), cast(Ragged, Xseq), is_train
         )
-        return_value = cast(SeqT, ragged_return_value)
+        return_value = cast(SeqT_co, ragged_return_value)
     elif isinstance(Xseq, Padded):
         padded_return_value, backprop = _padded_forward(
             cast(Model[Padded, Padded], model), cast(Padded, Xseq), is_train
         )
-        return_value = cast(SeqT, padded_return_value)
+        return_value = cast(SeqT_co, padded_return_value)
     elif not isinstance(Xseq, (list, tuple)):
         return_value, backprop = model.layers[0](Xseq, is_train)
     else:
         list_return_value, backprop = _list_forward(
             cast(Model[List[ArrayXd], List[ArrayXd]], model), Xseq, is_train
         )
-        return_value = cast(SeqT, list_return_value)
+        return_value = cast(SeqT_co, list_return_value)
     return return_value, backprop
 
 

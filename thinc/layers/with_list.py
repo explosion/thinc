@@ -24,18 +24,17 @@ def with_list(
 
 def forward(
     model: Model[SeqT_co, SeqT_co], Xseq: SeqT, is_train: bool
-) -> Tuple[SeqT, Callable]:
+) -> Tuple[SeqT_co, Callable]:
     layer: Model[List[Array2d], List[Array2d]] = model.layers[0]
-    Y: SeqT
     if isinstance(Xseq, Padded):
         padded_Y, backprop = _padded_forward(layer, cast(Padded, Xseq), is_train)
-        Y = cast(SeqT, padded_Y)
+        Y = cast(SeqT_co, padded_Y)
     elif isinstance(Xseq, Ragged):
         ragged_Y, backprop = _ragged_forward(layer, cast(Ragged, Xseq), is_train)
-        Y = cast(SeqT, ragged_Y)
+        Y = cast(SeqT_co, ragged_Y)
     else:
         concrete_Y, backprop = layer(cast(List[Array2d], Xseq), is_train)
-        Y = cast(SeqT, concrete_Y)
+        Y = cast(SeqT_co, concrete_Y)
     return Y, backprop
 
 
