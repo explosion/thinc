@@ -213,9 +213,7 @@ only one library is in charge. Specifically, `cupy` offers a
 [`cupy.cuda.set_allocator`](https://docs-cupy.chainer.org/en/stable/reference/generated/cupy.cuda.set_allocator.html)
 function, which should allow a custom allocator to be created that requests its
 memory via PyTorch. Thinc provides a handy shortcut for this via the
-[`use_pytorch_for_gpu_memory`](/docs/api-util#use_pytorch_for_gpu_memory) helper
-function. We're hoping to add a helper for TensorFlow in the future once
-[DLPack is supported in TensorFlow](https://github.com/tensorflow/tensorflow/issues/24453).
+[`set_gpu_allocator`](/docs/api-backends#set_gpu_allocator) helper function.
 
 <tutorials header="false">
 

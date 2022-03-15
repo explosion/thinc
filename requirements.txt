@@ -17,7 +17,7 @@ contextvars>=2.4,<3; python_version < "3.7"
 # Development dependencies
 cython>=0.25.0,<3.0
 hypothesis>=3.27.0,<7.0.0
-pytest>=5.2.0
+pytest>=5.2.0,<7.1.0
 pytest-cov>=2.7.0,<2.8.0
 coverage>=5.0.0,<6.0.0
 mock>=2.0.0,<3.0.0

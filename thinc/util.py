@@ -204,12 +204,38 @@ def copy_array(dst: ArrayXd, src: ArrayXd) -> None:  # pragma: no cover
         numpy.copyto(dst, src)  # type: ignore
 
 
-def to_categorical(Y: IntsXd, n_classes: Optional[int] = None) -> FloatsXd:
-    xp = get_array_module(Y)
+def to_categorical(
+    Y: IntsXd,
+    n_classes: Optional[int] = None,
+    *,
+    label_smoothing: float = 0.0,
+) -> FloatsXd:
+    if not 0.0 <= label_smoothing < 0.5:
+        raise ValueError(
+            "label_smoothing should be greater or "
+            "equal to 0.0 and less than 0.5, "
+            f"but {label_smoothing} was provided."
+        )
+
     if n_classes is None:
         n_classes = int(numpy.max(Y) + 1)  # type: ignore
-    # Unfortunately, cupy does not support put_along_axis.
-    return xp.eye(n_classes, dtype="float32")[Y]
+
+    if label_smoothing == 0.0:
+        if n_classes == 0:
+            raise ValueError("n_classes should be at least 1")
+        nongold_prob = 0.0
+    else:
+        if not n_classes > 1:
+            raise ValueError(
+                "n_classes should be greater than 1 when label smoothing is enabled,"
+                f"but {n_classes} was provided."
+            )
+        nongold_prob = label_smoothing / (n_classes - 1)
+
+    xp = get_array_module(Y)
+    label_distr = xp.full((n_classes, n_classes), nongold_prob, dtype="float32")
+    xp.fill_diagonal(label_distr, 1 - label_smoothing)
+    return label_distr[Y]
 
 
 def get_width(
