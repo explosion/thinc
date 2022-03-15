@@ -17,12 +17,15 @@ def expand_window(window_size: int = 1) -> Model[InT, InT]:
 
 def forward(model: Model[InT, InT], X: InT, is_train: bool) -> Tuple[InT, Callable]:
     if isinstance(X, Ragged):
-        return _expand_window_ragged(model, X)
+        ragged_return_value, backprop = _expand_window_ragged(model, X)
+        return_value = cast(InT, ragged_return_value)
     else:
-        return _expand_window_floats(model, X)
+        floats_return_value, backprop = _expand_window_floats(model, X)
+        return_value = cast(InT, floats_return_value)
+    return return_value, backprop
 
 
-def _expand_window_floats(model: Model[InT, InT], X: Floats2d) -> Tuple[InT, Callable]:
+def _expand_window_floats(model: Model[InT, InT], X: Floats2d) -> Tuple[Floats2d, Callable]:
     nW = model.attrs["window_size"]
     if len(X) > 0:
         Y = model.ops.seq2col(X, nW)
@@ -33,10 +36,10 @@ def _expand_window_floats(model: Model[InT, InT], X: Floats2d) -> Tuple[InT, Cal
     def backprop(dY: Floats2d) -> Floats2d:
         return model.ops.backprop_seq2col(dY, nW)
 
-    return cast(InT, Y), backprop
+    return Y, backprop
 
 
-def _expand_window_ragged(model: Model[InT, InT], Xr: Ragged) -> Tuple[InT, Callable]:
+def _expand_window_ragged(model: Model[InT, InT], Xr: Ragged) -> Tuple[Ragged, Callable]:
     nW = model.attrs["window_size"]
     Y = Ragged(
         model.ops.seq2col(cast(Floats2d, Xr.data), nW, lengths=Xr.lengths), Xr.lengths
@@ -50,4 +53,4 @@ def _expand_window_ragged(model: Model[InT, InT], Xr: Ragged) -> Tuple[InT, Call
             Xr.lengths,
         )
 
-    return cast(InT, Y), backprop
+    return Y, backprop

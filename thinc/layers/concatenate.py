@@ -41,17 +41,17 @@ def concatenate(*layers: Model) -> Model[InT, XY_XY_OutT]:
     )
 
 
-def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Callable]:
+def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT_co, Callable]:
     Ys, callbacks = zip(*[layer(X, is_train=is_train) for layer in model.layers])
     if isinstance(Ys[0], list):
         list_return_value, backprop = _list_forward(model, X, Ys, callbacks, is_train)
-        return_value = cast(OutT, list_return_value)
+        return_value = cast(OutT_co, list_return_value)
     elif isinstance(Ys[0], Ragged):
         ragged_return_value, backprop = _ragged_forward(model, X, Ys, callbacks, is_train)
-        return_value = cast(OutT, ragged_return_value)
+        return_value = cast(OutT_co, ragged_return_value)
     else:
         array_return_value, backprop = _array_forward(model, X, Ys, callbacks, is_train)
-        return_value = cast(OutT, array_return_value)
+        return_value = cast(OutT_co, array_return_value)
     return return_value, backprop
 
 
