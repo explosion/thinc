@@ -13,6 +13,7 @@ except ImportError:  # pragma: no cover
     pass
 
 from ..util import torch2xp, xp2torch, convert_recursive, iterate_recursive
+from ..util import has_torch_amp
 from ..backends import get_current_ops, context_pools, CupyOps
 from ..backends import set_gpu_allocator
 from ..optimizers import Optimizer
@@ -42,6 +43,11 @@ class PyTorchShim(Shim):
         mixed_precision: bool = False,
         grad_scaler: Optional[PyTorchGradScaler] = None,
     ):
+        if mixed_precision and not has_torch_amp:
+            raise ValueError(
+                "Mixed-precision training is not supported, upgrade to torch>=1.9.0"
+            )
+
         super().__init__(model, config, optimizer)
 
         if grad_scaler is None:

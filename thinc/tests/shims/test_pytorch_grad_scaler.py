@@ -89,3 +89,12 @@ def test_grad_scaler():
     assert scaler.scale([torch.tensor([1.0], device=device_id)]) == [
         torch.tensor([2.0**15], device=device_id)
     ]
+
+
+@pytest.mark.skipif(not has_torch, reason="needs PyTorch")
+@pytest.mark.skipif(
+    has_torch_amp, reason="needs PyTorch without gradient scaling support"
+)
+def test_raises_on_old_pytorch():
+    with pytest.raises(ValueError, match=r"not supported.*1.9.0"):
+        PyTorchGradScaler(enabled=True)
