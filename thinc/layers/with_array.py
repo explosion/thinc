@@ -70,19 +70,23 @@ def forward(
     model: Model[SeqT_co, SeqT_co], Xseq: SeqT, is_train: bool
 ) -> Tuple[SeqT, Callable]:
     if isinstance(Xseq, Ragged):
-        return _ragged_forward(
+        ragged_return_value, backprop = _ragged_forward(
             cast(Model[Ragged, Ragged], model), cast(Ragged, Xseq), is_train
         )
+        return_value = cast(SeqT, ragged_return_value)
     elif isinstance(Xseq, Padded):
-        return _padded_forward(
+        padded_return_value, backprop = _padded_forward(
             cast(Model[Padded, Padded], model), cast(Padded, Xseq), is_train
         )
+        return_value = cast(SeqT, padded_return_value)
     elif not isinstance(Xseq, (list, tuple)):
-        return model.layers[0](Xseq, is_train)
+        return_value, backprop = model.layers[0](Xseq, is_train)
     else:
-        return _list_forward(
+        list_return_value, backprop = _list_forward(
             cast(Model[List[ArrayXd], List[ArrayXd]], model), Xseq, is_train
         )
+        return_value = cast(SeqT, list_return_value)
+    return return_value, backprop
 
 
 def init(
@@ -112,7 +116,7 @@ def _get_array(model, X: SeqT) -> ArrayXd:
 
 def _list_forward(
     model: Model[List[ArrayXd], List[ArrayXd]], Xs: List[ArrayXd], is_train: bool
-) -> Tuple[SeqT, Callable]:
+) -> Tuple[List[ArrayXd], Callable]:
     layer = model.layers[0]
     pad = model.attrs["pad"]
     lengths = layer.ops.asarray1i([len(seq) for seq in Xs])
@@ -124,24 +128,24 @@ def _list_forward(
         dXf = get_dXf(dYf)
         return cast(List[ArrayXd], layer.ops.unflatten(dXf, lengths, pad=pad))
 
-    return cast(SeqT, layer.ops.unflatten(Yf, lengths, pad=pad)), backprop
+    return layer.ops.unflatten(Yf, lengths, pad=pad), backprop
 
 
 def _ragged_forward(
     model: Model[Ragged, Ragged], Xr: Ragged, is_train: bool
-) -> Tuple[SeqT, Callable]:
+) -> Tuple[Ragged, Callable]:
     layer: Model[ArrayXd, ArrayXd] = model.layers[0]
     Y, get_dX = layer(Xr.dataXd, is_train)
 
     def backprop(dYr: Ragged) -> Ragged:
         return Ragged(get_dX(dYr.dataXd), dYr.lengths)
 
-    return cast(SeqT, Ragged(Y, Xr.lengths)), backprop
+    return Ragged(Y, Xr.lengths), backprop
 
 
 def _padded_forward(
     model: Model[Padded, Padded], Xp: Padded, is_train: bool
-) -> Tuple[SeqT, Callable]:
+) -> Tuple[Padded, Callable]:
     layer: Model[Array3d, Array3d] = model.layers[0]
     Y, get_dX = layer(Xp.data, is_train)
 
@@ -150,4 +154,4 @@ def _padded_forward(
         dX = get_dX(dYp.data)
         return Padded(dX, dYp.size_at_t, dYp.lengths, dYp.indices)
 
-    return cast(SeqT, Padded(Y, Xp.size_at_t, Xp.lengths, Xp.indices)), backprop
+    return Padded(Y, Xp.size_at_t, Xp.lengths, Xp.indices), backprop

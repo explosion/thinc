@@ -6,13 +6,13 @@ from ..config import registry
 
 Array2d_co = TypeVar("Array2d_co", bound=Array2d, covariant=True)
 SeqT = TypeVar("SeqT", bound=Union[Padded, Ragged, List[Array2d]])
-SeqT_co = TypeVar(
-    "SeqT_co", bound=Union[Padded, Ragged, List[Array2d]], covariant=True
-)
+SeqT_co = TypeVar("SeqT_co", bound=Union[Padded, Ragged, List[Array2d]], covariant=True)
 
 
 @registry.layers("with_list.v1")
-def with_list(layer: Model[List[Array2d_co], List[Array2d_co]]) -> Model[SeqT_co, SeqT_co]:
+def with_list(
+    layer: Model[List[Array2d_co], List[Array2d_co]]
+) -> Model[SeqT_co, SeqT_co]:
     return Model(
         f"with_list({layer.name})",
         forward,
@@ -28,9 +28,11 @@ def forward(
     layer: Model[List[Array2d], List[Array2d]] = model.layers[0]
     Y: SeqT
     if isinstance(Xseq, Padded):
-        Y, backprop = _padded_forward(layer, cast(Padded, Xseq), is_train)
+        padded_Y, backprop = _padded_forward(layer, cast(Padded, Xseq), is_train)
+        Y = cast(SeqT, padded_Y)
     elif isinstance(Xseq, Ragged):
-        Y, backprop = _ragged_forward(layer, cast(Ragged, Xseq), is_train)
+        ragged_Y, backprop = _ragged_forward(layer, cast(Ragged, Xseq), is_train)
+        Y = cast(SeqT, ragged_Y)
     else:
         concrete_Y, backprop = layer(cast(List[Array2d], Xseq), is_train)
         Y = cast(SeqT, concrete_Y)
@@ -57,7 +59,7 @@ def _get_list(model, seq):
 
 def _ragged_forward(
     layer: Model[List[Array2d], List[Array2d]], Xr: Ragged, is_train: bool
-) -> Tuple[SeqT, Callable]:
+) -> Tuple[Ragged, Callable]:
     # Assign these to locals, to keep code a bit shorter.
     unflatten = layer.ops.unflatten
     flatten = layer.ops.flatten
@@ -73,15 +75,12 @@ def _ragged_forward(
             dYr.lengths,
         )
 
-    return (
-        cast(SeqT, Ragged(flatten(Ys), Xr.lengths)),
-        backprop,
-    )
+    return Ragged(flatten(Ys), Xr.lengths), backprop
 
 
 def _padded_forward(
     layer: Model[List[Array2d], List[Array2d]], Xp: Padded, is_train: bool
-) -> Tuple[SeqT, Callable]:
+) -> Tuple[Padded, Callable]:
     # Assign these to locals, to keep code a bit shorter.
     padded2list = layer.ops.padded2list
     list2padded = layer.ops.list2padded
@@ -94,4 +93,4 @@ def _padded_forward(
     def backprop(dYp):
         return list2padded(get_dXs(padded2list(dYp)))
 
-    return cast(SeqT, list2padded(Ys)), backprop
+    return list2padded(Ys), backprop
