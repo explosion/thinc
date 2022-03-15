@@ -52,7 +52,7 @@ class PyTorchGradScaler:
         """
         if enabled and not has_torch_amp:
             raise ValueError(
-                "Gradient scaling is not supported, upgrade to torch>=1.9.0"
+                "Gradient scaling is not supported, requires capable GPU and torch>=1.9.0"
             )
 
         self._enabled = enabled
