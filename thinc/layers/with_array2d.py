@@ -76,7 +76,7 @@ def _get_array(model, X: SeqT) -> Array2d:
 
 
 def _list_forward(
-    model: Model[List2d, List2d], Xs: List2d, is_train: bool
+    model: Model[SeqT, SeqT], Xs: List2d, is_train: bool
 ) -> Tuple[List2d, Callable]:
     layer = model.layers[0]
     pad = model.attrs["pad"]
@@ -93,7 +93,7 @@ def _list_forward(
 
 
 def _ragged_forward(
-    model: Model[Ragged, Ragged], Xr: Ragged, is_train: bool
+    model: Model[SeqT, SeqT], Xr: Ragged, is_train: bool
 ) -> Tuple[Ragged, Callable]:
     layer: Model[Array2d, Array2d] = model.layers[0]
     Y, get_dX = layer(Xr.data, is_train)
@@ -106,7 +106,7 @@ def _ragged_forward(
 
 
 def _padded_forward(
-    model: Model[Padded, Padded], Xp: Padded, is_train: bool
+    model: Model[SeqT, SeqT], Xp: Padded, is_train: bool
 ) -> Tuple[Padded, Callable]:
     layer: Model[Array2d, Array2d] = model.layers[0]
     X = model.ops.reshape2(
