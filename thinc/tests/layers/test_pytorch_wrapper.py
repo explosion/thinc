@@ -80,7 +80,9 @@ def test_pytorch_wrapper_thinc_input(nN, nI, nO, mixed_precision):
             PyTorchWrapper_v2(
                 pytorch_layer.cuda(),
                 mixed_precision=mixed_precision,
-                grad_scaler=PyTorchGradScaler(enabled=True, init_scale=2.0 ** 16),
+                grad_scaler=PyTorchGradScaler(
+                    enabled=mixed_precision, init_scale=2.0**16
+                ),
             ).initialize(),
         )
         # pytorch allocator is set in PyTorchShim
@@ -146,3 +148,18 @@ def test_pytorch_convert_inputs(data, n_args, kwargs_keys):
     convert_inputs = model.attrs["convert_inputs"]
     Y, backprop = convert_inputs(model, data, is_train=True)
     check_input_converters(Y, backprop, data, n_args, kwargs_keys, torch.Tensor)
+
+
+@pytest.mark.skipif(not has_torch_gpu, reason="needs PyTorch with CUDA-capable GPU")
+@pytest.mark.skipif(
+    has_torch_amp, reason="needs PyTorch without mixed-precision support"
+)
+def test_raises_on_old_pytorch():
+    import torch.nn
+
+    pytorch_layer = torch.nn.Linear(5, 5)
+    with pytest.raises(ValueError, match=r"not supported.*1.9.0"):
+        PyTorchWrapper_v2(
+            pytorch_layer.cuda(),
+            mixed_precision=True,
+        )

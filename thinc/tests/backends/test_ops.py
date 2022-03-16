@@ -5,9 +5,10 @@ import numpy
 from hypothesis import given, settings
 from hypothesis.strategies import composite, integers
 from numpy.testing import assert_allclose
+from packaging.version import Version
 from thinc.api import NumpyOps, CupyOps, Ops, get_ops
 from thinc.api import get_current_ops, use_ops
-from thinc.util import has_torch, torch2xp, xp2torch
+from thinc.util import has_torch, torch2xp, xp2torch, torch_version
 from thinc.api import fix_random_seed
 from thinc.api import LSTM
 from thinc.types import Floats2d
@@ -1076,6 +1077,7 @@ def test_ngrams():
 
 
 @pytest.mark.skipif(not has_torch, reason="needs PyTorch")
+@pytest.mark.skipif(torch_version < Version("1.9.0"), reason="needs PyTorch 1.9.0")
 @pytest.mark.parametrize("ops", ALL_OPS)
 @pytest.mark.parametrize("dtype", ["float32", "float64"])
 @pytest.mark.parametrize("torch_func", TORCH_FUNCS)

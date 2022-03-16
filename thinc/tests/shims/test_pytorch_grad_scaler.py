@@ -2,7 +2,8 @@ import pytest
 
 from hypothesis import given, settings
 from hypothesis.strategies import lists, one_of, tuples
-from thinc.util import has_torch, has_torch_gpu, is_torch_array
+from thinc.util import has_torch, has_torch_amp, has_torch_gpu
+from thinc.util import is_torch_array
 from thinc.api import PyTorchGradScaler
 
 from ..strategies import ndarrays
@@ -22,6 +23,9 @@ def tensors():
 
 @pytest.mark.skipif(not has_torch, reason="needs PyTorch")
 @pytest.mark.skipif(not has_torch_gpu, reason="needs a GPU")
+@pytest.mark.skipif(
+    not has_torch_amp, reason="requires PyTorch with mixed-precision support"
+)
 @given(X=one_of(tensors(), lists(tensors()), tuples(tensors())))
 @settings(deadline=None)
 def test_scale_random_inputs(X):
@@ -32,16 +36,19 @@ def test_scale_random_inputs(X):
     scaler.to_(device_id)
 
     if is_torch_array(X):
-        assert torch.allclose(scaler.scale(X), X * 2.0 ** 16)
+        assert torch.allclose(scaler.scale(X), X * 2.0**16)
     else:
         scaled1 = scaler.scale(X)
-        scaled2 = [t * 2.0 ** 16 for t in X]
+        scaled2 = [t * 2.0**16 for t in X]
         for t1, t2 in zip(scaled1, scaled2):
             assert torch.allclose(t1, t2)
 
 
 @pytest.mark.skipif(not has_torch, reason="needs PyTorch")
 @pytest.mark.skipif(not has_torch_gpu, reason="needs a GPU")
+@pytest.mark.skipif(
+    not has_torch_amp, reason="requires PyTorch with mixed-precision support"
+)
 def test_grad_scaler():
     import torch
 
@@ -53,10 +60,10 @@ def test_grad_scaler():
     #  Test that scaling works as expected.
     t = torch.tensor([1.0], device=device_id)
     assert scaler.scale([torch.tensor([1.0], device=device_id)]) == [
-        torch.tensor([2.0 ** 16], device=device_id)
+        torch.tensor([2.0**16], device=device_id)
     ]
     assert scaler.scale(torch.tensor([1.0], device=device_id)) == torch.tensor(
-        [2.0 ** 16], device=device_id
+        [2.0**16], device=device_id
     )
     with pytest.raises(ValueError):
         scaler.scale("bogus")
@@ -65,7 +72,7 @@ def test_grad_scaler():
 
     # Test infinity detection.
     g = [
-        torch.tensor([2.0 ** 16], device=device_id),
+        torch.tensor([2.0**16], device=device_id),
         torch.tensor([float("Inf")], device=device_id),
     ]
 
@@ -80,5 +87,14 @@ def test_grad_scaler():
     # Since infinity was found, the scale should be halved from 2**16
     # to 2**15 for the next step.
     assert scaler.scale([torch.tensor([1.0], device=device_id)]) == [
-        torch.tensor([2.0 ** 15], device=device_id)
+        torch.tensor([2.0**15], device=device_id)
     ]
+
+
+@pytest.mark.skipif(not has_torch, reason="needs PyTorch")
+@pytest.mark.skipif(
+    has_torch_amp, reason="needs PyTorch without gradient scaling support"
+)
+def test_raises_on_old_pytorch():
+    with pytest.raises(ValueError, match=r"not supported.*1.9.0"):
+        PyTorchGradScaler(enabled=True)
