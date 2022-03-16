@@ -7,8 +7,7 @@ import itertools
 
 from ..types import Array1d, Array2d, Array3d, Array4d, ArrayXd
 from ..types import Floats1d, Floats2d, Floats3d, Floats4d, FloatsXd, _Floats
-from ..types import Ints1d, Ints2d, Ints3d, Ints4d, IntsXd
-from ..types import List2d, ListXd
+from ..types import Ints1d, Ints2d, Ints3d, Ints4d, IntsXd, List2d
 from ..types import Xp, Shape, DTypes, DTypesInt, DTypesFloat
 from ..types import DeviceTypes, Generator, Padded, Batchable, SizedGenerator
 from ..util import get_array_module, is_xp_array, to_numpy
@@ -272,11 +271,22 @@ class Ops:
         assert len(unflat) == len(lengths)
         return unflat
 
-    def pad(self, seqs: List2d, round_to=1) -> Array3d:
+    @overload
+    def pad(self, seqs: List[Ints2d], round_to=1) -> Ints3d:
+        ...
+
+    @overload  # noqa: F811
+    def pad(self, seqs: List[Floats2d], round_to=1) -> Floats3d:
+        ...
+
+    def pad(  # noqa: F811
+        self, seqs: Union[List[Ints2d], List[Floats2d]], round_to=1
+    ) -> Array3d:
         """Perform padding on a list of arrays so that they each have the same
         length, by taking the maximum dimension across each axis. This only
         works on non-empty sequences with the same `ndim` and `dtype`.
         """
+        # TODO: This should be generalized to handle different ranks
         if not seqs:
             raise ValueError("Cannot pad empty sequence")
         if len(set(seq.ndim for seq in seqs)) != 1:

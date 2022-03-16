@@ -1,13 +1,13 @@
 from typing import Tuple, Callable, Optional, TypeVar, Union, cast, List
 
-from ..types import Padded, Ragged, Floats3d, Ints1d, Array2d, List2d
+from ..types import Padded, Ragged, Floats3d, Ints1d, List2d, Array2d
 from ..model import Model
 from ..config import registry
 from ..util import is_xp_array
 
 
 PaddedData = Tuple[Floats3d, Ints1d, Ints1d, Ints1d]
-SeqT = TypeVar("SeqT", bound=Union[Padded, Ragged, List2d, PaddedData, Floats3d])
+SeqT = TypeVar("SeqT", bound=Union[Padded, Ragged, List2d, Floats3d, PaddedData])
 
 
 @registry.layers("with_padded.v1")

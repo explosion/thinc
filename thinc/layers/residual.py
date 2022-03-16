@@ -1,4 +1,4 @@
-from typing import Tuple, Callable, Optional, List, TypeVar, cast, Union
+from typing import Tuple, Callable, Optional, List, TypeVar
 
 from ..model import Model
 from ..config import registry
@@ -7,33 +7,22 @@ from ..types import Floats1d, Floats2d, Floats3d, Floats4d, FloatsXd, Ragged, Pa
 
 InT = TypeVar(
     "InT",
-    bound=Union[
-        List[Floats1d],
-        List[Floats2d],
-        List[Floats3d],
-        List[Floats4d],
-        Ragged,
-        Padded,
-        FloatsXd,
-    ],
-)
-InT_co = TypeVar(
-    "InT_co",
-    bound=Union[
-        List[Floats1d],
-        List[Floats2d],
-        List[Floats3d],
-        List[Floats4d],
-        Ragged,
-        Padded,
-        FloatsXd,
-    ],
-    covariant=True,
+    List[Floats1d],
+    List[Floats2d],
+    List[Floats3d],
+    List[Floats4d],
+    Ragged,
+    Padded,
+    FloatsXd,
+    Floats1d,
+    Floats2d,
+    Floats3d,
+    Floats4d,
 )
 
 
 @registry.layers("residual.v1")
-def residual(layer: Model[InT_co, InT_co]) -> Model[InT_co, InT_co]:
+def residual(layer: Model[InT, InT]) -> Model[InT, InT]:
     return Model(
         f"residual({layer.name})",
         forward,
@@ -46,28 +35,24 @@ def residual(layer: Model[InT_co, InT_co]) -> Model[InT_co, InT_co]:
     )
 
 
-def forward(
-    model: Model[InT_co, InT_co], X: InT, is_train: bool
-) -> Tuple[InT_co, Callable]:
+def forward(model: Model[InT, InT], X: InT, is_train: bool) -> Tuple[InT, Callable]:
     def backprop(d_output: InT) -> InT:
         dX = backprop_layer(d_output)
         if isinstance(d_output, list):
-            return cast(InT, [d_output[i] + dX[i] for i in range(len(d_output))])
+            return [d_output[i] + dX[i] for i in range(len(d_output))]
         elif isinstance(d_output, Ragged):
-            ragged_d_output = cast(Ragged, d_output)
-            return cast(InT, Ragged(ragged_d_output.data + dX.data, dX.lengths))
+            return Ragged(d_output.data + dX.data, dX.lengths)
         elif isinstance(X, Padded):
-            dX.data += d_output.data  # type: ignore[union-attr]
+            dX.data += d_output.data
             return dX
         else:
             return d_output + dX
 
     Y, backprop_layer = model.layers[0](X, is_train)
     if isinstance(X, list):
-        return cast(InT_co, [X[i] + Y[i] for i in range(len(X))]), backprop
+        return [X[i] + Y[i] for i in range(len(X))], backprop
     elif isinstance(X, Ragged):
-        ragged_X = cast(Ragged, X)
-        return cast(InT_co, Ragged(ragged_X.data + Y.data, ragged_X.lengths)), backprop
+        return Ragged(X.data + Y.data, X.lengths), backprop
     elif isinstance(X, Padded):
         Y.data += X.data
         return Y, backprop
@@ -76,7 +61,8 @@ def forward(
 
 
 def init(
-    model: Model[InT_co, InT_co], X: Optional[InT] = None, Y: Optional[InT] = None):
+    model: Model[InT, InT], X: Optional[InT] = None, Y: Optional[InT] = None
+) -> Model[InT, InT]:
     first_layer = model.layers[0]
     if first_layer.has_dim("nO") is None:
         first_layer.initialize(X=X, Y=Y)

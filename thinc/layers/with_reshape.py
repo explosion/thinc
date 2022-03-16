@@ -2,11 +2,10 @@ from typing import Tuple, Callable, Optional, cast, TypeVar
 
 from ..model import Model
 from ..config import registry
-from ..types import Array3d, Array2d, Floats3d
+from ..types import Array3d, Array2d
 
 
 InT = Array3d
-OutT = Array2d
 OutT_co = TypeVar("OutT_co", bound=Array2d, covariant=True)
 
 
