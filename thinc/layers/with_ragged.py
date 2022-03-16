@@ -5,10 +5,7 @@ from ..model import Model
 from ..config import registry
 
 RaggedData = Tuple[Array2d, Ints1d]
-SeqT = TypeVar(
-    "SeqT",
-    bound=Union[Padded, Ragged, ListXd, RaggedData],
-)
+SeqT = TypeVar("SeqT", bound=Union[Padded, Ragged, ListXd, RaggedData])
 
 
 @registry.layers("with_ragged.v1")

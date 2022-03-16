@@ -14,7 +14,6 @@ from ..types import DeviceTypes, Generator, Padded, Batchable, SizedGenerator
 from ..util import get_array_module, is_xp_array, to_numpy
 
 
-ArrayT3d = TypeVar("ArrayT3d", bound=Array3d)
 ArrayTXd = TypeVar("ArrayTXd", bound=ArrayXd)
 ArrayTXd_co = TypeVar("ArrayTXd_co", bound=ArrayXd, covariant=True)
 
@@ -255,17 +254,17 @@ class Ops:
             result = xp.asarray(result, dtype=dtype)
         return result
 
-    def unflatten(self, X: ArrayXd, lengths: Ints1d, pad: int = 0) -> ListXd:
+    def unflatten(self, X: ArrayXd, lengths: Ints1d, pad: int = 0) -> List[ArrayXd]:
         """The reverse/backward operation of the `flatten` function: unflatten
         a large array into a list of arrays according to the given lengths.
         """
-        unflat = cast(ListXd, [])
+        unflat = cast(List[ArrayXd], [])
         pad = int(pad)
         for length in lengths:
             length = int(length)
             if pad >= 1 and length != 0:
                 X = X[pad:]
-            unflat.append(X[:length])  # type: ignore[arg-type]
+            unflat.append(X[:length])
             X = X[length:]
         if pad >= 1:
             X = X[pad:]
@@ -273,7 +272,7 @@ class Ops:
         assert len(unflat) == len(lengths)
         return unflat
 
-    def pad(self, seqs: List2d, round_to=1) -> ArrayT3d:
+    def pad(self, seqs: List2d, round_to=1) -> Array3d:
         """Perform padding on a list of arrays so that they each have the same
         length, by taking the maximum dimension across each axis. This only
         works on non-empty sequences with the same `ndim` and `dtype`.
@@ -292,13 +291,13 @@ class Ops:
         # array sizes.
         length = (length + (round_to - 1)) // round_to * round_to
         final_shape = (len(seqs), length) + seqs[0].shape[1:]
-        output: ArrayT3d = self.alloc(final_shape, dtype=seqs[0].dtype)
+        output: Array3d = self.alloc(final_shape, dtype=seqs[0].dtype)
         for i, arr in enumerate(seqs):
             # It's difficult to convince this that the dtypes will match.
             output[i, : arr.shape[0]] = arr  # type: ignore[assignment, call-overload]
         return output
 
-    def unpad(self, padded: ArrayT3d, lengths: List[int]) -> List2d:
+    def unpad(self, padded: Array3d, lengths: List[int]) -> List2d:
         """The reverse/backward operation of the `pad` function: transform an
         array back into a list of arrays, each with their original length.
         """

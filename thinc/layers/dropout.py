@@ -2,11 +2,11 @@ from typing import Tuple, Callable, List, TypeVar, cast, Union
 
 from ..model import Model
 from ..config import registry
-from ..types import ArrayXd, Ragged, Padded, ListXd
+from ..types import ArrayXd, Ragged, Padded
 
 
-InT = TypeVar("InT", bound=Union[ArrayXd, ListXd, Ragged, Padded])
-InT_co = TypeVar("InT_co", bound=Union[ArrayXd, ListXd, Ragged, Padded], covariant=True)
+InT = TypeVar("InT", bound=Union[ArrayXd, List[ArrayXd], Ragged, Padded])
+InT_co = TypeVar("InT_co", bound=Union[ArrayXd, List[ArrayXd], Ragged, Padded], covariant=True)
 
 
 @registry.layers("Dropout.v1")
@@ -81,13 +81,13 @@ def _dropout_ragged(
 
 
 def _dropout_lists(
-    model: Model[InT_co, InT_co], Xs: ListXd, is_train: bool
-) -> Tuple[ListXd, Callable]:
+    model: Model[InT_co, InT_co], Xs: List[ArrayXd], is_train: bool
+) -> Tuple[List[ArrayXd], Callable]:
     rate = model.attrs["dropout_rate"]
     masks = [model.ops.get_dropout_mask(X.shape, rate) for X in Xs]
     Ys = [X * mask for X, mask in zip(Xs, masks)]
 
-    def backprop(dYs: ListXd) -> ListXd:
-        return cast(ListXd, [dY * mask for dY, mask in zip(dYs, masks)])
+    def backprop(dYs: List[ArrayXd]) -> List[ArrayXd]:
+        return [dY * mask for dY, mask in zip(dYs, masks)]
 
-    return cast(ListXd, Ys), backprop
+    return Ys, backprop

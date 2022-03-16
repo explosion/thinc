@@ -76,8 +76,7 @@ def forward(
 
 
 def init(
-    model: Model[InT_co, InT_co], X: Optional[InT] = None, Y: Optional[InT] = None
-) -> Model[InT_co, InT_co]:
+    model: Model[InT_co, InT_co], X: Optional[InT] = None, Y: Optional[InT] = None):
     first_layer = model.layers[0]
     if first_layer.has_dim("nO") is None:
         first_layer.initialize(X=X, Y=Y)

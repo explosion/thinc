@@ -1,14 +1,13 @@
-from typing import Tuple, Callable, Sequence, Any, List, TypeVar, Optional
+from typing import Tuple, Callable, Sequence, Any, cast, TypeVar, Optional, List
 
 from ..model import Model
 from ..config import registry
-from ..types import ArrayXd
+from ..types import ListXd
 
 
 ItemT = TypeVar("ItemT")
 InT = Sequence[Sequence[ItemT]]
-OutT_member_co = TypeVar("OutT_member_co", bound=ArrayXd, covariant=True)
-OutT = List[OutT_member_co]
+OutT = ListXd
 
 
 @registry.layers("with_flatten.v1")
@@ -20,7 +19,7 @@ def forward(
     model: Model[OutT, OutT], Xnest: OutT, is_train: bool
 ) -> Tuple[OutT, Callable]:
     layer: Model[InT, InT] = model.layers[0]
-    Xflat: Sequence[Any] = _flatten(Xnest)
+    Xflat: Sequence[Sequence[Any]] = _flatten(Xnest)
     Yflat, backprop_layer = layer(Xflat, is_train)
     # Get the split points. We want n-1 splits for n items.
     arr = layer.ops.asarray1i([len(x) for x in Xnest[:-1]])
@@ -36,11 +35,11 @@ def forward(
     return Ynest, backprop
 
 
-def _flatten(nested: InT) -> List[ItemT]:
-    flat: List[ItemT] = []
+def _flatten(nested: OutT) -> InT:
+    flat: List = []
     for item in nested:
         flat.extend(item)
-    return flat
+    return cast(InT, flat)
 
 
 def init(

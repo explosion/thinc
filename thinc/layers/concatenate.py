@@ -1,16 +1,16 @@
-from typing import Any, Tuple, Callable, Optional, TypeVar, cast, Dict, Union
+from typing import Any, List, Tuple, Callable, Optional, TypeVar, cast, Dict, Union
 
 from ..model import Model
 from ..config import registry
-from ..types import Array2d, Ragged, List2d
+from ..types import Array2d, Ragged
 from ..util import get_width
 from .noop import noop
 from ..types import XY_XY_OutT
 
 
 InT = TypeVar("InT", bound=Any)
-OutT = TypeVar("OutT", bound=Union[Array2d, List2d, Ragged])
-OutT_co = TypeVar("OutT_co", bound=Union[Array2d, List2d, Ragged], covariant=True)
+OutT = TypeVar("OutT", bound=Union[Array2d, List[Array2d], Ragged])
+OutT_co = TypeVar("OutT_co", bound=Union[Array2d, List[Array2d], Ragged], covariant=True)
 
 
 @registry.layers("concatenate.v1")
@@ -111,8 +111,8 @@ def _ragged_forward(
 
 def _list_forward(
     model: Model[InT, OutT], X, Ys, callbacks, is_train: bool
-) -> Tuple[List2d, Callable]:
-    def backprop(d_output: List2d) -> InT:
+) -> Tuple[List[Array2d], Callable]:
+    def backprop(d_output: List[Array2d]) -> InT:
         d_out_array = model.ops.xp.concatenate(d_output, axis=0)
         dY = model.ops.as_contig(d_out_array[:, : widths[0]])
         # We want to generalize unflatten later.
@@ -130,12 +130,12 @@ def _list_forward(
     Ys = [model.ops.xp.concatenate(Y, axis=0) for Y in Ys]
     widths = [Y.shape[1] for Y in Ys]
     out_array = model.ops.xp.hstack(Ys)
-    return cast(List2d, model.ops.unflatten(out_array, lengths)), backprop
+    return cast(List[Array2d], model.ops.unflatten(out_array, lengths)), backprop
 
 
 def init(
     model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = None
-) -> Model[InT, OutT]:
+) -> None:
     if X is not None:
         if model.has_dim("nI") is not False:
             model.set_dim("nI", get_width(X))
@@ -146,4 +146,4 @@ def init(
         layer.initialize(X=X, Y=Y)
     if all([layer.has_dim("nO") for layer in model.layers]):
         model.set_dim("nO", sum(layer.get_dim("nO") for layer in model.layers))
-    return model
+    

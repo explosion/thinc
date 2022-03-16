@@ -1,13 +1,12 @@
-from typing import Tuple, Callable, cast, List, TypeVar, Any
+from typing import Tuple, Callable
 
-from ..types import Padded, Array2d
+from ..types import Padded, List2d
 from ..model import Model
 from ..config import registry
 
 
 InT = Padded
-OutT_member_co = TypeVar("OutT_member_co", bound=Array2d, covariant=True)
-OutT = List[OutT_member_co]
+OutT = List2d
 
 
 @registry.layers("padded2list.v1")

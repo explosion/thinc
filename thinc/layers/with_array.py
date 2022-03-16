@@ -87,7 +87,7 @@ def _list_forward(
         dXf = get_dXf(dYf)
         return cast(ListXd, layer.ops.unflatten(dXf, lengths, pad=pad))
 
-    return layer.ops.unflatten(Yf, lengths, pad=pad), backprop
+    return cast(ListXd, layer.ops.unflatten(Yf, lengths, pad=pad)), backprop
 
 
 def _ragged_forward(

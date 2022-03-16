@@ -6,13 +6,12 @@ from ..types import Array3d, Array2d, Floats3d
 
 
 InT = Array3d
-InT_co = TypeVar("InT_co", bound=Array3d, covariant=True)
 OutT = Array2d
 OutT_co = TypeVar("OutT_co", bound=Array2d, covariant=True)
 
 
 @registry.layers("with_reshape.v1")
-def with_reshape(layer: Model[OutT_co, OutT_co]) -> Model[InT_co, InT_co]:
+def with_reshape(layer: Model[OutT_co, OutT_co]) -> Model[InT, InT]:
     """Reshape data on the way into and out from a layer."""
     return Model(
         f"with_reshape({layer.name})",
@@ -24,7 +23,7 @@ def with_reshape(layer: Model[OutT_co, OutT_co]) -> Model[InT_co, InT_co]:
 
 
 def forward(
-    model: Model[InT_co, InT_co], X: InT, is_train: bool
+    model: Model[InT, InT], X: InT, is_train: bool
 ) -> Tuple[InT, Callable]:
     layer = model.layers[0]
     initial_shape = X.shape

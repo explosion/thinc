@@ -161,7 +161,7 @@ def _padded_to_packed(ops: Ops, Xp: Padded) -> Ragged:
     start = 0
     for t in range(Xp.size_at_t.shape[0]):
         batch_size = Xp.size_at_t[t]
-        Y[start : start + batch_size] = cast(Floats2d, Xp.data[t, :batch_size])
+        Y[start : start + batch_size] = Xp.data[t, :batch_size] # type: ignore[assignment]
         start += batch_size
     return Ragged(Y, Xp.size_at_t)
 

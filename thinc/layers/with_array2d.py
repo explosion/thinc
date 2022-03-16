@@ -1,4 +1,4 @@
-from typing import Tuple, Callable, Optional, TypeVar, cast, List
+from typing import Tuple, Callable, Optional, TypeVar, cast, List, Union
 
 from ..model import Model
 from ..config import registry
@@ -6,7 +6,7 @@ from ..types import Array2d, Floats2d, List2d, Padded, Ragged
 
 
 ValT_co = TypeVar("ValT_co", bound=Array2d, covariant=True)
-SeqT = TypeVar("SeqT", Padded, Ragged, List2d, Array2d)
+SeqT = TypeVar("SeqT", bound=Union[Padded, Ragged, List2d, Array2d])
 
 
 @registry.layers("with_array2d.v1")

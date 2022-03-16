@@ -1,13 +1,12 @@
-from typing import Tuple, Callable, List, TypeVar
+from typing import Tuple, Callable, cast
 
 from ..model import Model
 from ..config import registry
-from ..types import Ragged, ArrayXd
+from ..types import Ragged, ListXd
 
 
 InT = Ragged
-OutT_member_co = TypeVar("OutT_member_co", bound=ArrayXd, covariant=True)
-OutT = List[OutT_member_co]
+OutT = ListXd
 
 
 @registry.layers("ragged2list.v1")
@@ -22,5 +21,5 @@ def forward(model: Model[InT, OutT], Xr: InT, is_train: bool) -> Tuple[OutT, Cal
     def backprop(dXs: OutT) -> InT:
         return Ragged(model.ops.flatten(dXs, pad=0), lengths)
 
-    data: OutT = model.ops.unflatten(Xr.dataXd, Xr.lengths)
+    data = cast(OutT, model.ops.unflatten(Xr.dataXd, Xr.lengths))
     return data, backprop

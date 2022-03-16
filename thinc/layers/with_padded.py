@@ -8,13 +8,10 @@ from ..util import is_xp_array
 
 PaddedData = Tuple[Floats3d, Ints1d, Ints1d, Ints1d]
 SeqT = TypeVar("SeqT", bound=Union[Padded, Ragged, List2d, PaddedData, Floats3d])
-SeqT_co = TypeVar(
-    "SeqT_co", bound=Union[Padded, Ragged, List2d, PaddedData, Floats3d], covariant=True
-)
 
 
 @registry.layers("with_padded.v1")
-def with_padded(layer: Model[Padded, Padded]) -> Model[SeqT_co, SeqT_co]:
+def with_padded(layer: Model[Padded, Padded]) -> Model[SeqT, SeqT]:
     return Model(
         f"with_padded({layer.name})",
         forward,
@@ -25,31 +22,31 @@ def with_padded(layer: Model[Padded, Padded]) -> Model[SeqT_co, SeqT_co]:
 
 
 def forward(
-    model: Model[SeqT_co, SeqT_co], Xseq: SeqT, is_train: bool
-) -> Tuple[SeqT_co, Callable]:
+    model: Model[SeqT, SeqT], Xseq: SeqT, is_train: bool
+) -> Tuple[SeqT, Callable]:
     layer: Model[Padded, Padded] = model.layers[0]
     if isinstance(Xseq, Padded):
         padded_Y, backprop = layer(Xseq, is_train)
-        Y = cast(SeqT_co, padded_Y)
+        Y = cast(SeqT, padded_Y)
     elif isinstance(Xseq, Ragged):
         ragged_Y, backprop = _ragged_forward(layer, cast(Ragged, Xseq), is_train)
-        Y = cast(SeqT_co, ragged_Y)
+        Y = cast(SeqT, ragged_Y)
     elif _is_padded_data(Xseq):
         padded_data_Y, backprop = _tuple_forward(
             layer, cast(PaddedData, Xseq), is_train
         )
-        Y = cast(SeqT_co, padded_data_Y)
+        Y = cast(SeqT, padded_data_Y)
     elif is_xp_array(Xseq):
         floats3d_Y, backprop = _array_forward(layer, cast(Floats3d, Xseq), is_train)
-        Y = cast(SeqT_co, floats3d_Y)
+        Y = cast(SeqT, floats3d_Y)
     else:
         list_Y, backprop = _list_forward(layer, cast(List2d, Xseq), is_train)
-        Y = cast(SeqT_co, list_Y)
+        Y = cast(SeqT, list_Y)
     return Y, backprop
 
 
 def init(
-    model: Model[SeqT_co, SeqT_co], X: Optional[SeqT] = None, Y: Optional[SeqT] = None
+    model: Model[SeqT, SeqT], X: Optional[SeqT] = None, Y: Optional[SeqT] = None
 ) -> None:
     model.layers[0].initialize(
         X=_get_padded(model, X) if X is not None else None,
@@ -61,7 +58,7 @@ def _is_padded_data(seq: SeqT) -> bool:
     return isinstance(seq, tuple) and len(seq) == 4 and all(map(is_xp_array, seq))
 
 
-def _get_padded(model: Model[SeqT_co, SeqT_co], seq: SeqT) -> Padded:
+def _get_padded(model: Model, seq: SeqT) -> Padded:
     if isinstance(seq, Padded):
         return seq
     elif isinstance(seq, Ragged):
