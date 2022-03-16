@@ -683,11 +683,11 @@ class Ops:
         return dX, d_params
 
     def maxout(self, X: Floats3d) -> Tuple[Floats2d, Ints2d]:
-        which = X.argmax(axis=-1, keepdims=False)
+        which = X.argmax(axis=-1)
         return X.max(axis=-1), which
 
     def backprop_maxout(self, dY: Floats2d, which: Ints2d, P: int) -> Floats3d:
-        dX = self.alloc3f(dY.shape[0], dY.shape[1], P)
+        dX = self.alloc3f(dY.shape[0], dY.shape[1], P, dtype=dY.dtype)
         for b in range(dY.shape[0]):
             for o in range(dY.shape[1]):
                 dX[b, o, which[b, o]] = dY[b, o]
@@ -996,7 +996,7 @@ class Ops:
         return Y
 
     def reduce_max(self, X: Floats2d, lengths: Ints1d) -> Tuple[Floats2d, Ints2d]:
-        Y = self.alloc2f(lengths.shape[0], X.shape[1])
+        Y = self.alloc2f(lengths.shape[0], X.shape[1], dtype=X.dtype)
         which = self.alloc2i(lengths.shape[0], X.shape[1])
         start = 0
         for i, length in enumerate(lengths):
@@ -1007,7 +1007,7 @@ class Ops:
         return Y, which
 
     def backprop_reduce_sum(self, d_sums: Floats2d, lengths: Ints1d) -> Floats2d:
-        dX = self.alloc2f(lengths.sum(), d_sums.shape[1])
+        dX = self.alloc2f(lengths.sum(), d_sums.shape[1], dtype=d_sums.dtype)
         start = 0
         for i, length in enumerate(lengths):
             dX[start : start + length] = d_sums[i]
@@ -1015,7 +1015,7 @@ class Ops:
         return dX
 
     def backprop_reduce_mean(self, d_means: Floats2d, lengths: Ints1d) -> Floats2d:
-        dX = self.alloc2f(lengths.sum(), d_means.shape[1])
+        dX = self.alloc2f(lengths.sum(), d_means.shape[1], dtype=d_means.dtype)
         start = 0
         for i, length in enumerate(lengths):
             dX[start : start + length] = d_means[i] / length
@@ -1025,7 +1025,7 @@ class Ops:
     def backprop_reduce_max(
         self, d_maxes: Floats2d, which: Ints2d, lengths: Ints1d
     ) -> Floats2d:
-        dX = self.alloc2f(lengths.sum(), d_maxes.shape[1])
+        dX = self.alloc2f(lengths.sum(), d_maxes.shape[1], dtype=d_maxes.dtype)
         start = 0
         for i, length in enumerate(lengths):
             self.xp.put_along_axis(
@@ -1370,7 +1370,7 @@ def dsigmoid(Y: ArrayT) -> ArrayT:
 
 
 def dtanh(Y: ArrayT) -> ArrayT:
-    return 1 - Y ** 2
+    return 1 - Y**2
 
 
 def gaussian_cdf(ops: Ops, X: FloatsType) -> FloatsType:
