@@ -6,20 +6,19 @@ from ..types import Ragged, ArrayXd
 from ..util import ArrayInfo
 
 OutT = TypeVar("OutT", bound=ArrayXd)
-OutT_co = TypeVar("OutT_co", bound=ArrayXd, covariant=True)
 
 
 @registry.layers("reduce_last.v1")
-def reduce_last() -> Model[Ragged, OutT_co]:
+def reduce_last() -> Model[Ragged, OutT]:
     """Reduce ragged-formatted sequences to their last element."""
     return Model("reduce_last", forward)
 
 
 def forward(
-    model: Model[Ragged, OutT_co], Xr: Ragged, is_train: bool
-) -> Tuple[OutT_co, Callable[[OutT], Ragged]]:
+    model: Model[Ragged, OutT], Xr: Ragged, is_train: bool
+) -> Tuple[OutT, Callable[[OutT], Ragged]]:
     ends = Xr.lengths.cumsum() - 1
-    Y = cast(OutT_co, Xr.dataXd[ends])
+    Y = cast(OutT, Xr.dataXd[ends])
     x_shape = Xr.dataXd.shape
     lengths = Xr.lengths
     array_info = ArrayInfo.from_array(Y)

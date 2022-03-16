@@ -7,7 +7,7 @@ from ..util import get_width
 
 
 InT = TypeVar("InT", bound=Any)
-OutT = TypeVar("OutT", bound=ArrayXd, covariant=True)
+OutT = TypeVar("OutT", bound=ArrayXd)
 
 
 @registry.layers("add.v1")

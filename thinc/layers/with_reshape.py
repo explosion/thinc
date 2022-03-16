@@ -1,16 +1,16 @@
-from typing import Tuple, Callable, Optional, cast, TypeVar
+from typing import Tuple, Callable, Optional, cast, TypeVar, List
 
 from ..model import Model
 from ..config import registry
-from ..types import Array3d, Array2d
+from ..types import Array3d, Array2d, Floats2d
 
 
-InT = Array3d
-OutT_co = TypeVar("OutT_co", bound=Array2d, covariant=True)
+InT = TypeVar("InT", bound=Array3d)
+OutT = TypeVar("OutT", bound=Array2d)
 
 
 @registry.layers("with_reshape.v1")
-def with_reshape(layer: Model[OutT_co, OutT_co]) -> Model[InT, InT]:
+def with_reshape(layer: Model[OutT, OutT]) -> Model[InT, InT]:
     """Reshape data on the way into and out from a layer."""
     return Model(
         f"with_reshape({layer.name})",
@@ -37,7 +37,7 @@ def forward(
         reshaped = model.ops.reshape2(dY, nB * nT, -1)
         return Y2d_backprop(model.ops.reshape3(reshaped, *initial_shape))
 
-    return Y, backprop
+    return cast(InT, Y), backprop
 
 
 def init(

@@ -1,8 +1,8 @@
-from typing import Tuple, Callable, Optional, cast
-
+from typing import Tuple, Callable, Optional, cast, List, TypeVar, Union
+import numpy
 from ..model import Model
 from ..config import registry
-from ..types import Floats2d, Floats1d
+from ..types import Floats2d, Floats1d, Floats2d, Ints2d
 from ..initializers import zero_init
 from ..util import get_width, partial
 

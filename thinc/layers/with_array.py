@@ -4,12 +4,12 @@ from ..model import Model
 from ..config import registry
 from ..types import Padded, Ragged, ArrayXd, Array3d, ListXd
 
-ArrayXd_co = TypeVar("ArrayXd_co", bound=ArrayXd, covariant=True)
+ArrayTXd = TypeVar("ArrayTXd", bound=ArrayXd)
 SeqT = TypeVar("SeqT", bound=Union[Padded, Ragged, ListXd, ArrayXd])
 
 
 @registry.layers("with_array.v1")
-def with_array(layer: Model[ArrayXd_co, ArrayXd_co], pad: int = 0) -> Model[SeqT, SeqT]:
+def with_array(layer: Model[ArrayTXd, ArrayTXd], pad: int = 0) -> Model[SeqT, SeqT]:
     """Transform sequence data into a contiguous 2d array on the way into and
     out of a model. Handles a variety of sequence types: lists, padded and ragged.
     If the input is a 2d array, it is passed through unchanged.

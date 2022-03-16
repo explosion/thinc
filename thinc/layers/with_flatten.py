@@ -7,7 +7,7 @@ from ..types import ListXd
 
 ItemT = TypeVar("ItemT")
 InT = Sequence[Sequence[ItemT]]
-OutT = ListXd
+OutT = TypeVar("OutT", bound=ListXd)
 
 
 @registry.layers("with_flatten.v1")

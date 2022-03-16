@@ -5,10 +5,10 @@ from ..model import Model
 
 AxisIndex = Union[int, slice, Sequence[int]]
 Index = Union[AxisIndex, Tuple[AxisIndex, ...]]
-ArrayXd_co = TypeVar("ArrayXd_co", bound=ArrayXd, covariant=True)
+ArrayTXd = TypeVar("ArrayTXd", bound=ArrayXd)
 
 
-def array_getitem(index: Index) -> Model[ArrayXd_co, ArrayXd_co]:
+def array_getitem(index: Index) -> Model[ArrayTXd, ArrayTXd]:
     """Index into input arrays, and return the subarrays.
 
     index:

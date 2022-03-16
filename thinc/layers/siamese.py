@@ -10,13 +10,12 @@ LayerT = TypeVar("LayerT")
 SimT = TypeVar("SimT")
 InT = Tuple[LayerT, LayerT]
 OutT = TypeVar("OutT", bound=ArrayXd)
-OutT_co = TypeVar("OutT_co", bound=ArrayXd, covariant=True)
 
 
 @registry.layers("siamese.v1")
 def siamese(
-    layer: Model[LayerT, SimT], similarity: Model[Tuple[SimT, SimT], OutT_co]
-) -> Model[InT, OutT_co]:
+    layer: Model[LayerT, SimT], similarity: Model[Tuple[SimT, SimT], OutT]
+) -> Model[InT, OutT]:
     return Model(
         f"siamese({layer.name}, {similarity.name})",
         forward,
@@ -27,8 +26,8 @@ def siamese(
 
 
 def forward(
-    model: Model[InT, OutT_co], X1_X2: InT, is_train: bool
-) -> Tuple[OutT_co, Callable]:
+    model: Model[InT, OutT], X1_X2: InT, is_train: bool
+) -> Tuple[OutT, Callable]:
     X1, X2 = X1_X2
     vec1, bp_vec1 = model.layers[0](X1, is_train)
     vec2, bp_vec2 = model.layers[0](X2, is_train)
@@ -44,8 +43,8 @@ def forward(
 
 
 def init(
-    model: Model[InT, OutT_co], X: Optional[InT] = None, Y: Optional[OutT_co] = None
-) -> Model[InT, OutT_co]:
+    model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = None
+) -> Model[InT, OutT]:
     if X is not None:
         model.layers[0].set_dim("nI", get_width(X[1]))
         model.layers[0].initialize(X=X[0])

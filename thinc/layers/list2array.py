@@ -5,7 +5,7 @@ from ..config import registry
 from ..types import Array2d
 
 
-OutT = TypeVar("OutT", bound=Array2d, covariant=True)
+OutT = TypeVar("OutT", bound=Array2d)
 InT = List[OutT]
 
 

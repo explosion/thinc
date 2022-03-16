@@ -13,8 +13,7 @@ from ..types import DeviceTypes, Generator, Padded, Batchable, SizedGenerator
 from ..util import get_array_module, is_xp_array, to_numpy
 
 
-ArrayTXd = TypeVar("ArrayTXd", bound=ArrayXd)
-ArrayTXd_co = TypeVar("ArrayTXd_co", bound=ArrayXd, covariant=True)
+ArrayT = TypeVar("ArrayT", bound=ArrayXd)
 
 
 FloatsT = TypeVar("FloatsT", bound=_Floats)
@@ -228,11 +227,11 @@ class Ops:
 
     def flatten(
         self,
-        X: Sequence[ArrayTXd_co],
+        X: Sequence[ArrayT],
         dtype: Optional[DTypes] = None,
         pad: int = 0,
         ndim_if_empty: int = 2,
-    ) -> ArrayTXd_co:
+    ) -> ArrayT:
         """Flatten a list of arrays into one large array."""
         if X is None or len(X) == 0:
             return self.alloc((0,) * ndim_if_empty, dtype=dtype or "f")
@@ -440,7 +439,7 @@ class Ops:
     def alloc_i(self, shape: Shape, *, dtype: Optional[DTypesInt] = "int32") -> IntsXd:
         return self.alloc(shape, dtype=dtype)
 
-    def alloc(self, shape: Shape, *, dtype: Optional[DTypes] = "float32") -> ArrayTXd:
+    def alloc(self, shape: Shape, *, dtype: Optional[DTypes] = "float32") -> ArrayT:
         """Allocate an array of a certain shape."""
         if isinstance(shape, int):
             shape = (shape,)
@@ -490,11 +489,11 @@ class Ops:
     def reshape_i(self, array: IntsXd, shape: Shape) -> IntsXd:
         return self.reshape(array, shape)
 
-    def reshape(self, array: ArrayTXd, shape: Shape) -> ArrayTXd:
+    def reshape(self, array: ArrayT, shape: Shape) -> ArrayT:
         """Reshape an array."""
         if isinstance(shape, int):
             shape = (shape,)
-        return cast(ArrayTXd, array.reshape(shape))
+        return cast(ArrayT, array.reshape(shape))
 
     def asarray4f(
         self,
@@ -583,7 +582,7 @@ class Ops:
         else:
             return self.xp.array(data)
 
-    def as_contig(self, data: ArrayTXd, dtype: Optional[DTypes] = None) -> ArrayTXd:
+    def as_contig(self, data: ArrayT, dtype: Optional[DTypes] = None) -> ArrayT:
         """Allow the backend to make a contiguous copy of an array.
         Implementations of `Ops` do not have to make a copy or make it
         contiguous if that would not improve efficiency for the execution engine.
@@ -1378,11 +1377,11 @@ def sigmoid(X, out=None):
     return 1.0 / (1.0 + xp.exp(-X))
 
 
-def dsigmoid(Y: ArrayTXd) -> ArrayTXd:
+def dsigmoid(Y: ArrayT) -> ArrayT:
     return Y * (1.0 - Y)
 
 
-def dtanh(Y: ArrayTXd) -> ArrayTXd:
+def dtanh(Y: ArrayT) -> ArrayT:
     return 1 - Y**2
 
 

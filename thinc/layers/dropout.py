@@ -6,11 +6,10 @@ from ..types import ArrayXd, Ragged, Padded
 
 
 InT = TypeVar("InT", bound=Union[ArrayXd, List[ArrayXd], Ragged, Padded])
-InT_co = TypeVar("InT_co", bound=Union[ArrayXd, List[ArrayXd], Ragged, Padded], covariant=True)
 
 
 @registry.layers("Dropout.v1")
-def Dropout(rate: float = 0.0) -> Model[InT_co, InT_co]:
+def Dropout(rate: float = 0.0) -> Model[InT, InT]:
     """Help prevent overfitting by adding a random distortion to the input data
     during training.  Specifically, cells of the input are zeroed with
     probability determined by the `rate` argument.
@@ -19,30 +18,30 @@ def Dropout(rate: float = 0.0) -> Model[InT_co, InT_co]:
 
 
 def forward(
-    model: Model[InT_co, InT_co], X: InT, is_train: bool
-) -> Tuple[InT_co, Callable]:
+    model: Model[InT, InT], X: InT, is_train: bool
+) -> Tuple[InT, Callable]:
     rate = model.attrs["dropout_rate"]
     is_enabled = model.attrs["is_enabled"] and is_train
     if rate == 0 or not is_enabled:
         unchanged_return_value, backprop = X, lambda dY: dY
-        return_value = cast(InT_co, unchanged_return_value)
+        return_value = cast(InT, unchanged_return_value)
     elif isinstance(X, Ragged):
         ragged_return_value, backprop = _dropout_ragged(model, X, is_train)
-        return_value = cast(InT_co, ragged_return_value)
+        return_value = cast(InT, ragged_return_value)
     elif isinstance(X, Padded):
         padded_return_value, backprop = _dropout_padded(model, X, is_train)
-        return_value = cast(InT_co, padded_return_value)
+        return_value = cast(InT, padded_return_value)
     elif isinstance(X, List):
         list_return_value, backprop = _dropout_lists(model, X, is_train)
-        return_value = cast(InT_co, list_return_value)
+        return_value = cast(InT, list_return_value)
     else:
         array_return_value, backprop = _dropout_array(model, cast(ArrayXd, X), is_train)
-        return_value = cast(InT_co, array_return_value)
+        return_value = cast(InT, array_return_value)
     return return_value, backprop
 
 
 def _dropout_array(
-    model: Model[InT_co, InT_co], X: ArrayXd, is_train: bool
+    model: Model[InT, InT], X: ArrayXd, is_train: bool
 ) -> Tuple[ArrayXd, Callable]:
     rate = model.attrs["dropout_rate"]
     mask = model.ops.get_dropout_mask(X.shape, rate)
@@ -54,7 +53,7 @@ def _dropout_array(
 
 
 def _dropout_padded(
-    model: Model[InT_co, InT_co], Xp: Padded, is_train: bool
+    model: Model[InT, InT], Xp: Padded, is_train: bool
 ) -> Tuple[Padded, Callable]:
     X = Xp.data
     mask = model.ops.get_dropout_mask(X.shape, model.attrs["dropout_rate"])
@@ -67,7 +66,7 @@ def _dropout_padded(
 
 
 def _dropout_ragged(
-    model: Model[InT_co, InT_co], Xr: Ragged, is_train: bool
+    model: Model[InT, InT], Xr: Ragged, is_train: bool
 ) -> Tuple[Ragged, Callable]:
     X = Xr.data
     lengths = Xr.lengths
@@ -81,7 +80,7 @@ def _dropout_ragged(
 
 
 def _dropout_lists(
-    model: Model[InT_co, InT_co], Xs: List[ArrayXd], is_train: bool
+    model: Model[InT, InT], Xs: List[ArrayXd], is_train: bool
 ) -> Tuple[List[ArrayXd], Callable]:
     rate = model.attrs["dropout_rate"]
     masks = [model.ops.get_dropout_mask(X.shape, rate) for X in Xs]

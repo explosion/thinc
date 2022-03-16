@@ -1,4 +1,4 @@
-from typing import Tuple, Callable, cast
+from typing import Tuple, Callable, TypeVar, cast
 
 from ..model import Model
 from ..config import registry
@@ -6,7 +6,7 @@ from ..types import Ragged, ListXd
 
 
 InT = Ragged
-OutT = ListXd
+OutT = TypeVar("OutT", bound=ListXd)
 
 
 @registry.layers("ragged2list.v1")
