@@ -1,16 +1,16 @@
-from typing import Any, List, Tuple, Callable, Optional, TypeVar, cast, Dict, Union
+from typing import Any, Tuple, Callable, Optional, TypeVar, cast, Dict, Union
 
 from ..model import Model
 from ..config import registry
-from ..types import Array2d, Ragged
+from ..types import Array2d, Ragged, List2d
 from ..util import get_width
 from .noop import noop
 from ..types import XY_XY_OutT
 
 
 InT = TypeVar("InT", bound=Any)
-OutT = TypeVar("OutT", bound=Union[Array2d, List[Array2d], Ragged])
-OutT_co = TypeVar("OutT_co", bound=Union[Array2d, List[Array2d], Ragged], covariant=True)
+OutT = TypeVar("OutT", bound=Union[Array2d, List2d, Ragged])
+OutT_co = TypeVar("OutT_co", bound=Union[Array2d, List2d, Ragged], covariant=True)
 
 
 @registry.layers("concatenate.v1")
@@ -41,13 +41,17 @@ def concatenate(*layers: Model) -> Model[InT, XY_XY_OutT]:
     )
 
 
-def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT_co, Callable]:
+def forward(
+    model: Model[InT, OutT], X: InT, is_train: bool
+) -> Tuple[OutT_co, Callable]:
     Ys, callbacks = zip(*[layer(X, is_train=is_train) for layer in model.layers])
     if isinstance(Ys[0], list):
         list_return_value, backprop = _list_forward(model, X, Ys, callbacks, is_train)
         return_value = cast(OutT_co, list_return_value)
     elif isinstance(Ys[0], Ragged):
-        ragged_return_value, backprop = _ragged_forward(model, X, Ys, callbacks, is_train)
+        ragged_return_value, backprop = _ragged_forward(
+            model, X, Ys, callbacks, is_train
+        )
         return_value = cast(OutT_co, ragged_return_value)
     else:
         array_return_value, backprop = _array_forward(model, X, Ys, callbacks, is_train)
@@ -107,8 +111,8 @@ def _ragged_forward(
 
 def _list_forward(
     model: Model[InT, OutT], X, Ys, callbacks, is_train: bool
-) -> Tuple[List[Array2d], Callable]:
-    def backprop(d_output: List[Array2d]) -> InT:
+) -> Tuple[List2d, Callable]:
+    def backprop(d_output: List2d) -> InT:
         d_out_array = model.ops.xp.concatenate(d_output, axis=0)
         dY = model.ops.as_contig(d_out_array[:, : widths[0]])
         # We want to generalize unflatten later.
@@ -126,7 +130,7 @@ def _list_forward(
     Ys = [model.ops.xp.concatenate(Y, axis=0) for Y in Ys]
     widths = [Y.shape[1] for Y in Ys]
     out_array = model.ops.xp.hstack(Ys)
-    return model.ops.unflatten(out_array, lengths), backprop
+    return cast(List2d, model.ops.unflatten(out_array, lengths)), backprop
 
 
 def init(

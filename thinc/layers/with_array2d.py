@@ -1,26 +1,16 @@
-from typing import Tuple, Callable, Optional, TypeVar, Union, cast, List
+from typing import Tuple, Callable, Optional, TypeVar, cast, List
 
 from ..model import Model
 from ..config import registry
-from ..types import Array2d, Floats2d, Ints2d, Padded, Ragged
+from ..types import Array2d, Floats2d, List2d, Padded, Ragged
 
 
 ValT_co = TypeVar("ValT_co", bound=Array2d, covariant=True)
-SeqT = TypeVar(
-    "SeqT",
-    bound=Union[Padded, Ragged, List[Array2d], List[Ints2d], List[Floats2d], Array2d],
-)
-SeqT_co = TypeVar(
-    "SeqT_co",
-    bound=Union[Padded, Ragged, List[Array2d], List[Ints2d], List[Floats2d], Array2d],
-    covariant=True,
-)
+SeqT = TypeVar("SeqT", Padded, Ragged, List2d, Array2d)
 
 
 @registry.layers("with_array2d.v1")
-def with_array2d(
-    layer: Model[ValT_co, ValT_co], pad: int = 0
-) -> Model[SeqT_co, SeqT_co]:
+def with_array2d(layer: Model[ValT_co, ValT_co], pad: int = 0) -> Model[SeqT, SeqT]:
     """Transform sequence data into a contiguous 2d array on the way into and
     out of a model. Handles a variety of sequence types: lists, padded and ragged.
     If the input is a 2d array, it is passed through unchanged.
@@ -36,25 +26,25 @@ def with_array2d(
 
 
 def forward(
-    model: Model[SeqT_co, SeqT_co], Xseq: SeqT, is_train: bool
-) -> Tuple[SeqT_co, Callable]:
+    model: Model[SeqT, SeqT], Xseq: SeqT, is_train: bool
+) -> Tuple[SeqT, Callable]:
     if isinstance(Xseq, Ragged):
         ragged_return_value, backprop = _ragged_forward(
             cast(Model[Ragged, Ragged], model), cast(Ragged, Xseq), is_train
         )
-        return_value = cast(SeqT_co, ragged_return_value)
+        return_value = cast(SeqT, ragged_return_value)
     elif isinstance(Xseq, Padded):
         padded_return_value, backprop = _padded_forward(
             cast(Model[Padded, Padded], model), cast(Padded, Xseq), is_train
         )
-        return_value = cast(SeqT_co, padded_return_value)
+        return_value = cast(SeqT, padded_return_value)
     elif not isinstance(Xseq, (list, tuple)):
         return_value, backprop = model.layers[0](Xseq, is_train)
     else:
         list_return_value, backprop = _list_forward(
-            cast(Model[List[Array2d], List[Array2d]], model), Xseq, is_train
+            cast(Model[List2d, List2d], model), Xseq, is_train
         )
-        return_value = cast(SeqT_co, list_return_value)
+        return_value = cast(SeqT, list_return_value)
     return return_value, backprop
 
 
@@ -86,20 +76,20 @@ def _get_array(model, X: SeqT) -> Array2d:
 
 
 def _list_forward(
-    model: Model[List[Array2d], List[Array2d]], Xs: List[Array2d], is_train: bool
-) -> Tuple[List[Array2d], Callable]:
+    model: Model[List2d, List2d], Xs: List2d, is_train: bool
+) -> Tuple[List2d, Callable]:
     layer = model.layers[0]
     pad = model.attrs["pad"]
     lengths = layer.ops.asarray1i([len(seq) for seq in Xs])
-    Xf = layer.ops.flatten(Xs, pad=pad)
+    Xf = layer.ops.flatten(cast(List[Array2d], Xs), pad=pad)
     Yf, get_dXf = layer(Xf, is_train)
 
-    def backprop(dYs: List[Array2d]) -> List[Array2d]:
-        dYf = layer.ops.flatten(dYs, pad=pad)
+    def backprop(dYs: List2d) -> List2d:
+        dYf = layer.ops.flatten(cast(List[Array2d], dYs), pad=pad)
         dXf = get_dXf(dYf)
-        return cast(List[Array2d], layer.ops.unflatten(dXf, lengths, pad=pad))
+        return cast(List2d, layer.ops.unflatten(dXf, lengths, pad=pad))
 
-    return layer.ops.unflatten(Yf, lengths, pad=pad), backprop
+    return cast(List2d, layer.ops.unflatten(Yf, lengths, pad=pad)), backprop
 
 
 def _ragged_forward(

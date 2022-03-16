@@ -8,16 +8,13 @@ import itertools
 from ..types import Array1d, Array2d, Array3d, Array4d, ArrayXd
 from ..types import Floats1d, Floats2d, Floats3d, Floats4d, FloatsXd, _Floats
 from ..types import Ints1d, Ints2d, Ints3d, Ints4d, IntsXd
+from ..types import List2d, ListXd
 from ..types import Xp, Shape, DTypes, DTypesInt, DTypesFloat
 from ..types import DeviceTypes, Generator, Padded, Batchable, SizedGenerator
 from ..util import get_array_module, is_xp_array, to_numpy
 
 
-ArrayT2d = TypeVar("ArrayT2d", bound=Union[Floats2d, Ints2d, Array2d])
-ArrayT2d_co = TypeVar(
-    "ArrayT2d_co", bound=Union[Floats2d, Ints2d, Array2d], covariant=True
-)
-ArrayT3d = TypeVar("ArrayT3d", bound=Union[Floats3d, Ints3d, Array3d])
+ArrayT3d = TypeVar("ArrayT3d", bound=Array3d)
 ArrayTXd = TypeVar("ArrayTXd", bound=ArrayXd)
 ArrayTXd_co = TypeVar("ArrayTXd_co", bound=ArrayXd, covariant=True)
 
@@ -147,8 +144,7 @@ class Ops:
         else:
             subseq = sequence[indices]
         if is_xp_array(subseq):
-            subseq = self.as_contig(self.xp.asarray(subseq)
-            )
+            subseq = self.as_contig(self.xp.asarray(subseq))
         return subseq
 
     def _get_batch_sizes(self, length: int, sizes: Iterator[int]):
@@ -259,28 +255,25 @@ class Ops:
             result = xp.asarray(result, dtype=dtype)
         return result
 
-    def unflatten(
-        self, X: ArrayTXd, lengths: Ints1d, pad: int = 0
-    ) -> List[ArrayTXd_co]:
-        # The covariant type is being used as a second type variable
+    def unflatten(self, X: ArrayXd, lengths: Ints1d, pad: int = 0) -> ListXd:
         """The reverse/backward operation of the `flatten` function: unflatten
         a large array into a list of arrays according to the given lengths.
         """
-        unflat: List[ArrayTXd_co] = []
+        unflat = cast(ListXd, [])
         pad = int(pad)
         for length in lengths:
             length = int(length)
             if pad >= 1 and length != 0:
-                X = cast(ArrayTXd, X[pad:])
-            unflat.append(cast(ArrayTXd_co, X[:length]))
-            X = cast(ArrayTXd, X[length:])
+                X = X[pad:]
+            unflat.append(X[:length])  # type: ignore[arg-type]
+            X = X[length:]
         if pad >= 1:
-            X = cast(ArrayTXd, X[pad:])
+            X = X[pad:]
         assert len(X) == 0
         assert len(unflat) == len(lengths)
         return unflat
 
-    def pad(self, seqs: List[ArrayT2d_co], round_to=1) -> ArrayT3d:
+    def pad(self, seqs: List2d, round_to=1) -> ArrayT3d:
         """Perform padding on a list of arrays so that they each have the same
         length, by taking the maximum dimension across each axis. This only
         works on non-empty sequences with the same `ndim` and `dtype`.
@@ -302,19 +295,19 @@ class Ops:
         output: ArrayT3d = self.alloc(final_shape, dtype=seqs[0].dtype)
         for i, arr in enumerate(seqs):
             # It's difficult to convince this that the dtypes will match.
-            output[i, : arr.shape[0]] = arr # type: ignore[assignment]
+            output[i, : arr.shape[0]] = arr  # type: ignore[assignment, call-overload]
         return output
 
-    def unpad(self, padded: ArrayT3d, lengths: List[int]) -> List[ArrayT2d]:
+    def unpad(self, padded: ArrayT3d, lengths: List[int]) -> List2d:
         """The reverse/backward operation of the `pad` function: transform an
         array back into a list of arrays, each with their original length.
         """
         output = []
         for i, length in enumerate(lengths):
             output.append(padded[i, :length])
-        return cast(List[ArrayT2d], output)
+        return cast(List2d, output)
 
-    def list2padded(self, seqs: List[ArrayT2d_co]) -> Padded:
+    def list2padded(self, seqs: List2d) -> Padded:
         """Pack a sequence of 2d arrays into a Padded datatype."""
         if not seqs:
             return Padded(
@@ -336,7 +329,7 @@ class Ops:
         # Reorder the sequences, by length. This looks the same in either
         # direction: you're swapping elements between their original and sorted
         # position.
-        seqs = [seqs[i] for i in indices_]
+        seqs = cast(List2d, [seqs[i] for i in indices_])
         arr: Array3d = self.pad(seqs)
         assert arr.shape == (nB, nS, nO), (nB, nS, nO)
         arr = self.as_contig(arr.transpose((1, 0, 2)))
@@ -356,7 +349,7 @@ class Ops:
             self.asarray1i(indices_),
         )
 
-    def padded2list(self, padded: Padded) -> List[Array2d]:
+    def padded2list(self, padded: Padded) -> List2d:
         """Unpack a Padded datatype to a list of 2-dimensional arrays."""
         data = padded.data
         indices = to_numpy(padded.indices)
@@ -366,7 +359,7 @@ class Ops:
         data = self.as_contig(data.transpose((1, 0, 2)))
         for i in range(data.shape[0]):
             unpadded[indices[i]] = data[i, : int(lengths[i])]
-        return cast(List[Array2d], unpadded)
+        return cast(List2d, unpadded)
 
     def get_dropout_mask(self, shape: Shape, drop: Optional[float]) -> FloatsXd:
         """Create a random mask for applying dropout, with a certain percent of
@@ -575,7 +568,7 @@ class Ops:
                 return self.xp.asarray(data, dtype=dtype)
         elif hasattr(data, "numpy"):
             # Handles PyTorch Tensor
-            return data.numpy() # type: ignore[union-attr]
+            return data.numpy()  # type: ignore[union-attr]
         elif dtype is not None:
             return self.xp.array(data, dtype=dtype)
         else:
@@ -1150,8 +1143,8 @@ def lstm_forward_training(
         for d in range(dirs):
             # The inits are shaped (depth, dirs, nO). We add the internal dimension
             # to make them set correctly.
-            Yt2 = h_init[i, d].reshape((1, nO)) # type: ignore[assignment]
-            Ct2 = c_init[i, d].reshape((1, nO)) # type: ignore[assignment]
+            Yt2 = h_init[i, d].reshape((1, nO))  # type: ignore[assignment]
+            Ct2 = c_init[i, d].reshape((1, nO))  # type: ignore[assignment]
             layer_params, params_i = _split_weights(params, i, nO, nI, params_i)
             Wx, Wh, bias = _transpose_weights(layer_params)
             G[i, d] += xp.dot(X, Wx.T)

@@ -1,82 +1,46 @@
 from typing import Tuple, Callable, Optional, TypeVar, cast, List, Union
 
-from ..types import Padded, Ragged, Array2d, ListXd, FloatsXd, IntsXd, Floats1d
-from ..types import Floats2d, Floats3d, Floats4d, Ints1d, Ints2d, Ints3d, Ints4d
+from ..types import Padded, Ragged, Array2d, ListXd, List2d, Ints1d
 from ..model import Model
 from ..config import registry
 
 RaggedData = Tuple[Array2d, Ints1d]
 SeqT = TypeVar(
     "SeqT",
-    bound=Union[
-        Padded,
-        Ragged,
-        ListXd,
-        List[Floats1d],
-        List[Floats2d],
-        List[Floats3d],
-        List[Floats4d],
-        List[FloatsXd],
-        List[Ints1d],
-        List[Ints2d],
-        List[Ints3d],
-        List[Ints4d],
-        List[IntsXd],
-        RaggedData,
-    ],
-)
-SeqT_co = TypeVar(
-    "SeqT_co",
-    bound=Union[
-        Padded,
-        Ragged,
-        ListXd,
-        List[Floats1d],
-        List[Floats2d],
-        List[Floats3d],
-        List[Floats4d],
-        List[FloatsXd],
-        List[Ints1d],
-        List[Ints2d],
-        List[Ints3d],
-        List[Ints4d],
-        List[IntsXd],
-        RaggedData,
-    ],
-    covariant=True,
+    bound=Union[Padded, Ragged, ListXd, RaggedData],
 )
 
 
 @registry.layers("with_ragged.v1")
-def with_ragged(layer: Model[Ragged, Ragged]) -> Model[SeqT_co, SeqT_co]:
+def with_ragged(layer: Model[Ragged, Ragged]) -> Model[SeqT, SeqT]:
     return Model(f"with_ragged({layer.name})", forward, init=init, layers=[layer])
 
 
 def forward(
-    model: Model[SeqT_co, SeqT_co], Xseq: SeqT, is_train: bool
-) -> Tuple[SeqT_co, Callable]:
+    model: Model[SeqT, SeqT], Xseq: SeqT, is_train: bool
+) -> Tuple[SeqT, Callable]:
     layer: Model[Ragged, Ragged] = model.layers[0]
     if isinstance(Xseq, Ragged):
         ragged_Y, backprop = layer(Xseq, is_train)
-        Y = cast(SeqT_co, ragged_Y)
+        Y = cast(SeqT, ragged_Y)
     elif isinstance(Xseq, Padded):
         padded_Y, backprop = _padded_forward(layer, cast(Padded, Xseq), is_train)
-        Y = cast(SeqT_co, padded_Y)
+        Y = cast(SeqT, padded_Y)
     elif _is_ragged_data(Xseq):
         ragged_data_Y, backprop = _tuple_forward(
             layer, cast(RaggedData, Xseq), is_train
         )
-        Y = cast(SeqT_co, ragged_data_Y)
+        Y = cast(SeqT, ragged_data_Y)
     else:
         list_Y, backprop = _list_forward(layer, cast(List, Xseq), is_train)
-        Y = cast(SeqT_co, list_Y)
+        Y = cast(SeqT, list_Y)
     return Y, backprop
 
 
 def init(
-    model: Model[SeqT_co, SeqT_co],
-    X: Optional[SeqT_co] = None,
-    Y: Optional[SeqT_co] = None,
+    model: Model[SeqT, SeqT],
+    X: Optional[SeqT] = None,
+    Y: Optional[SeqT] = None,
 ) -> None:
     model.layers[0].initialize(
         X=_get_ragged(model, X) if X is not None else None,
@@ -88,11 +52,11 @@ def _is_ragged_data(seq):
     return isinstance(seq, tuple) and len(seq) == 2
 
 
-def _get_ragged(model: Model[SeqT_co, SeqT_co], seq: SeqT) -> Ragged:
+def _get_ragged(model: Model[SeqT, SeqT], seq: SeqT) -> Ragged:
     if isinstance(seq, Ragged):
         return seq
     elif isinstance(seq, Padded):
-        lists = model.ops.padded2list(seq)
+        lists = cast(List[Array2d], model.ops.padded2list(seq))
         lengths = model.ops.asarray1i([len(x) for x in lists])
         k = model.ops.flatten(lists)
         return Ragged(model.ops.flatten(lists), lengths)
@@ -128,19 +92,19 @@ def _padded_forward(
     # are potentially large on GPU. So we make nested function calls instead
     # of assigning to temporaries where possible, so memory can be reclaimed
     # sooner.
-    Xs = padded2list(Xp)
+    Xs = cast(List[Array2d], padded2list(Xp))
     # Bit annoying here: padded is in a different order, so we need to make new
     # lengths.
     lengths = layer.ops.asarray1i([len(x) for x in Xs])
-    Yr, get_dXr = layer(Ragged(flatten(Xs), lengths), is_train)
+    Yr, get_dXr = layer(Ragged(flatten(cast(List[Array2d], Xs)), lengths), is_train)
 
     def backprop(dYp: Padded):
-        flattened = flatten(padded2list(dYp))
+        flattened = flatten(cast(List[Array2d], padded2list(dYp)))
         dXr = get_dXr(Ragged(flattened, lengths))
-        return list2padded(unflatten(dXr.data, lengths))
+        return list2padded(cast(List2d, unflatten(dXr.data, lengths)))
 
     return (
-        list2padded(unflatten(Yr.data, Yr.lengths)),
+        list2padded(cast(List2d, unflatten(Yr.data, Yr.lengths))),
         backprop,
     )
 

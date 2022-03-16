@@ -2,48 +2,11 @@ from typing import Tuple, Callable, List, TypeVar, cast, Union
 
 from ..model import Model
 from ..config import registry
-from ..types import Ints1d, Ints2d, Ints3d, Ints4d, Floats1d, Floats2d, Floats3d
-from ..types import ArrayXd, Ragged, Padded, FloatsXd, IntsXd, Floats4d
+from ..types import ArrayXd, Ragged, Padded, ListXd
 
 
-InT = TypeVar(
-    "InT",
-    bound=Union[
-        ArrayXd,
-        List[ArrayXd],
-        List[Ints1d],
-        List[Ints2d],
-        List[Ints3d],
-        List[Ints4d],
-        List[IntsXd],
-        List[Floats1d],
-        List[Floats2d],
-        List[Floats3d],
-        List[Floats4d],
-        List[FloatsXd],
-        Ragged,
-        Padded,
-    ],
-)
-InT_co = TypeVar(
-    "InT_co",
-    bound=Union[
-        ArrayXd,
-        List[ArrayXd],
-        List[Ints1d],
-        List[Ints2d],
-        List[Ints3d],
-        List[Ints4d],
-        List[IntsXd],
-        List[Floats1d],
-        List[Floats2d],
-        List[Floats3d],
-        List[Floats4d],
-        Ragged,
-        Padded,
-    ],
-    covariant=True,
-)
+InT = TypeVar("InT", bound=Union[ArrayXd, ListXd, Ragged, Padded])
+InT_co = TypeVar("InT_co", bound=Union[ArrayXd, ListXd, Ragged, Padded], covariant=True)
 
 
 @registry.layers("Dropout.v1")
@@ -76,6 +39,7 @@ def forward(
         array_return_value, backprop = _dropout_array(model, cast(ArrayXd, X), is_train)
         return_value = cast(InT_co, array_return_value)
     return return_value, backprop
+
 
 def _dropout_array(
     model: Model[InT_co, InT_co], X: ArrayXd, is_train: bool
@@ -117,13 +81,13 @@ def _dropout_ragged(
 
 
 def _dropout_lists(
-    model: Model[InT_co, InT_co], Xs: List[ArrayXd], is_train: bool
-) -> Tuple[List[ArrayXd], Callable]:
+    model: Model[InT_co, InT_co], Xs: ListXd, is_train: bool
+) -> Tuple[ListXd, Callable]:
     rate = model.attrs["dropout_rate"]
     masks = [model.ops.get_dropout_mask(X.shape, rate) for X in Xs]
     Ys = [X * mask for X, mask in zip(Xs, masks)]
 
-    def backprop(dYs: List[ArrayXd]) -> List[ArrayXd]:
-        return [dY * mask for dY, mask in zip(dYs, masks)]
+    def backprop(dYs: ListXd) -> ListXd:
+        return cast(ListXd, [dY * mask for dY, mask in zip(dYs, masks)])
 
-    return cast(List[ArrayXd], Ys), backprop
+    return cast(ListXd, Ys), backprop
