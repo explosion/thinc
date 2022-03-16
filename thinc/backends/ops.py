@@ -18,9 +18,6 @@ ArrayT2d_co = TypeVar(
     "ArrayT2d_co", bound=Union[Floats2d, Ints2d, Array2d], covariant=True
 )
 ArrayT3d = TypeVar("ArrayT3d", bound=Union[Floats3d, Ints3d, Array3d])
-ArrayT3d_co = TypeVar(
-    "ArrayT3d_co", bound=Union[Floats3d, Ints3d, Array3d], covariant=True
-)
 ArrayTXd = TypeVar("ArrayTXd", bound=ArrayXd)
 ArrayTXd_co = TypeVar("ArrayTXd_co", bound=ArrayXd, covariant=True)
 
@@ -150,8 +147,7 @@ class Ops:
         else:
             subseq = sequence[indices]
         if is_xp_array(subseq):
-            subseq = self.as_contig(
-                cast(ArrayXd, self.xp.asarray(subseq))
+            subseq = self.as_contig(self.xp.asarray(subseq)
             )
         return subseq
 
@@ -266,6 +262,7 @@ class Ops:
     def unflatten(
         self, X: ArrayTXd, lengths: Ints1d, pad: int = 0
     ) -> List[ArrayTXd_co]:
+        # The covariant type is being used as a second type variable
         """The reverse/backward operation of the `flatten` function: unflatten
         a large array into a list of arrays according to the given lengths.
         """
@@ -283,7 +280,7 @@ class Ops:
         assert len(unflat) == len(lengths)
         return unflat
 
-    def pad(self, seqs: List[ArrayT2d_co], round_to=1) -> ArrayT3d_co:
+    def pad(self, seqs: List[ArrayT2d_co], round_to=1) -> ArrayT3d:
         """Perform padding on a list of arrays so that they each have the same
         length, by taking the maximum dimension across each axis. This only
         works on non-empty sequences with the same `ndim` and `dtype`.
@@ -302,20 +299,20 @@ class Ops:
         # array sizes.
         length = (length + (round_to - 1)) // round_to * round_to
         final_shape = (len(seqs), length) + seqs[0].shape[1:]
-        output: ArrayT3d_co = self.alloc(final_shape, dtype=seqs[0].dtype)
+        output: ArrayT3d = self.alloc(final_shape, dtype=seqs[0].dtype)
         for i, arr in enumerate(seqs):
             # It's difficult to convince this that the dtypes will match.
-            output[i, : arr.shape[0]] = arr # type: ignore[index, assignment, call-overload]
+            output[i, : arr.shape[0]] = arr # type: ignore[assignment]
         return output
 
-    def unpad(self, padded: ArrayT3d, lengths: List[int]) -> List[ArrayT2d_co]:
+    def unpad(self, padded: ArrayT3d, lengths: List[int]) -> List[ArrayT2d]:
         """The reverse/backward operation of the `pad` function: transform an
         array back into a list of arrays, each with their original length.
         """
         output = []
         for i, length in enumerate(lengths):
             output.append(padded[i, :length])
-        return cast(List[ArrayT2d_co], output)
+        return cast(List[ArrayT2d], output)
 
     def list2padded(self, seqs: List[ArrayT2d_co]) -> Padded:
         """Pack a sequence of 2d arrays into a Padded datatype."""

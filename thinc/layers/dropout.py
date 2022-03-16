@@ -78,7 +78,7 @@ def forward(
     return return_value, backprop
 
 def _dropout_array(
-    model: Model[InT, InT], X: ArrayXd, is_train: bool
+    model: Model[InT_co, InT_co], X: ArrayXd, is_train: bool
 ) -> Tuple[ArrayXd, Callable]:
     rate = model.attrs["dropout_rate"]
     mask = model.ops.get_dropout_mask(X.shape, rate)
@@ -90,7 +90,7 @@ def _dropout_array(
 
 
 def _dropout_padded(
-    model: Model[InT, InT], Xp: Padded, is_train: bool
+    model: Model[InT_co, InT_co], Xp: Padded, is_train: bool
 ) -> Tuple[Padded, Callable]:
     X = Xp.data
     mask = model.ops.get_dropout_mask(X.shape, model.attrs["dropout_rate"])
@@ -103,7 +103,7 @@ def _dropout_padded(
 
 
 def _dropout_ragged(
-    model: Model[InT, InT], Xr: Ragged, is_train: bool
+    model: Model[InT_co, InT_co], Xr: Ragged, is_train: bool
 ) -> Tuple[Ragged, Callable]:
     X = Xr.data
     lengths = Xr.lengths
@@ -117,7 +117,7 @@ def _dropout_ragged(
 
 
 def _dropout_lists(
-    model: Model[InT, InT], Xs: List[ArrayXd], is_train: bool
+    model: Model[InT_co, InT_co], Xs: List[ArrayXd], is_train: bool
 ) -> Tuple[List[ArrayXd], Callable]:
     rate = model.attrs["dropout_rate"]
     masks = [model.ops.get_dropout_mask(X.shape, rate) for X in Xs]
