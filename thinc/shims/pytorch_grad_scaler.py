@@ -1,6 +1,6 @@
 from typing import Dict, Iterable, List, Union, cast
 
-from ..util import is_torch_array
+from ..util import has_torch_amp, is_torch_array
 
 try:
     import torch
@@ -23,7 +23,7 @@ class PyTorchGradScaler:
     def __init__(
         self,
         enabled: bool = False,
-        init_scale: float = 2.0 ** 16,
+        init_scale: float = 2.0**16,
         backoff_factor: float = 0.5,
         growth_factor: float = 2.0,
         growth_interval: int = 2000,
@@ -50,6 +50,11 @@ class PyTorchGradScaler:
             When no overflows were found for this number of steps, the scale will
             be multiplied by "growth_factor".
         """
+        if enabled and not has_torch_amp:
+            raise ValueError(
+                "Gradient scaling is not supported, requires capable GPU and torch>=1.9.0"
+            )
+
         self._enabled = enabled
         self._growth_factor = growth_factor
         self._backoff_factor = backoff_factor

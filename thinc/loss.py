@@ -46,11 +46,13 @@ class CategoricalCrossentropy(Loss):
         names: Optional[List[str]] = None,
         missing_value: Optional[Union[str, int]] = None,
         neg_prefix: Optional[str] = None,
+        label_smoothing: float = 0.0,
     ):
         self.normalize = normalize
         self.names = names
         self.missing_value = missing_value
         self.neg_prefix = neg_prefix
+        self.label_smoothing = label_smoothing
         if names is not None:
             self._name_to_i = {name: i for i, name in enumerate(names)}
         else:
@@ -100,7 +102,18 @@ class CategoricalCrossentropy(Loss):
             mask = _make_mask_by_value(truths, guesses, missing_value)
         if truths.ndim != guesses.ndim:
             # transform categorical values to one-hot encoding
-            truths = to_categorical(cast(Ints1d, truths), n_classes=guesses.shape[-1])
+            truths = to_categorical(
+                cast(Ints1d, truths),
+                n_classes=guesses.shape[-1],
+                label_smoothing=self.label_smoothing,
+            )
+        else:
+            if self.label_smoothing:
+                raise ValueError(
+                    "Label smoothing is only applied, when truths have type "
+                    "List[str], List[int] or Ints1d, but it seems like Floats2d "
+                    "was provided."
+                )
         # Transform negative annotations to a 0 for the negated value
         # + mask all other values for that row
         if negatives_mask is not None:
@@ -134,13 +147,13 @@ class CategoricalCrossentropy(Loss):
             difference = difference / guesses.shape[0]
         return difference
 
-    def get_loss(self, guesses: Floats2d, truths: IntsOrFloats) -> float:
+    def get_loss(self, guesses: Floats2d, truths: IntsOrFloatsOrStrs) -> float:
         d_truth = self.get_grad(guesses, truths)
         return self._get_loss_from_grad(d_truth)
 
     def _get_loss_from_grad(self, d_truth: Floats2d) -> float:
         # TODO: Add overload for axis=None case to sum
-        return (d_truth ** 2).sum()  # type: ignore
+        return (d_truth**2).sum()  # type: ignore
 
 
 @registry.losses("CategoricalCrossentropy.v1")
@@ -171,6 +184,24 @@ def configure_CategoricalCrossentropy_v2(
     )
 
 
+@registry.losses("CategoricalCrossentropy.v3")
+def configure_CategoricalCrossentropy_v3(
+    *,
+    normalize: bool = True,
+    names: Optional[List[str]] = None,
+    missing_value: Optional[Union[str, int]] = None,
+    neg_prefix: Optional[str] = None,
+    label_smoothing: float = 0.0,
+) -> CategoricalCrossentropy:
+    return CategoricalCrossentropy(
+        normalize=normalize,
+        names=names,
+        missing_value=missing_value,
+        neg_prefix=neg_prefix,
+        label_smoothing=label_smoothing,
+    )
+
+
 class SequenceCategoricalCrossentropy(Loss):
     def __init__(
         self,
@@ -179,24 +210,26 @@ class SequenceCategoricalCrossentropy(Loss):
         names: Optional[List[str]] = None,
         missing_value: Optional[Union[str, int]] = None,
         neg_prefix: Optional[str] = None,
+        label_smoothing: float = 0.0,
     ):
         self.cc = CategoricalCrossentropy(
             normalize=False,
             names=names,
             missing_value=missing_value,
             neg_prefix=neg_prefix,
+            label_smoothing=label_smoothing,
         )
         self.normalize = normalize
 
     def __call__(
-        self, guesses: List[Floats2d], truths: List[Union[Ints1d, Floats2d]]
+        self, guesses: List[Floats2d], truths: List[IntsOrFloatsOrStrs]
     ) -> Tuple[List[Floats2d], float]:
         grads = self.get_grad(guesses, truths)
         loss = self._get_loss_from_grad(grads)
         return grads, loss
 
     def get_grad(
-        self, guesses: List[Floats2d], truths: List[Union[Ints1d, Floats2d]]
+        self, guesses: List[Floats2d], truths: List[IntsOrFloatsOrStrs]
     ) -> List[Floats2d]:
         err = "Cannot calculate SequenceCategoricalCrossentropy loss: guesses and truths must be same length"
         if len(guesses) != len(truths):  # pragma: no cover
@@ -211,7 +244,7 @@ class SequenceCategoricalCrossentropy(Loss):
         return d_scores
 
     def get_loss(
-        self, guesses: List[Floats2d], truths: List[Union[Ints1d, Floats2d]]
+        self, guesses: List[Floats2d], truths: List[IntsOrFloatsOrStrs]
     ) -> float:
         return self._get_loss_from_grad(self.get_grad(guesses, truths))
 
@@ -241,6 +274,24 @@ def configure_SequenceCategoricalCrossentropy_v2(
     )
 
 
+@registry.losses("SequenceCategoricalCrossentropy.v3")
+def configure_SequenceCategoricalCrossentropy_v3(
+    *,
+    normalize: bool = True,
+    names: Optional[List[str]] = None,
+    missing_value: Optional[Union[str, int]] = None,
+    neg_prefix: Optional[str] = None,
+    label_smoothing: float = 0.0,
+) -> SequenceCategoricalCrossentropy:
+    return SequenceCategoricalCrossentropy(
+        normalize=normalize,
+        names=names,
+        missing_value=missing_value,
+        neg_prefix=neg_prefix,
+        label_smoothing=label_smoothing,
+    )
+
+
 class L2Distance(Loss):
     def __init__(self, *, normalize: bool = True):
         self.normalize = normalize
@@ -263,7 +314,7 @@ class L2Distance(Loss):
             raise ValueError(err)
         d_truth = self.get_grad(guesses, truths)
         # TODO: Add overload for axis=None case to sum
-        return (d_truth ** 2).sum()  # type: ignore
+        return (d_truth**2).sum()  # type: ignore
 
 
 @registry.losses("L2Distance.v1")
@@ -312,7 +363,7 @@ class CosineDistance(Loss):
         norm_y = xp.linalg.norm(y, axis=1, keepdims=True)
         mul_norms = norm_yh * norm_y
         cosine = (yh * y).sum(axis=1, keepdims=True) / mul_norms
-        d_yh = (y / mul_norms) - (cosine * (yh / norm_yh ** 2))
+        d_yh = (y / mul_norms) - (cosine * (yh / norm_yh**2))
         if self.ignore_zeros:
             # If the target was a zero vector, don't count it in the loss.
             d_yh[zero_indices] = 0
