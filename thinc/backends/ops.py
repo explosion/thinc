@@ -986,15 +986,24 @@ class Ops:
         Y = self.alloc2f(lengths.shape[0], X.shape[1])
         start = 0
         for i, length in enumerate(lengths):
-            Y[i] = X[start : start + length].sum(axis=0)
-            start += length
+            if length < 0:
+                raise ValueError(f"all sequence lengths must be >= 0, got {length}")
+            elif start + length > X.shape[0]:
+                raise IndexError("lengths must sum up to the number of rows")
+            elif length:
+                Y[i] = X[start : start + length].sum(axis=0)
+                start += length
         return Y
 
     def reduce_mean(self, X: Floats2d, lengths: Ints1d) -> Floats2d:
         Y = self.alloc2f(lengths.shape[0], X.shape[1])
         start = 0
         for i, length in enumerate(lengths):
-            if length:
+            if length < 0:
+                raise ValueError(f"all sequence lengths must be >= 0, got {length}")
+            elif start + length > X.shape[0]:
+                raise IndexError("lengths must sum up to the number of rows")
+            elif length:
                 Y[i] = X[start : start + length].mean(axis=0)
             start += length
         return Y
@@ -1004,7 +1013,11 @@ class Ops:
         which = self.alloc2i(lengths.shape[0], X.shape[1])
         start = 0
         for i, length in enumerate(lengths):
-            if length:
+            if length < 0:
+                raise ValueError(f"all sequence lengths must be >= 0, got {length}")
+            elif start + length > X.shape[0]:
+                raise IndexError("lengths must sum up to the number of rows")
+            elif length:
                 which[i] = X[start : start + length].argmax(axis=0)
                 Y[i] = X[start : start + length].max(axis=0)
             start += length

@@ -672,12 +672,20 @@ cdef cpu_ints_ptr2array(int* ptr, shape):
     return py_out
 
 
-cdef void cpu_reduce_mean(float* means__bo,
+cdef int cpu_reduce_mean(float* means__bo,
         const float* X__to, const int* lengths__b,
-        int B, int T, int O) nogil:
+        int B, int T, int O) nogil except -1:
     '''Compute means of a batch of concatenated sequences, using the lengths.'''
     cdef float scale = 0.
     for length in lengths__b[:B]:
+        T -= length
+        if length == 0:
+            continue
+        elif length < 0:
+            raise ValueError(f"all sequence lengths must be >= 0, was {length}")
+        elif T < 0:
+            raise IndexError("lengths must sum up to the number of rows")
+
         scale = 1. / length
         for _ in range(length):
             VecVec.add_i(means__bo,
@@ -699,11 +707,19 @@ cdef void cpu_backprop_reduce_mean(float* dX__to,
         d_means__bo += O
 
 
-cdef void cpu_reduce_sum(float* sums__bo,
+cdef int cpu_reduce_sum(float* sums__bo,
         const float* X__to, const int* lengths__b,
-        int B, int T, int O) nogil:
+        int B, int T, int O) nogil except -1:
     '''Compute sums of a batch of concatenated sequences, using the lengths.'''
     for length in lengths__b[:B]:
+        T -= length
+        if length == 0:
+            continue
+        elif length < 0:
+            raise ValueError(f"all sequence lengths must be >= 0, was {length}")
+        elif T < 0:
+            raise IndexError("lengths must sum up to the number of rows")
+
         for _ in range(length):
             VecVec.add_i(sums__bo,
                 X__to, 1.0, O)
@@ -711,10 +727,17 @@ cdef void cpu_reduce_sum(float* sums__bo,
         sums__bo += O
 
 
-cdef void cpu_backprop_reduce_sum(float* dX__to,
+cdef int cpu_backprop_reduce_sum(float* dX__to,
         const float* d_sums__bo, const int* lengths__b,
-        int B, int T, int O) nogil:
+        int B, int T, int O) nogil except -1:
     for length in lengths__b[:B]:
+        T -= length
+        if length == 0:
+            continue
+        elif length < 0:
+            raise ValueError(f"all sequence lengths must be >= 0, was {length}")
+        elif T < 0:
+            raise IndexError("lengths must sum up to the number of rows")
         for _ in range(length):
             VecVec.add_i(dX__to,
                 d_sums__bo, 1.0, O)
@@ -722,12 +745,20 @@ cdef void cpu_backprop_reduce_sum(float* dX__to,
         d_sums__bo += O
 
 
-cdef void cpu_reduce_max(float* maxes__bo, int* which__bo,
+cdef int cpu_reduce_max(float* maxes__bo, int* which__bo,
         const float* X__to, const int* lengths__b,
-        int B, int T, int O) nogil:
+        int B, int T, int O) nogil except -1:
     '''Compute maxes of a batch of concatenated sequences, using the lengths.'''
     cdef float scale = 0.
     for length in lengths__b[:B]:
+        T -= length
+        if length == 0:
+            continue
+        elif length < 0:
+            raise ValueError(f"all sequence lengths must be >= 0, was {length}")
+        elif T < 0:
+            raise IndexError("lengths must sum up to the number of rows")
+
         memcpy(maxes__bo, X__to, O * sizeof(maxes__bo[0]))
         memset(which__bo, 0, O * sizeof(which__bo[0]))
         X__to += O

@@ -732,6 +732,12 @@ def test_reduce_sum(ops):
     output = ops.reduce_sum(m, lengths)
     assert output.sum() == m.sum(), (output.sum(), m.sum())
 
+    with pytest.raises(IndexError):
+        ops.reduce_sum(m, ops.xp.array([5, 5, 5, 5], dtype="i"))
+
+    with pytest.raises(ValueError):
+        ops.reduce_sum(m, ops.xp.array([-1, 10, 5, 5], dtype="i"))
+
 
 @pytest.mark.parametrize("ops,dtype", ops_with_dtypes(ALL_OPS, FLOAT_TYPES))
 def test_backprop_fails_with_incorrect_length(ops, dtype):
@@ -771,6 +777,12 @@ def test_reduce_max(ops, dtype):
         truth = m[start : start + length].max(axis=0)
         ops.xp.testing.assert_allclose(maxes[i], truth)
         start += length
+
+    with pytest.raises(IndexError):
+        ops.reduce_max(m, ops.xp.array([5, 5, 5, 5], dtype="i"))
+
+    with pytest.raises(ValueError):
+        ops.reduce_max(m, ops.xp.array([-1, 10, 5, 5], dtype="i"))
 
 
 @pytest.mark.parametrize("ops,dtype", ops_with_dtypes(ALL_OPS, FLOAT_TYPES))
@@ -816,6 +828,12 @@ def test_reduce_mean(ops, dtype):
     ops.xp.testing.assert_allclose(
         ops.reduce_mean(X, lengths), [[3.0, 4.0], [2.0, 3.0]]
     )
+
+    with pytest.raises(IndexError):
+        ops.reduce_mean(X, ops.xp.array([3, 3], dtype="i"))
+
+    with pytest.raises(ValueError):
+        ops.reduce_mean(X, ops.xp.array([-1, 5], dtype="i"))
 
 
 @pytest.mark.parametrize("ops,dtype", ops_with_dtypes(ALL_OPS, FLOAT_TYPES))
