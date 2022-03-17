@@ -603,7 +603,7 @@ class Ops:
             Y += 1.0
             return Y
         else:
-            return 1 - Y ** 2
+            return 1 - Y**2
 
     def softmax(
         self,
@@ -913,6 +913,10 @@ class Ops:
         threshold: float = 20.0,
         inplace: bool = False,
     ) -> FloatsType:
+        if dY.shape != X.shape:
+            msg = f"arrays have incompatible shapes: {dY.shape} and {X.shape}"
+            raise ValueError(msg)
+
         xp = get_array_module(X)
         indices = X < threshold
         Xsub = X[indices]
@@ -924,7 +928,7 @@ class Ops:
         delta = xp.exp(Xsub) + 1.0
         delta *= delta
         delta += 1.0
-        dXsub = dYsub * ((xp.exp(Xsub) * omega) / (delta ** 2))
+        dXsub = dYsub * ((xp.exp(Xsub) * omega) / (delta**2))
         # Gradient when above threshold will ignore softplus.
         if inplace:
             out = dY

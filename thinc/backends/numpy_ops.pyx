@@ -93,23 +93,41 @@ class NumpyOps(Ops):
         return blis.py.gemm(x, y, out=out, trans1=trans1, trans2=trans2, beta=0.)
 
     def relu(self, np.ndarray X, inplace=False):
-        cdef np.ndarray out = X if inplace else X.copy()
-        cdef weight_t* data = <weight_t*>out.data
-        cdef size_t size = out.size
-        for i in range(size):
-            if data[i] < 0:
-                data[i] = 0.
-        return out
+        cdef np.ndarray Y
+        cdef weight_t* data
+        cdef size = X.size
+        if X.dtype == "float32":
+            if inplace:
+                Y = X
+            else:
+                Y = X.copy()
+            data = <weight_t*>Y.data
+            for i in range(size):
+                if data[i] < 0:
+                    data[i] = 0.
+            return Y
+        else:
+            return super().relu(X, inplace)
 
     def backprop_relu(self, np.ndarray dY, np.ndarray Y, inplace=False):
-        cdef np.ndarray dX = dY if inplace else dY.copy()
-        cdef size_t size = dX.size
-        cdef weight_t* dX_ptr = <weight_t*>dX.data
+        _check_compatible_shape(dY, Y)
+
+        cdef size_t size = Y.size
+        cdef weight_t* dX_ptr
         cdef const weight_t* Y_ptr = <const weight_t*>Y.data
-        for i in range(size):
-            if Y_ptr[i] <= 0:
-                dX_ptr[i] = 0.
-        return dX
+        cdef np.ndarray dX
+        if dY.dtype == "float32" and Y.dtype == "float32":
+            if inplace:
+                dX = dY
+            else:
+                dX = dY.copy()
+            dX_ptr = <weight_t*>dX.data
+            for i in range(size):
+                if Y_ptr[i] <= 0:
+                    dX_ptr[i] = 0.
+            return dX
+        else:
+            return super().backprop_relu(dY, Y, inplace)
 
     def lstm_forward_training(
         self,
@@ -176,6 +194,8 @@ class NumpyOps(Ops):
             return super().mish(X, threshold, inplace)
 
     def backprop_mish(self, np.ndarray dY, np.ndarray X, threshold=20.0, inplace=False):
+        _check_compatible_shape(dY, X)
+
         cdef np.ndarray dX
         if dY.dtype == "float32" and X.dtype == "float32":
             if inplace:
@@ -1264,3 +1284,9 @@ cdef void MurmurHash3_x86_128_uint64(
     out[1] = h1 >> 32
     out[2] = h2 & 0xffffffffu
     out[3] = h2 >> 32
+
+
+def _check_compatible_shape(u: np.ndarray, v: np.ndarray):
+    if u.shape != v.shape:
+        msg = f"arrays have incompatible shapes: {u.shape} and {v.shape}"
+        raise ValueError(msg)
