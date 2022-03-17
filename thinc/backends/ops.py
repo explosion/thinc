@@ -5,10 +5,10 @@ from typing import Iterator, overload
 import numpy
 import itertools
 
-from ..types import Array1d, Array2d, Array3d, Array4d, ArrayXd
-from ..types import Floats1d, Floats2d, Floats3d, Floats4d, FloatsXd, _Floats
-from ..types import Ints1d, Ints2d, Ints3d, Ints4d, IntsXd, List2d
-from ..types import Xp, Shape, DTypes, DTypesInt, DTypesFloat
+from ..types import Xp, Shape, DTypes, DTypesInt, DTypesFloat, List2d, ArrayXd
+from ..types import Floats1d, Floats2d, Floats3d, Floats4d
+from ..types import Array1d, Array2d, Array3d, Array4d
+from ..types import FloatsXd, Ints1d, Ints2d, Ints3d, Ints4d, IntsXd, _Floats
 from ..types import DeviceTypes, Generator, Padded, Batchable, SizedGenerator
 from ..util import get_array_module, is_xp_array, to_numpy
 
