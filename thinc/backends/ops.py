@@ -1014,6 +1014,8 @@ class Ops:
         dX = self.alloc2f(lengths.sum(), d_sums.shape[1], dtype=d_sums.dtype)
         start = 0
         for i, length in enumerate(lengths):
+            if length < 0:
+                raise ValueError(f"all sequence lengths must be >= 0, got {length}")
             dX[start : start + length] = d_sums[i]
             start += length
         return dX
@@ -1022,6 +1024,8 @@ class Ops:
         dX = self.alloc2f(lengths.sum(), d_means.shape[1], dtype=d_means.dtype)
         start = 0
         for i, length in enumerate(lengths):
+            if length < 0:
+                raise ValueError(f"all sequence lengths must be >= 0, got {length}")
             dX[start : start + length] = d_means[i] / length
             start += length
         return dX

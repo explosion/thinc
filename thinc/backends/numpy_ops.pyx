@@ -284,6 +284,8 @@ class NumpyOps(Ops):
         cdef int O = d_means.shape[1]
         cdef int T = 0
         for length in lengths[:B]:
+            if length < 0:
+                raise ValueError(f"all sequence lengths must be >= 0, got {length}")
             T += length
         cdef Pool mem = Pool()
         assert T != 0
@@ -300,6 +302,8 @@ class NumpyOps(Ops):
         cdef int O = d_sums.shape[1]
         cdef int T = 0
         for length in lengths[:B]:
+            if length < 0:
+                raise ValueError(f"all sequence lengths must be >= 0, got {length}")
             T += length
         cdef Pool mem = Pool()
         assert T != 0
@@ -334,6 +338,8 @@ class NumpyOps(Ops):
         cdef int O = d_maxes.shape[1]
         cdef int T = 0
         for length in lengths[:B]:
+            if length < 0:
+                raise ValueError(f"all sequence lengths must be >= 0, got {length}")
             T += length
         cdef Pool mem = Pool()
         assert T != 0

@@ -734,6 +734,32 @@ def test_reduce_sum(ops):
 
 
 @pytest.mark.parametrize("ops,dtype", ops_with_dtypes(ALL_OPS, FLOAT_TYPES))
+def test_backprop_reduce_sum(ops, dtype):
+    dX = ops.backprop_reduce_sum(
+        ops.xp.arange(1, 7, dtype=dtype).reshape(2, 3),
+        ops.xp.array([4, 2], dtype="int32"),
+    )
+    assert dX.dtype == dtype
+    ops.xp.testing.assert_allclose(
+        dX,
+        [
+            [1.0, 2.0, 3.0],
+            [1.0, 2, 3.0],
+            [1.0, 2, 3.0],
+            [1.0, 2, 3.0],
+            [4.0, 5, 6.0],
+            [4.0, 5, 6.0],
+        ],
+    )
+
+    with pytest.raises(ValueError, match=r"lengths must be"):
+        ops.backprop_reduce_sum(
+            ops.xp.arange(1, 7, dtype=dtype).reshape(2, 3),
+            ops.xp.array([-1, 2], dtype="int32"),
+        )
+
+
+@pytest.mark.parametrize("ops,dtype", ops_with_dtypes(ALL_OPS, FLOAT_TYPES))
 def test_reduce_max_sm(ops, dtype):
     X = ops.xp.zeros((6, 3), dtype=dtype)
     X += ops.xp.random.uniform(-1, 1, X.shape)
@@ -827,6 +853,12 @@ def test_backprop_reduce_mean(ops, dtype):
             [2.0, 2.5, 3.0],
         ],
     )
+
+    with pytest.raises(ValueError, match=r"lengths must be"):
+        ops.backprop_reduce_mean(
+            ops.xp.arange(1, 7, dtype=dtype).reshape(2, 3),
+            ops.xp.array([-1, 2], dtype="int32"),
+        )
 
 
 @pytest.mark.parametrize("ops", ALL_OPS)
