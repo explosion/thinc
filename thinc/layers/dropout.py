@@ -1,11 +1,11 @@
-from typing import Tuple, Callable, List, TypeVar, cast, Sequence
+from typing import Tuple, Callable, List, TypeVar, cast, Union, Sequence
 
 from ..model import Model
 from ..config import registry
 from ..types import ArrayXd, Ragged, Padded
 
 
-InT = TypeVar("InT", ArrayXd, Sequence[ArrayXd], Ragged, Padded)
+InT = TypeVar("InT", bound=Union[ArrayXd, Sequence[ArrayXd], Ragged, Padded])
 
 
 @registry.layers("Dropout.v1")
@@ -23,15 +23,22 @@ def forward(
     rate = model.attrs["dropout_rate"]
     is_enabled = model.attrs["is_enabled"] and is_train
     if rate == 0 or not is_enabled:
-        return X, lambda dY: dY
+        unchanged_return_value, backprop = X, lambda dY: dY
+        return_value = cast(InT, unchanged_return_value)
     elif isinstance(X, Ragged):
-        return _dropout_ragged(model, X, is_train)
+        ragged_return_value, backprop = _dropout_ragged(model, X, is_train)
+        return_value = cast(InT, ragged_return_value)
     elif isinstance(X, Padded):
-        return _dropout_padded(model, X, is_train)
+        padded_return_value, backprop = _dropout_padded(model, X, is_train)
+        return_value = cast(InT, padded_return_value)
     elif isinstance(X, Sequence):
-        return _dropout_lists(model, X, is_train)
+        list_return_value, backprop = _dropout_lists(model, X, is_train)
+        return_value = cast(InT, list_return_value)
     else:
-        return _dropout_array(model, cast(ArrayXd, X), is_train)
+        array_return_value, backprop = _dropout_array(model, cast(ArrayXd, X), is_train)
+        return_value = cast(InT, array_return_value)
+    return return_value, backprop
+
 
 def _dropout_array(
     model: Model[InT, InT], X: ArrayXd, is_train: bool

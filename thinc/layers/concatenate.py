@@ -1,4 +1,15 @@
-from typing import Any, List, Tuple, Callable, Optional, TypeVar, cast, Dict, Union
+from typing import (
+    Any,
+    List,
+    Tuple,
+    Callable,
+    Optional,
+    TypeVar,
+    cast,
+    Dict,
+    Union,
+    Sequence,
+)
 
 from ..model import Model
 from ..config import registry
@@ -9,7 +20,7 @@ from ..types import XY_XY_OutT
 
 
 InT = TypeVar("InT", bound=Any)
-OutT = TypeVar("OutT", bound=Union[Array2d, List[Array2d], Ragged])
+OutT = TypeVar("OutT", bound=Union[Array2d, Sequence[Array2d], Ragged])
 
 
 @registry.layers("concatenate.v1")
@@ -40,26 +51,22 @@ def concatenate(*layers: Model) -> Model[InT, XY_XY_OutT]:
     )
 
 
-def forward(
-    model: Model[InT, OutT], X: InT, is_train: bool
-) -> Tuple[OutT, Callable]:
+def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Callable]:
     Ys, callbacks = zip(*[layer(X, is_train=is_train) for layer in model.layers])
     if isinstance(Ys[0], list):
         list_return_value, backprop = _list_forward(model, X, Ys, callbacks, is_train)
         return_value = cast(OutT, list_return_value)
     elif isinstance(Ys[0], Ragged):
-        ragged_return_value, backprop = _ragged_forward(
-            model, X, Ys, callbacks, is_train
-        )
+        ragged_return_value, backprop = _ragged_forward(model, Ys, callbacks, is_train)
         return_value = cast(OutT, ragged_return_value)
     else:
-        array_return_value, backprop = _array_forward(model, X, Ys, callbacks, is_train)
+        array_return_value, backprop = _array_forward(model, Ys, callbacks, is_train)
         return_value = cast(OutT, array_return_value)
     return return_value, backprop
 
 
 def _array_forward(
-    model: Model[InT, OutT], X, Ys, callbacks, is_train: bool
+    model: Model[InT, OutT], Ys: List, callbacks, is_train: bool
 ) -> Tuple[Array2d, Callable]:
     widths = [Y.shape[1] for Y in Ys]
     output = model.ops.xp.hstack(Ys)
@@ -86,7 +93,7 @@ def _array_forward(
 
 
 def _ragged_forward(
-    model: Model[InT, OutT], X, Ys, callbacks, is_train: bool
+    model: Model[InT, OutT], Ys: List, callbacks, is_train: bool
 ) -> Tuple[Ragged, Callable]:
 
     widths = [Y.dataXd.shape[1] for Y in Ys]
@@ -109,7 +116,7 @@ def _ragged_forward(
 
 
 def _list_forward(
-    model: Model[InT, OutT], X, Ys, callbacks, is_train: bool
+    model: Model[InT, OutT], X, Ys: List, callbacks, is_train: bool
 ) -> Tuple[List[Array2d], Callable]:
     def backprop(d_output: List[Array2d]) -> InT:
         d_out_array = model.ops.xp.concatenate(d_output, axis=0)
@@ -145,4 +152,3 @@ def init(
         layer.initialize(X=X, Y=Y)
     if all([layer.has_dim("nO") for layer in model.layers]):
         model.set_dim("nO", sum(layer.get_dim("nO") for layer in model.layers))
-    

@@ -76,7 +76,7 @@ def _get_array(model, X: SeqT) -> ArrayXd:
 def _list_forward(
     model: Model[SeqT, SeqT], Xs: ListXd, is_train: bool
 ) -> Tuple[ListXd, Callable]:
-    layer = model.layers[0]
+    layer: Model[ArrayXd, ArrayXd] = model.layers[0]
     pad = model.attrs["pad"]
     lengths = layer.ops.asarray1i([len(seq) for seq in Xs])
     Xf = layer.ops.flatten(Xs, pad=pad)
