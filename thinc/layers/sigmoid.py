@@ -1,4 +1,5 @@
 from typing import Tuple, Callable, Optional, cast
+
 from ..model import Model
 from ..config import registry
 from ..types import Floats2d, Floats1d
