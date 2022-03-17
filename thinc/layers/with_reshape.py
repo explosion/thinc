@@ -21,9 +21,7 @@ def with_reshape(layer: Model[OutT, OutT]) -> Model[InT, InT]:
     )
 
 
-def forward(
-    model: Model[InT, InT], X: InT, is_train: bool
-) -> Tuple[InT, Callable]:
+def forward(model: Model[InT, InT], X: InT, is_train: bool) -> Tuple[InT, Callable]:
     layer = model.layers[0]
     initial_shape = X.shape
     final_shape = list(initial_shape[:-1]) + [layer.get_dim("nO")]

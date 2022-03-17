@@ -14,8 +14,6 @@ from ..util import get_array_module, is_xp_array, to_numpy
 
 
 ArrayT = TypeVar("ArrayT", bound=ArrayXd)
-
-
 FloatsT = TypeVar("FloatsT", bound=_Floats)
 FloatsType = TypeVar("FloatsType", bound=FloatsXd)
 SQRT2PI = math.sqrt(2.0 / math.pi)

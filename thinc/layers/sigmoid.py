@@ -1,5 +1,4 @@
-from typing import Tuple, Callable, Optional, cast, List, TypeVar, Union
-import numpy
+from typing import Tuple, Callable, Optional, cast
 from ..model import Model
 from ..config import registry
 from ..types import Floats2d, Floats1d, Floats2d, Ints2d
@@ -61,3 +60,4 @@ def init(
     model.set_param("W", init_W(model.ops, (model.get_dim("nO"), model.get_dim("nI"))))
     model.set_param("b", init_b(model.ops, (model.get_dim("nO"),)))
     return model
+    

@@ -23,15 +23,11 @@ def forward(
 ) -> Tuple[SeqT, Callable]:
     layer: Model[List2d, List2d] = model.layers[0]
     if isinstance(Xseq, Padded):
-        padded_Y, backprop = _padded_forward(layer, cast(Padded, Xseq), is_train)
-        Y = cast(SeqT, padded_Y)
+        return _padded_forward(layer, Xseq, is_train)
     elif isinstance(Xseq, Ragged):
-        ragged_Y, backprop = _ragged_forward(layer, cast(Ragged, Xseq), is_train)
-        Y = cast(SeqT, ragged_Y)
+        return _ragged_forward(layer, Xseq, is_train)
     else:
-        concrete_Y, backprop = layer(cast(List2d, Xseq), is_train)
-        Y = cast(SeqT, concrete_Y)
-    return Y, backprop
+        return cast(Tuple[SeqT, Callable], layer(cast(List2d, Xseq), is_train))
 
 
 def init(

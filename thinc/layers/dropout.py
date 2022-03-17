@@ -23,22 +23,15 @@ def forward(
     rate = model.attrs["dropout_rate"]
     is_enabled = model.attrs["is_enabled"] and is_train
     if rate == 0 or not is_enabled:
-        unchanged_return_value, backprop = X, lambda dY: dY
-        return_value = cast(InT, unchanged_return_value)
+        return X, lambda dY: dY
     elif isinstance(X, Ragged):
-        ragged_return_value, backprop = _dropout_ragged(model, X, is_train)
-        return_value = cast(InT, ragged_return_value)
+        return _dropout_ragged(model, X, is_train)
     elif isinstance(X, Padded):
-        padded_return_value, backprop = _dropout_padded(model, X, is_train)
-        return_value = cast(InT, padded_return_value)
+        return _dropout_padded(model, X, is_train)
     elif isinstance(X, Sequence):
-        list_return_value, backprop = _dropout_lists(model, X, is_train)
-        return_value = cast(InT, list_return_value)
+        return _dropout_lists(model, X, is_train)
     else:
-        array_return_value, backprop = _dropout_array(model, cast(ArrayXd, X), is_train)
-        return_value = cast(InT, array_return_value)
-    return return_value, backprop
-
+        return _dropout_array(model, cast(ArrayXd, X), is_train)
 
 def _dropout_array(
     model: Model[InT, InT], X: ArrayXd, is_train: bool
