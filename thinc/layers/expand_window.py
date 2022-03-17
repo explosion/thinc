@@ -4,6 +4,7 @@ from ..model import Model
 from ..config import registry
 from ..types import Floats2d, Ragged
 
+
 InT = TypeVar("InT", Floats2d, Ragged)
 
 
