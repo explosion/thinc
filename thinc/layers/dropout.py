@@ -1,11 +1,11 @@
-from typing import Tuple, Callable, List, TypeVar, cast, Union
+from typing import Tuple, Callable, List, TypeVar, cast, Sequence
 
 from ..model import Model
 from ..config import registry
 from ..types import ArrayXd, Ragged, Padded
 
 
-InT = TypeVar("InT", bound=Union[ArrayXd, List[ArrayXd], Ragged, Padded])
+InT = TypeVar("InT", ArrayXd, Sequence[ArrayXd], Ragged, Padded)
 
 
 @registry.layers("Dropout.v1")
@@ -31,7 +31,7 @@ def forward(
     elif isinstance(X, Padded):
         padded_return_value, backprop = _dropout_padded(model, X, is_train)
         return_value = cast(InT, padded_return_value)
-    elif isinstance(X, List):
+    elif isinstance(X, Sequence):
         list_return_value, backprop = _dropout_lists(model, X, is_train)
         return_value = cast(InT, list_return_value)
     else:
@@ -80,8 +80,8 @@ def _dropout_ragged(
 
 
 def _dropout_lists(
-    model: Model[InT, InT], Xs: List[ArrayXd], is_train: bool
-) -> Tuple[List[ArrayXd], Callable]:
+    model: Model[InT, InT], Xs: Sequence[ArrayXd], is_train: bool
+) -> Tuple[Sequence[ArrayXd], Callable]:
     rate = model.attrs["dropout_rate"]
     masks = [model.ops.get_dropout_mask(X.shape, rate) for X in Xs]
     Ys = [X * mask for X, mask in zip(Xs, masks)]

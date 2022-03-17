@@ -1,10 +1,10 @@
 from typing import Tuple, Callable, List, Optional, TypeVar, Union, cast
 
-from ..types import Padded, Ragged, Array2d, List2d
+from ..types import Padded, Ragged, Array2d, List2d, Floats2d, Ints2d
 from ..model import Model
 from ..config import registry
 
-SeqT = TypeVar("SeqT", bound=Union[Padded, Ragged, List2d])
+SeqT = TypeVar("SeqT", Padded, Ragged, List2d, List[Floats2d], List[Ints2d])
 
 
 @registry.layers("with_list.v1")
