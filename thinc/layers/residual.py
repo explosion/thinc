@@ -1,8 +1,8 @@
-from typing import Tuple, Callable, Optional, TypeVar, List
+from typing import Tuple, Callable, Optional, List, TypeVar
 
 from ..model import Model
 from ..config import registry
-from ..types import FloatsXd, Floats1d, Floats2d, Floats3d, Floats4d, Ragged, Padded
+from ..types import Floats1d, Floats2d, Floats3d, Floats4d, FloatsXd, Ragged, Padded
 
 
 InT = TypeVar(
