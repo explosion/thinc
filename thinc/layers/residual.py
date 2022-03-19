@@ -1,13 +1,16 @@
-from typing import Tuple, Callable, Optional, Sequence, TypeVar
+from typing import Tuple, Callable, Optional, TypeVar, List
 
 from ..model import Model
 from ..config import registry
-from ..types import Floats1d, Floats2d, Floats3d, Floats4d, FloatsXd, Ragged, Padded
+from ..types import FloatsXd, Floats1d, Floats2d, Floats3d, Floats4d, Ragged, Padded
 
 
 InT = TypeVar(
     "InT",
-    Sequence[FloatsXd],
+    List[Floats1d],
+    List[Floats2d],
+    List[Floats3d],
+    List[Floats4d],
     Ragged,
     Padded,
     FloatsXd,

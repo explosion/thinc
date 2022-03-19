@@ -1058,10 +1058,18 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/noop.py
 <ndarray>Ragged</ndarray> /
 <ndarray>Padded</ndarray> /
 <ndarray>FloatsXd</ndarray>
+<ndarray>Floats1d</ndarray>
+<ndarray>Floats2d</ndarray>
+<ndarray>Floats3d</ndarray>
+<ndarray>Floats4d</ndarray>
 - **Output:** <ndarray>List[FloatsXd]</ndarray> /
 <ndarray>Ragged</ndarray> /
 <ndarray>Padded</ndarray> /
 <ndarray>FloatsXd</ndarray>
+<ndarray>Floats1d</ndarray>
+<ndarray>Floats2d</ndarray>
+<ndarray>Floats3d</ndarray>
+<ndarray>Floats4d</ndarray>
 
 </inline-list>
 
