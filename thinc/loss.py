@@ -162,11 +162,10 @@ class CategoricalCrossentropy(Loss):
                     f"{len(self.class_weights)}"
                 )
             cp = xp.asarray(self.class_weights)
-            cp = xp.tile(cp, (guesses.shape[0], 1))
-            row_sum = xp.expand_dims(xp.sum(target, axis=1), axis=1)
+            row_sum = target.sum(axis=1, keepdims=True)
             norm_target = target / row_sum
-            sample_weights = (norm_target * cp).sum(axis=1)
-            difference *= xp.expand_dims(sample_weights, 1)
+            sample_weights = (norm_target * cp).sum(axis=1, keepdims=True)
+            difference *= sample_weights
         if self.normalize:
             difference = difference / guesses.shape[0]
         return difference
