@@ -149,6 +149,9 @@ class CategoricalCrossentropy(Loss):
         difference = guesses - target
         difference *= mask
         # Weight samples proportinal to the marginals.
+        # For each sample the target labels are normalized
+        # to sum to 1 and the normalized-labels are used
+        # to compute the weighted average of class_weights
         if self.class_weights is not None:
             if target.shape[1] != len(self.class_weights):
                 raise ValueError(
@@ -160,7 +163,9 @@ class CategoricalCrossentropy(Loss):
                 )
             cp = xp.asarray(self.class_weights)
             cp = xp.tile(cp, (guesses.shape[0], 1))
-            sample_weights = (target * cp).sum(axis=1)
+            row_sum = xp.expand_axis(xp.sum(target, axis=1), axis=1)
+            norm_target = target / row_sum
+            sample_weights = (norm_target * cp).sum(axis=1)
             difference *= xp.expand_dims(sample_weights, 1)
         if self.normalize:
             difference = difference / guesses.shape[0]
