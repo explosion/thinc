@@ -1,10 +1,8 @@
-from math import isclose
-
 from typing import Tuple, List, cast, TypeVar, Generic, Any, Union, Optional
 from typing import Dict
 
-from .types import Floats2d, Ints1d
-from .util import get_array_module, to_categorical
+from .types import Ints1d, Floats1d, Floats2d
+from .util import get_array_module, to_categorical, is_xp_array
 from .config import registry
 
 
@@ -49,7 +47,7 @@ class CategoricalCrossentropy(Loss):
         missing_value: Optional[Union[str, int]] = None,
         neg_prefix: Optional[str] = None,
         label_smoothing: float = 0.0,
-        class_weights: Optional[List[float]] = None,
+        class_weights: Optional[Union[List[float], Floats1d]] = None,
     ):
         self.normalize = normalize
         self.names = names
@@ -161,10 +159,13 @@ class CategoricalCrossentropy(Loss):
                     f"{target.shape[1]} and "
                     f"{len(self.class_weights)}"
                 )
-            cp = xp.asarray(self.class_weights)
+            if not is_xp_array(self.class_weights):
+                cw = xp.asarray(self.class_weights)
+            else:
+                cw = self.class_weights
             row_sum = target.sum(axis=1, keepdims=True)
             norm_target = target / row_sum
-            sample_weights = (norm_target * cp).sum(axis=1, keepdims=True)
+            sample_weights = (norm_target * cw).sum(axis=1, keepdims=True)
             difference *= sample_weights
         if self.normalize:
             difference = difference / guesses.shape[0]
