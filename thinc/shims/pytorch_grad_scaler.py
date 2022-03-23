@@ -1,6 +1,7 @@
 from typing import Dict, Iterable, List, Union, cast
+import warnings
 
-from ..util import has_torch_amp, is_torch_array
+from ..util import has_torch_amp, has_torch_gpu, is_torch_array
 
 try:
     import torch
@@ -51,11 +52,16 @@ class PyTorchGradScaler:
             be multiplied by "growth_factor".
         """
         if enabled and not has_torch_amp:
-            raise ValueError(
-                "Gradient scaling is not supported, requires capable GPU and torch>=1.9.0"
-            )
+            msg = "Gradient scaling is disabled, requires capable GPU and torch>=1.9.0"
+            warnings.warn(msg)
+            self._enabled = False
+        elif enabled and not torch.Tensor().is_cuda:
+            msg = "Gradient scaling is disabled, only supported in GPU training"
+            warnings.warn(msg)
+            self._enabled = False
+        else:
+            self._enabled = enabled
 
-        self._enabled = enabled
         self._growth_factor = growth_factor
         self._backoff_factor = backoff_factor
         self._growth_interval = growth_interval
