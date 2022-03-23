@@ -49,9 +49,7 @@ class CupyOps(Ops):
 
     def backprop_gelu(self, dY, X, inplace=False):
         if X.dtype == dY.dtype and X.dtype in ("float32", "float64"):
-            return _custom_kernels.backprop_gelu(
-                dY, X=X, inplace=inplace, threshold=6.0
-            )
+            return _custom_kernels.backprop_gelu(dY, X, inplace=inplace, threshold=6.0)
         else:
             return super().backprop_gelu(dY, X, inplace=inplace)
 
@@ -95,7 +93,7 @@ class CupyOps(Ops):
 
     def backprop_maxout(self, dY, which, P):
         if dY.dtype in ("float32", "float64") and which.dtype == "int32":
-            return _custom_kernels.backprop_maxout(dY, which=which, P=P)
+            return _custom_kernels.backprop_maxout(dY, which, P)
         else:
             return super().backprop_maxout(dY, which, P)
 
@@ -153,7 +151,7 @@ class CupyOps(Ops):
         if X.dtype == dY.dtype and X.dtype in ("float32", "float64"):
             return _custom_kernels.backprop_clipped_linear(
                 dY,
-                X=X,
+                X,
                 slope=slope,
                 offset=offset,
                 min_val=min_val,
@@ -173,15 +171,13 @@ class CupyOps(Ops):
 
     def backprop_hard_swish(self, dY, X, inplace: bool = False):
         if X.dtype == dY.dtype and X.dtype in ("float32", "float64"):
-            return _custom_kernels.backprop_hard_swish(dY, X=X, inplace=inplace)
+            return _custom_kernels.backprop_hard_swish(dY, X, inplace=inplace)
         else:
             return super().backprop_hard_swish(dY, X, inplace=inplace)
 
     def backprop_hard_swish_mobilenet(self, dY, X, inplace: bool = False):
         if X.dtype == dY.dtype and X.dtype in ("float32", "float64"):
-            return _custom_kernels.backprop_hard_swish_mobilenet(
-                dY, X=X, inplace=inplace
-            )
+            return _custom_kernels.backprop_hard_swish_mobilenet(dY, X, inplace=inplace)
         else:
             return super().backprop_hard_swish_mobilenet(dY, X, inplace=inplace)
 
@@ -194,7 +190,7 @@ class CupyOps(Ops):
     def backprop_mish(self, dY, X, threshold=20.0, inplace=False):
         if X.dtype == dY.dtype and X.dtype in ("float32", "float64"):
             return _custom_kernels.backprop_mish(
-                dY, X=X, inplace=inplace, threshold=threshold
+                dY, X, inplace=inplace, threshold=threshold
             )
         else:
             return super().backprop_mish(dY, X, threshold, inplace)
@@ -208,7 +204,7 @@ class CupyOps(Ops):
     def backprop_swish(self, dY, X, Y, inplace=False):
         if X.dtype == dY.dtype == Y.dtype and X.dtype in ("float32", "float64"):
             return _custom_kernels.backprop_swish(
-                dY, X=X, Y=Y, inplace=inplace, threshold=17.0
+                dY, X, Y, inplace=inplace, threshold=17.0
             )
         else:
             return super().backprop_swish(dY, X, Y, inplace=inplace)
@@ -233,7 +229,7 @@ class CupyOps(Ops):
         if seq.dtype in ("float32", "float64") and (
             lengths is None or lengths.dtype == "int32"
         ):
-            return _custom_kernels.seq2col(seq, nW=nW, lengths=lengths)
+            return _custom_kernels.seq2col(seq, nW, lengths=lengths)
         else:
             return super().seq2col(seq, nW, lengths=lengths)
 
@@ -241,7 +237,7 @@ class CupyOps(Ops):
         if dY.dtype in ("float32", "float64") and (
             lengths is None or lengths.dtype == "int32"
         ):
-            return _custom_kernels.backprop_seq2col(dY, nW=nW, lengths=lengths)
+            return _custom_kernels.backprop_seq2col(dY, nW, lengths=lengths)
         else:
             return super().backprop_seq2col(dY, nW, lengths=lengths)
 
@@ -253,13 +249,13 @@ class CupyOps(Ops):
 
     def backprop_reduce_mean(self, d_means, lengths):
         if d_means.dtype in ("float32", "float64") and lengths.dtype == "int32":
-            return _custom_kernels.backprop_reduce_mean(d_means, lengths=lengths)
+            return _custom_kernels.backprop_reduce_mean(d_means, lengths)
         else:
             super().backprop_reduce_mean(d_means, lengths)
 
     def reduce_max(self, X, lengths):
         if X.dtype in ("float32", "float64") and lengths.dtype == "int32":
-            return _custom_kernels.reduce_max(X, lengths=lengths)
+            return _custom_kernels.reduce_max(X, lengths)
         else:
             super().reduce_max(X, lengths)
 
@@ -269,26 +265,24 @@ class CupyOps(Ops):
             and which.dtype == "int32"
             and lengths.dtype == "int32"
         ):
-            return _custom_kernels.backprop_reduce_max(
-                d_maxes, which=which, lengths=lengths
-            )
+            return _custom_kernels.backprop_reduce_max(d_maxes, which, lengths)
         else:
             super().backprop_reduce_max(d_maxes, which, lengths)
 
     def reduce_sum(self, X, lengths):
         if X.dtype in ("float32", "float64") and lengths.dtype == "int32":
-            return _custom_kernels.reduce_sum(X, lengths=lengths)
+            return _custom_kernels.reduce_sum(X, lengths)
         else:
             return super().reduce_sum(X, lengths)
 
     def backprop_reduce_sum(self, d_sums, lengths):
         if d_sums.dtype in ("float32", "float64") and lengths.dtype == "int32":
-            return _custom_kernels.backprop_reduce_sum(d_sums, lengths=lengths)
+            return _custom_kernels.backprop_reduce_sum(d_sums, lengths)
         else:
             return super().backprop_reduce_sum(d_sums, lengths)
 
     def hash(self, ids, seed):
-        return _custom_kernels.hash(ids, seed=seed)
+        return _custom_kernels.hash(ids, seed)
 
     def scatter_add(self, table, indices, values):
         self._xp2.scatter_add(table, indices, values)

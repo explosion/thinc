@@ -180,7 +180,7 @@ def check_seq2col_lengths(lengths, B):
     return lengths
 
 
-def seq2col(seq, *, nW, lengths=None, threads_per_block=128, num_blocks=128):
+def seq2col(seq, nW, *, lengths=None, threads_per_block=128, num_blocks=128):
     _is_float_array(seq)
 
     B = seq.shape[0]
@@ -245,7 +245,7 @@ def mish(X, *, inplace=False, threshold=5, threads_per_block=128, num_blocks=128
     return out
 
 
-def reduce_sum(X, *, lengths, threads_per_block=128, num_blocks=128):
+def reduce_sum(X, lengths, *, threads_per_block=128, num_blocks=128):
     _is_float_array(X)
 
     B = len(lengths)
@@ -268,7 +268,7 @@ def reduce_sum(X, *, lengths, threads_per_block=128, num_blocks=128):
     return out
 
 
-def reduce_mean(X, *, lengths, threads_per_block=128, num_blocks=128):
+def reduce_mean(X, lengths, *, threads_per_block=128, num_blocks=128):
     _is_float_array(X)
 
     B = len(lengths)
@@ -293,7 +293,7 @@ def reduce_mean(X, *, lengths, threads_per_block=128, num_blocks=128):
     return out
 
 
-def reduce_max(X, *, lengths, threads_per_block=128, num_blocks=128):
+def reduce_max(X, lengths, *, threads_per_block=128, num_blocks=128):
     _is_float_array(X)
 
     B = len(lengths)
@@ -335,7 +335,7 @@ def swish(X, *, inplace=False, threshold=17.0, threads_per_block=128, num_blocks
     return out
 
 
-def backprop_seq2col(dY, *, nW, lengths=None, threads_per_block=128, num_blocks=128):
+def backprop_seq2col(dY, nW, *, lengths=None, threads_per_block=128, num_blocks=128):
     _is_float_array(dY)
 
     B = dY.shape[0]
@@ -362,8 +362,8 @@ def backprop_seq2col(dY, *, nW, lengths=None, threads_per_block=128, num_blocks=
 
 def backprop_clipped_linear(
     dY,
-    *,
     X,
+    *,
     slope: float = 1.0,
     offset: float = 0.0,
     min_val: float = 0.0,
@@ -396,7 +396,7 @@ def backprop_clipped_linear(
 
 
 def backprop_hard_swish(
-    dY, *, X, inplace: bool = False, threads_per_block=128, num_blocks=128
+    dY, X, *, inplace: bool = False, threads_per_block=128, num_blocks=128
 ):
     _is_float_array(dY)
     _is_float_array(X, shape=dY.shape)
@@ -418,7 +418,7 @@ def backprop_hard_swish(
 
 
 def backprop_hard_swish_mobilenet(
-    dY, *, X, inplace: bool = False, threads_per_block=128, num_blocks=128
+    dY, X, *, inplace: bool = False, threads_per_block=128, num_blocks=128
 ):
     _is_float_array(dY)
     _is_float_array(X, shape=dY.shape)
@@ -441,8 +441,8 @@ def backprop_hard_swish_mobilenet(
 
 def backprop_gelu(
     dY,
-    *,
     X,
+    *,
     inplace: bool = False,
     threshold=6.0,
     threads_per_block=128,
@@ -467,7 +467,7 @@ def backprop_gelu(
     return out
 
 
-def backprop_maxout(dY, *, which, P, threads_per_block=128, num_blocks=128):
+def backprop_maxout(dY, which, P, *, threads_per_block=128, num_blocks=128):
     _is_float_array(dY)
 
     B = dY.shape[0]
@@ -490,7 +490,7 @@ def backprop_maxout(dY, *, which, P, threads_per_block=128, num_blocks=128):
 
 
 def backprop_mish(
-    dY, *, X, inplace: bool = False, threshold=5, threads_per_block=128, num_blocks=128
+    dY, X, *, inplace: bool = False, threshold=5, threads_per_block=128, num_blocks=128
 ):
     _is_float_array(dY)
     _is_float_array(X, shape=dY.shape)
@@ -511,7 +511,7 @@ def backprop_mish(
     return out
 
 
-def backprop_reduce_sum(d_sums, *, lengths, threads_per_block=128, num_blocks=128):
+def backprop_reduce_sum(d_sums, lengths, *, threads_per_block=128, num_blocks=128):
     _is_float_array(d_sums)
 
     B = len(lengths)
@@ -533,7 +533,7 @@ def backprop_reduce_sum(d_sums, *, lengths, threads_per_block=128, num_blocks=12
     return out
 
 
-def backprop_reduce_mean(d_means, *, lengths, threads_per_block=128, num_blocks=128):
+def backprop_reduce_mean(d_means, lengths, *, threads_per_block=128, num_blocks=128):
     _is_float_array(d_means)
 
     B = len(lengths)
@@ -556,7 +556,7 @@ def backprop_reduce_mean(d_means, *, lengths, threads_per_block=128, num_blocks=
 
 
 def backprop_reduce_max(
-    d_maxes, *, which, lengths, threads_per_block=128, num_blocks=128
+    d_maxes, which, lengths, *, threads_per_block=128, num_blocks=128
 ):
     _is_float_array(d_maxes)
 
@@ -582,7 +582,7 @@ def backprop_reduce_max(
 
 
 def backprop_swish(
-    dY, *, X, Y, inplace=False, threshold=17.0, threads_per_block=128, num_blocks=128
+    dY, X, Y, *, inplace=False, threshold=17.0, threads_per_block=128, num_blocks=128
 ):
     _is_float_array(dY)
     _is_float_array(X, shape=dY.shape)
@@ -604,7 +604,7 @@ def backprop_swish(
     return out
 
 
-def hash(ids, *, seed, threads_per_block=128, num_blocks=128):
+def hash(ids, seed, *, threads_per_block=128, num_blocks=128):
     out = cupy.zeros((ids.shape[0], 4), dtype="uint32")
 
     # sizeof(uint32_t) * 4
