@@ -107,7 +107,13 @@ class PyTorchGradScaler:
         scale_per_device: Dict["torch.device", "torch.Tensor"],
         inplace: bool,
     ):
-        assert tensor.is_cuda, "Gradient scaling is only supported for CUDA tensors"
+        if not tensor.is_cuda:
+            msg = (
+                "Gradient scaling is only supported for CUDA tensors. "
+                "If you are using PyTorch models, you can avoid this "
+                "error by disabling mixed-precision support."
+            )
+            raise ValueError(msg)
 
         device = tensor.device
 
