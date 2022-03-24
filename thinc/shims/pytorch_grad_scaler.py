@@ -50,11 +50,6 @@ class PyTorchGradScaler:
             When no overflows were found for this number of steps, the scale will
             be multiplied by "growth_factor".
         """
-        if enabled and not has_torch_amp:
-            raise ValueError(
-                "Gradient scaling is not supported, requires capable GPU and torch>=1.9.0"
-            )
-
         self._enabled = enabled
         self._growth_factor = growth_factor
         self._backoff_factor = backoff_factor
@@ -107,6 +102,11 @@ class PyTorchGradScaler:
         scale_per_device: Dict["torch.device", "torch.Tensor"],
         inplace: bool,
     ):
+        if not has_torch_amp:
+            raise ValueError(
+                "Gradient scaling is not supported, requires capable GPU and torch>=1.9.0"
+            )
+
         if not tensor.is_cuda:
             msg = (
                 "Gradient scaling is only supported for CUDA tensors. "
