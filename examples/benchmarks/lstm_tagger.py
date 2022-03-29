@@ -16,7 +16,15 @@ import typer
 import tqdm
 import numpy.random
 from timeit import default_timer as timer
-from thinc.api import Model, Config, registry, chain, list2padded, with_array, with_padded
+from thinc.api import (
+    Model,
+    Config,
+    registry,
+    chain,
+    list2padded,
+    with_array,
+    with_padded,
+)
 from thinc.api import to_categorical, set_current_ops
 from thinc.api import Ops, NumpyOps, CupyOps, fix_random_seed, require_gpu
 from thinc.types import Ints1d, Ints2d, Floats2d, Padded
@@ -61,10 +69,7 @@ def build_tagger(
     predict: Model[Floats2d, Floats2d],
 ) -> Model[List[Ints1d], Padded]:
     model = chain(
-        with_array(embed),
-        with_padded(encode),
-        with_array(predict),
-        list2padded()
+        with_array(embed), with_padded(encode), with_array(predict), list2padded()
     )
     model.set_ref("embed", embed)
     model.set_ref("encode", encode)
@@ -117,12 +122,14 @@ def set_backend(name, gpu_id):
             set_current_ops(CupyOps())
         if name == "pytorch":
             import torch
+
             torch.set_num_threads(1)
             CONFIG = CONFIG.replace("LSTM.v1", "PyTorchLSTM.v1")
 
 
-def main(numpy: bool=False, pytorch: bool = False,
-         generic: bool=False, gpu_id: int = -1):
+def main(
+    numpy: bool = False, pytorch: bool = False, generic: bool = False, gpu_id: int = -1
+):
     global CONFIG
     fix_random_seed(0)
     if gpu_id >= 0:
