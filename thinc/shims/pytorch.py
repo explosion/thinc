@@ -13,6 +13,7 @@ except ImportError:  # pragma: no cover
     pass
 
 from ..util import torch2xp, xp2torch, convert_recursive, iterate_recursive
+from ..util import has_torch_amp
 from ..backends import get_current_ops, context_pools, CupyOps
 from ..backends import set_gpu_allocator
 from ..optimizers import Optimizer
