@@ -16,9 +16,9 @@ import typer
 import tqdm
 import numpy.random
 from timeit import default_timer as timer
-from thinc.api import Model, Config, registry, chain, list2padded, with_array
+from thinc.api import Model, Config, registry, chain, list2padded, with_array, with_padded
 from thinc.api import to_categorical, set_current_ops
-from thinc.api import NumpyOps, CupyOps, fix_random_seed, require_gpu
+from thinc.api import Ops, NumpyOps, CupyOps, fix_random_seed, require_gpu
 from thinc.types import Array2d, Padded
 
 CONFIG = """
@@ -61,10 +61,10 @@ def build_tagger(
     predict: Model[Array2d, Array2d],
 ) -> Model[List[Array2d], Padded]:
     model = chain(
-        list2padded(),
         with_array(embed),
-        encode,
+        with_padded(encode),
         with_array(predict),
+        list2padded()
     )
     model.set_ref("embed", embed)
     model.set_ref("encode", encode)
