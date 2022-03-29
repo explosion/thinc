@@ -45,6 +45,9 @@ def create_pytorch_funcs():
     import torch
     import math
 
+    def torch_relu(x):
+        return torch.nn.functional.relu(x)
+
     def torch_relu_k(x):
         return torch.nn.functional.relu6(x)
 
@@ -83,6 +86,7 @@ def create_pytorch_funcs():
         return torch.nn.functional.gelu(x)
 
     return [
+        ("relu", torch_relu),
         ("relu_k", torch_relu_k),
         ("hard_sigmoid", torch_hard_sigmoid),
         ("hard_tanh", torch_hard_tanh),
@@ -227,6 +231,11 @@ def test_backprop_maxout(ops, dtype):
         dX,
         [[[0.0, 1.0, 0.0], [2.0, 0.0, 0.0]], [[0.0, 0.0, 3.0], [0.0, 4.0, 0.0]]],
     )
+
+    with pytest.raises(IndexError):
+        ops.backprop_maxout(
+            ops.asarray2f([[1.0, 2.0], [3.0, 4.0]]), ops.asarray2i([[1, 0], [3, 1]]), 3
+        )
 
 
 @pytest.mark.parametrize("ops", ALL_OPS)
@@ -723,6 +732,21 @@ def test_reduce_sum(ops):
     output = ops.reduce_sum(m, lengths)
     assert output.sum() == m.sum(), (output.sum(), m.sum())
 
+    with pytest.raises(IndexError):
+        ops.reduce_sum(m, ops.xp.array([5, 5, 5, 5], dtype="i"))
+
+    with pytest.raises(ValueError):
+        ops.reduce_sum(m, ops.xp.array([-1, 10, 5, 5], dtype="i"))
+
+
+@pytest.mark.parametrize("ops,dtype", ops_with_dtypes(ALL_OPS, FLOAT_TYPES))
+def test_backprop_fails_with_incorrect_length(ops, dtype):
+    with pytest.raises(ValueError, match=r"lengths must be"):
+        ops.backprop_reduce_sum(
+            ops.xp.arange(1, 7, dtype=dtype).reshape(2, 3),
+            ops.xp.array([-1, 2], dtype="int32"),
+        )
+
 
 @pytest.mark.parametrize("ops,dtype", ops_with_dtypes(ALL_OPS, FLOAT_TYPES))
 def test_reduce_max_sm(ops, dtype):
@@ -754,6 +778,12 @@ def test_reduce_max(ops, dtype):
         ops.xp.testing.assert_allclose(maxes[i], truth)
         start += length
 
+    with pytest.raises(IndexError):
+        ops.reduce_max(m, ops.xp.array([5, 5, 5, 5], dtype="i"))
+
+    with pytest.raises(ValueError):
+        ops.reduce_max(m, ops.xp.array([-1, 10, 5, 5], dtype="i"))
+
 
 @pytest.mark.parametrize("ops,dtype", ops_with_dtypes(ALL_OPS, FLOAT_TYPES))
 def test_backprop_reduce_max(ops, dtype):
@@ -774,6 +804,20 @@ def test_backprop_reduce_max(ops, dtype):
         ],
     )
 
+    with pytest.raises(IndexError):
+        ops.backprop_reduce_max(
+            ops.xp.arange(1, 7, dtype="f").reshape(2, 3),
+            ops.xp.array([[2, 3, 0], [1, 0, 1]]).astype("int32"),
+            ops.xp.array([3, 2], dtype="int32"),
+        )
+
+    with pytest.raises(ValueError):
+        ops.backprop_reduce_max(
+            ops.xp.arange(1, 7, dtype=dtype).reshape(2, 3),
+            ops.xp.array([[2, 1, 0], [1, 0, 1]]).astype("int32"),
+            ops.xp.array([-3, 2], dtype="int32"),
+        )
+
 
 @pytest.mark.parametrize("ops,dtype", ops_with_dtypes(ALL_OPS, FLOAT_TYPES))
 def test_reduce_mean(ops, dtype):
@@ -784,6 +828,12 @@ def test_reduce_mean(ops, dtype):
     ops.xp.testing.assert_allclose(
         ops.reduce_mean(X, lengths), [[3.0, 4.0], [2.0, 3.0]]
     )
+
+    with pytest.raises(IndexError):
+        ops.reduce_mean(X, ops.xp.array([3, 3], dtype="i"))
+
+    with pytest.raises(ValueError):
+        ops.reduce_mean(X, ops.xp.array([-1, 5], dtype="i"))
 
 
 @pytest.mark.parametrize("ops,dtype", ops_with_dtypes(ALL_OPS, FLOAT_TYPES))
@@ -805,6 +855,12 @@ def test_backprop_reduce_mean(ops, dtype):
         ],
     )
 
+    with pytest.raises(ValueError, match=r"lengths must be"):
+        ops.backprop_reduce_mean(
+            ops.xp.arange(1, 7, dtype=dtype).reshape(2, 3),
+            ops.xp.array([-1, 2], dtype="int32"),
+        )
+
 
 @pytest.mark.parametrize("ops", ALL_OPS)
 @settings(max_examples=MAX_EXAMPLES, deadline=None)
@@ -814,6 +870,52 @@ def test_mish(ops, X):
     Y = ops.mish(X)
     assert Y.shape == X.shape
     assert not ops.xp.isnan(Y).any()
+
+
+@pytest.mark.parametrize("ops,dtype", ops_with_dtypes(XP_OPS, FLOAT_TYPES))
+@pytest.mark.parametrize(
+    "op",
+    [
+        "backprop_clipped_linear",
+        "backprop_gelu",
+        "backprop_gelu_approx",
+        "backprop_hard_sigmoid",
+        "backprop_hard_swish",
+        "backprop_hard_swish_mobilenet",
+        "backprop_hard_tanh",
+        "backprop_mish",
+        "backprop_relu",
+        "backprop_relu_k",
+        "backprop_softmax",
+        "backprop_swish",
+    ],
+)
+def test_eltwise_backprop_rejects_incorrect_shapes(ops, dtype, op):
+    backprop = getattr(ops, op)
+    positional_args = [
+        p
+        for p in inspect.signature(backprop).parameters.values()
+        if p.default == inspect.Parameter.empty
+    ]
+    if len(positional_args) == 3:
+        with pytest.raises(ValueError):
+            backprop(
+                ops.xp.zeros(10, dtype=dtype),
+                ops.xp.zeros(5, dtype=dtype),
+                ops.xp.zeros(10, dtype=dtype),
+            )
+        with pytest.raises(ValueError):
+            backprop(
+                ops.xp.zeros(10, dtype=dtype),
+                ops.xp.zeros(10, dtype=dtype),
+                ops.xp.zeros(5, dtype=dtype),
+            )
+    else:
+        with pytest.raises(ValueError):
+            backprop(
+                ops.xp.arange(-10, 10, dtype=dtype),
+                ops.xp.arange(5, -5, -1, dtype=dtype),
+            )
 
 
 @pytest.mark.parametrize("ops", ALL_OPS)
@@ -1111,6 +1213,14 @@ def test_compare_activations_to_torch(ops, dtype, x, torch_func):
         assert ops.xp.isclose(
             dx_thinc,
             backward(dY=dY_thinc_inplace, Y=y_thinc, X=x_thinc, inplace=True),
+        )
+        assert ops.xp.isclose(x_torch.grad.item(), float(dx_thinc), atol=1e-06)
+    elif backward.__name__ == "backprop_relu":
+        dx_thinc = backward(dY_thinc, Y=y_thinc)
+        assert dx_thinc.dtype == dY_thinc.dtype
+        assert ops.xp.isclose(
+            dx_thinc,
+            backward(dY=dY_thinc_inplace, Y=y_thinc, inplace=True),
         )
         assert ops.xp.isclose(x_torch.grad.item(), float(dx_thinc), atol=1e-06)
     else:

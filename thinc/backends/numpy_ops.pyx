@@ -93,23 +93,41 @@ class NumpyOps(Ops):
         return blis.py.gemm(x, y, out=out, trans1=trans1, trans2=trans2, beta=0.)
 
     def relu(self, np.ndarray X, inplace=False):
-        cdef np.ndarray out = X if inplace else X.copy()
-        cdef weight_t* data = <weight_t*>out.data
-        cdef size_t size = out.size
-        for i in range(size):
-            if data[i] < 0:
-                data[i] = 0.
-        return out
+        cdef np.ndarray Y
+        cdef weight_t* data
+        cdef size = X.size
+        if X.dtype == "float32":
+            if inplace:
+                Y = X
+            else:
+                Y = X.copy()
+            data = <weight_t*>Y.data
+            for i in range(size):
+                if data[i] < 0:
+                    data[i] = 0.
+            return Y
+        else:
+            return super().relu(X, inplace)
 
     def backprop_relu(self, np.ndarray dY, np.ndarray Y, inplace=False):
-        cdef np.ndarray dX = dY if inplace else dY.copy()
-        cdef size_t size = dX.size
-        cdef weight_t* dX_ptr = <weight_t*>dX.data
+        _check_compatible_shape(dY, Y)
+
+        cdef size_t size = Y.size
+        cdef weight_t* dX_ptr
         cdef const weight_t* Y_ptr = <const weight_t*>Y.data
-        for i in range(size):
-            if Y_ptr[i] <= 0:
-                dX_ptr[i] = 0.
-        return dX
+        cdef np.ndarray dX
+        if dY.dtype == "float32" and Y.dtype == "float32":
+            if inplace:
+                dX = dY
+            else:
+                dX = dY.copy()
+            dX_ptr = <weight_t*>dX.data
+            for i in range(size):
+                if Y_ptr[i] <= 0:
+                    dX_ptr[i] = 0.
+            return dX
+        else:
+            return super().backprop_relu(dY, Y, inplace)
 
     def lstm_forward_training(
         self,
@@ -176,6 +194,8 @@ class NumpyOps(Ops):
             return super().mish(X, threshold, inplace)
 
     def backprop_mish(self, np.ndarray dY, np.ndarray X, threshold=20.0, inplace=False):
+        _check_compatible_shape(dY, X)
+
         cdef np.ndarray dX
         if dY.dtype == "float32" and X.dtype == "float32":
             if inplace:
@@ -264,6 +284,8 @@ class NumpyOps(Ops):
         cdef int O = d_means.shape[1]
         cdef int T = 0
         for length in lengths[:B]:
+            if length < 0:
+                raise ValueError(f"all sequence lengths must be >= 0, got {length}")
             T += length
         cdef Pool mem = Pool()
         assert T != 0
@@ -280,6 +302,8 @@ class NumpyOps(Ops):
         cdef int O = d_sums.shape[1]
         cdef int T = 0
         for length in lengths[:B]:
+            if length < 0:
+                raise ValueError(f"all sequence lengths must be >= 0, got {length}")
             T += length
         cdef Pool mem = Pool()
         assert T != 0
@@ -314,6 +338,8 @@ class NumpyOps(Ops):
         cdef int O = d_maxes.shape[1]
         cdef int T = 0
         for length in lengths[:B]:
+            if length < 0:
+                raise ValueError(f"all sequence lengths must be >= 0, got {length}")
             T += length
         cdef Pool mem = Pool()
         assert T != 0
@@ -499,14 +525,17 @@ cdef void cpu_maxout(float* best__bo, int* which__bo,
         best__bo[i] = cands__bop[i*P + which__bo[i]]
 
 
-cdef void cpu_backprop_maxout(float* dX__bop,
-        const float* dX__bo, const int* which__bo, int B, int O, int P) nogil:
+cdef int cpu_backprop_maxout(float* dX__bop,
+        const float* dX__bo, const int* which__bo, int B, int O, int P) nogil except -1:
     for b in range(B):
         for o in range(O):
+            if which__bo[0] >= P:
+                raise IndexError(f"index {which__bo[0]} is out of bounds for maxout with size {P}")
             dX__bop[which__bo[0]] = dX__bo[0]
             dX__bop += P
             dX__bo += 1
             which__bo += 1
+    return 0
 
 
 def cpu_clip_gradient(weight_t[::1] gradient, weight_t threshold):
@@ -643,12 +672,20 @@ cdef cpu_ints_ptr2array(int* ptr, shape):
     return py_out
 
 
-cdef void cpu_reduce_mean(float* means__bo,
+cdef int cpu_reduce_mean(float* means__bo,
         const float* X__to, const int* lengths__b,
-        int B, int T, int O) nogil:
+        int B, int T, int O) nogil except -1:
     '''Compute means of a batch of concatenated sequences, using the lengths.'''
     cdef float scale = 0.
     for length in lengths__b[:B]:
+        T -= length
+        if length == 0:
+            continue
+        elif length < 0:
+            raise ValueError(f"all sequence lengths must be >= 0, was {length}")
+        elif T < 0:
+            raise IndexError("lengths must sum up to the number of rows")
+
         scale = 1. / length
         for _ in range(length):
             VecVec.add_i(means__bo,
@@ -670,11 +707,19 @@ cdef void cpu_backprop_reduce_mean(float* dX__to,
         d_means__bo += O
 
 
-cdef void cpu_reduce_sum(float* sums__bo,
+cdef int cpu_reduce_sum(float* sums__bo,
         const float* X__to, const int* lengths__b,
-        int B, int T, int O) nogil:
+        int B, int T, int O) nogil except -1:
     '''Compute sums of a batch of concatenated sequences, using the lengths.'''
     for length in lengths__b[:B]:
+        T -= length
+        if length == 0:
+            continue
+        elif length < 0:
+            raise ValueError(f"all sequence lengths must be >= 0, was {length}")
+        elif T < 0:
+            raise IndexError("lengths must sum up to the number of rows")
+
         for _ in range(length):
             VecVec.add_i(sums__bo,
                 X__to, 1.0, O)
@@ -682,10 +727,17 @@ cdef void cpu_reduce_sum(float* sums__bo,
         sums__bo += O
 
 
-cdef void cpu_backprop_reduce_sum(float* dX__to,
+cdef int cpu_backprop_reduce_sum(float* dX__to,
         const float* d_sums__bo, const int* lengths__b,
-        int B, int T, int O) nogil:
+        int B, int T, int O) nogil except -1:
     for length in lengths__b[:B]:
+        T -= length
+        if length == 0:
+            continue
+        elif length < 0:
+            raise ValueError(f"all sequence lengths must be >= 0, was {length}")
+        elif T < 0:
+            raise IndexError("lengths must sum up to the number of rows")
         for _ in range(length):
             VecVec.add_i(dX__to,
                 d_sums__bo, 1.0, O)
@@ -693,12 +745,20 @@ cdef void cpu_backprop_reduce_sum(float* dX__to,
         d_sums__bo += O
 
 
-cdef void cpu_reduce_max(float* maxes__bo, int* which__bo,
+cdef int cpu_reduce_max(float* maxes__bo, int* which__bo,
         const float* X__to, const int* lengths__b,
-        int B, int T, int O) nogil:
+        int B, int T, int O) nogil except -1:
     '''Compute maxes of a batch of concatenated sequences, using the lengths.'''
     cdef float scale = 0.
     for length in lengths__b[:B]:
+        T -= length
+        if length == 0:
+            continue
+        elif length < 0:
+            raise ValueError(f"all sequence lengths must be >= 0, was {length}")
+        elif T < 0:
+            raise IndexError("lengths must sum up to the number of rows")
+
         memcpy(maxes__bo, X__to, O * sizeof(maxes__bo[0]))
         memset(which__bo, 0, O * sizeof(which__bo[0]))
         X__to += O
@@ -712,18 +772,21 @@ cdef void cpu_reduce_max(float* maxes__bo, int* which__bo,
         which__bo += O
 
 
-cdef void cpu_backprop_reduce_max(float* dX__to,
+cdef int cpu_backprop_reduce_max(float* dX__to,
         const float* d_maxes__bo, const int* which__bo, const int* lengths__b,
-        int B, int T, int O) nogil:
-    cdef int length, i, j
+        int B, int T, int O) nogil except -1:
+    cdef int length, i, item
     for length in lengths__b[:B]:
-        for i in range(length):
-            for j in range(O):
-                if which__bo[j] == i:
-                    dX__to[j] += d_maxes__bo[j]
-            dX__to += O
+        for i in range(O):
+            item = which__bo[i]
+            if item >= length:
+                raise IndexError(f"index {item} is out of bounds for sequence with length {length}")
+            dX__to[item * O + i] = d_maxes__bo[i]
+        dX__to += length * O
         d_maxes__bo += O
         which__bo += O
+
+    return 0
 
 
 def lstm_forward_training(
@@ -1258,3 +1321,9 @@ cdef void MurmurHash3_x86_128_uint64(
     out[1] = h1 >> 32
     out[2] = h2 & 0xffffffffu
     out[3] = h2 >> 32
+
+
+def _check_compatible_shape(u: np.ndarray, v: np.ndarray):
+    if u.shape != v.shape:
+        msg = f"arrays have incompatible shapes: {u.shape} and {v.shape}"
+        raise ValueError(msg)
