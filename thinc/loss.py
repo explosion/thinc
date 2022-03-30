@@ -146,7 +146,7 @@ class CategoricalCrossentropy(Loss):
             raise ValueError(err)
         difference = guesses - target
         difference *= mask
-        # Weight samples proportinal to the marginals.
+        # Weight samples proportional to the marginals.
         # For each sample the target labels are normalized
         # to sum to 1 and the normalized-labels are used
         # to compute the weighted average of class_weights
