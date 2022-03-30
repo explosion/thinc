@@ -148,7 +148,7 @@ class CategoricalCrossentropy(Loss):
         difference *= mask
         # Weight samples proportional to the marginals.
         # For each sample the target labels are normalized
-        # to sum to 1 and the normalized-labels are used
+        # to sum to 1 and the normalized labels are used
         # to compute the weighted average of class_weights
         if self.class_weights is not None:
             if target.shape[1] != len(self.class_weights):
