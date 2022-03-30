@@ -16,15 +16,8 @@ import typer
 import tqdm
 import numpy.random
 from timeit import default_timer as timer
-from thinc.api import (
-    Model,
-    Config,
-    registry,
-    chain,
-    list2padded,
-    with_array,
-    with_padded,
-)
+from thinc.api import Model, Config, registry
+from thinc.api import chain, list2padded, with_array, with_padded
 from thinc.api import to_categorical, set_current_ops
 from thinc.api import Ops, NumpyOps, CupyOps, fix_random_seed, require_gpu
 from thinc.types import Ints1d, Ints2d, Floats2d, Padded
