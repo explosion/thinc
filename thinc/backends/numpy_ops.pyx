@@ -93,21 +93,17 @@ class NumpyOps(Ops):
         return blis.py.gemm(x, y, out=out, trans1=trans1, trans2=trans2, beta=0.)
 
     def relu(self, np.ndarray X, inplace=False):
-        cdef np.ndarray Y
-        cdef weight_t* data
-        cdef size = X.size
+        cdef np.ndarray Y = _inplace_or_copy(X, inplace)
+
         if X.dtype == "float32":
-            if inplace:
-                Y = X
-            else:
-                Y = X.copy()
-            data = <weight_t*>Y.data
-            for i in range(size):
-                if data[i] < 0:
-                    data[i] = 0.
-            return Y
+            cpu_relu(<float *>Y.data, <int>Y.size)
+        elif X.dtype == "float64":
+            cpu_relu(<double *>Y.data, <int>Y.size)
         else:
-            return super().relu(X, inplace)
+            return super().relu(X, inplace=inplace)
+
+        return Y
+
 
     def backprop_relu(self, np.ndarray dY, np.ndarray Y, inplace=False):
         _check_compatible_shape(dY, Y)
@@ -117,6 +113,7 @@ class NumpyOps(Ops):
         cdef const weight_t* Y_ptr = <const weight_t*>Y.data
         cdef np.ndarray dX
         if dY.dtype == "float32" and Y.dtype == "float32":
+            dX = _inplace_or_copy(dY, inplace)
             if inplace:
                 dX = dY
             else:
@@ -159,55 +156,71 @@ class NumpyOps(Ops):
         dX, d_params = backprop_lstm(dY, lengths, params, fwd_state)
         return dX, d_params
 
-    def maxout(self, const float[:, :, ::1] X):
-        cdef Pool mem = Pool()
+    def maxout(self, reals3d_ft X):
         cdef int B = X.shape[0]
         cdef int O = X.shape[1]
         cdef int P = X.shape[2]
 
-        cdef np.ndarray best = numpy.zeros((B, O), dtype='float32', order='C')
-        cdef np.ndarray which = numpy.zeros((B, O), dtype='int32', order='C')
-        if len(X) > 0:
-            cpu_maxout(<float*>best.data, <int*>which.data,
-                &X[0, 0, 0], B, O, P)
+        cdef np.ndarray best
+        cdef np.ndarray which = numpy.empty(shape=(B, O), dtype='int32', order='C')
+        if reals3d_ft is float3d_t:
+            best = numpy.empty(shape=(B, O), dtype="float32", order='C')
+            if len(X) > 0:
+                cpu_maxout(<float*>best.data, <int*>which.data,
+                    &X[0, 0, 0], B, O, P)
+        else:
+            best = numpy.empty(shape=(B, O), dtype="float64", order='C')
+            if len(X) > 0:
+                cpu_maxout(<double*>best.data, <int*>which.data,
+                    &X[0, 0, 0], B, O, P)
         return best, which
 
-    def backprop_maxout(self, const float[:, ::1] dY, int[:, ::1] which, int P):
+    def backprop_maxout(self, reals2d_ft dY, int[:, ::1] which, int P):
         cdef int B = dY.shape[0]
         cdef int O = dY.shape[1]
 
-        cdef np.ndarray dX = numpy.zeros((B, O, P), dtype='float32')
-        cpu_backprop_maxout(<float*>dX.data,
-            &dY[0, 0], &which[0, 0], B, O, P)
+        cdef np.ndarray dX
+        if reals2d_ft == float2d_t:
+            dX = numpy.zeros((B, O, P), dtype='float32')
+            cpu_backprop_maxout(<float*>dX.data, <float*>&dY[0, 0], &which[0, 0], B, O, P)
+        else:
+            dX = numpy.zeros((B, O, P), dtype='float64')
+            cpu_backprop_maxout(<double*>dX.data, <double*>&dY[0, 0], &which[0, 0], B, O, P)
+
         return dX
 
     def mish(self, np.ndarray X, threshold=20.0, inplace: bool = False):
         cdef np.ndarray Y
+
         if X.dtype == "float32":
-            if inplace:
-                Y = X
-            else:
-                Y = self.xp.empty_like(X)
-            cpu_mish(<float*>Y.data, <float *>X.data, threshold, X.size)
-            return Y
+            Y = _inplace_or_copy(X, inplace)
+            cpu_mish(<float *>Y.data, <int>Y.size, <float>threshold)
+        elif X.dtype == "float64":
+            Y = _inplace_or_copy(X, inplace)
+            cpu_mish(<double *>Y.data, <int>Y.size, <double>threshold)
         else:
-            return super().mish(X, threshold, inplace)
+            return super().mish(X, inplace=inplace)
+
+        return Y
+
 
     def backprop_mish(self, np.ndarray dY, np.ndarray X, threshold=20.0, inplace=False):
         _check_compatible_shape(dY, X)
 
         cdef np.ndarray dX
+
         if dY.dtype == "float32" and X.dtype == "float32":
-            if inplace:
-                dX = dY
-            else:
-                dX = self.xp.empty_like(X)
-            cpu_backprop_mish(<float*>dX.data, <float*>dY.data, <float*>X.data, threshold, X.size)
-            return dX
+            dX = _inplace_or_copy(dY, inplace)
+            cpu_backprop_mish(<float*>dX.data, <float*>X.data, <int>X.size, <float>threshold)
+        elif dY.dtype == "float64" and X.dtype == "float64":
+            dX = _inplace_or_copy(dY, inplace)
+            cpu_backprop_mish(<double*>dX.data, <double*>X.data, <int>X.size, <double>threshold)
         else:
             return super().backprop_mish(dY, X, threshold, inplace)
 
-    def seq2col(self, const float[:, ::1] seq, int nW, *, const int[::1] lengths=None):
+        return dX
+
+    def seq2col(self, reals2d_ft seq, int nW, *, int[::1] lengths=None):
         """Given an (M, N) sequence of vectors, return an (M, N*(nW*2+1))
         sequence. The new sequence is constructed by concatenating nW preceding
         and succeeding vectors onto each column in the sequence, to extract a
@@ -219,14 +232,19 @@ class NumpyOps(Ops):
         lengths = check_seq2col_lengths(self, lengths, B)
         cdef int nL = lengths.shape[0]
 
-        cdef np.ndarray cols = self.alloc((B, (2*nW + 1) * I), dtype="float32")
-
-        if seq.size != 0 and lengths.size != 0:
-            seq2col(<float*>cols.data, &seq[0,0], &lengths[0], nW, B, I, nL)
+        cdef np.ndarray cols
+        if reals2d_ft is float2d_t:
+            cols = self.alloc((B, (2*nW + 1) * I), dtype="float32")
+            if seq.size != 0 and lengths.size != 0:
+                seq2col(<float*>cols.data, &seq[0,0], &lengths[0], nW, B, I, nL)
+        else:
+            cols = self.alloc((B, (2*nW + 1) * I), dtype="float64")
+            if seq.size != 0 and lengths.size != 0:
+                seq2col(<double*>cols.data, &seq[0,0], &lengths[0], nW, B, I, nL)
 
         return cols
 
-    def backprop_seq2col(self, const float[:, ::1] dY, int nW, *, const int[::1] lengths=None):
+    def backprop_seq2col(self, reals2d_ft dY, int nW, *, int[::1] lengths=None):
         cdef int B = dY.shape[0]
         cdef int nF = nW*2+1
         cdef int I = dY.shape[1] / nF
@@ -234,9 +252,16 @@ class NumpyOps(Ops):
         lengths = check_seq2col_lengths(self, lengths, B)
         cdef int nL = lengths.shape[0]
 
-        cdef np.ndarray dX = self.alloc((B, I), dtype='float32')
-        if dY.size != 0 and lengths.size != 0:
-            backprop_seq2col(<float*>dX.data, &dY[0,0], &lengths[0], B, I, nW, nL)
+        cdef np.ndarray dX
+        if reals2d_ft is float2d_t:
+            dX = self.alloc((B, I), dtype='float32')
+            if dY.size != 0 and lengths.size != 0:
+                backprop_seq2col(<float*>dX.data, &dY[0,0], &lengths[0], B, I, nW, nL)
+        else:
+            dX = self.alloc((B, I), dtype='float64')
+            if dY.size != 0 and lengths.size != 0:
+                backprop_seq2col(<double*>dX.data, &dY[0,0], &lengths[0], B, I, nW, nL)
+
         return dX
 
     @cython.boundscheck(False)
@@ -251,105 +276,131 @@ class NumpyOps(Ops):
             MurmurHash3_x86_128_uint64(ids[i], seed, &dest[i*4])
         return keys
 
-    def reduce_mean(self, const float[:, ::1] X, int[::1] lengths):
+    def reduce_mean(self, reals2d_ft X, int[::1] lengths):
         cdef int B = lengths.shape[0]
         cdef int O = X.shape[1]
         cdef int T = X.shape[0]
 
-        cdef Pool mem = Pool()
         assert B != 0
         assert O != 0
-        means = <float*>mem.alloc(B * O, sizeof(float))
 
-        cpu_reduce_mean(means,
-            &X[0, 0], &lengths[0], B, T, O)
-        return cpu_floats_ptr2array(means, (B, O))
+        cdef np.ndarray means
+        if reals2d_ft is float2d_t:
+            means = numpy.zeros(shape=(B, O), dtype="float32")
+            cpu_reduce_mean(<float *>means.data, &X[0, 0], &lengths[0], B, T, O)
+        else:
+            means = numpy.zeros(shape=(B, O), dtype="float64")
+            cpu_reduce_mean(<double *>means.data, &X[0, 0], &lengths[0], B, T, O)
 
-    def reduce_sum(self, const float[:, ::1] X, int[::1] lengths):
-        cdef int B = lengths.shape[0]
-        cdef int O = X.shape[1]
-        cdef int T = X.shape[0]
+        return means
 
-        cdef Pool mem = Pool()
-        assert B != 0
-        assert O != 0
-        sums = <float*>mem.alloc(B * O, sizeof(float))
-
-        cpu_reduce_sum(sums,
-            &X[0, 0], &lengths[0], B, T, O)
-        return cpu_floats_ptr2array(sums, (B, O))
-
-    def backprop_reduce_mean(self, const float[:, ::1] d_means, int[::1] lengths):
+    def backprop_reduce_mean(self, reals2d_ft d_means, int[::1] lengths):
         cdef int B = lengths.shape[0]
         cdef int O = d_means.shape[1]
         cdef int T = 0
+
         for length in lengths[:B]:
             if length < 0:
                 raise ValueError(f"all sequence lengths must be >= 0, got {length}")
             T += length
-        cdef Pool mem = Pool()
+
         assert T != 0
         assert O != 0
-        dX = <float*>mem.alloc(T * O, sizeof(float))
 
-        cpu_backprop_reduce_mean(dX,
-            &d_means[0,0], &lengths[0], B, T, O)
+        cdef np.ndarray dX
+        if reals2d_ft is float2d_t:
+            dX = numpy.zeros((T, O), dtype="float32")
+            cpu_backprop_reduce_mean(<float *>dX.data, &d_means[0,0], &lengths[0], B, T, O)
+        else:
+            dX = numpy.zeros((T, O), dtype="float64")
+            cpu_backprop_reduce_mean(<double *>dX.data, &d_means[0,0], &lengths[0], B, T, O)
 
-        return cpu_floats_ptr2array(dX, (T, O))
+        return dX
 
-    def backprop_reduce_sum(self, const float[:, ::1] d_sums, int[::1] lengths):
-        cdef int B = lengths.shape[0]
-        cdef int O = d_sums.shape[1]
-        cdef int T = 0
-        for length in lengths[:B]:
-            if length < 0:
-                raise ValueError(f"all sequence lengths must be >= 0, got {length}")
-            T += length
-        cdef Pool mem = Pool()
-        assert T != 0
-        assert O != 0
-        dX = <float*>mem.alloc(T * O, sizeof(float))
-
-        cpu_backprop_reduce_sum(dX,
-            &d_sums[0,0], &lengths[0], B, T, O)
-        return cpu_floats_ptr2array(dX, (T, O))
-
-    def reduce_max(self, const float[:, ::1] X, const int[::1] lengths):
+    def reduce_sum(self, reals2d_ft X, int[::1] lengths):
         cdef int B = lengths.shape[0]
         cdef int O = X.shape[1]
         cdef int T = X.shape[0]
 
-        cdef Pool mem = Pool()
         assert B != 0
         assert O != 0
-        maxes = <float*>mem.alloc(B * O, sizeof(float))
-        which = <int*>mem.alloc(B * O, sizeof(int))
 
-        cpu_reduce_max(maxes, which,
-            &X[0, 0], &lengths[0], B, T, O)
+        cdef np.ndarray sums
+        if reals2d_ft is float2d_t:
+            sums = numpy.zeros(shape=(B, O), dtype="float32")
+            cpu_reduce_sum(<float *>sums.data, &X[0, 0], &lengths[0], B, T, O)
+        else:
+            sums = numpy.zeros(shape=(B, O), dtype="float64")
+            cpu_reduce_sum(<double *>sums.data, &X[0, 0], &lengths[0], B, T, O)
 
-        cdef np.ndarray py_best = cpu_floats_ptr2array(maxes, (B, O))
-        cdef np.ndarray py_which = cpu_ints_ptr2array(which, (B, O))
-        return py_best, py_which
+        return sums
 
-    def backprop_reduce_max(self, const float[:, ::1] d_maxes,
-            const int[:, ::1] which, const int[::1] lengths):
+    def backprop_reduce_sum(self, reals2d_ft d_sums, int[::1] lengths):
         cdef int B = lengths.shape[0]
-        cdef int O = d_maxes.shape[1]
+        cdef int O = d_sums.shape[1]
         cdef int T = 0
+
         for length in lengths[:B]:
             if length < 0:
                 raise ValueError(f"all sequence lengths must be >= 0, got {length}")
             T += length
-        cdef Pool mem = Pool()
+
         assert T != 0
         assert O != 0
-        dX = <float*>mem.alloc(T * O, sizeof(float))
 
-        cpu_backprop_reduce_max(dX,
-            &d_maxes[0,0], &which[0, 0], &lengths[0], B, T, O)
+        cdef np.ndarray dX
+        if reals2d_ft is float2d_t:
+            dX = numpy.zeros((T, O), dtype="float32")
+            cpu_backprop_reduce_sum(<float *>dX.data, &d_sums[0,0], &lengths[0], B, T, O)
+        else:
+            dX = numpy.zeros((T, O), dtype="float64")
+            cpu_backprop_reduce_sum(<double *>dX.data, &d_sums[0,0], &lengths[0], B, T, O)
 
-        return cpu_floats_ptr2array(dX, (T, O))
+        return dX
+
+    def reduce_max(self, reals2d_ft X, int[::1] lengths):
+        cdef int B = lengths.shape[0]
+        cdef int O = X.shape[1]
+        cdef int T = X.shape[0]
+
+        assert B != 0
+        assert O != 0
+
+        cdef np.ndarray maxes
+        cdef np.ndarray which = numpy.zeros(shape=(B, O), dtype="i")
+        if reals2d_ft is float2d_t:
+            maxes = numpy.zeros(shape=(B, O), dtype="float32")
+            cpu_reduce_max(<float*>maxes.data, <int*>which.data, &X[0, 0], &lengths[0], B, T, O)
+        else:
+            maxes = numpy.zeros(shape=(B, O), dtype="float64")
+            cpu_reduce_max(<double*>maxes.data, <int*>which.data, &X[0, 0], &lengths[0], B, T, O)
+
+        return maxes, which
+
+    def backprop_reduce_max(self, reals2d_ft d_maxes, int[:, ::1] which, int[::1] lengths):
+        cdef int B = lengths.shape[0]
+        cdef int O = d_maxes.shape[1]
+        cdef int T = 0
+
+        for length in lengths[:B]:
+            if length < 0:
+                raise ValueError(f"all sequence lengths must be >= 0, got {length}")
+            T += length
+
+        assert T != 0
+        assert O != 0
+
+        cdef np.ndarray dX
+        if reals2d_ft is float2d_t:
+            dX = numpy.zeros((T, O), dtype="float32")
+            cpu_backprop_reduce_max(<float *>dX.data, &d_maxes[0,0], &which[0, 0],
+                &lengths[0], B, T, O)
+        else:
+            dX = numpy.zeros((T, O), dtype="float64")
+            cpu_backprop_reduce_max(<double *>dX.data, &d_maxes[0,0], &which[0, 0],
+                &lengths[0], B, T, O)
+
+        return dX
 
     def scatter_add(self, np.ndarray table, np.ndarray indices, np.ndarray values):
         if table.dtype == 'float32' \
@@ -412,130 +463,6 @@ def check_seq2col_lengths(ops, lengths, B):
         assert ops.xp.sum(lengths) == B, "The lengths must sum up to the batch length"
 
     return lengths
-
-
-cdef void seq2col(float* output, const float* X, const int* L, int nW, int B, int I, int nL) nogil:
-    '''
-    Let's say nW is 1 (it usually is). Then we want to take:
-
-    1a 1b 1c
-    2a 2b 2c
-    3a 3b 3c
-
-    And make
-
-    __ __ __ 1a 1b 1c 2a 2b 2c
-    1a 1b 1c 2a 2b 2c 3a 3b 3c
-    2a 2b 2c 3a 3b 3c __ __ __
-
-    Where __ is padding.
-
-    Now let's say nW is 2. Then we want to take:
-
-    1a 1b 1c
-    2a 2b 2c
-    3a 3b 3c
-
-    And make
-
-    __ __ __ __ __ __ 1a 1b 1c 2a 2b 2c 3a 3b 3c
-    __ __ __ 1a 1b 1c 2a 2b 2c 3a 3b 3c __ __ __
-    1a 1b 1c 2a 2b 2c 3a 3b 3c __ __ __ __ __ __
-
-    * x_start=-6, x_end=9 : (0-2) * 3, (0+2+1) * 3
-    * x_start=-3, x_end=13 : (1-2) * 3, (1+2+1) * 3
-    * x_start=0, x_end=16 : (2-2) * 3, (2+2+1) * 3
-
-    If lengths > 1, then the sequence lengths dictate
-    the boundaries/padding rather than the begin/end
-    of X.
-    '''
-
-    nF = nW * 2 + 1
-
-    seq_start = 0
-    for i in range(nL):
-        # Calculate the bounds of the next sequence.
-        seq_end = seq_start + L[i]
-
-        # Four-argument range loop only works with constant step.
-        for j in range(seq_start, seq_end):
-            # Find the unconstrained window around b, which
-            # may be out of the sequence bounds.
-            window_start = j - nW
-            window_end = j + nW + 1
-
-            # Find the sequence-constrained window around b.
-            x_start = max(seq_start, window_start)
-            x_end = min(seq_end, window_end)
-            n_elems = x_end - x_start
-
-            out_offset = x_start - window_start
-
-            memcpy(output + (j * nF * I) + (out_offset * I),
-                   X + (x_start * I),
-                   n_elems * I * sizeof(output[0]))
-
-        seq_start += L[i]
-
-
-cdef void backprop_seq2col(float* d_seqs,
-        const float* d_cols, const int* L, int B, int I, int nW, int nL) nogil:
-    # Here's what we're doing, if we had 2d indexing.
-    #for i in range(B):
-    #    d_seq[i] += d_cols[i-2, 4]
-    #    d_seq[i] += d_cols[i-1, 3]
-    #    d_seq[i] += d_cols[i, 2]
-    #    d_seq[i] += d_cols[i+1, 1]
-    #    d_seq[i] += d_cols[i+2, 0]
-
-    nF = nW * 2 + 1
-
-    seq_start = 0
-    for i in range(nL):
-        # Calculate the bounds of the next sequence.
-        seq_end = seq_start + L[i]
-
-        for j in range(seq_start, seq_end):
-            # Find the unconstrained window around b, which
-            # may be out of the sequence bounds.
-            window_begin = j - nW
-            window_end = j + nW + 1
-
-            # Find the sequence-constrained window around b.
-            d_seqs_begin = max(seq_start, window_begin)
-            d_seqs_end = min(seq_end, window_end)
-            n_elems = d_seqs_end - d_seqs_begin
-
-            # If the left window is cut short, we want to
-            # start by the same amount in the output.
-            out_offset = d_seqs_begin - window_begin
-
-            VecVec.add_i(&d_seqs[d_seqs_begin * I],
-                         &d_cols[(j * nF * I) + (out_offset * I)],
-                         1., n_elems * I)
-
-        seq_start += L[i]
-
-
-cdef void cpu_maxout(float* best__bo, int* which__bo,
-        const float* cands__bop, int B, int O, int P) nogil:
-    for i in range(B*O):
-        which__bo[i] = Vec.arg_max(&cands__bop[i*P], P)
-        best__bo[i] = cands__bop[i*P + which__bo[i]]
-
-
-cdef int cpu_backprop_maxout(float* dX__bop,
-        const float* dX__bo, const int* which__bo, int B, int O, int P) nogil except -1:
-    for b in range(B):
-        for o in range(O):
-            if which__bo[0] >= P:
-                raise IndexError(f"index {which__bo[0]} is out of bounds for maxout with size {P}")
-            dX__bop[which__bo[0]] = dX__bo[0]
-            dX__bop += P
-            dX__bo += 1
-            which__bo += 1
-    return 0
 
 
 def cpu_clip_gradient(weight_t[::1] gradient, weight_t threshold):
@@ -630,163 +557,6 @@ cdef void cpu_update_averages(weight_t* ema,
     cdef int i
     for i in range(nr_weight): # num_threads=4, schedule='static'):
         ema[i] -= one_minus_decay * (ema[i] - weights[i])
-
-
-cdef void cpu_mish(weight_t* Y, const weight_t* X, float threshold, int N) nogil:
-    cdef float one = 1.
-    for i in range(N):
-        if X[i] >= threshold:
-            Y[i] = X[i]
-        else:
-            Y[i] = X[i] * tanhf(logf(one + expf(X[i])))
-
-
-cdef void cpu_backprop_mish(weight_t* dX,
-        const weight_t* dY, const weight_t* X, float threshold, int N) nogil:
-    cdef float one = 1.
-    cdef float exp_x, exp_2x, exp_3x, omega, delta
-    for i in range(N):
-        x = X[i]
-        if x >= threshold:
-            dX[i] = dY[i]
-        else:
-            exp_x = expf(x)
-            exp_2x = expf(2*x)
-            exp_3x = expf(3*x)
-            omega = (4. * (x+1)) + (4 * exp_2x) + exp_3x + exp_x * (4.*x+6)
-            delta = 2. * exp_x + exp_2x + 2.
-            dX[i] = dY[i] * ((exp_x * omega) / (delta * delta))
-
-
-cdef cpu_floats_ptr2array(float* ptr, shape):
-    cdef np.ndarray py_out = numpy.zeros(shape, dtype='float32')
-    cdef int N = numpy.prod(shape)
-    memcpy(py_out.data, ptr, N * sizeof(ptr[0]))
-    return py_out
-
-
-cdef cpu_ints_ptr2array(int* ptr, shape):
-    cdef np.ndarray py_out = numpy.zeros(shape, dtype='int32')
-    cdef int N = numpy.prod(shape)
-    memcpy(py_out.data, ptr, N * sizeof(ptr[0]))
-    return py_out
-
-
-cdef int cpu_reduce_mean(float* means__bo,
-        const float* X__to, const int* lengths__b,
-        int B, int T, int O) nogil except -1:
-    '''Compute means of a batch of concatenated sequences, using the lengths.'''
-    cdef float scale = 0.
-    for length in lengths__b[:B]:
-        T -= length
-        if length == 0:
-            continue
-        elif length < 0:
-            raise ValueError(f"all sequence lengths must be >= 0, was {length}")
-        elif T < 0:
-            raise IndexError("lengths must sum up to the number of rows")
-
-        scale = 1. / length
-        for _ in range(length):
-            VecVec.add_i(means__bo,
-                X__to, scale, O)
-            X__to += O
-        means__bo += O
-
-
-cdef void cpu_backprop_reduce_mean(float* dX__to,
-        const float* d_means__bo, const int* lengths__b,
-        int B, int T, int O) nogil:
-    cdef float scale = 0.
-    for length in lengths__b[:B]:
-        scale = 1./ length
-        for _ in range(length):
-            VecVec.add_i(dX__to,
-                d_means__bo, scale, O)
-            dX__to += O
-        d_means__bo += O
-
-
-cdef int cpu_reduce_sum(float* sums__bo,
-        const float* X__to, const int* lengths__b,
-        int B, int T, int O) nogil except -1:
-    '''Compute sums of a batch of concatenated sequences, using the lengths.'''
-    for length in lengths__b[:B]:
-        T -= length
-        if length == 0:
-            continue
-        elif length < 0:
-            raise ValueError(f"all sequence lengths must be >= 0, was {length}")
-        elif T < 0:
-            raise IndexError("lengths must sum up to the number of rows")
-
-        for _ in range(length):
-            VecVec.add_i(sums__bo,
-                X__to, 1.0, O)
-            X__to += O
-        sums__bo += O
-
-
-cdef int cpu_backprop_reduce_sum(float* dX__to,
-        const float* d_sums__bo, const int* lengths__b,
-        int B, int T, int O) nogil except -1:
-    for length in lengths__b[:B]:
-        T -= length
-        if length == 0:
-            continue
-        elif length < 0:
-            raise ValueError(f"all sequence lengths must be >= 0, was {length}")
-        elif T < 0:
-            raise IndexError("lengths must sum up to the number of rows")
-        for _ in range(length):
-            VecVec.add_i(dX__to,
-                d_sums__bo, 1.0, O)
-            dX__to += O
-        d_sums__bo += O
-
-
-cdef int cpu_reduce_max(float* maxes__bo, int* which__bo,
-        const float* X__to, const int* lengths__b,
-        int B, int T, int O) nogil except -1:
-    '''Compute maxes of a batch of concatenated sequences, using the lengths.'''
-    cdef float scale = 0.
-    for length in lengths__b[:B]:
-        T -= length
-        if length == 0:
-            continue
-        elif length < 0:
-            raise ValueError(f"all sequence lengths must be >= 0, was {length}")
-        elif T < 0:
-            raise IndexError("lengths must sum up to the number of rows")
-
-        memcpy(maxes__bo, X__to, O * sizeof(maxes__bo[0]))
-        memset(which__bo, 0, O * sizeof(which__bo[0]))
-        X__to += O
-        for i in range(1, length):
-            for j in range(O):
-                if X__to[j] > maxes__bo[j]:
-                    maxes__bo[j] = X__to[j]
-                    which__bo[j] = i
-            X__to += O
-        maxes__bo += O
-        which__bo += O
-
-
-cdef int cpu_backprop_reduce_max(float* dX__to,
-        const float* d_maxes__bo, const int* which__bo, const int* lengths__b,
-        int B, int T, int O) nogil except -1:
-    cdef int length, i, item
-    for length in lengths__b[:B]:
-        for i in range(O):
-            item = which__bo[i]
-            if item >= length:
-                raise IndexError(f"index {item} is out of bounds for sequence with length {length}")
-            dX__to[item * O + i] = d_maxes__bo[i]
-        dX__to += length * O
-        d_maxes__bo += O
-        which__bo += O
-
-    return 0
 
 
 def lstm_forward_training(
@@ -1327,3 +1097,10 @@ def _check_compatible_shape(u: np.ndarray, v: np.ndarray):
     if u.shape != v.shape:
         msg = f"arrays have incompatible shapes: {u.shape} and {v.shape}"
         raise ValueError(msg)
+
+
+cdef inline np.ndarray _inplace_or_copy(np.ndarray X, inplace):
+    if inplace:
+        return X
+    else:
+        return numpy.array(X)
