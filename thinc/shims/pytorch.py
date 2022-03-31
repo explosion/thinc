@@ -43,11 +43,6 @@ class PyTorchShim(Shim):
         mixed_precision: bool = False,
         grad_scaler: Optional[PyTorchGradScaler] = None,
     ):
-        if mixed_precision and not has_torch_amp:
-            raise ValueError(
-                "Mixed-precision training is not supported, requires capable GPU and torch>=1.9.0"
-            )
-
         super().__init__(model, config, optimizer)
 
         if grad_scaler is None:
