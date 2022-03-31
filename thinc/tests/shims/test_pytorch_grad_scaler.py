@@ -96,5 +96,21 @@ def test_grad_scaler():
     has_torch_amp, reason="needs PyTorch without gradient scaling support"
 )
 def test_raises_on_old_pytorch():
+    import torch
+    scaler = PyTorchGradScaler(enabled=True)
     with pytest.raises(ValueError, match=r"not supported.*1.9.0"):
-        PyTorchGradScaler(enabled=True)
+        scaler.scale([torch.tensor([1.0], device="cpu")])
+
+
+@pytest.mark.skipif(not has_torch, reason="needs PyTorch")
+@pytest.mark.skipif(
+    not has_torch_amp, reason="needs PyTorch with gradient scaling support"
+)
+def test_raises_with_cpu_tensor():
+    import torch
+
+    scaler = PyTorchGradScaler(enabled=True)
+    with pytest.raises(
+        ValueError, match=r"Gradient scaling is only supported for CUDA tensors."
+    ):
+        scaler.scale([torch.tensor([1.0], device="cpu")])

@@ -75,7 +75,7 @@ Also see the [`/examples`](examples) directory and [usage documentation](https:/
 
 ### 📖 Documentation & usage guides
 
-|                                                                                   |                                                       |
+| Documentation                                                                     | Description                                           |
 | --------------------------------------------------------------------------------- | ----------------------------------------------------- |
 | [Introduction](https://thinc.ai/docs)                                             | Everything you need to know.                          |
 | [Concept & Design](https://thinc.ai/docs/concept)                                 | Thinc's conceptual model and how it works.            |
