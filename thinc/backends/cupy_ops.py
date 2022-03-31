@@ -150,8 +150,8 @@ class CupyOps(Ops):
     ):
         if X.dtype == dY.dtype and X.dtype in ("float32", "float64"):
             return _custom_kernels.backprop_clipped_linear(
-                dY=dY,
-                X=X,
+                dY,
+                X,
                 slope=slope,
                 offset=offset,
                 min_val=min_val,
@@ -243,7 +243,7 @@ class CupyOps(Ops):
 
     def reduce_mean(self, X, lengths):
         if X.dtype in ("float32", "float64") and lengths.dtype == "int32":
-            return _custom_kernels.reduce_mean(X, lengths)
+            return _custom_kernels.reduce_mean(X, lengths=lengths)
         else:
             super().reduce_mean(X, lengths)
 
