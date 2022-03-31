@@ -220,12 +220,26 @@ class NumpyOps(Ops):
 
         return dX
 
-    def seq2col(self, reals2d_ft seq, int nW, *, int[::1] lengths=None):
+    def seq2col(self, np.ndarray seq, int nW, *, int[::1] lengths=None):
         """Given an (M, N) sequence of vectors, return an (M, N*(nW*2+1))
         sequence. The new sequence is constructed by concatenating nW preceding
         and succeeding vectors onto each column in the sequence, to extract a
          window of features.
         """
+
+        # Note: the type of seq should be changed to reals2d_ft once
+        # cython/cython#4697 is fixed. The following checks can then be
+        # removed, because they are guaranteed by the reals2d_ft
+        # type.
+
+        if seq.ndim != 2:
+            msg = f"seq2col requires sequence array of dimensionality 2, was {seq.ndim}"
+            raise ValueError(msg)
+        if not seq.flags.c_contiguous:
+            msg = f"seq2col requires sequence array that is in C order and contiguous"
+            raise ValueError(msg)
+
+
         cdef int B = seq.shape[0]
         cdef int I = seq.shape[1]
 
@@ -233,18 +247,33 @@ class NumpyOps(Ops):
         cdef int nL = lengths.shape[0]
 
         cdef np.ndarray cols
-        if reals2d_ft is float2d_t:
+        if seq.dtype == "float32":
             cols = self.alloc((B, (2*nW + 1) * I), dtype="float32")
             if seq.size != 0 and lengths.size != 0:
-                seq2col(<float*>cols.data, &seq[0,0], &lengths[0], nW, B, I, nL)
-        else:
+                seq2col(<float*>cols.data, <float*>seq.data, &lengths[0], nW, B, I, nL)
+        elif seq.dtype == "float64":
             cols = self.alloc((B, (2*nW + 1) * I), dtype="float64")
             if seq.size != 0 and lengths.size != 0:
-                seq2col(<double*>cols.data, &seq[0,0], &lengths[0], nW, B, I, nL)
+                seq2col(<double*>cols.data, <double*>seq.data, &lengths[0], nW, B, I, nL)
+        else:
+            return super().seq2col(seq, nW, lengths=lengths)
+
 
         return cols
 
-    def backprop_seq2col(self, reals2d_ft dY, int nW, *, int[::1] lengths=None):
+    def backprop_seq2col(self, np.ndarray dY, int nW, *, int[::1] lengths=None):
+        # Note: the type of dY should be changed to reals2d_ft once
+        # cython/cython#4697 is fixed. The following checks can then be
+        # removed, because they are guaranteed by the reals2d_ft
+        # type.
+
+        if dY.ndim != 2:
+            msg = f"backprop_seq2col requires gradient array of dimensionality 2, was {dY.ndim}"
+            raise ValueError(msg)
+        if not dY.flags.c_contiguous:
+            msg = f"backprop_seq2col requires gradient array that is in C order and contiguous"
+            raise ValueError(msg)
+
         cdef int B = dY.shape[0]
         cdef int nF = nW*2+1
         cdef int I = dY.shape[1] / nF
@@ -253,14 +282,16 @@ class NumpyOps(Ops):
         cdef int nL = lengths.shape[0]
 
         cdef np.ndarray dX
-        if reals2d_ft is float2d_t:
+        if dY.dtype == "float32":
             dX = self.alloc((B, I), dtype='float32')
             if dY.size != 0 and lengths.size != 0:
-                backprop_seq2col(<float*>dX.data, &dY[0,0], &lengths[0], B, I, nW, nL)
-        else:
+                backprop_seq2col(<float*>dX.data, <float*>dY.data, &lengths[0], B, I, nW, nL)
+        elif dY.dtype == "float64":
             dX = self.alloc((B, I), dtype='float64')
             if dY.size != 0 and lengths.size != 0:
-                backprop_seq2col(<double*>dX.data, &dY[0,0], &lengths[0], B, I, nW, nL)
+                backprop_seq2col(<double*>dX.data, <double*>dY.data, &lengths[0], B, I, nW, nL)
+        else:
+            return super().backprop_seq2col(dY, nW, lengths=lengths)
 
         return dX
 
