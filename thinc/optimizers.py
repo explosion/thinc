@@ -364,22 +364,22 @@ class SWA(object):
     def __init__(
         self,
         optimizer: Optimizer,
+        lr: FloatOrSeq,
         *,
-        start_step: Optional[int] = 0,
-        freq: Optional[int] = 1,
-        lr: FloatOrSeq = None,
+        freq: int = 1,
+        start_step: Optional[int] = 0
     ):
         self.optimizer = optimizer
         self.start_step = start_step
         self.freq = freq
         self.lr = lr
-        self.nr_update = defaultdict(int)
+        self.nr_update: Dict[Tuple[int, str], int] = defaultdict(int)
         self.run_swa = False
-        self.averages = {}
+        self.averages: Dict[Tuple[int, str], FloatsXd] = {}
 
     def _update_averages(
         self,
-        key: str,
+        key: Tuple[int, str],
         weights: FloatsXd,
     ):
         """
@@ -436,16 +436,16 @@ class Lookahead(object):
     "fast" weights with them.
     """
 
-    def __init__(self, optimizer, *, freq: str, pullback: float):
+    def __init__(self, optimizer, *, freq: int, pullback: float):
         self.optimizer = optimizer
-        self.nr_update = defaultdict(int)
+        self.nr_update: Dict[Tuple[int, str], int] = defaultdict(int)
         self.freq = freq
         self.pullback = pullback
-        self.averages = {}
+        self.averages: Dict[Tuple[int, str], FloatsXd] = {}
 
     def _update_averages(
         self,
-        key: str,
+        key: Tuple[int, str],
         weights: FloatsXd,
     ):
         """
