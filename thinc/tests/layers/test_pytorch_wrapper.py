@@ -80,7 +80,9 @@ def test_pytorch_wrapper_thinc_input(nN, nI, nO, mixed_precision):
             PyTorchWrapper_v2(
                 pytorch_layer.cuda(),
                 mixed_precision=mixed_precision,
-                grad_scaler=PyTorchGradScaler(enabled=True, init_scale=2.0 ** 16),
+                grad_scaler=PyTorchGradScaler(
+                    enabled=mixed_precision, init_scale=2.0**16
+                ),
             ).initialize(),
         )
         # pytorch allocator is set in PyTorchShim
