@@ -443,6 +443,16 @@ def _make_mask_by_value(truths, guesses, missing_value) -> Floats2d:
     return mask
 
 
+# Computed as in "Logistic regression in rare events data"
+# G King, L Zeng - Political analysis, 2001
+def balanced_class_weights(labels: Ints1d) -> Floats1d:
+    xp = get_array_module(labels)
+    classes, freqs = xp.unique(labels, return_counts=True)
+    N_x, N_c = len(labels), len(classes)
+    weights = xp.asarray([N_x / (N_c * freq) for freq in freqs])
+    return weights
+
+
 __all__ = [
     "SequenceCategoricalCrossentropy",
     "CategoricalCrossentropy",
