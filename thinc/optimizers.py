@@ -111,8 +111,8 @@ class Optimizer(object):
     schedules: Dict[str, Generator]
     nr_update: Dict[KeyT, int]
     last_seen: Dict[KeyT, int]
-    grad_clip: float
     learn_rate: float
+    grad_clip: float
     b1: float
     b2: float
     eps: float
@@ -127,11 +127,11 @@ class Optimizer(object):
         "mom1",
         "mom2",
         "averages",
+        "learn_rate",
         "schedules",
         "nr_update",
         "last_seen",
         "grad_clip",
-        "learn_rate",
         "b1",
         "b2",
         "eps",
@@ -279,7 +279,7 @@ class Optimizer(object):
 
         # exp_avg_sq.mul_(beta2).addcmul_(1 - beta2, grad, grad)
         exp_avg_sq *= beta2
-        exp_avg_sq += (1 - beta2) * (gradient_1D ** 2)
+        exp_avg_sq += (1 - beta2) * (gradient_1D**2)
         # exp_avg.mul_(beta1).add_(1 - beta1, grad)
         exp_avg *= beta1
         exp_avg += (1 - beta1) * gradient_1D
@@ -338,9 +338,9 @@ class Optimizer(object):
         mom2 = self.mom2[key]
         b1 = self.b1
         b2 = self.b2
-        fix1 = 1.0 - (b1 ** nr_upd)
-        fix2 = 1.0 - (b2 ** nr_upd)
-        lr = self.learn_rate * fix2 ** 0.5 / fix1
+        fix1 = 1.0 - (b1**nr_upd)
+        fix2 = 1.0 - (b2**nr_upd)
+        lr = self.learn_rate * fix2**0.5 / fix1
         eps = self.eps
         # needs to be 1D going into the adam function
         weights_1D, gradient_1D, mom1, mom2 = ops.adam(
@@ -352,6 +352,129 @@ class Optimizer(object):
             ops.reshape_f(weights_1D, weights.shape),
             ops.reshape_f(gradient_1D, gradient.shape),
         )
+
+
+class SWA(object):
+    """
+    After the optimization ran 'start_step' number of steps
+    it switches the learning-rate of the optimizer and starts
+    recording the moving averages of all weights.
+    """
+
+    def __init__(
+        self,
+        optimizer: Optimizer,
+        *,
+        start_step: Optional[int] = 0,
+        freq: Optional[int] = 1,
+        lr: FloatOrSeq = None,
+    ):
+        self.optimizer = optimizer
+        self.start_step = start_step
+        self.freq = freq
+        self.lr = lr
+        self.nr_update = defaultdict(int)
+        self.run_swa = False
+        self.averages = {}
+
+    def _update_averages(
+        self,
+        key: str,
+        weights: FloatsXd,
+    ):
+        """
+        Update moving average of weights.
+        """
+        if key not in self.averages:
+            ops = get_array_ops(weights)
+            self.averages[key] = ops.alloc(weights.shape, dtype="float32")
+            self.averages[key] += weights
+        else:
+            self.averages[key] *= self.nr_update[key]
+            self.averages[key] += weights
+            self.averages[key] /= self.nr_update[key] + 1
+
+    def _swap_lr(self):
+        """
+        Overwrite the optimizer's learning rate.
+        """
+        self.optimizer._set_attr_or_schedule("learn_rate", self.lr)
+
+    def start_swa(self):
+        """
+        Instead of providing 'start_step' a caller
+        can turn SWA on with this method.
+        """
+        self.run_swa = True
+        self._swap_lr()
+
+    def __call__(
+        self,
+        key: Tuple[int, str],
+        weights: FloatsXd,
+        gradient: FloatsXd,
+        *,
+        lr_scale: float = 1.0,
+    ):
+        self.nr_update[key] += 1
+        nr_update = self.nr_update[key]
+        weights, gradient = self.optimizer(key, weights, gradient, lr_scale=lr_scale)
+        # Update running mean
+        if nr_update == self.start_step:
+            self.start_swa()
+        if self.run_swa and nr_update % self.freq == 0:
+            self._update_averages(key, weights)
+
+        return weights, gradient
+
+
+class Lookahead(object):
+    """
+    Keeps a "slow" exponential moving average
+    of all "fast" weights. At each 'freq' update
+    it updates the slow-weights and replaces the
+    "fast" weights with them.
+    """
+
+    def __init__(self, optimizer, *, freq: str, pullback: float):
+        self.optimizer = optimizer
+        self.nr_update = defaultdict(int)
+        self.freq = freq
+        self.pullback = pullback
+        self.averages = {}
+
+    def _update_averages(
+        self,
+        key: str,
+        weights: FloatsXd,
+    ):
+        """
+        Update exponental moving average of weights.
+        """
+        if key not in self.averages:
+            ops = get_array_ops(weights)
+            self.averages[key] = ops.alloc(weights.shape, dtype="float32")
+            self.averages[key] += weights
+        else:
+            average = self.averages[key]
+            self.averages[key] += self.pullback * (weights - average)
+
+    def __call__(
+        self,
+        key: Tuple[int, str],
+        weights: FloatsXd,
+        gradient: FloatsXd,
+        *,
+        lr_scale: float = 1.0,
+    ):
+        self.nr_update[key] += 1
+        nr_update = self.nr_update[key]
+        weights, gradient = self.optimizer(key, weights, gradient, lr_scale=lr_scale)
+        # Update running mean and return interpolated weights
+        if nr_update % self.freq == 0:
+            self._update_averages(key, weights)
+            weights = self.averages[key]
+        return weights, gradient
 
 
 __all__ = ["Adam", "RAdam", "SGD", "Optimizer", "ADAM_DEFAULTS", "SGD_DEFAULTS"]
