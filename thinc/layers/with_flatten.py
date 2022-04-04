@@ -27,7 +27,8 @@ def forward(
     Ynest = layer.ops.xp.split(Yflat, splits, axis=0)
 
     def backprop(dYnest: OutT) -> OutT:
-        dYflat = model.ops.flatten(dYnest)
+        dYflat = model.ops.flatten(dYnest)  # type: ignore[arg-type, var-annotated]
+        # type ignore necessary for older versions of Mypy/Pydantic
         dXflat = backprop_layer(dYflat)
         dXnest = layer.ops.xp.split(dXflat, splits, axis=-1)
         return dXnest

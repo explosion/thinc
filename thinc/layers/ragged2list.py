@@ -19,7 +19,8 @@ def forward(model: Model[InT, OutT], Xr: InT, is_train: bool) -> Tuple[OutT, Cal
     lengths = Xr.lengths
 
     def backprop(dXs: OutT) -> InT:
-        return Ragged(model.ops.flatten(dXs, pad=0), lengths)
+        return Ragged(model.ops.flatten(dXs, pad=0), lengths)  # type:ignore[arg-type]
+        # type ignore necessary for older versions of Mypy/Pydantic
 
     data = cast(OutT, model.ops.unflatten(Xr.dataXd, Xr.lengths))
     return data, backprop

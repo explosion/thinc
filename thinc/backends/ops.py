@@ -254,7 +254,7 @@ class Ops:
         """The reverse/backward operation of the `flatten` function: unflatten
         a large array into a list of arrays according to the given lengths.
         """
-        unflat = cast(List[ArrayXd], [])
+        unflat = []
         pad = int(pad)
         for length in lengths:
             length = int(length)

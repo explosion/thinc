@@ -1,16 +1,5 @@
-from typing import (
-    Any,
-    List,
-    Tuple,
-    Callable,
-    Optional,
-    TypeVar,
-    cast,
-    Dict,
-    Union,
-    Sequence,
-)
-
+from typing import Any, List, Tuple, Callable, Optional
+from typing import TypeVar, cast, Dict, Union, Sequence
 from ..model import Model
 from ..config import registry
 from ..types import Array2d, Ragged
