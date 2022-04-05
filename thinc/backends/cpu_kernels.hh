@@ -271,7 +271,7 @@ void cpu_relu(A* X, L N)
     static_assert(std::is_integral<L>::value, "Array length should be integral");
 
     for (L i = 0; i < N; ++i) {
-        if (X[i] < 0) {
+        if (X[i] <= 0.0) {
             X[i] = 0.0;
         }
     }
