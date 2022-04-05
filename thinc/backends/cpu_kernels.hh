@@ -93,7 +93,7 @@ void cpu_reduce_max(A* maxes__bo, L* which__bo, const A* X__to,
 
         T -= *length;
 
-        memcpy(maxes__bo, X__to, O * sizeof(*maxes__bo));
+        std::memcpy(maxes__bo, X__to, O * sizeof(*maxes__bo));
         X__to += O;
         for (L i = 1; i < *length; ++i) {
             for (L j = 0; j < O; ++j) {
