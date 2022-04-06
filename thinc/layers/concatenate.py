@@ -46,16 +46,18 @@ def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Call
         list_return_value, backprop = _list_forward(model, X, Ys, callbacks, is_train)
         return_value = cast(OutT, list_return_value)
     elif isinstance(Ys[0], Ragged):
-        ragged_return_value, backprop = _ragged_forward(model, Ys, callbacks, is_train)
+        ragged_return_value, backprop = _ragged_forward(
+            model, X, Ys, callbacks, is_train
+        )
         return_value = cast(OutT, ragged_return_value)
     else:
-        array_return_value, backprop = _array_forward(model, Ys, callbacks, is_train)
+        array_return_value, backprop = _array_forward(model, X, Ys, callbacks, is_train)
         return_value = cast(OutT, array_return_value)
     return return_value, backprop
 
 
 def _array_forward(
-    model: Model[InT, OutT], Ys: List, callbacks, is_train: bool
+    model: Model[InT, OutT], X, Ys: List, callbacks, is_train: bool
 ) -> Tuple[Array2d, Callable]:
     widths = [Y.shape[1] for Y in Ys]
     output = model.ops.xp.hstack(Ys)
@@ -82,7 +84,7 @@ def _array_forward(
 
 
 def _ragged_forward(
-    model: Model[InT, OutT], Ys: List, callbacks, is_train: bool
+    model: Model[InT, OutT], X, Ys: List, callbacks, is_train: bool
 ) -> Tuple[Ragged, Callable]:
 
     widths = [Y.dataXd.shape[1] for Y in Ys]

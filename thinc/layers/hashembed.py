@@ -35,7 +35,7 @@ def HashEmbed(
     attrs: Dict[str, Any] = {"column": column, "seed": seed}
     if dropout is not None:
         attrs["dropout_rate"] = dropout
-    model = Model(  # type: ignore[var-annotated]
+    model: Model = Model(
         "hashembed",
         forward,
         init=partial(init, initializer),
