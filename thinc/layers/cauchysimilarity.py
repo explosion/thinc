@@ -23,6 +23,7 @@ def CauchySimilarity(nI: Optional[int] = None) -> Model[InT, OutT]:
         params={"W": None},
     )
 
+
 def forward(
     model: Model[InT, OutT], X1_X2: InT, is_train: bool
 ) -> Tuple[OutT, Callable]:

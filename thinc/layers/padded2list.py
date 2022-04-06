@@ -15,7 +15,9 @@ def padded2list() -> Model[InT, OutT]:
     return Model(f"padded2list", forward)
 
 
-def forward(model: Model[InT, OutT], Xp: InT, is_train: bool) -> Tuple[OutT, Callable[[OutT], InT]]:
+def forward(
+    model: Model[InT, OutT], Xp: InT, is_train: bool
+) -> Tuple[OutT, Callable[[OutT], InT]]:
     Ys = cast(OutT, model.ops.padded2list(Xp))
 
     def backprop(dYs: OutT) -> InT:

@@ -8,7 +8,9 @@ OutT = Tuple
 
 
 @registry.layers("tuplify.v1")
-def tuplify(layer1: Model[InT, Any], layer2: Model[InT, Any], *layers) -> Model[InT, Tuple]:
+def tuplify(
+    layer1: Model[InT, Any], layer2: Model[InT, Any], *layers
+) -> Model[InT, Tuple]:
     """Send a separate copy of the input to each child layer, and join the
     outputs of the children into a tuple on the way out.
 
