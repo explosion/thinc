@@ -48,11 +48,10 @@ def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Call
 
 def init(
     model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = None
-) -> Model[InT, OutT]:
+) -> None:
     if X is not None:
         model.set_dim("nI", get_width(X))
     nO = model.get_dim("nO")
     nI = model.get_dim("nI")
     model.set_param("W", model.ops.alloc2f(nO, nI))
     model.set_param("b", model.ops.alloc1f(nO))
-    return model

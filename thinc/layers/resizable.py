@@ -34,10 +34,9 @@ def forward(model: Model[InT, OutT], X: InT, is_train: bool):
 
 def init(
     model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = None
-) -> Model[InT, OutT]:
+) -> None:
     layer = model.layers[0]
     layer.initialize(X, Y)
-    return model
 
 
 def resize_model(model: Model[InT, OutT], new_nO):

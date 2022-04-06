@@ -34,12 +34,10 @@ def with_debug(
 
         return layer_Y, backprop
 
-    def init(model: Model, X: Any, Y: Any) -> Model:
+    def init(model: Model, X: Any, Y: Any) -> None:
         on_init(model, X, Y)
         if orig_init is not None:
-            return orig_init(layer, X, Y)
-        else:
-            return layer
+            orig_init(layer, X, Y)
 
     layer.replace_callbacks(forward, init=init)
 

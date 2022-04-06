@@ -76,14 +76,13 @@ def init(
     model: Model[Floats2d, Floats2d],
     X: Optional[Floats2d] = None,
     Y: Optional[Floats2d] = None,
-) -> Model[Floats2d, Floats2d]:
+) -> None:
     if X is not None:
         model.set_dim("nI", get_width(X))
     if Y is not None:
         model.set_dim("nO", get_width(Y))
     model.set_param("W", init_W(model.ops, (model.get_dim("nO"), model.get_dim("nI"))))
     model.set_param("b", init_b(model.ops, (model.get_dim("nO"),)))
-    return model
 
 
 @registry.layers("HardSigmoid.v1")
