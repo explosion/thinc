@@ -26,7 +26,7 @@ def Embed(
     attrs: Dict[str, Union[None, int, float]] = {}
     if dropout is not None:
         attrs["dropout_rate"] = dropout
-    model = Model(  # type: ignore[var-annotated]
+    model: Model = Model(
         "embed",
         forward,
         init=partial(init, initializer),
