@@ -23,8 +23,8 @@ def forward(
     rate = model.attrs["dropout_rate"]
     is_enabled = model.attrs["is_enabled"] and is_train
     if rate == 0 or not is_enabled:
-        unchanged_return_value, backprop = X, lambda dY: dY
-        return_value = cast(InT, unchanged_return_value)
+        backprop = lambda dY: dY
+        return_value = X
     elif isinstance(X, Ragged):
         ragged_return_value, backprop = _dropout_ragged(model, X, is_train)
         return_value = cast(InT, ragged_return_value)
