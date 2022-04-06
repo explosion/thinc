@@ -35,9 +35,11 @@ def with_nvtx_range(
 
         return layer_Y, backprop
 
-    def init(_, X: Any, Y: Any) -> None:
+    def init(_model: Model, X: Any, Y: Any) -> Model:
         if orig_init is not None:
-            orig_init(layer, X, Y)
+            return orig_init(layer, X, Y)
+        else:
+            return layer
 
     layer.replace_callbacks(forward, init=init)
 
