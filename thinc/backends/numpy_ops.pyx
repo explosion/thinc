@@ -93,17 +93,18 @@ class NumpyOps(Ops):
         return blis.py.gemm(x, y, out=out, trans1=trans1, trans2=trans2, beta=0.)
 
     def relu(self, np.ndarray X, inplace=False):
-        cdef np.ndarray Y = _inplace_or_copy(X, inplace)
+        cdef np.ndarray Y
 
         if X.dtype == "float32":
+            Y = _inplace_or_copy(X, inplace)
             cpu_relu(<float *>Y.data, <int>Y.size)
+            return Y
         elif X.dtype == "float64":
+            Y = _inplace_or_copy(X, inplace)
             cpu_relu(<double *>Y.data, <int>Y.size)
+            return Y
         else:
             return super().relu(X, inplace=inplace)
-
-        return Y
-
 
     def backprop_relu(self, np.ndarray dY, np.ndarray Y, inplace=False):
         _check_compatible_shape(dY, Y)
@@ -114,10 +115,6 @@ class NumpyOps(Ops):
         cdef np.ndarray dX
         if dY.dtype == "float32" and Y.dtype == "float32":
             dX = _inplace_or_copy(dY, inplace)
-            if inplace:
-                dX = dY
-            else:
-                dX = dY.copy()
             dX_ptr = <weight_t*>dX.data
             for i in range(size):
                 if Y_ptr[i] <= 0:
@@ -195,14 +192,13 @@ class NumpyOps(Ops):
         if X.dtype == "float32":
             Y = _inplace_or_copy(X, inplace)
             cpu_mish(<float *>Y.data, <int>Y.size, <float>threshold)
+            return Y
         elif X.dtype == "float64":
             Y = _inplace_or_copy(X, inplace)
             cpu_mish(<double *>Y.data, <int>Y.size, <double>threshold)
+            return Y
         else:
             return super().mish(X, inplace=inplace)
-
-        return Y
-
 
     def backprop_mish(self, np.ndarray dY, np.ndarray X, threshold=20.0, inplace=False):
         _check_compatible_shape(dY, X)
@@ -212,13 +208,13 @@ class NumpyOps(Ops):
         if dY.dtype == "float32" and X.dtype == "float32":
             dX = _inplace_or_copy(dY, inplace)
             cpu_backprop_mish(<float*>dX.data, <float*>X.data, <int>X.size, <float>threshold)
+            return dX
         elif dY.dtype == "float64" and X.dtype == "float64":
             dX = _inplace_or_copy(dY, inplace)
             cpu_backprop_mish(<double*>dX.data, <double*>X.data, <int>X.size, <double>threshold)
+            return dX
         else:
             return super().backprop_mish(dY, X, threshold, inplace)
-
-        return dX
 
     def seq2col(self, np.ndarray seq, int nW, *, int[::1] lengths=None):
         """Given an (M, N) sequence of vectors, return an (M, N*(nW*2+1))
@@ -251,15 +247,14 @@ class NumpyOps(Ops):
             cols = self.alloc((B, (2*nW + 1) * I), dtype="float32")
             if seq.size != 0 and lengths.size != 0:
                 seq2col(<float*>cols.data, <float*>seq.data, &lengths[0], nW, B, I, nL)
+            return cols
         elif seq.dtype == "float64":
             cols = self.alloc((B, (2*nW + 1) * I), dtype="float64")
             if seq.size != 0 and lengths.size != 0:
                 seq2col(<double*>cols.data, <double*>seq.data, &lengths[0], nW, B, I, nL)
+            return cols
         else:
             return super().seq2col(seq, nW, lengths=lengths)
-
-
-        return cols
 
     def backprop_seq2col(self, np.ndarray dY, int nW, *, int[::1] lengths=None):
         # Note: the type of dY should be changed to reals2d_ft once
@@ -286,14 +281,14 @@ class NumpyOps(Ops):
             dX = self.alloc((B, I), dtype='float32')
             if dY.size != 0 and lengths.size != 0:
                 backprop_seq2col(<float*>dX.data, <float*>dY.data, &lengths[0], B, I, nW, nL)
+            return dX
         elif dY.dtype == "float64":
             dX = self.alloc((B, I), dtype='float64')
             if dY.size != 0 and lengths.size != 0:
                 backprop_seq2col(<double*>dX.data, <double*>dY.data, &lengths[0], B, I, nW, nL)
+            return dX
         else:
             return super().backprop_seq2col(dY, nW, lengths=lengths)
-
-        return dX
 
     @cython.boundscheck(False)
     @cython.wraparound(False)
