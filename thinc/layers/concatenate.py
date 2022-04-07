@@ -124,7 +124,7 @@ def _list_forward(model: Model[InT, List[Array2d]], X, Ys, callbacks, is_train: 
 
 def init(
     model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = None
-) -> Model[InT, OutT]:
+) -> None:
     if X is not None:
         if model.has_dim("nI") is not False:
             model.set_dim("nI", get_width(X))
@@ -135,4 +135,3 @@ def init(
         layer.initialize(X=X, Y=Y)
     if all([layer.has_dim("nO") for layer in model.layers]):
         model.set_dim("nO", sum(layer.get_dim("nO") for layer in model.layers))
-    return model

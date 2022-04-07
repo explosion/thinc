@@ -48,13 +48,12 @@ def tuplify_forward(model, X, is_train):
 
 def init(
     model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = None
-) -> Model[InT, OutT]:
+) -> None:
     if X is None and Y is None:
         for layer in model.layers:
             layer.initialize()
         if model.layers[0].has_dim("nI"):
             model.set_dim("nI", model.layers[0].get_dim("nI"))
-        return model
 
     # Try to set nO on each layer, where available.
     # All layers have the same input, and the output should map directly from the
@@ -68,4 +67,3 @@ def init(
     if model.layers[0].has_dim("nI"):
         model.set_dim("nI", model.layers[0].get_dim("nI"))
     # this model can have an input dimension, but can't have an output dimension
-    return model

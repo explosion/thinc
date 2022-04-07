@@ -33,14 +33,13 @@ def forward(model: Model[InT, OutT], Xr: InT, is_train: bool) -> Tuple[OutT, Cal
 
 def init(
     model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = None
-):
+) -> None:
     if X is not None:
         model.set_dim("nO", get_width(X))
     # Randomly initialize the parameter, as though it were an embedding.
     Q = model.ops.alloc1f(model.get_dim("nO"))
     Q += model.ops.xp.random.uniform(-0.1, 0.1, Q.shape)
     model.set_param("Q", Q)
-    return model
 
 
 def _get_attention(ops, Q, X, lengths):
