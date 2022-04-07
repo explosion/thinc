@@ -9,7 +9,7 @@ from ..initializers import uniform_init
 from ..util import partial
 
 
-InT = Ints1d
+InT = Union[Ints1d, Ints2d]
 OutT = Floats2d
 
 
@@ -56,7 +56,7 @@ def HashEmbed(
 
 
 def forward(
-    model: Model[InT, OutT], ids: Ints1d, is_train: bool
+    model: Model[Ints1d, OutT], ids: Ints1d, is_train: bool
 ) -> Tuple[OutT, Callable]:
     vectors = cast(Floats2d, model.get_param("E"))
     nV = vectors.shape[0]
@@ -92,10 +92,10 @@ def forward(
 
 def init(
     initializer: Callable,
-    model: Model[InT, OutT],
+    model: Model[Ints1d, OutT],
     X: Optional[Ints1d] = None,
     Y: Optional[OutT] = None,
-) -> Model[InT, OutT]:
+) -> Model[Ints1d, OutT]:
     E = initializer(model.ops, (model.get_dim("nV"), model.get_dim("nO")))
     model.set_param("E", E)
     return model
