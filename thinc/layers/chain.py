@@ -8,7 +8,7 @@ from ..types import XY_YZ_OutT
 
 InT = TypeVar("InT")
 MidT = TypeVar("MidT")
-
+OutT = TypeVar("OutT")
 
 # Keep this function so we can provide variable arguments via the config
 @registry.layers("chain.v1")
@@ -48,7 +48,7 @@ def chain(
 
 def forward(
     model: Model[InT, XY_YZ_OutT], X: InT, is_train: bool
-) -> Tuple[XY_YZ_OutT, Callable]:
+) -> Tuple[OutT, Callable]:
     """Apply the layers of `model` in sequence, feeding the output from one
     layer into the next.
     """
@@ -58,7 +58,7 @@ def forward(
         callbacks.append(inc_layer_grad)
         X = Y
 
-    def backprop(dY: XY_YZ_OutT) -> InT:
+    def backprop(dY: OutT) -> InT:
         for callback in reversed(callbacks):
             dX = callback(dY)
             dY = dX
@@ -70,7 +70,7 @@ def forward(
 def init(
     model: Model[InT, XY_YZ_OutT],
     X: Optional[InT] = None,
-    Y: Optional[XY_YZ_OutT] = None,
+    Y: Optional[OutT] = None,
 ) -> Model[InT, XY_YZ_OutT]:
     if X is None and Y is None:
         for layer in model.layers:
