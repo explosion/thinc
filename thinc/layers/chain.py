@@ -47,7 +47,7 @@ def chain(
 
 
 def forward(
-    model: Model[InT, XY_YZ_OutT], X: InT, is_train: bool
+    model: Model[InT, OutT], X: InT, is_train: bool
 ) -> Tuple[OutT, Callable]:
     """Apply the layers of `model` in sequence, feeding the output from one
     layer into the next.
@@ -68,7 +68,7 @@ def forward(
 
 
 def init(
-    model: Model[InT, XY_YZ_OutT],
+    model: Model[InT, OutT],
     X: Optional[InT] = None,
     Y: Optional[OutT] = None,
 ) -> None:
