@@ -69,7 +69,7 @@ def init(
     model: Model[InT, OutT],
     X: Optional[InT] = None,
     Y: Optional[OutT] = None,
-) -> Model[InT, OutT]:
+) -> None:
     if X is not None:
         model.set_dim("nI", get_width(X))
     if Y is not None:
@@ -77,4 +77,3 @@ def init(
     W_shape = (model.get_dim("nO"), model.get_dim("nP"), model.get_dim("nI"))
     model.set_param("W", init_W(model.ops, W_shape))
     model.set_param("b", init_b(model.ops, (model.get_dim("nO"), model.get_dim("nP"))))
-    return model

@@ -254,18 +254,17 @@ class Ops:
         """The reverse/backward operation of the `flatten` function: unflatten
         a large array into a list of arrays according to the given lengths.
         """
-        unflat = []
-        pad = int(pad)
-        for length in lengths:
-            length = int(length)
-            if pad >= 1 and length != 0:
-                X = X[pad:]
-            unflat.append(X[:length])
-            X = X[length:]
-        if pad >= 1:
-            X = X[pad:]
-        assert len(X) == 0
+        # cupy.split requires lengths to be in CPU memory.
+        lengths = to_numpy(lengths)
+
+        if pad > 0:
+            lengths = numpy.where(lengths > 0, lengths + pad, 0)  # type: ignore
+        unflat = self.xp.split(X, numpy.cumsum(lengths))[:-1]  # type: ignore
+        if pad > 0:
+            unflat = [a[pad:] for a in unflat]
+
         assert len(unflat) == len(lengths)
+
         return unflat
 
     @overload

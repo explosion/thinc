@@ -44,7 +44,7 @@ def forward(
 
 def init(
     model: Model[SeqT, SeqT], X: Optional[SeqT] = None, Y: Optional[SeqT] = None
-) -> Model[SeqT, SeqT]:
+) -> None:
     layer: Model[ArrayXd, ArrayXd] = model.layers[0]
     layer.initialize(
         X=_get_array(model, X) if X is not None else X,
@@ -54,7 +54,6 @@ def init(
         value = layer.maybe_get_dim(dim_name)
         if value is not None:
             model.set_dim(dim_name, value)
-    return model
 
 
 def _get_array(model, X: SeqT) -> ArrayXd:

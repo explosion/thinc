@@ -47,12 +47,11 @@ def forward(
 
 def init(
     model: Model[SeqT, SeqT], X: Optional[SeqT] = None, Y: Optional[SeqT] = None
-) -> Model[SeqT, SeqT]:
+) -> None:
     model.layers[0].initialize(
         X=_get_padded(model, X) if X is not None else None,
         Y=_get_padded(model, Y) if Y is not None else None,
     )
-    return model
 
 
 def _is_padded_data(seq: SeqT) -> bool:
