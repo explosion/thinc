@@ -108,8 +108,8 @@ def _ragged_forward(
 
 def _list_forward(
     model: Model[InT, OutT], X, Ys: List, callbacks, is_train: bool
-) -> Tuple[List[Array2d], Callable]:
-    def backprop(d_output: List[Array2d]) -> InT:
+) -> Tuple[Sequence[Array2d], Callable]:
+    def backprop(d_output: Sequence[Array2d]) -> InT:
         d_out_array = model.ops.xp.concatenate(d_output, axis=0)
         dY = model.ops.as_contig(d_out_array[:, : widths[0]])
         # We want to generalize unflatten later.
@@ -127,7 +127,7 @@ def _list_forward(
     Ys = [model.ops.xp.concatenate(Y, axis=0) for Y in Ys]
     widths = [Y.shape[1] for Y in Ys]
     out_array = model.ops.xp.hstack(Ys)
-    return cast(List[Array2d], model.ops.unflatten(out_array, lengths)), backprop
+    return cast(Sequence[Array2d], model.ops.unflatten(out_array, lengths)), backprop
 
 
 def init(

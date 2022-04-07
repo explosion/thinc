@@ -21,21 +21,19 @@ def forward(model: Model[InT, InT], X: InT, is_train: bool) -> Tuple[InT, Callab
     rate = model.attrs["dropout_rate"]
     is_enabled = model.attrs["is_enabled"] and is_train
     if rate == 0 or not is_enabled:
-        backprop = lambda dY: dY
-        return_value = X
+        return X, lambda dY: dY
     elif isinstance(X, Ragged):
-        ragged_return_value, backprop = _dropout_ragged(model, X, is_train)
-        return_value = cast(InT, ragged_return_value)
+        data_r, backprop = _dropout_ragged(model, X, is_train)
+        return cast(InT, data_r), backprop
     elif isinstance(X, Padded):
-        padded_return_value, backprop = _dropout_padded(model, X, is_train)
-        return_value = cast(InT, padded_return_value)
+        data_p, backprop = _dropout_padded(model, X, is_train)
+        return cast(InT, data_p), backprop
     elif isinstance(X, Sequence):
-        list_return_value, backprop = _dropout_lists(model, X, is_train)
-        return_value = cast(InT, list_return_value)
+        data_l, backprop = _dropout_lists(model, X, is_train)
+        return cast(InT, data_l), backprop
     else:
-        array_return_value, backprop = _dropout_array(model, cast(ArrayXd, X), is_train)
-        return_value = cast(InT, array_return_value)
-    return return_value, backprop
+        data_a, backprop = _dropout_array(model, cast(ArrayXd, X), is_train)
+        return cast(InT, data_a), backprop
 
 
 def _dropout_array(
