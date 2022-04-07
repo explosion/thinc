@@ -1,4 +1,4 @@
-recursive-include thinc *.cu *.pyx *.pxd
+recursive-include thinc *.cu *.pyx *.pxd *.hh
 include LICENSE
 include README.md
 prune tmp/
