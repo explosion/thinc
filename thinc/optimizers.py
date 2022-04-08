@@ -364,15 +364,22 @@ class SWA(object):
     def __init__(
         self,
         optimizer: Optimizer,
-        lr: FloatOrSeq,
+        learn_rate: FloatOrSeq,
         *,
         freq: int = 1,
         start_step: int = 0
     ):
+        """
+        optimizer: The inner optimizer whose iterates to average.
+        learn_rate: Learning-rate (or schedule) to run with after
+            the averaging is turned on.
+        freq: Every 'freq' step the moving-averages will be updated.
+        start_step: Start the averaging after start_step number of updates.
+        """
         self.optimizer = optimizer
         self.start_step = start_step
         self.freq = freq
-        self.lr = lr
+        self.learn_rate = learn_rate
         self.nr_update: Dict[Tuple[int, str], int] = defaultdict(int)
         self.run_swa = False
         self.averages: Dict[Tuple[int, str], FloatsXd] = {}
@@ -400,14 +407,6 @@ class SWA(object):
         """
         self.optimizer._set_attr_or_schedule("learn_rate", self.lr)
 
-    def start_swa(self):
-        """
-        Instead of providing 'start_step' a caller
-        can turn SWA on with this method.
-        """
-        self.run_swa = True
-        self._swap_lr()
-
     def __call__(
         self,
         key: Tuple[int, str],
@@ -421,8 +420,8 @@ class SWA(object):
         weights, gradient = self.optimizer(key, weights, gradient, lr_scale=lr_scale)
         # Update running mean
         if nr_update == self.start_step:
-            self.start_swa()
-        if self.run_swa and nr_update % self.freq == 0:
+            self._swap_lr()
+        if nr_update >= self.start_step and nr_update % self.freq == 0:
             self._update_averages(key, weights)
 
         return weights, gradient
@@ -437,6 +436,13 @@ class Lookahead(object):
     """
 
     def __init__(self, optimizer: Optimizer, *, freq: int, pullback: float):
+        """
+        optimizer: The inner optimizer whose iterates to average.
+        freq: Every 'freq' updates synchronize fast and slow weights and update
+            moving-average.
+        pullback: trades off the contribution of the new weight iterate
+            and the moving average.
+        """
         self.optimizer = optimizer
         self.nr_update: Dict[Tuple[int, str], int] = defaultdict(int)
         self.freq = freq
