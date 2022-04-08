@@ -367,7 +367,7 @@ class SWA(object):
         lr: FloatOrSeq,
         *,
         freq: int = 1,
-        start_step: Optional[int] = 0
+        start_step: int = 0
     ):
         self.optimizer = optimizer
         self.start_step = start_step
