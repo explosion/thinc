@@ -436,7 +436,7 @@ class Lookahead(object):
     "fast" weights with them.
     """
 
-    def __init__(self, optimizer, *, freq: int, pullback: float):
+    def __init__(self, optimizer: Optimizer, *, freq: int, pullback: float):
         self.optimizer = optimizer
         self.nr_update: Dict[Tuple[int, str], int] = defaultdict(int)
         self.freq = freq
