@@ -162,14 +162,14 @@ class NumpyOps(Ops):
         cdef int P = X.shape[2]
 
         cdef np.ndarray best
-        cdef np.ndarray which = numpy.empty(shape=(B, O), dtype='int32', order='C')
+        cdef np.ndarray which = self.alloc(shape=(B, O), dtype='int32', uninitialized=True)
         if reals3d_ft is float3d_t:
-            best = numpy.empty(shape=(B, O), dtype="float32", order='C')
+            best = self.alloc(shape=(B, O), dtype="float32", uninitialized=True)
             if len(X) > 0:
                 cpu_maxout(<float*>best.data, <int*>which.data,
                     &X[0, 0, 0], B, O, P)
         else:
-            best = numpy.empty(shape=(B, O), dtype="float64", order='C')
+            best = self.alloc(shape=(B, O), dtype="float64", uninitialized=True)
             if len(X) > 0:
                 cpu_maxout(<double*>best.data, <int*>which.data,
                     &X[0, 0, 0], B, O, P)
@@ -396,12 +396,12 @@ class NumpyOps(Ops):
         assert O != 0
 
         cdef np.ndarray maxes
-        cdef np.ndarray which = numpy.zeros(shape=(B, O), dtype="i")
+        cdef np.ndarray which = self.alloc(shape=(B, O), dtype="i", uninitialized=True)
         if reals2d_ft is float2d_t:
-            maxes = numpy.zeros(shape=(B, O), dtype="float32")
+            maxes = self.alloc(shape=(B, O), dtype="float32", uninitialized=True)
             cpu_reduce_max(<float*>maxes.data, <int*>which.data, &X[0, 0], &lengths[0], B, T, O)
         else:
-            maxes = numpy.zeros(shape=(B, O), dtype="float64")
+            maxes = self.alloc(shape=(B, O), dtype="float64", uninitialized=True)
             cpu_reduce_max(<double*>maxes.data, <int*>which.data, &X[0, 0], &lengths[0], B, T, O)
 
         return maxes, which

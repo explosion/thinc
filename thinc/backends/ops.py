@@ -911,10 +911,10 @@ class Ops:
         if inplace:
             X *= tmp
             return X
-        Y = self.xp.zeros_like(X)
-        Y += tmp
-        Y *= X
-        return cast(FloatsType, Y)
+        else:
+            Y = self.xp.array(X)
+            Y *= tmp
+            return cast(FloatsType, Y)
 
     def backprop_gelu_approx(
         self, dY: FloatsType, X: FloatsType, inplace: bool = False
