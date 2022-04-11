@@ -382,18 +382,35 @@ class Ops:
         mask = (coinflips >= drop) / (1.0 - drop)
         return cast(FloatsXd, self.asarray(mask, dtype="float32"))
 
-    def alloc1f(self, d0: int, *, dtype: Optional[DTypesFloat] = "float32") -> Floats1d:
-        return self.alloc((d0,), dtype=dtype)
+    def alloc1f(
+        self,
+        d0: int,
+        *,
+        dtype: Optional[DTypesFloat] = "float32",
+        uninitialized: bool = False,
+    ) -> Floats1d:
+        return self.alloc((d0,), dtype=dtype, uninitialized=uninitialized)
 
     def alloc2f(
-        self, d0: int, d1: int, *, dtype: Optional[DTypesFloat] = "float32"
+        self,
+        d0: int,
+        d1: int,
+        *,
+        dtype: Optional[DTypesFloat] = "float32",
+        uninitialized: bool = False,
     ) -> Floats2d:
-        return self.alloc((d0, d1), dtype=dtype)
+        return self.alloc((d0, d1), dtype=dtype, uninitialized=uninitialized)
 
     def alloc3f(
-        self, d0: int, d1: int, d2: int, *, dtype: Optional[DTypesFloat] = "float32"
+        self,
+        d0: int,
+        d1: int,
+        d2: int,
+        *,
+        dtype: Optional[DTypesFloat] = "float32",
+        uninitialized: bool = False,
     ) -> Floats3d:
-        return self.alloc((d0, d1, d2), dtype=dtype)
+        return self.alloc((d0, d1, d2), dtype=dtype, uninitialized=uninitialized)
 
     def alloc4f(
         self,
@@ -403,26 +420,48 @@ class Ops:
         d3: int,
         *,
         dtype: Optional[DTypesFloat] = "float32",
+        uninitialized: bool = False,
     ) -> Floats4d:
-        return self.alloc((d0, d1, d2, d3), dtype=dtype)
+        return self.alloc((d0, d1, d2, d3), dtype=dtype, uninitialized=uninitialized)
 
     def alloc_f(
-        self, shape: Shape, *, dtype: Optional[DTypesFloat] = "float32"
+        self,
+        shape: Shape,
+        *,
+        dtype: Optional[DTypesFloat] = "float32",
+        uninitialized: bool = False,
     ) -> FloatsXd:
-        return self.alloc(shape, dtype=dtype)
+        return self.alloc(shape, dtype=dtype, uninitialized=uninitialized)
 
-    def alloc1i(self, d0: int, *, dtype: Optional[DTypesInt] = "int32") -> Ints1d:
-        return self.alloc((d0,), dtype=dtype)
+    def alloc1i(
+        self,
+        d0: int,
+        *,
+        dtype: Optional[DTypesInt] = "int32",
+        uninitialized: bool = False,
+    ) -> Ints1d:
+        return self.alloc((d0,), dtype=dtype, uninitialized=uninitialized)
 
     def alloc2i(
-        self, d0: int, d1: int, *, dtype: Optional[DTypesInt] = "int32"
+        self,
+        d0: int,
+        d1: int,
+        *,
+        dtype: Optional[DTypesInt] = "int32",
+        uninitialized: bool = False,
     ) -> Ints2d:
-        return self.alloc((d0, d1), dtype=dtype)
+        return self.alloc((d0, d1), dtype=dtype, uninitialized=uninitialized)
 
     def alloc3i(
-        self, d0: int, d1: int, d2: int, *, dtype: Optional[DTypesInt] = "int32"
+        self,
+        d0: int,
+        d1: int,
+        d2: int,
+        *,
+        dtype: Optional[DTypesInt] = "int32",
+        uninitialized: bool = False,
     ) -> Ints3d:
-        return self.alloc((d0, d1, d2), dtype=dtype)
+        return self.alloc((d0, d1, d2), dtype=dtype, uninitialized=uninitialized)
 
     def alloc4i(
         self,
@@ -432,17 +471,34 @@ class Ops:
         d3: int,
         *,
         dtype: Optional[DTypesInt] = "int32",
+        uninitialized: bool = False,
     ) -> Ints4d:
-        return self.alloc((d0, d1, d2, d3), dtype=dtype)
+        return self.alloc((d0, d1, d2, d3), dtype=dtype, uninitialized=uninitialized)
 
-    def alloc_i(self, shape: Shape, *, dtype: Optional[DTypesInt] = "int32") -> IntsXd:
-        return self.alloc(shape, dtype=dtype)
+    def alloc_i(
+        self,
+        shape: Shape,
+        *,
+        dtype: Optional[DTypesInt] = "int32",
+        uninitialized: bool = False,
+    ) -> IntsXd:
+        return self.alloc(shape, dtype=dtype, uninitialized=uninitialized)
 
-    def alloc(self, shape: Shape, *, dtype: Optional[DTypes] = "float32") -> ArrayT:
+    def alloc(
+        self,
+        shape: Shape,
+        *,
+        dtype: Optional[DTypes] = "float32",
+        uninitialized: bool = False,
+    ) -> ArrayT:
         """Allocate an array of a certain shape."""
         if isinstance(shape, int):
             shape = (shape,)
-        return self.xp.zeros(shape, dtype=dtype)
+
+        if uninitialized:
+            return self.xp.empty(shape, dtype=dtype)
+        else:
+            return self.xp.zeros(shape, dtype=dtype)
 
     def reshape1f(self, array: FloatsXd, d0: int) -> Floats1d:
         return cast(Floats1d, self.reshape(array, (d0,)))
@@ -982,7 +1038,7 @@ class Ops:
         return -loss
 
     def reduce_sum(self, X: Floats2d, lengths: Ints1d) -> Floats2d:
-        Y = self.alloc2f(lengths.shape[0], X.shape[1])
+        Y = self.alloc2f(lengths.shape[0], X.shape[1], uninitialized=True)
         start = 0
         for i, length in enumerate(lengths):
             if length < 0:
@@ -995,7 +1051,7 @@ class Ops:
         return Y
 
     def reduce_mean(self, X: Floats2d, lengths: Ints1d) -> Floats2d:
-        Y = self.alloc2f(lengths.shape[0], X.shape[1])
+        Y = self.alloc2f(lengths.shape[0], X.shape[1], uninitialized=True)
         start = 0
         for i, length in enumerate(lengths):
             if length < 0:
@@ -1008,8 +1064,10 @@ class Ops:
         return Y
 
     def reduce_max(self, X: Floats2d, lengths: Ints1d) -> Tuple[Floats2d, Ints2d]:
-        Y = self.alloc2f(lengths.shape[0], X.shape[1], dtype=X.dtype)
-        which = self.alloc2i(lengths.shape[0], X.shape[1])
+        Y = self.alloc2f(
+            lengths.shape[0], X.shape[1], dtype=X.dtype, uninitialized=True
+        )
+        which = self.alloc2i(lengths.shape[0], X.shape[1], uninitialized=True)
         start = 0
         for i, length in enumerate(lengths):
             if length < 0:
@@ -1023,7 +1081,9 @@ class Ops:
         return Y, which
 
     def backprop_reduce_sum(self, d_sums: Floats2d, lengths: Ints1d) -> Floats2d:
-        dX = self.alloc2f(lengths.sum(), d_sums.shape[1], dtype=d_sums.dtype)
+        dX = self.alloc2f(
+            lengths.sum(), d_sums.shape[1], dtype=d_sums.dtype, uninitialized=True
+        )
         start = 0
         for i, length in enumerate(lengths):
             if length < 0:
@@ -1033,7 +1093,9 @@ class Ops:
         return dX
 
     def backprop_reduce_mean(self, d_means: Floats2d, lengths: Ints1d) -> Floats2d:
-        dX = self.alloc2f(lengths.sum(), d_means.shape[1], dtype=d_means.dtype)
+        dX = self.alloc2f(
+            lengths.sum(), d_means.shape[1], dtype=d_means.dtype, uninitialized=True
+        )
         start = 0
         for i, length in enumerate(lengths):
             if length < 0:

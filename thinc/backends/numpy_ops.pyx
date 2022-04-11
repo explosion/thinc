@@ -76,8 +76,11 @@ class NumpyOps(Ops):
         else:
             return self.xp.array(data)
 
-    def alloc(self, shape: Shape, *, dtype: Optional[DTypes] = "float32") -> ArrayXd:
-        return self.xp.zeros(shape, dtype=dtype)
+    def alloc(self, shape: Shape, *, dtype: Optional[DTypes] = "float32", uninitialized: bool = False) -> ArrayXd:
+        if uninitialized:
+            return self.xp.empty(shape, dtype=dtype)
+        else:
+            return self.xp.zeros(shape, dtype=dtype)
 
     def gemm(self, np.ndarray x, np.ndarray y, *, np.ndarray out=None, trans1=False, trans2=False):
         if x.ndim != 2:
@@ -472,7 +475,7 @@ class NumpyOps(Ops):
     def position_encode(self, int N, int D, int period=10000, out=None):
         cdef np.ndarray out_
         if out is None:
-            out_ = self.alloc((N, D))
+            out_ = self.alloc((N, D), uninitialized=True)
         else:
             out_ = out
         assert out_.shape[0] == N
@@ -627,7 +630,7 @@ def lstm_forward_training(
             Cid = C[i, d]
             Gid = G[i, d]
             _lstm_forward_training(
-                d, N, nO, nI, nT, 
+                d, N, nO, nI, nT,
                 Gid,
                 <float*>Yid.data,
                 <float*>Cid.data,
@@ -779,7 +782,7 @@ def backprop_lstm(np.ndarray dY, np.ndarray lengths, np.ndarray params, fwd_stat
             Wx, Wh, bias = all_layer_params[i][d][0]
             dWx, dWh, d_bias = all_layer_grads[i][d][0]
             assert Wx.shape[1] == dWx.shape[1] == X.shape[1] == dX.shape[1], (Wx.shape[1], dWx.shape[1], X.shape[1], dX.shape[1])
-            dYid = dY[d] 
+            dYid = dY[d]
             dC.fill(0.)
             dG.fill(0.)
             Cid = C[i, d]
@@ -800,7 +803,7 @@ def backprop_lstm(np.ndarray dY, np.ndarray lengths, np.ndarray params, fwd_stat
                 <float*>dWh.data,
                 <float*>d_bias.data,
                 <float*>Cid.data,
-                <float*>Gid.data, 
+                <float*>Gid.data,
                 <float*>Yid.data,
                 <float*>X.data,
                 <float*>Wx.data,
@@ -865,7 +868,7 @@ cdef int _lstm_backward_training(
         Ct3 = &C[seq_t3*nO]
         Gt3 = &G[seq_t3*nO*4]
         Ct2 = &C[seq_t2*nO]
-        
+
         batch_size = min(size_t2, size_t3)
         cpu_lstm_gates_bwd(dGt3, dCt2,
             dYt3, dCt3, Gt3, Ct3, Ct2, batch_size * nO
@@ -979,7 +982,7 @@ cdef void cpu_lstm_activate_fwd(float* gates, int B, int N) nogil:
     """Apply sigmoid activation in-place to columns 0, 1, 2 and tanh to column 3.
     The data is assumed to have the gates in the last dimension.
     """
-    # This just does the following, but unrolled slightly to give 
+    # This just does the following, but unrolled slightly to give
     # a better chance at simd.
     #
     # gates[g+i+0] = sigmoid(gates[g+i+0])
@@ -1020,7 +1023,7 @@ cdef void cpu_lstm_activate_fwd(float* gates, int B, int N) nogil:
             gates[g+3] = tanhf(gates[g+3])
             g += 4
 
- 
+
 cdef void cpu_lstm_gates_fwd(float* hiddens, float* cells,
         const float* gates, const float* prevcells, int B, int N) nogil:
     cdef float hf, hi, ho, hc, ct2, ct3
@@ -1064,7 +1067,7 @@ cdef void cpu_lstm_gates_bwd(
         hi = Gt3[i*4+1]
         ho = Gt3[i*4+2]
         hc = Gt3[i*4+3]
-        
+
         tanh_ct3 = tanhf(ct3)
         # 3b: Yt3 = tanhCt3 * ho
         d_ho = dyt3 * tanh_ct3
