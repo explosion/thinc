@@ -124,6 +124,20 @@ backprop_swish_kernel_double = _get_kernel("backprop_swish<double>")
 backprop_swish_kernel_float = _get_kernel("backprop_swish<float>")
 
 
+def _alloc(shape, dtype, *, zeros: bool = True):
+    if zeros:
+        return cupy.zeros(shape, dtype)
+    else:
+        return cupy.empty(shape, dtype)
+
+
+def _alloc_like(array, zeros: bool = True):
+    if zeros:
+        return cupy.zeros_like(array)
+    else:
+        return cupy.empty_like(array)
+
+
 def clipped_linear(
     X,
     *,
@@ -139,7 +153,7 @@ def clipped_linear(
 
     out = X
     if not inplace:
-        out = cupy.empty_like(X)
+        out = _alloc_like(X, zeros=False)
     if X.dtype == "float32":
         clipped_linear_kernel_float(
             (num_blocks,),
@@ -160,7 +174,7 @@ def gelu(X, *, inplace=False, threshold=6.0, threads_per_block=128, num_blocks=1
 
     out = X
     if not inplace:
-        out = cupy.empty_like(X)
+        out = _alloc_like(X, zeros=False)
     if X.dtype == "float32":
         gelu_kernel_float(
             (num_blocks,), (threads_per_block,), (out, X, threshold, X.size)
@@ -190,7 +204,7 @@ def seq2col(seq, nW, *, lengths=None, threads_per_block=128, num_blocks=128):
     lengths = check_seq2col_lengths(lengths, B)
     nL = lengths.shape[0]
 
-    out = cupy.zeros((B, I * nF), dtype=seq.dtype)
+    out = _alloc((B, I * nF), dtype=seq.dtype)
 
     if seq.size != 0 and lengths.size != 0:
         if seq.dtype == "float32":
@@ -211,8 +225,8 @@ def maxout(X, *, threads_per_block=128, num_blocks=128):
     B, I, P = X.shape
 
     out_shape = (B, I)
-    best = cupy.empty(out_shape, dtype=X.dtype)
-    which = cupy.empty(out_shape, dtype="i")
+    best = _alloc(out_shape, dtype=X.dtype, zeros=False)
+    which = _alloc(out_shape, dtype="i", zeros=False)
 
     if X.dtype == "float32":
         maxout_kernel_float(
@@ -231,7 +245,7 @@ def mish(X, *, inplace=False, threshold=5, threads_per_block=128, num_blocks=128
 
     out = X
     if not inplace:
-        out = cupy.empty_like(X)
+        out = _alloc_like(X, zeros=False)
 
     if X.dtype == "float32":
         mish_kernel_float(
@@ -254,7 +268,7 @@ def reduce_sum(X, lengths, *, threads_per_block=128, num_blocks=128):
 
     _check_lengths(lengths, T)
 
-    out = cupy.zeros((B, O), dtype=X.dtype)
+    out = _alloc((B, O), dtype=X.dtype)
 
     if X.dtype == "float32":
         reduce_sum_kernel_float(
@@ -277,7 +291,7 @@ def reduce_mean(X, lengths, *, threads_per_block=128, num_blocks=128):
 
     _check_lengths(lengths, T)
 
-    out = cupy.zeros((B, O), dtype=X.dtype)
+    out = _alloc((B, O), dtype=X.dtype)
 
     if X.dtype == "float32":
         reduce_sum_kernel_float(
@@ -303,8 +317,8 @@ def reduce_max(X, lengths, *, threads_per_block=128, num_blocks=128):
     _check_lengths(lengths, T)
 
     out_shape = (B, O)
-    maxes = cupy.empty(out_shape, dtype=X.dtype)
-    which = cupy.empty(out_shape, dtype="i")
+    maxes = _alloc(out_shape, dtype=X.dtype, zeros=False)
+    which = _alloc(out_shape, dtype="i", zeros=False)
 
     if X.dtype == "float32":
         reduce_max_kernel_float(
@@ -323,7 +337,7 @@ def swish(X, *, inplace=False, threshold=17.0, threads_per_block=128, num_blocks
 
     out = X
     if not inplace:
-        out = cupy.empty_like(X)
+        out = _alloc_like(X, zeros=False)
     if X.dtype == "float32":
         swish_kernel_float(
             (num_blocks,), (threads_per_block,), (out, X, threshold, X.size)
@@ -345,7 +359,7 @@ def backprop_seq2col(dY, nW, *, lengths=None, threads_per_block=128, num_blocks=
     lengths = check_seq2col_lengths(lengths, B)
     nL = lengths.shape[0]
 
-    out = cupy.zeros((B, I), dtype=dY.dtype)
+    out = _alloc((B, I), dtype=dY.dtype)
 
     if dY.size != 0 and lengths.size != 0:
         if dY.dtype == "float32":
@@ -377,7 +391,7 @@ def backprop_clipped_linear(
 
     out = dY
     if not inplace:
-        out = cupy.empty_like(dY)
+        out = _alloc_like(dY, zeros=False)
 
     if dY.dtype == "float32":
         backprop_clipped_linear_kernel_float(
@@ -403,7 +417,7 @@ def backprop_hard_swish(
 
     out = dY
     if not inplace:
-        out = cupy.empty_like(dY)
+        out = _alloc_like(dY, zeros=False)
 
     if dY.dtype == "float32":
         backprop_hard_swish_kernel_float(
@@ -425,7 +439,7 @@ def backprop_hard_swish_mobilenet(
 
     out = dY
     if not inplace:
-        out = cupy.empty_like(dY)
+        out = _alloc_like(dY, zeros=False)
 
     if dY.dtype == "float32":
         backprop_hard_swish_mobilenet_kernel_float(
@@ -453,7 +467,7 @@ def backprop_gelu(
 
     out = dY
     if not inplace:
-        out = cupy.empty_like(dY)
+        out = _alloc_like(dY, zeros=False)
 
     if dY.dtype == "float32":
         backprop_gelu_kernel_float(
@@ -473,7 +487,7 @@ def backprop_maxout(dY, which, P, *, threads_per_block=128, num_blocks=128):
     B = dY.shape[0]
     I = dY.shape[1]
 
-    out = cupy.zeros((B, I, P), dtype=dY.dtype)
+    out = _alloc((B, I, P), dtype=dY.dtype)
 
     _check_which_maxout(which, B, I, P)
 
@@ -497,7 +511,7 @@ def backprop_mish(
 
     out = dY
     if not inplace:
-        out = cupy.empty_like(dY)
+        out = _alloc_like(dY, zeros=False)
 
     if dY.dtype == "float32":
         backprop_mish_kernel_float(
@@ -519,7 +533,7 @@ def backprop_reduce_sum(d_sums, lengths, *, threads_per_block=128, num_blocks=12
     O = d_sums.shape[1]
     _check_lengths(lengths, T)
 
-    out = cupy.zeros((T, O), dtype=d_sums.dtype)
+    out = _alloc((T, O), dtype=d_sums.dtype)
 
     if d_sums.dtype == "float32":
         backprop_reduce_sum_kernel_float(
@@ -541,7 +555,7 @@ def backprop_reduce_mean(d_means, lengths, *, threads_per_block=128, num_blocks=
     O = d_means.shape[1]
     _check_lengths(lengths, T)
 
-    out = cupy.zeros((T, O), dtype=d_means.dtype)
+    out = _alloc((T, O), dtype=d_means.dtype)
 
     if d_means.dtype == "float32":
         backprop_reduce_mean_kernel_float(
@@ -565,7 +579,7 @@ def backprop_reduce_max(
     O = d_maxes.shape[1]
     _check_lengths(lengths, T)
 
-    out = cupy.zeros((T, O), dtype=d_maxes.dtype)
+    out = _alloc((T, O), dtype=d_maxes.dtype)
 
     _check_which_reduce_max(which, (B, O), lengths)
 
@@ -590,7 +604,7 @@ def backprop_swish(
 
     out = dY
     if not inplace:
-        out = cupy.empty_like(dY)
+        out = _alloc_like(dY, zeros=False)
 
     if dY.dtype == "float32":
         backprop_swish_kernel_float(
@@ -605,7 +619,7 @@ def backprop_swish(
 
 
 def hash(ids, seed, *, threads_per_block=128, num_blocks=128):
-    out = cupy.zeros((ids.shape[0], 4), dtype="uint32")
+    out = _alloc((ids.shape[0], 4), dtype="uint32")
 
     # sizeof(uint32_t) * 4
     out_size = 4 * 4
