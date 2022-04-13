@@ -204,7 +204,7 @@ def seq2col(seq, nW, *, lengths=None, threads_per_block=128, num_blocks=128):
     lengths = check_seq2col_lengths(lengths, B)
     nL = lengths.shape[0]
 
-    out = _alloc((B, I * nF), dtype=seq.dtype)
+    out = _alloc((B, I * nF), dtype=seq.dtype, zeros=True)
 
     if seq.size != 0 and lengths.size != 0:
         if seq.dtype == "float32":
@@ -268,7 +268,7 @@ def reduce_sum(X, lengths, *, threads_per_block=128, num_blocks=128):
 
     _check_lengths(lengths, T)
 
-    out = _alloc((B, O), dtype=X.dtype)
+    out = _alloc((B, O), dtype=X.dtype, zeros=True)
 
     if X.dtype == "float32":
         reduce_sum_kernel_float(
@@ -291,7 +291,7 @@ def reduce_mean(X, lengths, *, threads_per_block=128, num_blocks=128):
 
     _check_lengths(lengths, T)
 
-    out = _alloc((B, O), dtype=X.dtype)
+    out = _alloc((B, O), dtype=X.dtype, zeros=True)
 
     if X.dtype == "float32":
         reduce_sum_kernel_float(
@@ -359,7 +359,7 @@ def backprop_seq2col(dY, nW, *, lengths=None, threads_per_block=128, num_blocks=
     lengths = check_seq2col_lengths(lengths, B)
     nL = lengths.shape[0]
 
-    out = _alloc((B, I), dtype=dY.dtype)
+    out = _alloc((B, I), dtype=dY.dtype, zeros=True)
 
     if dY.size != 0 and lengths.size != 0:
         if dY.dtype == "float32":
@@ -487,7 +487,7 @@ def backprop_maxout(dY, which, P, *, threads_per_block=128, num_blocks=128):
     B = dY.shape[0]
     I = dY.shape[1]
 
-    out = _alloc((B, I, P), dtype=dY.dtype)
+    out = _alloc((B, I, P), dtype=dY.dtype, zeros=True)
 
     _check_which_maxout(which, B, I, P)
 
@@ -533,7 +533,7 @@ def backprop_reduce_sum(d_sums, lengths, *, threads_per_block=128, num_blocks=12
     O = d_sums.shape[1]
     _check_lengths(lengths, T)
 
-    out = _alloc((T, O), dtype=d_sums.dtype)
+    out = _alloc((T, O), dtype=d_sums.dtype, zeros=True)
 
     if d_sums.dtype == "float32":
         backprop_reduce_sum_kernel_float(
@@ -555,7 +555,7 @@ def backprop_reduce_mean(d_means, lengths, *, threads_per_block=128, num_blocks=
     O = d_means.shape[1]
     _check_lengths(lengths, T)
 
-    out = _alloc((T, O), dtype=d_means.dtype)
+    out = _alloc((T, O), dtype=d_means.dtype, zeros=True)
 
     if d_means.dtype == "float32":
         backprop_reduce_mean_kernel_float(
@@ -579,7 +579,7 @@ def backprop_reduce_max(
     O = d_maxes.shape[1]
     _check_lengths(lengths, T)
 
-    out = _alloc((T, O), dtype=d_maxes.dtype)
+    out = _alloc((T, O), dtype=d_maxes.dtype, zeros=True)
 
     _check_which_reduce_max(which, (B, O), lengths)
 
@@ -619,7 +619,7 @@ def backprop_swish(
 
 
 def hash(ids, seed, *, threads_per_block=128, num_blocks=128):
-    out = _alloc((ids.shape[0], 4), dtype="uint32")
+    out = _alloc((ids.shape[0], 4), dtype="uint32", zeros=True)
 
     # sizeof(uint32_t) * 4
     out_size = 4 * 4
