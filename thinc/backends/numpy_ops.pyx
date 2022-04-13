@@ -76,11 +76,11 @@ class NumpyOps(Ops):
         else:
             return self.xp.array(data)
 
-    def alloc(self, shape: Shape, *, dtype: Optional[DTypes] = "float32", uninitialized: bool = False) -> ArrayXd:
-        if uninitialized:
-            return self.xp.empty(shape, dtype=dtype)
-        else:
+    def alloc(self, shape: Shape, *, dtype: Optional[DTypes] = "float32", zeros: bool = True) -> ArrayXd:
+        if zeros:
             return self.xp.zeros(shape, dtype=dtype)
+        else:
+            return self.xp.empty(shape, dtype=dtype)
 
     def gemm(self, np.ndarray x, np.ndarray y, *, np.ndarray out=None, trans1=False, trans2=False):
         if x.ndim != 2:
@@ -162,14 +162,14 @@ class NumpyOps(Ops):
         cdef int P = X.shape[2]
 
         cdef np.ndarray best
-        cdef np.ndarray which = self.alloc(shape=(B, O), dtype='int32', uninitialized=True)
+        cdef np.ndarray which = self.alloc(shape=(B, O), dtype='int32', zeros=False)
         if reals3d_ft is float3d_t:
-            best = self.alloc(shape=(B, O), dtype="float32", uninitialized=True)
+            best = self.alloc(shape=(B, O), dtype="float32", zeros=False)
             if len(X) > 0:
                 cpu_maxout(<float*>best.data, <int*>which.data,
                     &X[0, 0, 0], B, O, P)
         else:
-            best = self.alloc(shape=(B, O), dtype="float64", uninitialized=True)
+            best = self.alloc(shape=(B, O), dtype="float64", zeros=False)
             if len(X) > 0:
                 cpu_maxout(<double*>best.data, <int*>which.data,
                     &X[0, 0, 0], B, O, P)
@@ -396,12 +396,12 @@ class NumpyOps(Ops):
         assert O != 0
 
         cdef np.ndarray maxes
-        cdef np.ndarray which = self.alloc(shape=(B, O), dtype="i", uninitialized=True)
+        cdef np.ndarray which = self.alloc(shape=(B, O), dtype="i", zeros=False)
         if reals2d_ft is float2d_t:
-            maxes = self.alloc(shape=(B, O), dtype="float32", uninitialized=True)
+            maxes = self.alloc(shape=(B, O), dtype="float32", zeros=False)
             cpu_reduce_max(<float*>maxes.data, <int*>which.data, &X[0, 0], &lengths[0], B, T, O)
         else:
-            maxes = self.alloc(shape=(B, O), dtype="float64", uninitialized=True)
+            maxes = self.alloc(shape=(B, O), dtype="float64", zeros=False)
             cpu_reduce_max(<double*>maxes.data, <int*>which.data, &X[0, 0], &lengths[0], B, T, O)
 
         return maxes, which
@@ -475,7 +475,7 @@ class NumpyOps(Ops):
     def position_encode(self, int N, int D, int period=10000, out=None):
         cdef np.ndarray out_
         if out is None:
-            out_ = self.alloc((N, D), uninitialized=True)
+            out_ = self.alloc((N, D), zeros=False)
         else:
             out_ = out
         assert out_.shape[0] == N

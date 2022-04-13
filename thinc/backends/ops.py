@@ -387,9 +387,9 @@ class Ops:
         d0: int,
         *,
         dtype: Optional[DTypesFloat] = "float32",
-        uninitialized: bool = False,
+        zeros: bool = True,
     ) -> Floats1d:
-        return self.alloc((d0,), dtype=dtype, uninitialized=uninitialized)
+        return self.alloc((d0,), dtype=dtype, zeros=zeros)
 
     def alloc2f(
         self,
@@ -397,9 +397,9 @@ class Ops:
         d1: int,
         *,
         dtype: Optional[DTypesFloat] = "float32",
-        uninitialized: bool = False,
+        zeros: bool = True,
     ) -> Floats2d:
-        return self.alloc((d0, d1), dtype=dtype, uninitialized=uninitialized)
+        return self.alloc((d0, d1), dtype=dtype, zeros=zeros)
 
     def alloc3f(
         self,
@@ -408,9 +408,9 @@ class Ops:
         d2: int,
         *,
         dtype: Optional[DTypesFloat] = "float32",
-        uninitialized: bool = False,
+        zeros: bool = True,
     ) -> Floats3d:
-        return self.alloc((d0, d1, d2), dtype=dtype, uninitialized=uninitialized)
+        return self.alloc((d0, d1, d2), dtype=dtype, zeros=zeros)
 
     def alloc4f(
         self,
@@ -420,27 +420,27 @@ class Ops:
         d3: int,
         *,
         dtype: Optional[DTypesFloat] = "float32",
-        uninitialized: bool = False,
+        zeros: bool = True,
     ) -> Floats4d:
-        return self.alloc((d0, d1, d2, d3), dtype=dtype, uninitialized=uninitialized)
+        return self.alloc((d0, d1, d2, d3), dtype=dtype, zeros=zeros)
 
     def alloc_f(
         self,
         shape: Shape,
         *,
         dtype: Optional[DTypesFloat] = "float32",
-        uninitialized: bool = False,
+        zeros: bool = True,
     ) -> FloatsXd:
-        return self.alloc(shape, dtype=dtype, uninitialized=uninitialized)
+        return self.alloc(shape, dtype=dtype, zeros=zeros)
 
     def alloc1i(
         self,
         d0: int,
         *,
         dtype: Optional[DTypesInt] = "int32",
-        uninitialized: bool = False,
+        zeros: bool = True,
     ) -> Ints1d:
-        return self.alloc((d0,), dtype=dtype, uninitialized=uninitialized)
+        return self.alloc((d0,), dtype=dtype, zeros=zeros)
 
     def alloc2i(
         self,
@@ -448,9 +448,9 @@ class Ops:
         d1: int,
         *,
         dtype: Optional[DTypesInt] = "int32",
-        uninitialized: bool = False,
+        zeros: bool = True,
     ) -> Ints2d:
-        return self.alloc((d0, d1), dtype=dtype, uninitialized=uninitialized)
+        return self.alloc((d0, d1), dtype=dtype, zeros=zeros)
 
     def alloc3i(
         self,
@@ -459,9 +459,9 @@ class Ops:
         d2: int,
         *,
         dtype: Optional[DTypesInt] = "int32",
-        uninitialized: bool = False,
+        zeros: bool = True,
     ) -> Ints3d:
-        return self.alloc((d0, d1, d2), dtype=dtype, uninitialized=uninitialized)
+        return self.alloc((d0, d1, d2), dtype=dtype, zeros=zeros)
 
     def alloc4i(
         self,
@@ -471,34 +471,34 @@ class Ops:
         d3: int,
         *,
         dtype: Optional[DTypesInt] = "int32",
-        uninitialized: bool = False,
+        zeros: bool = True,
     ) -> Ints4d:
-        return self.alloc((d0, d1, d2, d3), dtype=dtype, uninitialized=uninitialized)
+        return self.alloc((d0, d1, d2, d3), dtype=dtype, zeros=zeros)
 
     def alloc_i(
         self,
         shape: Shape,
         *,
         dtype: Optional[DTypesInt] = "int32",
-        uninitialized: bool = False,
+        zeros: bool = True,
     ) -> IntsXd:
-        return self.alloc(shape, dtype=dtype, uninitialized=uninitialized)
+        return self.alloc(shape, dtype=dtype, zeros=zeros)
 
     def alloc(
         self,
         shape: Shape,
         *,
         dtype: Optional[DTypes] = "float32",
-        uninitialized: bool = False,
+        zeros: bool = True,
     ) -> ArrayT:
         """Allocate an array of a certain shape."""
         if isinstance(shape, int):
             shape = (shape,)
 
-        if uninitialized:
-            return self.xp.empty(shape, dtype=dtype)
-        else:
+        if zeros:
             return self.xp.zeros(shape, dtype=dtype)
+        else:
+            return self.xp.empty(shape, dtype=dtype)
 
     def reshape1f(self, array: FloatsXd, d0: int) -> Floats1d:
         return cast(Floats1d, self.reshape(array, (d0,)))
@@ -1038,7 +1038,7 @@ class Ops:
         return -loss
 
     def reduce_sum(self, X: Floats2d, lengths: Ints1d) -> Floats2d:
-        Y = self.alloc2f(lengths.shape[0], X.shape[1], uninitialized=True)
+        Y = self.alloc2f(lengths.shape[0], X.shape[1], zeros=False)
         start = 0
         for i, length in enumerate(lengths):
             if length < 0:
@@ -1051,7 +1051,7 @@ class Ops:
         return Y
 
     def reduce_mean(self, X: Floats2d, lengths: Ints1d) -> Floats2d:
-        Y = self.alloc2f(lengths.shape[0], X.shape[1], uninitialized=True)
+        Y = self.alloc2f(lengths.shape[0], X.shape[1], zeros=False)
         start = 0
         for i, length in enumerate(lengths):
             if length < 0:
@@ -1064,10 +1064,8 @@ class Ops:
         return Y
 
     def reduce_max(self, X: Floats2d, lengths: Ints1d) -> Tuple[Floats2d, Ints2d]:
-        Y = self.alloc2f(
-            lengths.shape[0], X.shape[1], dtype=X.dtype, uninitialized=True
-        )
-        which = self.alloc2i(lengths.shape[0], X.shape[1], uninitialized=True)
+        Y = self.alloc2f(lengths.shape[0], X.shape[1], dtype=X.dtype, zeros=False)
+        which = self.alloc2i(lengths.shape[0], X.shape[1], zeros=False)
         start = 0
         for i, length in enumerate(lengths):
             if length < 0:
@@ -1082,7 +1080,7 @@ class Ops:
 
     def backprop_reduce_sum(self, d_sums: Floats2d, lengths: Ints1d) -> Floats2d:
         dX = self.alloc2f(
-            lengths.sum(), d_sums.shape[1], dtype=d_sums.dtype, uninitialized=True
+            lengths.sum(), d_sums.shape[1], dtype=d_sums.dtype, zeros=False
         )
         start = 0
         for i, length in enumerate(lengths):
@@ -1094,7 +1092,7 @@ class Ops:
 
     def backprop_reduce_mean(self, d_means: Floats2d, lengths: Ints1d) -> Floats2d:
         dX = self.alloc2f(
-            lengths.sum(), d_means.shape[1], dtype=d_means.dtype, uninitialized=True
+            lengths.sum(), d_means.shape[1], dtype=d_means.dtype, zeros=False
         )
         start = 0
         for i, length in enumerate(lengths):
