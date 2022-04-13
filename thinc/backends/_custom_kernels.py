@@ -139,7 +139,7 @@ def clipped_linear(
 
     out = X
     if not inplace:
-        out = cupy.zeros_like(X)
+        out = cupy.empty_like(X)
     if X.dtype == "float32":
         clipped_linear_kernel_float(
             (num_blocks,),
@@ -160,7 +160,7 @@ def gelu(X, *, inplace=False, threshold=6.0, threads_per_block=128, num_blocks=1
 
     out = X
     if not inplace:
-        out = cupy.zeros_like(X)
+        out = cupy.empty_like(X)
     if X.dtype == "float32":
         gelu_kernel_float(
             (num_blocks,), (threads_per_block,), (out, X, threshold, X.size)
@@ -211,8 +211,8 @@ def maxout(X, *, threads_per_block=128, num_blocks=128):
     B, I, P = X.shape
 
     out_shape = (B, I)
-    best = cupy.zeros(out_shape, dtype=X.dtype)
-    which = cupy.zeros(out_shape, dtype="i")
+    best = cupy.empty(out_shape, dtype=X.dtype)
+    which = cupy.empty(out_shape, dtype="i")
 
     if X.dtype == "float32":
         maxout_kernel_float(
@@ -231,7 +231,7 @@ def mish(X, *, inplace=False, threshold=5, threads_per_block=128, num_blocks=128
 
     out = X
     if not inplace:
-        out = cupy.zeros_like(X)
+        out = cupy.empty_like(X)
 
     if X.dtype == "float32":
         mish_kernel_float(
@@ -303,8 +303,8 @@ def reduce_max(X, lengths, *, threads_per_block=128, num_blocks=128):
     _check_lengths(lengths, T)
 
     out_shape = (B, O)
-    maxes = cupy.zeros(out_shape, dtype=X.dtype)
-    which = cupy.zeros(out_shape, dtype="i")
+    maxes = cupy.empty(out_shape, dtype=X.dtype)
+    which = cupy.empty(out_shape, dtype="i")
 
     if X.dtype == "float32":
         reduce_max_kernel_float(
@@ -323,7 +323,7 @@ def swish(X, *, inplace=False, threshold=17.0, threads_per_block=128, num_blocks
 
     out = X
     if not inplace:
-        out = cupy.zeros_like(X)
+        out = cupy.empty_like(X)
     if X.dtype == "float32":
         swish_kernel_float(
             (num_blocks,), (threads_per_block,), (out, X, threshold, X.size)
@@ -377,7 +377,7 @@ def backprop_clipped_linear(
 
     out = dY
     if not inplace:
-        out = cupy.zeros_like(dY)
+        out = cupy.empty_like(dY)
 
     if dY.dtype == "float32":
         backprop_clipped_linear_kernel_float(
@@ -403,7 +403,7 @@ def backprop_hard_swish(
 
     out = dY
     if not inplace:
-        out = cupy.zeros_like(dY)
+        out = cupy.empty_like(dY)
 
     if dY.dtype == "float32":
         backprop_hard_swish_kernel_float(
@@ -425,7 +425,7 @@ def backprop_hard_swish_mobilenet(
 
     out = dY
     if not inplace:
-        out = cupy.zeros_like(dY)
+        out = cupy.empty_like(dY)
 
     if dY.dtype == "float32":
         backprop_hard_swish_mobilenet_kernel_float(
@@ -453,7 +453,7 @@ def backprop_gelu(
 
     out = dY
     if not inplace:
-        out = cupy.zeros_like(dY)
+        out = cupy.empty_like(dY)
 
     if dY.dtype == "float32":
         backprop_gelu_kernel_float(
@@ -497,7 +497,7 @@ def backprop_mish(
 
     out = dY
     if not inplace:
-        out = cupy.zeros_like(dY)
+        out = cupy.empty_like(dY)
 
     if dY.dtype == "float32":
         backprop_mish_kernel_float(
@@ -590,7 +590,7 @@ def backprop_swish(
 
     out = dY
     if not inplace:
-        out = cupy.zeros_like(dY)
+        out = cupy.empty_like(dY)
 
     if dY.dtype == "float32":
         backprop_swish_kernel_float(
