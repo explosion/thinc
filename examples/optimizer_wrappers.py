@@ -43,9 +43,11 @@ def main(
                 min_lr=0.0001, max_lr=0.002, period=period
             )
             optimizer = SWA(
-                optimizer.optimizer, lr=cyclic_schedule, freq=period
+                optimizer.optimizer,
+                learn_rate=cyclic_schedule,
+                freq=period,
+                start_step=0
             )
-            optimizer.start_swa()
         # Use averages for evaluation
         with model.use_params(optimizer.averages):
             for X, Y in dev_data:
