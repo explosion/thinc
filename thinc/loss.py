@@ -160,9 +160,8 @@ class CategoricalCrossentropy(Loss):
                     f"{len(self.class_weights)}"
                 )
             if not is_xp_array(self.class_weights):
-                cw = xp.asarray(self.class_weights)
-            else:
-                cw = self.class_weights
+                self.class_weights = xp.asarray(self.class_weights)
+            cw = self.class_weights
             row_sum = target.sum(axis=1, keepdims=True)
             norm_target = target / row_sum
             sample_weights = (norm_target * cw).sum(axis=1, keepdims=True)
