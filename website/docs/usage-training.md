@@ -293,15 +293,3 @@ values = [0.001, 0.01, 0.1]
 </grid>
 
 ---
-
-## Distributed training {#distributed}
-
-We expect to recommend [Ray](https://ray.io/) for distributed training. Ray
-offers a clean and simple API that fits well with Thinc's model design. While
-full support is still under development, you can find an example here:
-
-<tutorials header="false">
-
-- parallel_training_ray
-
-</tutorials>
