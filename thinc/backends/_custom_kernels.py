@@ -533,7 +533,7 @@ def backprop_reduce_sum(d_sums, lengths, *, threads_per_block=128, num_blocks=12
     O = d_sums.shape[1]
     _check_lengths(lengths, T)
 
-    out = _alloc((T, O), dtype=d_sums.dtype, zeros=True)
+    out = _alloc((T, O), dtype=d_sums.dtype, zeros=False)
 
     if d_sums.dtype == "float32":
         backprop_reduce_sum_kernel_float(
@@ -555,7 +555,7 @@ def backprop_reduce_mean(d_means, lengths, *, threads_per_block=128, num_blocks=
     O = d_means.shape[1]
     _check_lengths(lengths, T)
 
-    out = _alloc((T, O), dtype=d_means.dtype, zeros=True)
+    out = _alloc((T, O), dtype=d_means.dtype, zeros=False)
 
     if d_means.dtype == "float32":
         backprop_reduce_mean_kernel_float(
