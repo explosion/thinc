@@ -2,7 +2,7 @@ from .config import Config, registry, ConfigValidationError
 from .initializers import normal_init, uniform_init, glorot_uniform_init, zero_init
 from .initializers import configure_normal_init
 from .loss import CategoricalCrossentropy, L2Distance, CosineDistance
-from .loss import SequenceCategoricalCrossentropy
+from .loss import SequenceCategoricalCrossentropy, balanced_class_weights
 from .model import Model, serialize_attr, deserialize_attr
 from .model import set_dropout_rate, change_attr_values, wrap_model_recursive
 from .shims import Shim, PyTorchGradScaler, PyTorchShim, TensorFlowShim, keras_model_fns

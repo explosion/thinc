@@ -161,7 +161,18 @@ def test_balanced_class_weights(labels, weights):
     assert numpy.allclose(balanced_class_weights(labels), weights)
 
 
-def test_categorical_crossentropy_with_class_weights():
+@pytest.mark.parametrize(
+    "labels, guesses, weights, loss",
+    [
+        (labels1, guesses1, [0., 0., 0.], 0.),
+        (labels1, guesses1, [1., 1., 1.], 0.239375),
+        (labels1, guesses1, [1.333, 1.333, 0.666], -1),
+        (labels1, guesses1, [1., 2., 3.], -1),
+    ],
+)
+def test_categorical_crossentropy_with_class_weights(
+    labels, guesses, weights, loss
+):
     ...
 
 
