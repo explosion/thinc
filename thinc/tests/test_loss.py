@@ -165,15 +165,22 @@ def test_balanced_class_weights(labels, weights):
     "labels, guesses, weights, loss",
     [
         (labels1, guesses1, [0., 0., 0.], 0.),
-        (labels1, guesses1, [1., 1., 1.], 0.239375),
-        (labels1, guesses1, [1.333, 1.333, 0.666], -1),
-        (labels1, guesses1, [1., 2., 3.], -1),
+        (labels1, guesses1, [1., 1., 1.], 3.83),
+        (labels1, guesses1, None, 3.83),
+        (labels1, guesses1, [1.333, 1.333, 0.666], 4.91215),
+        (labels1, guesses1, [1., 2., 3.], 16.42),
     ],
 )
 def test_categorical_crossentropy_with_class_weights(
     labels, guesses, weights, loss
 ):
-    ...
+    objective = CategoricalCrossentropy(
+        normalize=False, class_weights=weights
+    )
+    # print(objective.get_loss(guesses, labels))
+    assert numpy.isclose(
+        loss, objective.get_loss(guesses, labels)
+    )
 
 
 @pytest.mark.parametrize(
