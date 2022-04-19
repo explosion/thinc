@@ -7,7 +7,7 @@ import itertools
 
 from ..types import Xp, Shape, DTypes, DTypesInt, DTypesFloat, List2d, ArrayXd
 from ..types import Floats1d, Floats2d, Floats3d, Floats4d
-from ..types import Array1d, Array2d, Array3d, Array4d
+from ..types import Array1d, Array2d, Array3d, Array4d, ListXd
 from ..types import FloatsXd, Ints1d, Ints2d, Ints3d, Ints4d, IntsXd, _Floats
 from ..types import DeviceTypes, Generator, Padded, Batchable, SizedGenerator
 from ..util import get_array_module, is_xp_array, to_numpy
@@ -223,19 +223,61 @@ class Ops:
         Y += b
         return Y
 
+    @overload 
     def flatten(
         self,
-        X: Sequence[ArrayT],
+        X: List[Floats2d],
         dtype: Optional[DTypes] = None,
         pad: int = 0,
         ndim_if_empty: int = 2,
-    ) -> ArrayT:
+     ) -> Floats2d:
+        ...
+
+    @overload 
+    def flatten(
+        self,
+        X: List[Ints1d],
+        dtype: Optional[DTypes] = None,
+        pad: int = 0,
+        ndim_if_empty: int = 2,
+     ) -> Ints1d:
+        ...
+
+    @overload 
+    def flatten(
+        self,
+        X: List2d,
+        dtype: Optional[DTypes] = None,
+        pad: int = 0,
+        ndim_if_empty: int = 2,
+     ) -> Array2d:
+        ...
+
+    # further specific typed signatures can be added as necessary
+
+    @overload 
+    def flatten(
+        self,
+        X: ListXd,
+        dtype: Optional[DTypes] = None,
+        pad: int = 0,
+        ndim_if_empty: int = 2,
+     ) -> ArrayXd:
+        ...
+
+    def flatten(
+        self,
+        X: ListXd,
+        dtype: Optional[DTypes] = None,
+        pad: int = 0,
+        ndim_if_empty: int = 2,
+    ) -> ArrayXd:
         """Flatten a list of arrays into one large array."""
         if X is None or len(X) == 0:
             return self.alloc((0,) * ndim_if_empty, dtype=dtype or "f")
         xp = get_array_module(X[0])
         shape_if_empty = X[0].shape
-        X = [x for x in X if x.size != 0]
+        X = cast(ListXd, [x for x in X if x.size != 0])
         if len(X) == 0:
             return self.alloc(shape_if_empty, dtype=dtype or "f")
         if int(pad) >= 1:
@@ -250,7 +292,23 @@ class Ops:
             result = xp.asarray(result, dtype=dtype)
         return result
 
-    def unflatten(self, X: ArrayXd, lengths: Ints1d, pad: int = 0) -> List[ArrayXd]:
+    @overload
+    def unflatten(self, X: Floats2d, lengths: Ints1d, pad: int = 0) -> List[Floats2d]:
+        ...
+
+    @overload
+    def unflatten(self, X: Ints1d, lengths: Ints1d, pad: int = 0) -> List[Ints1d]:
+        ...
+
+    @overload
+    def unflatten(self, X: Array2d, lengths: Ints1d, pad: int = 0) -> List2d:
+        ...
+
+    @overload
+    def unflatten(self, X: ArrayXd, lengths: Ints1d, pad: int = 0) -> ListXd:
+        ...
+
+    def unflatten(self, X: ArrayXd, lengths: Ints1d, pad: int = 0) -> ListXd:
         """The reverse/backward operation of the `flatten` function: unflatten
         a large array into a list of arrays according to the given lengths.
         """

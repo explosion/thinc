@@ -81,15 +81,15 @@ def _list_forward(
     layer: Model[Array2d, Array2d] = model.layers[0]
     pad = model.attrs["pad"]
     lengths = layer.ops.asarray1i([len(seq) for seq in Xs])
-    Xf = layer.ops.flatten(cast(List[Array2d], Xs), pad=pad)
+    Xf = layer.ops.flatten(Xs, pad=pad)
     Yf, get_dXf = layer(Xf, is_train)
 
     def backprop(dYs: List2d) -> List2d:
-        dYf = layer.ops.flatten(cast(List[Array2d], dYs), pad=pad)
+        dYf = layer.ops.flatten(dYs, pad=pad)
         dXf = get_dXf(dYf)
-        return cast(List2d, layer.ops.unflatten(dXf, lengths, pad=pad))
+        return layer.ops.unflatten(dXf, lengths, pad=pad)
 
-    return cast(List2d, layer.ops.unflatten(Yf, lengths, pad=pad)), backprop
+    return layer.ops.unflatten(Yf, lengths, pad=pad), backprop
 
 
 def _ragged_forward(

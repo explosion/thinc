@@ -58,7 +58,7 @@ def _ragged_forward(
     # are potentially large on GPU. So we make nested function calls instead
     # of assigning to temporaries where possible, so memory can be reclaimed
     # sooner.
-    Ys, get_dXs = layer(cast(List2d, unflatten(Xr.data, Xr.lengths)), is_train)
+    Ys, get_dXs = layer(unflatten(Xr.data, Xr.lengths), is_train)
 
     def backprop(dYr: Ragged):
         return Ragged(
@@ -66,7 +66,7 @@ def _ragged_forward(
             dYr.lengths,
         )
 
-    return Ragged(flatten(cast(List[Array2d], Ys)), Xr.lengths), backprop
+    return Ragged(flatten(Ys), Xr.lengths), backprop
 
 
 def _padded_forward(

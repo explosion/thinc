@@ -54,14 +54,14 @@ def _get_ragged(model: Model[SeqT, SeqT], seq: SeqT) -> Ragged:
     if isinstance(seq, Ragged):
         return seq
     elif isinstance(seq, Padded):
-        lists = cast(List[Array2d], model.ops.padded2list(seq))
+        lists = model.ops.padded2list(seq)
         lengths = model.ops.asarray1i([len(x) for x in lists])
         k = model.ops.flatten(lists)
         return Ragged(model.ops.flatten(lists), lengths)
     elif _is_ragged_data(seq):
         return Ragged(*seq)  # type: ignore[misc]
     else:
-        list2d_seq = cast(List[Array2d], seq)
+        list2d_seq = cast(List2d, seq)
         lengths = model.ops.asarray1i([len(x) for x in list2d_seq])
         return Ragged(model.ops.flatten(list2d_seq), lengths)
 
@@ -90,19 +90,19 @@ def _padded_forward(
     # are potentially large on GPU. So we make nested function calls instead
     # of assigning to temporaries where possible, so memory can be reclaimed
     # sooner.
-    Xs = cast(List[Array2d], padded2list(Xp))
+    Xs = padded2list(Xp)
     # Bit annoying here: padded is in a different order, so we need to make new
     # lengths.
     lengths = layer.ops.asarray1i([len(x) for x in Xs])
-    Yr, get_dXr = layer(Ragged(flatten(cast(List[Array2d], Xs)), lengths), is_train)
+    Yr, get_dXr = layer(Ragged(flatten(Xs), lengths), is_train)
 
     def backprop(dYp: Padded):
-        flattened = flatten(cast(List[Array2d], padded2list(dYp)))
+        flattened = flatten(padded2list(dYp))
         dXr = get_dXr(Ragged(flattened, lengths))
-        return list2padded(cast(List2d, unflatten(dXr.data, lengths)))
+        return list2padded(unflatten(dXr.data, lengths))
 
     return (
-        list2padded(cast(List2d, unflatten(Yr.data, Yr.lengths))),
+        list2padded(unflatten(Yr.data, Yr.lengths)),
         backprop,
     )
 

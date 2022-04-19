@@ -23,4 +23,4 @@ def forward(model: Model[InT, OutT], Xs: InT, is_train: bool) -> Tuple[OutT, Cal
         return cast(InT, model.ops.unflatten(dYr.data, dYr.lengths))
 
     lengths = model.ops.asarray1i([len(x) for x in Xs])
-    return Ragged(model.ops.flatten(cast(List[ArrayXd], Xs)), lengths), backprop
+    return Ragged(model.ops.flatten(Xs), lengths), backprop

@@ -42,7 +42,7 @@ List1d = Union[List["Floats1d"], List["Ints1d"]]
 List2d = Union[List["Floats2d"], List["Ints2d"]]
 List3d = Union[List["Floats3d"], List["Ints3d"]]
 List4d = Union[List["Floats4d"], List["Ints4d"]]
-ListXd = Union[List["FloatsXd"], List["IntsXd"]]
+ListXd = Union[List1d, List2d, List3d, List4d]
 
 ArrayT = TypeVar("ArrayT")
 SelfT = TypeVar("SelfT")

@@ -62,9 +62,7 @@ def _get_padded(model: Model, seq: SeqT) -> Padded:
     if isinstance(seq, Padded):
         return seq
     elif isinstance(seq, Ragged):
-        return model.ops.list2padded(
-            cast(List2d, model.ops.unflatten(seq.data, seq.lengths))
-        )
+        return model.ops.list2padded(model.ops.unflatten(seq.data, seq.lengths))
     elif _is_padded_data(seq):
         return Padded(*seq)  # type: ignore[misc]
     elif is_xp_array(seq):
@@ -121,21 +119,18 @@ def _ragged_forward(
     # of assigning to temporaries where possible, so memory can be reclaimed
     # sooner.
     Yp, get_dXp = layer(
-        list2padded(cast(List2d, unflatten(Xr.data, Xr.lengths))), is_train
+        list2padded(unflatten(Xr.data, Xr.lengths)), is_train
     )
 
     def backprop(dYr: Ragged):
         flattened = flatten(
-            cast(
-                List[Array2d],
-                padded2list(
-                    get_dXp(list2padded(cast(List2d, unflatten(dYr.data, dYr.lengths))))
-                ),
-            )
+            padded2list(
+                get_dXp(list2padded(unflatten(dYr.data, dYr.lengths)))
+            ),
         )
         return Ragged(flattened, dYr.lengths)
 
-    flattened = flatten(cast(List[Array2d], padded2list(Yp)))
+    flattened = flatten(padded2list(Yp))
     return Ragged(flattened, Xr.lengths), backprop
 
 
