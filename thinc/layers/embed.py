@@ -1,4 +1,4 @@
-from typing import Dict, Callable, Tuple, Optional, Union, cast
+from typing import Dict, Callable, Tuple, Optional, Union, cast, TypeVar
 
 from .chain import chain
 from .array_getitem import ints_getitem
@@ -9,7 +9,7 @@ from ..initializers import uniform_init
 from ..util import get_width, partial
 
 
-InT = Union[Ints1d, Ints2d]
+InT = TypeVar("InT", bound=Union[Ints1d, Ints2d])
 OutT = Floats2d
 
 

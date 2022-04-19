@@ -9,7 +9,7 @@ from ..initializers import uniform_init
 from ..util import partial
 
 
-InT = Union[Ints1d, Ints2d]
+InT = TypeVar("InT", bound=Union[Ints1d, Ints2d])
 OutT = Floats2d
 
 

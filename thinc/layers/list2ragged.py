@@ -2,10 +2,10 @@ from typing import Tuple, List, Callable, cast, TypeVar
 
 from ..model import Model
 from ..config import registry
-from ..types import List2d, Array2d, Ragged
+from ..types import ListXd, ArrayXd, Ragged
 
 
-InT = TypeVar("InT", bound=List2d)
+InT = TypeVar("InT", bound=ListXd)
 OutT = Ragged
 
 
@@ -23,4 +23,4 @@ def forward(model: Model[InT, OutT], Xs: InT, is_train: bool) -> Tuple[OutT, Cal
         return cast(InT, model.ops.unflatten(dYr.data, dYr.lengths))
 
     lengths = model.ops.asarray1i([len(x) for x in Xs])
-    return Ragged(model.ops.flatten(cast(List[Array2d], Xs)), lengths), backprop
+    return Ragged(model.ops.flatten(cast(List[ArrayXd], Xs)), lengths), backprop
