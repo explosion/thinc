@@ -1,8 +1,14 @@
+import pytest
+
 from thinc.api import CupyOps
-import torch
+from thinc.util import has_torch, has_torch_amp, has_torch_gpu
 
 
+@pytest.mark.skipif(not has_torch, reason="needs PyTorch")
+@pytest.mark.skipif(not has_torch_gpu, reason="needs a GPU")
 def test_issue564():
+    import torch
+
     if CupyOps.xp is not None:
         ops = CupyOps()
         t = torch.zeros((10, 2)).cuda()
