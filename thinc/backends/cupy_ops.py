@@ -75,10 +75,23 @@ class CupyOps(Ops):
         dtype = {"dtype": dtype} if dtype is not None else {}
         if isinstance(data, cupy.ndarray):
             return self.xp.asarray(data, **dtype)
-        elif hasattr(data, "data_ptr"):
+        elif (
+            hasattr(data, "data_ptr")
+            and hasattr(data, "storage")
+            and hasattr(data, "device")
+        ):
             # Handles PyTorch Tensors
-            pointer = cupy.cuda.MemoryPointer(data.data_ptr())
-            shape = data.stride()
+            assert data.device.type == "cuda", "Non-CUDA tensor passed to CupyOps"
+
+            ext_pointer_wrapper = cupy.cuda.UnownedMemory(
+                data.data_ptr(),
+                data.storage().size(),
+                data.storage(),
+                data.device.index,
+            )
+
+            pointer = cupy.cuda.MemoryPointer(ext_pointer_wrapper, 0)
+            shape = data.shape
             array = self.xp.ndarray(shape, memptr=pointer, **dtype)
             return array
         else:
