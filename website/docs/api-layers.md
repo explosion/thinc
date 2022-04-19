@@ -49,11 +49,11 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/cauchysimilarity.py
 <inline-list>
 
 - **Input:** <ndarray>ArrayXd</ndarray> /
-<ndarray>List[ArrayXd]</ndarray> /
+<ndarray>Sequence[ArrayXd]</ndarray> /
 <ndarray>Ragged</ndarray> /
 <ndarray>Padded</ndarray>
 - **Output:** <ndarray>ArrayXd</ndarray> /
-<ndarray>List[ArrayXd]</ndarray> /
+<ndarray>Sequence[ArrayXd]</ndarray> /
 <ndarray>Ragged</ndarray> /
 <ndarray>Padded</ndarray>
 - **Attrs:** `dropout_rate` <tt>float</tt>
@@ -90,7 +90,7 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/dropout.py
 
 <inline-list>
 
-- **Input:** <ndarray shape="n,">Ints1d</ndarray>
+- **Input:** <ndarray shape="n,">Union[Ints1d, Ints2d]</ndarray>
 - **Output:** <ndarray shape="n, nO">Floats2d</ndarray>
 - **Parameters:** <ndarray shape="nV, nO">E</ndarray>
 - **Attrs:** `column` <tt>int</tt>, `dropout_rate` <tt>float</tt>
@@ -109,7 +109,7 @@ embeddings table will slice as the indices.
 | `column`       | <tt>int</tt>                                    | The column to slice from the input, to get the indices.                                                              |
 | `initializer`  | <tt>Callable</tt>                               | A function to initialize the internal parameters. Defaults to [`uniform_init`](/docs/api-initializers#uniform_init). |
 | `dropout`      | <tt>Optional[float]</tt>                        | Dropout rate to avoid overfitting (default `None`).                                                                  |
-| **RETURNS**    | <tt>Model[Ints1d, Floats2d]</tt>                | The created embedding layer.                                                                                         |
+| **RETURNS**    | <tt>Model[Union[Ints1d, Ints2d], Floats2d]</tt> | The created embedding layer.                                                                                         |
 
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/embed.py
@@ -119,7 +119,7 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/embed.py
 
 <inline-list>
 
-- **Input:** <ndarray shape="n,">Ints1d</ndarray> /
+- **Input:** <ndarray shape="n,">Union[Ints1d, Ints2d]</ndarray> /
 - **Output:** <ndarray shape="n, nO">Floats2d</ndarray>
 - **Parameters:** <ndarray shape="nV, nO">E</ndarray>
 - **Attrs:** `seed` <tt>Optional[int]</tt>, `column` <tt>int</tt>,
@@ -144,7 +144,7 @@ number of vectors in the table is very low.
 | `column`       | <tt>int</tt>                                    | The column to select features from.                                                                                  |
 | `initializer`  | <tt>Callable</tt>                               | A function to initialize the internal parameters. Defaults to [`uniform_init`](/docs/api-initializers#uniform_init). |
 | `dropout`      | <tt>Optional[float]</tt>                        | Dropout rate to avoid overfitting (default `None`).                                                                  |
-| **RETURNS**    | <tt>Model[Ints1d, Floats2d]</tt>                | The created embedding layer.                                                                                         |
+| **RETURNS**    | <tt>Model[Union[Ints1d, Ints2d], Floats2d]</tt> | The created embedding layer.                                                                                         |
 
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/hashembed.py
@@ -242,8 +242,8 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/sigmoid.py
 
 <inline-list>
 
-- **Input:** <ndarray shape="batch_size, nI">Floats2d</ndarray>
-- **Output:** <ndarray shape="batch_size, nO">Floats2d</ndarray>
+- **Input:** <ndarray shape="batch_size, nI">FloatsXd</ndarray>
+- **Output:** <ndarray shape="batch_size, nO">FloatsXd</ndarray>
 
 </inline-list>
 
@@ -256,7 +256,7 @@ element of the output vectors will be between `0` and `1`.
 | **RETURNS** | <tt>Model[Floats2d, Floats2d]</tt> | The created `sigmoid_activation` layer. |
 
 ```python
-https://github.com/explosion/thinc/blob/master/thinc/layers/sigmoid_logistic.py
+https://github.com/explosion/thinc/blob/master/thinc/layers/sigmoid_activation.py
 ```
 
 ### LSTM and BiLSTM {#lstm tag="function"}
@@ -783,34 +783,6 @@ of the lengths should equal the length of the keys and values array.
 https://github.com/explosion/thinc/blob/master/thinc/layers/sparselinear.pyx
 ```
 
-### StaticVectors {#staticvectors tag="function"}
-
-<inline-list>
-
-- **Input:** <ndarray shape="n, nV">Ints2d</ndarray>
-- **Output:** <ndarray shape="n, nO">Floats2d</ndarray>
-- **Attrs:** `column` <tt>int</tt>, `vectors` <tt>Optional[Floats2d]</tt>,
-  `dropout_rate` <tt>float</tt>
-
-</inline-list>
-
-<!-- TODO: write description -->
-
-| Argument       | Type                             | Description                                         |
-| -------------- | -------------------------------- | --------------------------------------------------- |
-| `nO`           | <tt>Optional[int]</tt>           | The size of the output vectors.                     |
-| `vectors`      | <tt>Optional[Floats2d]</tt>      | The vectors.                                        |
-| _keyword-only_ |                                  |                                                     |
-| `column`       | <tt>int</tt>                     | The column of values to slice for the indices.      |
-| `dropout`      | <tt>Optional[float]</tt>         | Dropout rate to avoid overfitting (default `None`). |
-| **RETURNS**    | <tt>Model[Ints2d, Floats2d]</tt> | The created embedding layer.                        |
-
-```python
-https://github.com/explosion/thinc/blob/master/thinc/layers/staticvectors.py
-```
-
----
-
 ## Reduction operations {#reduction-ops}
 
 ### reduce_first {#reduce_first tag="function"}
@@ -818,7 +790,7 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/staticvectors.py
 <inline-list>
 
 - **Input:** <ndarray>Ragged</ndarray>
-- **Output:** <ndarray shape="batch_size, nO">Array2d</ndarray>
+- **Output:** <ndarray shape="batch_size, nO">ArrayXd</ndarray>
 
 </inline-list>
 
@@ -829,7 +801,7 @@ of its elements.
 
 | Argument    | Type                            | Description                |
 | ----------- | ------------------------------- | -------------------------- |
-| **RETURNS** | <tt>Model[Ragged, Array2d]</tt> | The created pooling layer. |
+| **RETURNS** | <tt>Model[Ragged, ArrayXd]</tt> | The created pooling layer. |
 
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/reduce_first.py
@@ -845,13 +817,13 @@ representation for the sequence to its final element.
 <inline-list>
 
 - **Input:** <ndarray>Ragged</ndarray>
-- **Output:** <ndarray shape="batch_size, nO">Array2d</ndarray>
+- **Output:** <ndarray shape="batch_size, nO">ArrayXd</ndarray>
 
 </inline-list>
 
 | Argument    | Type                            | Description                |
 | ----------- | ------------------------------- | -------------------------- |
-| **RETURNS** | <tt>Model[Ragged, Array2d]</tt> | The created pooling layer. |
+| **RETURNS** | <tt>Model[Ragged, ArrayXd]</tt> | The created pooling layer. |
 
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/reduce_last.py
@@ -1134,7 +1106,7 @@ using e.g. character LSTM.
 | `layer`        | <tt>Model</tt>                    | The layer.                   |
 | _keyword-only_ |                                   |                              |
 | `column`       | <tt>int</tt>                      | The column. Defaults to `0`. |
-| **RETURNS**    | <tt>Model[ArrayXd, FloatsXd]</tt> | The composed model.          |
+| **RETURNS**    | <tt>Model[Ints2d, Floats2d]</tt> | The composed model.          |
 
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/uniqued.py
@@ -1170,7 +1142,7 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/array_getitem.py
 
 <inline-list>
 
-- **Input:** <ndarray>List[Array2d]</ndarray>
+- **Input:** <ndarray>List2d</ndarray>
 - **Output:** <ndarray>Array2d</ndarray>
 
 </inline-list>
@@ -1181,7 +1153,7 @@ the concatenated data.
 
 | Argument    | Type                                   | Description                              |
 | ----------- | -------------------------------------- | ---------------------------------------- |
-| **RETURNS** | <tt>Model[List[Array2d], Array2d]</tt> | The layer to compute the transformation. |
+| **RETURNS** | <tt>Model[List2d, Array2d]</tt> | The layer to compute the transformation. |
 
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/list2array.py
@@ -1191,7 +1163,7 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/list2array.py
 
 <inline-list>
 
-- **Input:** <ndarray>List[ArrayXd]</ndarray>
+- **Input:** <ndarray>ListXd</ndarray>
 - **Output:** <ndarray>Ragged</ndarray>
 
 </inline-list>
@@ -1202,7 +1174,7 @@ If sequences are already ragged, do nothing. A ragged array is a tuple
 
 | Argument    | Type                                  | Description                              |
 | ----------- | ------------------------------------- | ---------------------------------------- |
-| **RETURNS** | <tt>Model[List[ArrayXd], Ragged]</tt> | The layer to compute the transformation. |
+| **RETURNS** | <tt>Model[ListXd, Ragged]</tt> | The layer to compute the transformation. |
 
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/list2ragged.py
@@ -1212,7 +1184,7 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/list2ragged.py
 
 <inline-list>
 
-- **Input:** <ndarray>List[Array2d]</ndarray>
+- **Input:** <ndarray>List2d</ndarray>
 - **Output:** <ndarray>Padded</ndarray>
 
 </inline-list>
@@ -1222,7 +1194,7 @@ Create a layer to convert a list of array inputs into
 
 | Argument    | Type                                  | Description                              |
 | ----------- | ------------------------------------- | ---------------------------------------- |
-| **RETURNS** | <tt>Model[List[Array2d], Padded]</tt> | The layer to compute the transformation. |
+| **RETURNS** | <tt>Model[List2d, Padded]</tt> | The layer to compute the transformation. |
 
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/list2padded.py
@@ -1233,7 +1205,7 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/list2padded.py
 <inline-list>
 
 - **Input:** <ndarray>Ragged</ndarray>
-- **Output:** <ndarray>List[ArrayXd]</ndarray>
+- **Output:** <ndarray>ListXd</ndarray>
 
 </inline-list>
 
@@ -1241,7 +1213,7 @@ Transform sequences from a ragged format into lists.
 
 | Argument    | Type                                   | Description                              |
 | ----------- | -------------------------------------- | ---------------------------------------- |
-| **RETURNS** | <tt>Model[Ragged, List[ArrayXd]]</tt> | The layer to compute the transformation. |
+| **RETURNS** | <tt>Model[Ragged, ListXd]</tt> | The layer to compute the transformation. |
 
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/ragged2list.py
@@ -1252,7 +1224,7 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/ragged2list.py
 <inline-list>
 
 - **Input:** <ndarray>Padded</ndarray>
-- **Output:** <ndarray>List[Array2d]</ndarray>
+- **Output:** <ndarray>List2d</ndarray>
 
 </inline-list>
 
@@ -1261,7 +1233,7 @@ of arrays.
 
 | Argument    | Type                                | Description                              |
 | ----------- | ----------------------------------- | ---------------------------------------- |
-| **RETURNS** | <tt>Model[Padded, List[Array2d]]</tt> | The layer to compute the transformation. |
+| **RETURNS** | <tt>Model[Padded, List2d]</tt> | The layer to compute the transformation. |
 
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/padded2list.py
@@ -1315,7 +1287,7 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/strings2arrays.py
 
 <inline-list>
 
-- **Input / output:** <tt>Union[Padded, Ragged, List[ArrayXd], ArrayXd]</tt>
+- **Input / output:** <tt>Union[Padded, Ragged, ListXd, ArrayXd]</tt>
 
 </inline-list>
 
@@ -1338,7 +1310,7 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/with_array2d.py
 
 <inline-list>
 
-- **Input / output:** <tt>Union[Padded, Ragged, List[Array2d], Array2d]</tt>
+- **Input / output:** <tt>Union[Padded, Ragged, List2d, Array2d]</tt>
 
 </inline-list>
 
@@ -1365,7 +1337,7 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/with_array.py
 <inline-list>
 
 - **Input:** <tt>Sequence[Sequence[Any]]</tt>
-- **Output:** <tt>List[ArrayXd]</tt>
+- **Output:** <tt>ListXd</tt>
 
 </inline-list>
 
@@ -1375,7 +1347,7 @@ over the outputs.
 | Argument    | Type                                                              | Description        |
 | ----------- | --------------................................................... | ------------------ |
 | `layer`     | <tt>Model[Sequence[Sequence[Any]], Sequence[Sequence[Any]]]</tt>  | The layer to wrap. |
-| **RETURNS** | <tt>Model[List[ArrayXd], List[ArrayXd]]</tt> | The wrapped layer. |
+| **RETURNS** | <tt>Model[ListXd, ListXd]</tt> | The wrapped layer. |
 
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/with_flatten.py
@@ -1385,7 +1357,7 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/with_flatten.py
 
 <inline-list>
 
-- **Input / output:** <tt>Union[Padded, Ragged, List[Array2d], Floats3d,
+- **Input / output:** <tt>Union[Padded, Ragged, List2d, Floats3d,
   Tuple[Floats3d, Ints1d, Ints1d, Ints1d]]</tt>
 
 </inline-list>
@@ -1406,7 +1378,7 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/with_padded.py
 
 <inline-list>
 
-- **Input / output:** <tt>Union[Padded, Ragged, List[ArrayXd], Floats3d,
+- **Input / output:** <tt>Union[Padded, Ragged, ListXd, Floats3d,
   Tuple[Floats2d, Ints1d]]</tt>
 
 </inline-list>
@@ -1427,7 +1399,7 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/with_ragged.py
 
 <inline-list>
 
-- **Input / output:** <tt>Union[Padded, Ragged, List[Array2d]]</tt>
+- **Input / output:** <tt>Union[Padded, Ragged, List2d]</tt>
 
 </inline-list>
 
@@ -1436,7 +1408,7 @@ transformation on the outputs.
 
 | Argument    | Type                                         | Description        |
 | ----------- | -------------------------------------------- | ------------------ |
-| `layer`     | <tt>Model[List[Array2d], List[Array2d]]</tt> | The layer to wrap. |
+| `layer`     | <tt>Model[List2d, List2d]</tt> | The layer to wrap. |
 | **RETURNS** | <tt>Model</tt>                               | The wrapped layer. |
 
 ```python
