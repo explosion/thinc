@@ -1048,6 +1048,8 @@ class Ops:
             elif length:
                 Y[i] = X[start : start + length].sum(axis=0)
                 start += length
+            else:
+                Y[i] = 0.0
         return Y
 
     def reduce_mean(self, X: Floats2d, lengths: Ints1d) -> Floats2d:
@@ -1060,6 +1062,8 @@ class Ops:
                 raise IndexError("lengths must sum up to the number of rows")
             elif length:
                 Y[i] = X[start : start + length].mean(axis=0)
+            else:
+                Y[i] = 0.0
             start += length
         return Y
 
