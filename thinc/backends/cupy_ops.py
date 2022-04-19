@@ -84,15 +84,14 @@ class CupyOps(Ops):
             assert data.device.type == "cuda", "Non-CUDA tensor passed to CupyOps"
 
             ext_pointer_wrapper = cupy.cuda.UnownedMemory(
-                data.data_ptr(),
-                data.storage().size(),
-                data.storage(),
-                data.device.index,
+                ptr=data.data_ptr(),
+                size=data.storage().size(),
+                owner=data,
+                device_id=data.device.index,
             )
 
             pointer = cupy.cuda.MemoryPointer(ext_pointer_wrapper, 0)
-            shape = data.shape
-            array = self.xp.ndarray(shape, memptr=pointer, **dtype)
+            array = self.xp.ndarray(shape=data.shape, memptr=pointer, **dtype)
             return array
         else:
             result = self.xp.array(data, **dtype)
