@@ -90,7 +90,7 @@ class CupyOps(Ops):
                 device_id=data.device.index,
             )
 
-            pointer = cupy.cuda.MemoryPointer(ext_pointer_wrapper, 0)
+            pointer = cupy.cuda.MemoryPointer(ext_pointer_wrapper, offset=0)
             array = self.xp.ndarray(shape=data.shape, memptr=pointer, **dtype)
             return array
         else:
