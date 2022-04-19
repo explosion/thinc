@@ -304,6 +304,8 @@ class Ops:
     def unflatten(self, X: Array2d, lengths: Ints1d, pad: int = 0) -> List2d:
         ...
 
+    # further specific typed signatures can be added as necessary
+
     @overload
     def unflatten(self, X: ArrayXd, lengths: Ints1d, pad: int = 0) -> ListXd:
         ...
