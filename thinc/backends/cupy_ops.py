@@ -19,14 +19,8 @@ from .ops import Ops
 from .numpy_ops import NumpyOps
 from . import _custom_kernels
 from ..types import DeviceTypes
-from ..util import (
-    torch2xp,
-    tensorflow2xp,
-    is_mxnet_array,
-    mxnet2xp,
-    is_torch_array,
-    is_tensorflow_array,
-)
+from ..util import torch2xp, tensorflow2xp, mxnet2xp
+from ..util import is_torch_array, is_tensorflow_array, is_mxnet_array
 
 
 @registry.ops("CupyOps")
