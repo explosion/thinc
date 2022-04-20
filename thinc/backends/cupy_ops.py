@@ -19,6 +19,14 @@ from .ops import Ops
 from .numpy_ops import NumpyOps
 from . import _custom_kernels
 from ..types import DeviceTypes
+from ..util import (
+    torch2xp,
+    tensorflow2xp,
+    is_mxnet_array,
+    mxnet2xp,
+    is_torch_array,
+    is_tensorflow_array,
+)
 
 
 @registry.ops("CupyOps")
@@ -73,29 +81,28 @@ class CupyOps(Ops):
         # This is sort of frustrating, but we can't easily otherwise pass
         # forward "unset".
         dtype = {"dtype": dtype} if dtype is not None else {}
+
+        # We'll try to perform a zero-copy conversion if possible.
+        array = None
+        cast_array = False
         if isinstance(data, cupy.ndarray):
-            return self.xp.asarray(data, **dtype)
-        elif (
-            hasattr(data, "data_ptr")
-            and hasattr(data, "storage")
-            and hasattr(data, "device")
-        ):
-            # Handles PyTorch Tensors
-            assert data.device.type == "cuda", "Non-CUDA tensor passed to CupyOps"
-
-            ext_pointer_wrapper = cupy.cuda.UnownedMemory(
-                ptr=data.data_ptr(),
-                size=data.storage().size(),
-                owner=data,
-                device_id=data.device.index,
-            )
-
-            pointer = cupy.cuda.MemoryPointer(ext_pointer_wrapper, offset=0)
-            array = self.xp.ndarray(shape=data.shape, memptr=pointer, **dtype)
-            return array
+            array = self.xp.asarray(data, **dtype)
+        elif is_torch_array(data) and data.device.type == "cuda":
+            array = torch2xp(data)
+            cast_array = True
+        elif is_tensorflow_array(data) and "GPU:" in data.device:
+            array = tensorflow2xp(data)
+            cast_array = True
+        elif is_mxnet_array(data) and data.context.device_type != "cpu":
+            array = mxnet2xp(data)
+            cast_array = True
         else:
-            result = self.xp.array(data, **dtype)
-            return result
+            array = self.xp.array(data, **dtype)
+
+        if cast_array and dtype != {}:
+            array = array.astype(dtype["dtype"])
+
+        return array
 
     def maxout(self, X):
         return _custom_kernels.maxout(X)
