@@ -97,7 +97,7 @@ Also see the [`/examples`](examples) directory and [usage documentation](https:/
 | [`thinc.loss`](thinc/loss.py)             | Functions to calculate losses.                                                    |
 | [`thinc.optimizers`](thinc/optimizers.py) | Functions to create optimizers. Currently supports "vanilla" SGD, Adam and RAdam. |
 | [`thinc.schedules`](thinc/schedules.py)   | Generators for different rates, schedules, decays or series.                      |
-| [`thinc.backends`](thinc/backends.py)     | Backends for `numpy` and `cupy`.                                                  |
+| [`thinc.backends`](thinc/backends)        | Backends for `numpy` and `cupy`.                                                  |
 | [`thinc.config`](thinc/config.py)         | Config parsing and validation and function registry system.                       |
 | [`thinc.util`](thinc/util.py)             | Utilities and helper functions.                                                   |
 
