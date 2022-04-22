@@ -20,6 +20,7 @@ cimport blis.cy
 from .. import registry
 from ..util import copy_array, get_array_module
 from ..types import DeviceTypes, DTypes, Shape, ArrayXd
+from .cblas cimport CBlas
 from .linalg cimport VecVec, Vec
 from .ops import Ops
 
@@ -81,6 +82,9 @@ class NumpyOps(Ops):
             return self.xp.zeros(shape, dtype=dtype)
         else:
             return self.xp.empty(shape, dtype=dtype)
+
+    def cblas(self) -> CBlas:
+        return CBlas()
 
     def gemm(self, np.ndarray x, np.ndarray y, *, np.ndarray out=None, trans1=False, trans2=False):
         if x.ndim != 2:
