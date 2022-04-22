@@ -10,7 +10,7 @@ releases, pip 19.3 or newer is recommended.
 
 ```bash
 ### pip
-$ pip install thinc --pre
+$ pip install thinc
 ```
 
 <!--The latest releases are available from
@@ -33,7 +33,7 @@ $ conda install -c conda-forge thinc
 
 </grid>
 
-<quickstart title="Extended installation" id="extended" suffix=" --pre"></quickstart>
+<quickstart title="Extended installation" id="extended" suffix=""></quickstart>
 
 <infobox variant="warning">
 
