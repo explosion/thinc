@@ -148,12 +148,9 @@ class CategoricalCrossentropy(Loss):
         return difference
 
     def get_loss(self, guesses: Floats2d, truths: IntsOrFloatsOrStrs) -> float:
-        d_truth = self.get_grad(guesses, truths)
-        return self._get_loss_from_grad(d_truth)
-
-    def _get_loss_from_grad(self, d_truth: Floats2d) -> float:
-        # TODO: Add overload for axis=None case to sum
-        return (d_truth**2).sum()  # type: ignore
+        xp = get_array_module(guesses)
+        target, mask = self.convert_truths(truths, guesses)
+        return -xp.sum(target * xp.log(guesses + 1e-9) * mask)
 
 
 @registry.losses("CategoricalCrossentropy.v1")
