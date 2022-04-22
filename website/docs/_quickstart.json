@@ -17,8 +17,7 @@
                 { "label": "11.2", "value": "cuda112" },
                 { "label": "11.3", "value": "cuda113" },
                 { "label": "11.4", "value": "cuda114" },
-                { "label": "11.5", "value": "cuda115" },
-                { "label": "11.6", "value": "cuda116" }
+                { "label": "11.5", "value": "cuda115" }
             ]
         },
         {
