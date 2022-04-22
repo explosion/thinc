@@ -41,7 +41,7 @@ date. For the most recent releases, pip 19.3 or newer is recommended.
 
 ```bash
 pip install -U pip setuptools wheel
-pip install thinc --pre
+pip install thinc
 ```
 
 See the [extended installation docs](https://thinc.ai/docs/install#extended) for details on optional dependencies for different backends and GPU. You might also want to [set up static type checking](https://thinc.ai/docs/install#type-checking) to take advantage of Thinc's type system.
