@@ -20,8 +20,16 @@ try:  # pragma: no cover
     import cupy
 
     has_cupy = True
+    cupy_version = Version(cupy.__version__)
+
+    if cupy_version.major >= 10:
+        # fromDlpack was deprecated in v10.0.0.
+        cupy_from_dlpack = cupy.from_dlpack
+    else:
+        cupy_from_dlpack = cupy.fromDlpack
 except (ImportError, AttributeError):
     cupy = None
+    cupy_version = Version("0.0.0")
     has_cupy = False
 
 
@@ -354,7 +362,7 @@ def xp2torch(
 def torch2xp(torch_tensor: "torch.Tensor") -> ArrayXd:  # pragma: no cover
     """Convert a torch tensor to a numpy or cupy tensor."""
     if torch_tensor.is_cuda:
-        return cupy.fromDlpack(torch.utils.dlpack.to_dlpack(torch_tensor))
+        return cupy_from_dlpack(torch.utils.dlpack.to_dlpack(torch_tensor))
     else:
         return torch_tensor.detach().numpy()
 
@@ -393,7 +401,7 @@ def tensorflow2xp(tf_tensor: "tf.Tensor") -> ArrayXd:  # pragma: no cover
         return tf_tensor.numpy()
     else:
         dlpack_tensor = tensorflow.experimental.dlpack.to_dlpack(tf_tensor)
-        return cupy.fromDlpack(dlpack_tensor)
+        return cupy_from_dlpack(dlpack_tensor)
 
 
 def xp2mxnet(
@@ -413,7 +421,7 @@ def xp2mxnet(
 def mxnet2xp(mx_tensor: "mx.nd.NDArray") -> ArrayXd:  # pragma: no cover
     """Convert a MXNet tensor to a numpy or cupy tensor."""
     if mx_tensor.context.device_type != "cpu":
-        return cupy.fromDlpack(mx_tensor.to_dlpack_for_write())
+        return cupy_from_dlpack(mx_tensor.to_dlpack_for_write())
     else:
         return mx_tensor.detach().asnumpy()
 
