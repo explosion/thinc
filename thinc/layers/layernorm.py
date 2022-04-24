@@ -39,7 +39,7 @@ def forward(model: Model[InT, InT], X: InT, is_train: bool) -> Tuple[InT, Callab
 
 def init(
     model: Model[InT, InT], X: Optional[InT] = None, Y: Optional[InT] = None
-) -> Model[InT, InT]:
+) -> None:
     if X is not None:
         X_width = get_width(X)
         model.set_dim("nI", X_width)
@@ -54,7 +54,6 @@ def init(
     model.set_param("G", model.ops.alloc1f(nI) + 1)
     model.set_param("b", model.ops.alloc1f(nI))
     assert model.get_dim("nO") is not None
-    return model
 
 
 def _begin_update_scale_shift(model: Model[InT, InT], X: InT) -> Tuple[InT, Callable]:

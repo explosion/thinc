@@ -43,7 +43,7 @@ def _flatten(nested: InT) -> List[ItemT]:
     return flat
 
 
-def init(model, X=None, Y=None):
+def init(model, X=None, Y=None) -> None:
     model.layers[0].initialize(
         _flatten(X) if X is not None else None,
         model.layers[0].ops.xp.hstack(Y) if Y is not None else None,

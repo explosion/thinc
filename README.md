@@ -41,7 +41,7 @@ date. For the most recent releases, pip 19.3 or newer is recommended.
 
 ```bash
 pip install -U pip setuptools wheel
-pip install thinc --pre
+pip install thinc
 ```
 
 See the [extended installation docs](https://thinc.ai/docs/install#extended) for details on optional dependencies for different backends and GPU. You might also want to [set up static type checking](https://thinc.ai/docs/install#type-checking) to take advantage of Thinc's type system.
@@ -97,7 +97,7 @@ Also see the [`/examples`](examples) directory and [usage documentation](https:/
 | [`thinc.loss`](thinc/loss.py)             | Functions to calculate losses.                                                    |
 | [`thinc.optimizers`](thinc/optimizers.py) | Functions to create optimizers. Currently supports "vanilla" SGD, Adam and RAdam. |
 | [`thinc.schedules`](thinc/schedules.py)   | Generators for different rates, schedules, decays or series.                      |
-| [`thinc.backends`](thinc/backends.py)     | Backends for `numpy` and `cupy`.                                                  |
+| [`thinc.backends`](thinc/backends)        | Backends for `numpy` and `cupy`.                                                  |
 | [`thinc.config`](thinc/config.py)         | Config parsing and validation and function registry system.                       |
 | [`thinc.util`](thinc/util.py)             | Utilities and helper functions.                                                   |
 
