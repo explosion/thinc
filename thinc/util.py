@@ -20,8 +20,16 @@ try:  # pragma: no cover
     import cupy
 
     has_cupy = True
+    cupy_version = Version(cupy.__version__)
+
+    if cupy_version.major >= 10:
+        # fromDlpack was deprecated in v10.0.0.
+        cupy_from_dlpack = cupy.from_dlpack
+    else:
+        cupy_from_dlpack = cupy.fromDlpack
 except (ImportError, AttributeError):
     cupy = None
+    cupy_version = Version("0.0.0")
     has_cupy = False
 
 
@@ -397,7 +405,7 @@ def torch2xp(
         if isinstance(ops, NumpyOps):
             return torch_tensor.detach().cpu().numpy()
         else:
-            return cupy.fromDlpack(torch.utils.dlpack.to_dlpack(torch_tensor))
+            return cupy_from_dlpack(torch.utils.dlpack.to_dlpack(torch_tensor))
     else:
         if isinstance(ops, NumpyOps) or ops is None:
             return torch_tensor.detach().numpy()
@@ -442,7 +450,7 @@ def tensorflow2xp(
             return tf_tensor.numpy()
         else:
             dlpack_tensor = tensorflow.experimental.dlpack.to_dlpack(tf_tensor)
-            return cupy.fromDlpack(dlpack_tensor)
+            return cupy_from_dlpack(dlpack_tensor)
     else:
         if isinstance(ops, NumpyOps) or ops is None:
             return tf_tensor.numpy()
@@ -476,7 +484,7 @@ def mxnet2xp(
         if isinstance(ops, NumpyOps):
             return mx_tensor.detach().asnumpy()
         else:
-            return cupy.fromDlpack(mx_tensor.to_dlpack_for_write())
+            return cupy_from_dlpack(mx_tensor.to_dlpack_for_write())
     else:
         if isinstance(ops, NumpyOps) or ops is None:
             return mx_tensor.detach().asnumpy()
