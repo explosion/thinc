@@ -20,7 +20,8 @@ from .numpy_ops import NumpyOps
 from . import _custom_kernels
 from ..types import DeviceTypes
 from ..util import torch2xp, tensorflow2xp, mxnet2xp
-from ..util import is_torch_array, is_tensorflow_array, is_mxnet_array
+from ..util import is_cupy_array
+from ..util import is_torch_gpu_array, is_tensorflow_gpu_array, is_mxnet_gpu_array
 
 
 @registry.ops("CupyOps")
@@ -79,15 +80,15 @@ class CupyOps(Ops):
         # We'll try to perform a zero-copy conversion if possible.
         array = None
         cast_array = False
-        if isinstance(data, cupy.ndarray):
+        if is_cupy_array(data):
             array = self.xp.asarray(data, **dtype)
-        elif is_torch_array(data) and data.device.type == "cuda":
+        elif is_torch_gpu_array(data):
             array = torch2xp(data)
             cast_array = True
-        elif is_tensorflow_array(data) and "GPU:" in data.device:
+        elif is_tensorflow_gpu_array(data):
             array = tensorflow2xp(data)
             cast_array = True
-        elif is_mxnet_array(data) and data.context.device_type != "cpu":
+        elif is_mxnet_gpu_array(data):
             array = mxnet2xp(data)
             cast_array = True
         else:
