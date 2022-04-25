@@ -48,8 +48,10 @@ try:  # pragma: no cover
     import tensorflow as tf
 
     has_tensorflow = True
+    has_tensorflow_gpu = len(tf.config.get_visible_devices("GPU")) > 0
 except ImportError:  # pragma: no cover
     has_tensorflow = False
+    has_tensorflow_gpu = False
 
 
 try:  # pragma: no cover
@@ -71,6 +73,9 @@ def get_array_module(arr):  # pragma: no cover
 
 
 def gpu_is_available():
+    if not has_cupy:
+        return False
+
     try:
         cupy.cuda.runtime.getDeviceCount()
         return True
@@ -98,7 +103,7 @@ def is_xp_array(obj: Any) -> bool:
 
 
 def is_cupy_array(obj: Any) -> bool:  # pragma: no cover
-    """Check whether an object is a cupy array"""
+    """Check whether an object is a cupy array."""
     if not has_cupy:
         return False
     elif isinstance(obj, cupy.ndarray):
@@ -108,7 +113,7 @@ def is_cupy_array(obj: Any) -> bool:  # pragma: no cover
 
 
 def is_numpy_array(obj: Any) -> bool:
-    """Check whether an object is a numpy array"""
+    """Check whether an object is a numpy array."""
     if isinstance(obj, numpy.ndarray):
         return True
     else:

@@ -8,7 +8,7 @@ from numpy.testing import assert_allclose
 from packaging.version import Version
 from thinc.api import NumpyOps, CupyOps, Ops, get_ops
 from thinc.api import get_current_ops, use_ops
-from thinc.util import has_torch, torch2xp, xp2torch, torch_version
+from thinc.util import has_torch, torch2xp, xp2torch, torch_version, gpu_is_available
 from thinc.api import fix_random_seed
 from thinc.api import LSTM
 from thinc.types import Floats2d
@@ -25,7 +25,7 @@ NUMPY_OPS = NumpyOps()
 BLIS_OPS = NumpyOps(use_blis=True)
 CPU_OPS = [NUMPY_OPS, VANILLA_OPS]
 XP_OPS = [NUMPY_OPS]
-if CupyOps.xp is not None:
+if CupyOps.xp is not None and gpu_is_available():
     XP_OPS.append(CupyOps())
 ALL_OPS = XP_OPS + [VANILLA_OPS]
 
@@ -570,7 +570,9 @@ def test_backprop_seq2col_window_two(ops, dtype):
     ops.xp.testing.assert_allclose(seq, expected, atol=0.001, rtol=0.001)
 
 
-@pytest.mark.skipif(CupyOps.xp is None, reason="needs GPU/CuPy")
+@pytest.mark.skipif(
+    CupyOps.xp is None or not gpu_is_available(), reason="needs GPU/CuPy"
+)
 @pytest.mark.parametrize("nW", [1, 2])
 def test_large_seq2col_gpu_against_cpu(nW):
     cupy_ops = CupyOps()
@@ -592,7 +594,9 @@ def test_large_seq2col_gpu_against_cpu(nW):
     assert_allclose(cols, cols_gpu.get())
 
 
-@pytest.mark.skipif(CupyOps.xp is None, reason="needs GPU/CuPy")
+@pytest.mark.skipif(
+    CupyOps.xp is None or not gpu_is_available(), reason="needs GPU/CuPy"
+)
 @pytest.mark.parametrize("nW", [1, 2])
 def test_large_backprop_seq2col_gpu_against_cpu(nW):
     cupy_ops = CupyOps()
