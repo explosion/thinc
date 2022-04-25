@@ -66,7 +66,7 @@ def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Call
 
 def init(
     model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = None
-) -> Model[InT, OutT]:
+) -> None:
     if X is None and Y is None:
         for layer in model.layers:
             layer.initialize()
@@ -74,7 +74,6 @@ def init(
             model.set_dim("nI", model.layers[0].get_dim("nI"))
         if model.layers[-1].has_dim("nO"):
             model.set_dim("nO", model.layers[-1].get_dim("nO"))
-        return model
 
     # Try to set nO on each layer, where available.
     # Shape inference is tricky, especially for the output. The policy is:
@@ -100,4 +99,3 @@ def init(
             else:
                 nO = None  # type: ignore
         model.set_dim("nO", nO)
-    return model

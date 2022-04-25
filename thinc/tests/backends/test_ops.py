@@ -763,6 +763,9 @@ def test_reduce_max_sm(ops, dtype):
     lengths = ops.xp.array([2, 2, 2], dtype="i")
     maxes, which = ops.reduce_max(X, lengths)
     assert maxes.dtype == dtype
+    assert ops.xp.all(which >= 0)
+    assert ops.xp.all(which < X.shape[0])
+
     start = 0
     for i, length in enumerate(lengths):
         truth = X[start : start + length].max(axis=0)
@@ -781,6 +784,9 @@ def test_reduce_max(ops, dtype):
     # m[1, 3] = 3
     maxes, which = ops.reduce_max(m, lengths)
     assert maxes.dtype == dtype
+    assert ops.xp.all(which >= 0)
+    assert ops.xp.all(which < m.shape[0])
+
     start = 0
     for i, length in enumerate(lengths):
         truth = m[start : start + length].max(axis=0)

@@ -38,11 +38,10 @@ def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Call
 
 def init(
     model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = None
-) -> Model[InT, OutT]:
+) -> None:
     (Y1, Y2) = _split(model.ops, Y) if Y is not None else (None, None)
     model.layers[0].initialize(X=X, Y=Y1)
     model.layers[1].initialize(X=X, Y=Y2)
-    return model
 
 
 def _reverse(ops: Ops, Xp: Padded) -> Padded:

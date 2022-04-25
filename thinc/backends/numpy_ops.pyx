@@ -396,7 +396,8 @@ class NumpyOps(Ops):
         assert O != 0
 
         cdef np.ndarray maxes
-        cdef np.ndarray which = self.alloc(shape=(B, O), dtype="i", zeros=False)
+        # Needs to be zero-initialized as we start by assuming that the first element is the max value.
+        cdef np.ndarray which = self.alloc(shape=(B, O), dtype="i", zeros=True)
         if reals2d_ft is float2d_t:
             maxes = self.alloc(shape=(B, O), dtype="float32", zeros=False)
             cpu_reduce_max(<float*>maxes.data, <int*>which.data, &X[0, 0], &lengths[0], B, T, O)

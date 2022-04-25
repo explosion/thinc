@@ -95,7 +95,6 @@ def init(
     model: Model[InT, OutT],
     X: Optional[Ints1d] = None,
     Y: Optional[OutT] = None,
-) -> Model[InT, OutT]:
+) -> None:
     E = initializer(model.ops, (model.get_dim("nV"), model.get_dim("nO")))
     model.set_param("E", E)
-    return model
