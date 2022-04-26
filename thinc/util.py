@@ -393,7 +393,7 @@ def xp2torch(
 
 
 def torch2xp(
-    torch_tensor: "torch.Tensor", ops: Any = None
+    torch_tensor: "torch.Tensor", *, ops: Any = None
 ) -> ArrayXd:  # pragma: no cover
     """Convert a torch tensor to a numpy or cupy tensor depending on the `ops` parameter.
     If `ops` is `None`, the type of the resultant tensor will be determined by the source tensor's device.
@@ -437,7 +437,7 @@ def xp2tensorflow(
 
 
 def tensorflow2xp(
-    tf_tensor: "tf.Tensor", ops: Any = None
+    tf_tensor: "tf.Tensor", *, ops: Any = None
 ) -> ArrayXd:  # pragma: no cover
     """Convert a Tensorflow tensor to numpy or cupy tensor depending on the `ops` parameter.
     If `ops` is `None`, the type of the resultant tensor will be determined by the source tensor's device.
@@ -474,7 +474,7 @@ def xp2mxnet(
 
 
 def mxnet2xp(
-    mx_tensor: "mx.nd.NDArray", ops: Any = None
+    mx_tensor: "mx.nd.NDArray", *, ops: Any = None
 ) -> ArrayXd:  # pragma: no cover
     """Convert a MXNet tensor to a numpy or cupy tensor."""
     from .api import NumpyOps
