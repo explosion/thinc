@@ -63,6 +63,10 @@ except ImportError:  # pragma: no cover
 
 from .types import ArrayXd, ArgsKwargs, Ragged, Padded, FloatsXd, IntsXd  # noqa: E402
 from . import types  # noqa: E402
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .api import Ops
 
 
 def get_array_module(arr):  # pragma: no cover
@@ -370,7 +374,7 @@ def xp2torch(
 
 
 def torch2xp(
-    torch_tensor: "torch.Tensor", *, ops: "Ops" = None
+    torch_tensor: "torch.Tensor", *, ops: Optional["Ops"] = None
 ) -> ArrayXd:  # pragma: no cover
     """Convert a torch tensor to a numpy or cupy tensor depending on the `ops` parameter.
     If `ops` is `None`, the type of the resultant tensor will be determined by the source tensor's device.
@@ -414,7 +418,7 @@ def xp2tensorflow(
 
 
 def tensorflow2xp(
-    tf_tensor: "tf.Tensor", *, ops: "Ops" = None
+    tf_tensor: "tf.Tensor", *, ops: Optional["Ops"] = None
 ) -> ArrayXd:  # pragma: no cover
     """Convert a Tensorflow tensor to numpy or cupy tensor depending on the `ops` parameter.
     If `ops` is `None`, the type of the resultant tensor will be determined by the source tensor's device.
@@ -451,7 +455,7 @@ def xp2mxnet(
 
 
 def mxnet2xp(
-    mx_tensor: "mx.nd.NDArray", *, ops: "Ops" = None
+    mx_tensor: "mx.nd.NDArray", *, ops: Optional["Ops"] = None
 ) -> ArrayXd:  # pragma: no cover
     """Convert a MXNet tensor to a numpy or cupy tensor."""
     from .api import NumpyOps
