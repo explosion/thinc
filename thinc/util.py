@@ -59,7 +59,7 @@ try:  # pragma: no cover
 except ImportError:  # pragma: no cover
     has_mxnet = False
 
-from .types import ArrayXd, ArgsKwargs, Ragged, Padded, FloatsXd, IntsXd  # noqa: E402
+from .types import ArrayXd, Array2d, ArgsKwargs, Ragged, Padded, FloatsXd, IntsXd  # noqa: E402
 from . import types  # noqa: E402
 
 
@@ -242,6 +242,21 @@ def to_categorical(
     label_distr = xp.full((n_classes, n_classes), nongold_prob, dtype="float32")
     xp.fill_diagonal(label_distr, 1 - label_smoothing)
     return label_distr[Y]
+
+
+def smooth_one_hot(X: Array2d, label_smoothing: float):
+    """
+    Apply label-smoothing to one-hot array.
+    """
+    if not 0.0 <= label_smoothing < 0.5:
+        raise ValueError(
+            "label_smoothing should be greater or "
+            "equal to 0.0 and less than 0.5, "
+            f"but {label_smoothing} was provided."
+        )
+    X[X == 1] = 1 - label_smoothing
+    X[X == 0] = label_smoothing / (X.shape[1] - 1)
+    return X
 
 
 def get_width(
