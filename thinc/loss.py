@@ -75,7 +75,7 @@ class CategoricalCrossentropy(Loss):
                             missing.append(i)
                 else:
                     if self.names is None:
-                        raise ValueError (
+                        raise ValueError(
                             "Cannot calculate loss from list of strings without names. "
                             "You can pass the names as a keyword argument when you "
                             "create the loss object, "
@@ -117,7 +117,7 @@ class CategoricalCrossentropy(Loss):
                     )
                 if self.label_smoothing:
                     # Check if one-hot
-                    if xp.all(X.sum(axis==0) == 1):
+                    if xp.all(X.sum(axis == 0) == 1):
                         truths = smooth_one_hot(truths)
                     else:
                         raise ValueError(

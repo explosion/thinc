@@ -59,7 +59,15 @@ try:  # pragma: no cover
 except ImportError:  # pragma: no cover
     has_mxnet = False
 
-from .types import ArrayXd, Array2d, ArgsKwargs, Ragged, Padded, FloatsXd, IntsXd  # noqa: E402
+from .types import (
+    ArrayXd,
+    Array2d,
+    ArgsKwargs,
+    Ragged,
+    Padded,
+    FloatsXd,
+    IntsXd,
+)  # noqa: E402
 from . import types  # noqa: E402
 
 
