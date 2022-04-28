@@ -32,12 +32,18 @@ def test_loss():
 
 
 @pytest.mark.parametrize(
-    "dist", [CategoricalCrossentropy(), CosineDistance(ignore_zeros=True), L2Distance()]
+    "dist", [CosineDistance(ignore_zeros=True), L2Distance()]
 )
 @pytest.mark.parametrize("vect", [scores0, guesses1, guesses2])
-def test_equality(dist, vect):
+def test_equal_distance(dist, vect):
     assert int(dist.get_grad(vect, vect)[0][0]) == pytest.approx(0, eps)
     assert dist.get_loss(vect, vect) == pytest.approx(0, eps)
+
+
+@pytest.mark.parametrize("vect", [scores0, guesses1, guesses2])
+def test_equal_distribution(vect):
+    ce = CategoricalCrossentropy()
+    ...
 
 
 @pytest.mark.parametrize(

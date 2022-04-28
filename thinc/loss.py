@@ -127,10 +127,9 @@ class CategoricalCrossentropy(Loss):
         self, guesses: Floats2d, truths: IntsOrFloatsOrStrs
     ) -> Tuple[Floats2d, float]:
         d_truth = self.get_grad(guesses, truths)
-        return (d_truth, self._get_loss_from_grad(d_truth))
+        return (d_truth, self.get_loss(guesses, truths))
 
-    def get_grad(self, guesses: Floats2d, truths: IntsOrFloatsOrStrs) -> Floats2d:
-        target, mask = self.convert_truths(truths, guesses)
+    def _check_input(self, guesses: Floats2d, target: Floats2d) -> None:
         xp = get_array_module(target)
         if guesses.shape != target.shape:  # pragma: no cover
             err = f"Cannot calculate CategoricalCrossentropy loss: mismatched shapes: {guesses.shape} vs {target.shape}."
@@ -141,6 +140,10 @@ class CategoricalCrossentropy(Loss):
         if xp.any(target > 1) or xp.any(target < 0):  # pragma: no cover
             err = f"Cannot calculate CategoricalCrossentropy loss with truth values outside the [0,1] interval."
             raise ValueError(err)
+
+    def get_grad(self, guesses: Floats2d, truths: IntsOrFloatsOrStrs) -> Floats2d:
+        target, mask = self.convert_truths(truths, guesses)
+        self._check_input(guesses, target)
         difference = guesses - target
         difference *= mask
         if self.normalize:
@@ -150,7 +153,15 @@ class CategoricalCrossentropy(Loss):
     def get_loss(self, guesses: Floats2d, truths: IntsOrFloatsOrStrs) -> float:
         xp = get_array_module(guesses)
         target, mask = self.convert_truths(truths, guesses)
-        return -xp.sum(target * xp.log(guesses + 1e-9) * mask)
+        self._check_input(guesses, target)
+        target *= mask
+        logprobs = xp.log(guesses + 1e-9)
+        # Categorical cross-entropy
+        if xp.allclose(guesses.sum(axis=1), 1.0):
+            return -(target * logprobs).sum()
+        # Binary cross-entropy
+        else:
+            return -(target * logprobs + (1 - target) * (1 - logprobs)).sum()
 
 
 @registry.losses("CategoricalCrossentropy.v1")
@@ -222,7 +233,7 @@ class SequenceCategoricalCrossentropy(Loss):
         self, guesses: List[Floats2d], truths: List[IntsOrFloatsOrStrs]
     ) -> Tuple[List[Floats2d], float]:
         grads = self.get_grad(guesses, truths)
-        loss = self._get_loss_from_grad(grads)
+        loss = self.get_loss(guesses, truths)
         return grads, loss
 
     def get_grad(
@@ -243,12 +254,12 @@ class SequenceCategoricalCrossentropy(Loss):
     def get_loss(
         self, guesses: List[Floats2d], truths: List[IntsOrFloatsOrStrs]
     ) -> float:
-        return self._get_loss_from_grad(self.get_grad(guesses, truths))
-
-    def _get_loss_from_grad(self, grads: List[Floats2d]) -> float:
+        err = "Cannot calculate SequenceCategoricalCrossentropy loss: guesses and truths must be same length"
+        if len(guesses) != len(truths):  # pragma: no cover
+            raise ValueError(err)
         loss = 0.0
-        for grad in grads:
-            loss += self.cc._get_loss_from_grad(grad)
+        for guess, truth in zip(guesses, truths):
+            loss += self.cc.get_loss(guess, truth)
         return loss
 
 
