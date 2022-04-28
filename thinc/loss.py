@@ -109,7 +109,7 @@ class CategoricalCrossentropy(Loss):
                 )
             # Validate 2d truths and apply smoothing if its one-hot.
             elif truths.ndim == 2:
-                if not xp.all(X.sum(axis=1) == 1):
+                if not xp.all(truths.sum(axis=1) == 1):
                     raise ValueError(
                         "Cannot calcuate CategoricalCrossentropy. "
                         "All rows of 'truths' have to be a "
@@ -117,8 +117,8 @@ class CategoricalCrossentropy(Loss):
                     )
                 if self.label_smoothing:
                     # Check if one-hot
-                    if xp.all(X.sum(axis == 0) == 1):
-                        truths = smooth_one_hot(truths)
+                    if xp.all(truths.sum(axis=0) == 1):
+                        truths = smooth_one_hot(truths, self.label_smoothing)
                     else:
                         raise ValueError(
                             "Can only apply label-smoothing to one-hot target."

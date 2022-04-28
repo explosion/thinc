@@ -1,5 +1,5 @@
 from typing import Any, Union, Sequence, cast, Dict, Optional, Callable, TypeVar
-from typing import List, Tuple
+from typing import List
 import numpy
 from packaging.version import Version
 import random
@@ -27,7 +27,6 @@ except (ImportError, AttributeError):
 
 try:  # pragma: no cover
     import torch
-    from torch import tensor
     import torch.utils.dlpack
 
     has_torch = True
@@ -59,15 +58,8 @@ try:  # pragma: no cover
 except ImportError:  # pragma: no cover
     has_mxnet = False
 
-from .types import (
-    ArrayXd,
-    Array2d,
-    ArgsKwargs,
-    Ragged,
-    Padded,
-    FloatsXd,
-    IntsXd,
-)  # noqa: E402
+from .types import ArrayXd, ArgsKwargs, Ragged  # noqa: E402
+from .types import Padded, Floats2d, FloatsXd, IntsXd  # noqa: E402
 from . import types  # noqa: E402
 
 
@@ -252,7 +244,7 @@ def to_categorical(
     return label_distr[Y]
 
 
-def smooth_one_hot(X: Array2d, label_smoothing: float):
+def smooth_one_hot(X: Floats2d, label_smoothing: float):
     """
     Apply label-smoothing to one-hot array.
     """
