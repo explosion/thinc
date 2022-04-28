@@ -2,7 +2,7 @@ from typing import Tuple, List, cast, TypeVar, Generic, Any, Union, Optional
 from typing import Dict
 
 from .types import Floats2d, Ints1d
-from .util import get_array_module, to_categorical
+from .util import get_array_module, to_categorical, smooth_one_hot
 from .config import registry
 
 
@@ -75,13 +75,12 @@ class CategoricalCrossentropy(Loss):
                             missing.append(i)
                 else:
                     if self.names is None:
-                        msg = (
+                        raise ValueError (
                             "Cannot calculate loss from list of strings without names. "
                             "You can pass the names as a keyword argument when you "
                             "create the loss object, "
                             "e.g. CategoricalCrossentropy(names=['dog', 'cat'])"
                         )
-                        raise ValueError(msg)
                     for i, value in enumerate(truths):
                         if value == missing_value:
                             truths[i] = self.names[0]
@@ -98,21 +97,38 @@ class CategoricalCrossentropy(Loss):
                     truths = [self._name_to_i[name] for name in truths]
             truths = xp.asarray(truths, dtype="i")
             mask = _make_mask(guesses, missing)
+        # Deal with truths in xp array format.
         else:
             mask = _make_mask_by_value(truths, guesses, missing_value)
-        if truths.ndim != guesses.ndim:
-            # transform categorical values to one-hot encoding
-            truths = to_categorical(
-                cast(Ints1d, truths),
-                n_classes=guesses.shape[-1],
-                label_smoothing=self.label_smoothing,
-            )
-        else:
-            if self.label_smoothing:
+            # Convert 1d truths to 2d and apply smoothing.
+            if truths.ndim == 1:
+                truths = to_categorical(
+                    cast(Ints1d, truths),
+                    n_classes=guesses.shape[-1],
+                    label_smoothing=self.label_smoothing,
+                )
+            # Validate 2d truths and apply smoothing if its one-hot.
+            elif truths.ndim == 2:
+                if not xp.all(X.sum(axis=1) == 1):
+                    raise ValueError(
+                        "Cannot calcuate CategoricalCrossentropy. "
+                        "All rows of 'truths' have to be a "
+                        "valid categorical distribution (sum to 1)."
+                    )
+                if self.label_smoothing:
+                    # Check if one-hot
+                    if xp.all(X.sum(axis==0) == 1):
+                        truths = smooth_one_hot(truths)
+                    else:
+                        raise ValueError(
+                            "Can only apply label-smoothing to one-hot target."
+                        )
+            # Something went wrong.
+            else:
                 raise ValueError(
-                    "Label smoothing is only applied, when truths have type "
-                    "List[str], List[int] or Ints1d, but it seems like Floats2d "
-                    "was provided."
+                    "Invalid format provided for 'truths', "
+                    "it has to be one of List[int], List[str], "
+                    "Ints1d, Floats2d."
                 )
         # Transform negative annotations to a 0 for the negated value
         # + mask all other values for that row
@@ -126,11 +142,21 @@ class CategoricalCrossentropy(Loss):
     def __call__(
         self, guesses: Floats2d, truths: IntsOrFloatsOrStrs
     ) -> Tuple[Floats2d, float]:
+        # XXX not ideal to run convert_input and _validate_input twice.
+        # Once for get_grad and once for get_loss.
+        # This is similar to how the L2Distance calls get_grad in get_loss.
         d_truth = self.get_grad(guesses, truths)
-        return (d_truth, self.get_loss(guesses, truths))
+        loss = self.get_loss(guesses, truths)
+        return (d_truth, loss)
 
-    def _check_input(self, guesses: Floats2d, target: Floats2d) -> None:
+    def _validate_input(self, guesses: Floats2d, target: Floats2d) -> None:
         xp = get_array_module(target)
+        if not xp.all(guesses.sum(axis=1) == 1):
+            raise ValueError(
+                "Cannot calcuate CategoricalCrossentropy if "
+                "some rows of 'guesses' are not "
+                "valid categorical distributions (don't sum to 1)."
+            )
         if guesses.shape != target.shape:  # pragma: no cover
             err = f"Cannot calculate CategoricalCrossentropy loss: mismatched shapes: {guesses.shape} vs {target.shape}."
             raise ValueError(err)
@@ -143,7 +169,7 @@ class CategoricalCrossentropy(Loss):
 
     def get_grad(self, guesses: Floats2d, truths: IntsOrFloatsOrStrs) -> Floats2d:
         target, mask = self.convert_truths(truths, guesses)
-        self._check_input(guesses, target)
+        self._validate_input(guesses, target)
         difference = guesses - target
         difference *= mask
         if self.normalize:
@@ -153,15 +179,13 @@ class CategoricalCrossentropy(Loss):
     def get_loss(self, guesses: Floats2d, truths: IntsOrFloatsOrStrs) -> float:
         xp = get_array_module(guesses)
         target, mask = self.convert_truths(truths, guesses)
-        self._check_input(guesses, target)
+        self._validate_input(guesses, target)
         target *= mask
         logprobs = xp.log(guesses + 1e-9)
-        # Categorical cross-entropy
-        if xp.allclose(guesses.sum(axis=1), 1.0):
-            return -(target * logprobs).sum()
-        # Binary cross-entropy
+        if self.normalize:
+            return -(target * logprobs).mean()
         else:
-            return -(target * logprobs + (1 - target) * (1 - logprobs)).sum()
+            return -(target * logprobs).sum()
 
 
 @registry.losses("CategoricalCrossentropy.v1")
