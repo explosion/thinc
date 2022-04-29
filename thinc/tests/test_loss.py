@@ -1,9 +1,24 @@
 import pytest
 import numpy
+from functools import partial
 from thinc.api import CategoricalCrossentropy, SequenceCategoricalCrossentropy
-from thinc.api import L2Distance, CosineDistance
+from thinc.api import L2Distance, CosineDistance, softmax_activation
 from thinc import registry
+from thinc.util import has_torch
+from hypothesis import given, settings
+from hypothesis.strategies import integers, floats
 
+
+ALL_XP = [numpy]
+# try:
+#    import cupy
+#    ALL_XP.append(cupy)
+# except ImportError:
+#    pass
+
+
+softmax_func = partial(softmax_activation(), is_train=False)
+MAX_EXAMPLES = 50
 # some simple arrays
 scores0 = numpy.zeros((3, 3), dtype="f")
 labels0 = numpy.asarray([0, 1, 1], dtype="i")
@@ -29,6 +44,42 @@ def test_loss():
     assert d_scores[0].dtype == "float32"
     assert d_scores[0].shape == scores0.shape
     assert SequenceCategoricalCrossentropy().get_grad([], []) == []
+
+
+@pytest.mark.skipif(not has_torch, reason="needs PyTorch")
+@pytest.mark.parametrize("xp", ALL_XP)
+@settings(max_examples=MAX_EXAMPLES, deadline=None)
+@given(
+    n_samples=integers(min_value=1, max_value=100),
+    n_classes=integers(min_value=1, max_value=100),
+    low=floats(min_value=-20, max_value=10),
+    offset=floats(min_value=1, max_value=10)
+)
+def test_compare_cross_entropy_to_torch(xp, n_samples, n_classes, low, offset):
+    import torch
+
+    loss_sum = CategoricalCrossentropy(normalize=False)
+    loss_mean = CategoricalCrossentropy()
+    torch_loss_sum = torch.nn.CrossEntropyLoss(reduction='sum')
+    torch_loss_mean = torch.nn.CrossEntropyLoss()
+    logits = xp.random.uniform(low, low + offset, (n_samples, n_classes))
+    labels = xp.random.randint(0, n_classes, n_samples)
+    torch_logits = torch.tensor(logits, requires_grad=True)
+    torch_labels = torch.tensor(labels)
+    probs, _ = softmax_func(logits)
+    d_sum, l_sum = loss_sum(probs, labels)
+    torch_l_sum = torch_loss_sum(torch_logits, torch_labels)
+    torch_l_sum.backward()
+    torch_d_sum = torch_logits.grad
+    torch_logits = torch.tensor(logits, requires_grad=True)
+    d_mean, l_mean = loss_mean(probs, labels)
+    torch_l_mean = torch_loss_mean(torch_logits, torch_labels)
+    torch_l_mean.backward()
+    torch_d_mean = torch_logits.grad
+    assert xp.isclose(float(l_sum), float(torch_l_sum), atol=1e-06)
+    assert xp.allclose(d_sum, torch_d_sum.numpy())
+    assert xp.isclose(float(l_mean), float(torch_l_mean))
+    assert xp.allclose(d_mean, torch_d_mean.numpy())
 
 
 @pytest.mark.parametrize(
