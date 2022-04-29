@@ -151,7 +151,7 @@ class CategoricalCrossentropy(Loss):
 
     def _validate_input(self, guesses: Floats2d, target: Floats2d) -> None:
         xp = get_array_module(target)
-        if not xp.all(guesses.sum(axis=1) == 1):
+        if not xp.allclose(guesses.sum(axis=1), 1.):
             raise ValueError(
                 "Cannot calcuate CategoricalCrossentropy if "
                 "some rows of 'guesses' are not "
@@ -183,7 +183,7 @@ class CategoricalCrossentropy(Loss):
         target *= mask
         logprobs = xp.log(guesses + 1e-9)
         if self.normalize:
-            return -(target * logprobs).mean()
+            return -(target * logprobs).sum(1).mean()
         else:
             return -(target * logprobs).sum()
 
