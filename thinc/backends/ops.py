@@ -636,14 +636,16 @@ class Ops:
         return self.xp.ascontiguousarray(data, **kwargs)
 
     def sigmoid(self, X: FloatsType, *, inplace: bool = False) -> FloatsType:
-        with numpy.errstate(over="ignore"):
-            if inplace:
-                self.xp.exp(-X, out=X)
-                X += 1.0  # type: ignore
-                X **= -1.0  # type: ignore
-                return cast(FloatsType, X)
-            else:
-                return cast(FloatsType, 1.0 / (1.0 + self.xp.exp(-X)))
+        # To prevent overflows and help with regularization/numerical stability
+        X = self.xp.clip(X, -20.0, 20.0)
+
+        if inplace:
+            self.xp.exp(-X, out=X)
+            X += 1.0  # type: ignore
+            X **= -1.0  # type: ignore
+            return cast(FloatsType, X)
+        else:
+            return cast(FloatsType, 1.0 / (1.0 + self.xp.exp(-X)))
 
     def dsigmoid(self, Y: FloatsType, *, inplace: bool = False) -> FloatsType:
         if inplace:
@@ -1442,9 +1444,11 @@ def backprop_lstm_gates(
 
 
 def sigmoid(X, out=None):
-    with numpy.errstate(over="ignore"):
-        xp = get_array_module(X)
-        return 1.0 / (1.0 + xp.exp(-X))
+    xp = get_array_module(X)
+
+    # To prevent overflows and help with regularization/numerical stability
+    X = xp.clip(X, -20.0, 20.0)
+    return 1.0 / (1.0 + xp.exp(-X))
 
 
 def dsigmoid(Y: ArrayT) -> ArrayT:
