@@ -17,38 +17,36 @@ def chain_no_types(*layer: Model) -> Model:
 
 
 def chain(
-    layer1: Model[InT, MidT], layer2: Model[MidT, Any], *more_layers: Model[Any, Any]
+    layer1: Model[InT, MidT], layer2: Model[MidT, Any], *layers: Model[Any, Any]
 ) -> Model[InT, XY_YZ_OutT]:
     """Compose two models `f` and `g` such that they become layers of a single
     feed-forward model that computes `g(f(x))`.
     Also supports chaining more than 2 layers.
     Note that the type checking for additional layers is carried out by the Thinc Mypy plugin.
     """
-    layers: List[Model[Any, Any]] = [layer1, layer2]
-    layers.extend(more_layers)
+    all_layers: List[Model[Any, Any]] = [layer1, layer2]
+    all_layers.extend(layers)
     dims: Dict[str, Optional[int]] = {"nO": None}
     # set input dimension only if first layer has one - should be "False" otherwise
-    if layers[0].has_dim("nI") is True:
-        dims["nI"] = layers[0].get_dim("nI")
-    if layers[0].has_dim("nI") is None:
+    if all_layers[0].has_dim("nI") is True:
+        dims["nI"] = all_layers[0].get_dim("nI")
+    if all_layers[0].has_dim("nI") is None:
         dims["nI"] = None
     # set output dimension according to last layer
-    if layers[-1].has_dim("nO") is True:
-        dims["nO"] = layers[-1].get_dim("nO")
+    if all_layers[-1].has_dim("nO") is True:
+        dims["nO"] = all_layers[-1].get_dim("nO")
 
     model: Model[InT, XY_YZ_OutT] = Model(
-        ">>".join(layer.name for layer in layers),
+        ">>".join(layer.name for layer in all_layers),
         forward,
         init=init,
         dims=dims,
-        layers=layers,
+        layers=all_layers,
     )
     return model
 
 
-def forward(
-    model: Model[InT, OutT], X: InT, is_train: bool
-) -> Tuple[OutT, Callable]:
+def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Callable]:
     """Apply the layers of `model` in sequence, feeding the output from one
     layer into the next.
     """
@@ -102,4 +100,4 @@ def init(
         except ValueError:
             if model.layers[-1].has_dim("nO"):
                 nO = model.layers[-1].get_dim("nO")
-                model.set_dim("nO", nO)                
+                model.set_dim("nO", nO)

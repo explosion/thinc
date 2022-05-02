@@ -10,9 +10,9 @@ SeqT = TypeVar("SeqT", bound=Union[Padded, Ragged, ListXd, ArrayXd])
 
 @registry.layers("with_array.v1")
 def with_array(layer: Model[ArrayTXd, ArrayTXd], pad: int = 0) -> Model[SeqT, SeqT]:
-    """Transform sequence data into a contiguous 2d array on the way into and
+    """Transform sequence data into a contiguous array on the way into and
     out of a model. Handles a variety of sequence types: lists, padded and ragged.
-    If the input is a 2d array, it is passed through unchanged.
+    If the input is an array, it is passed through unchanged.
     """
     model: Model[SeqT, SeqT] = Model(
         f"with_array({layer.name})",
@@ -29,17 +29,13 @@ def forward(
     model: Model[SeqT, SeqT], Xseq: SeqT, is_train: bool
 ) -> Tuple[SeqT, Callable]:
     if isinstance(Xseq, Ragged):
-        ragged_return_value, backprop = _ragged_forward(model, Xseq, is_train)
-        return_value = cast(SeqT, ragged_return_value)
+        return cast(Tuple[SeqT, Callable], _ragged_forward(model, Xseq, is_train))
     elif isinstance(Xseq, Padded):
-        padded_return_value, backprop = _padded_forward(model, Xseq, is_train)
-        return_value = cast(SeqT, padded_return_value)
+        return cast(Tuple[SeqT, Callable], _padded_forward(model, Xseq, is_train))
     elif not isinstance(Xseq, (list, tuple)):
-        return_value, backprop = model.layers[0](Xseq, is_train)
+        return model.layers[0](Xseq, is_train)
     else:
-        list_return_value, backprop = _list_forward(model, Xseq, is_train)
-        return_value = cast(SeqT, list_return_value)
-    return return_value, backprop
+        return cast(Tuple[SeqT, Callable], _list_forward(model, Xseq, is_train))
 
 
 def init(

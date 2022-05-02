@@ -26,23 +26,22 @@ def forward(
 ) -> Tuple[SeqT, Callable]:
     layer: Model[Padded, Padded] = model.layers[0]
     if isinstance(Xseq, Padded):
-        padded_Y, backprop = layer(Xseq, is_train)
-        Y = cast(SeqT, padded_Y)
+        return cast(Tuple[SeqT, Callable], layer(Xseq, is_train))
     elif isinstance(Xseq, Ragged):
-        ragged_Y, backprop = _ragged_forward(layer, cast(Ragged, Xseq), is_train)
-        Y = cast(SeqT, ragged_Y)
+        return cast(Tuple[SeqT, Callable], _ragged_forward(layer, Xseq, is_train))
     elif _is_padded_data(Xseq):
-        padded_data_Y, backprop = _tuple_forward(
-            layer, cast(PaddedData, Xseq), is_train
+        return cast(
+            Tuple[SeqT, Callable],
+            _tuple_forward(layer, cast(PaddedData, Xseq), is_train),
         )
-        Y = cast(SeqT, padded_data_Y)
     elif is_xp_array(Xseq):
-        floats3d_Y, backprop = _array_forward(layer, cast(Floats3d, Xseq), is_train)
-        Y = cast(SeqT, floats3d_Y)
+        return cast(
+            Tuple[SeqT, Callable], _array_forward(layer, cast(Floats3d, Xseq), is_train)
+        )
     else:
-        list_Y, backprop = _list_forward(layer, cast(List2d, Xseq), is_train)
-        Y = cast(SeqT, list_Y)
-    return Y, backprop
+        return cast(
+            Tuple[SeqT, Callable], _list_forward(layer, cast(List2d, Xseq), is_train)
+        )
 
 
 def init(
@@ -118,15 +117,11 @@ def _ragged_forward(
     # are potentially large on GPU. So we make nested function calls instead
     # of assigning to temporaries where possible, so memory can be reclaimed
     # sooner.
-    Yp, get_dXp = layer(
-        list2padded(unflatten(Xr.data, Xr.lengths)), is_train
-    )
+    Yp, get_dXp = layer(list2padded(unflatten(Xr.data, Xr.lengths)), is_train)
 
     def backprop(dYr: Ragged):
         flattened = flatten(
-            padded2list(
-                get_dXp(list2padded(unflatten(dYr.data, dYr.lengths)))
-            ),
+            padded2list(get_dXp(list2padded(unflatten(dYr.data, dYr.lengths)))),
         )
         return Ragged(flattened, dYr.lengths)
 

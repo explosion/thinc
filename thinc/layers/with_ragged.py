@@ -18,20 +18,18 @@ def forward(
 ) -> Tuple[SeqT, Callable]:
     layer: Model[Ragged, Ragged] = model.layers[0]
     if isinstance(Xseq, Ragged):
-        ragged_Y, backprop = layer(Xseq, is_train)
-        Y = cast(SeqT, ragged_Y)
+        return cast(Tuple[SeqT, Callable], layer(Xseq, is_train))
     elif isinstance(Xseq, Padded):
-        padded_Y, backprop = _padded_forward(layer, cast(Padded, Xseq), is_train)
-        Y = cast(SeqT, padded_Y)
+        return cast(Tuple[SeqT, Callable], _padded_forward(layer, Xseq, is_train))
     elif _is_ragged_data(Xseq):
-        ragged_data_Y, backprop = _tuple_forward(
-            layer, cast(RaggedData, Xseq), is_train
+        return cast(
+            Tuple[SeqT, Callable],
+            _tuple_forward(layer, cast(RaggedData, Xseq), is_train),
         )
-        Y = cast(SeqT, ragged_data_Y)
     else:
-        list_Y, backprop = _list_forward(layer, cast(List, Xseq), is_train)
-        Y = cast(SeqT, list_Y)
-    return Y, backprop
+        return cast(
+            Tuple[SeqT, Callable], _list_forward(layer, cast(List, Xseq), is_train)
+        )
 
 
 def init(
@@ -43,7 +41,6 @@ def init(
         X=_get_ragged(model, X) if X is not None else None,
         Y=_get_ragged(model, Y) if Y is not None else None,
     )
-
 
 
 def _is_ragged_data(seq):

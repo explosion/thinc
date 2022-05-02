@@ -48,14 +48,10 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/cauchysimilarity.py
 
 <inline-list>
 
-- **Input:** <ndarray>ArrayXd</ndarray> /
-<ndarray>Sequence[ArrayXd]</ndarray> /
-<ndarray>Ragged</ndarray> /
-<ndarray>Padded</ndarray>
-- **Output:** <ndarray>ArrayXd</ndarray> /
-<ndarray>Sequence[ArrayXd]</ndarray> /
-<ndarray>Ragged</ndarray> /
-<ndarray>Padded</ndarray>
+- **Input:** <ndarray>ArrayXd</ndarray> / <ndarray>Sequence[ArrayXd]</ndarray> /
+  <ndarray>Ragged</ndarray> / <ndarray>Padded</ndarray>
+- **Output:** <ndarray>ArrayXd</ndarray> / <ndarray>Sequence[ArrayXd]</ndarray>
+  / <ndarray>Ragged</ndarray> / <ndarray>Padded</ndarray>
 - **Attrs:** `dropout_rate` <tt>float</tt>
 
 </inline-list>
@@ -930,13 +926,15 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/bidirectional.py
 
 ### chain {#chain tag="function"}
 
-Compose two models `f` and `g` such that they become layers of a single
-feed-forward model that computes `g(f(x))`.
+Compose two or more models such that they become layers of a single feed-forward
+model, e.g. `chain(f, g)` computes `g(f(x))`.
 
-| Argument    | Type                | Description                      |
-| ----------- | ------------------- | -------------------------------- |
-| `*layers`   | <tt>Model</tt>, --- | The models to compose.           |
-| **RETURNS** | <tt>Model</tt>      | The composed feed-forward model. |
+| Argument    | Type           | Description                       |
+| ----------- | -------------- | --------------------------------- |
+| `layer1 `   | <tt>Model</tt> | The first model to compose.       |
+| `layer2`    | <tt>Model</tt> | The second model to compose.      |
+| `*layers`   | <tt>Model</tt> | Any additional models to compose. |
+| **RETURNS** | <tt>Model</tt> | The composed feed-forward model.  |
 
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/chain.py
@@ -947,11 +945,11 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/chain.py
 Construct `n` copies of a layer, with distinct weights. For example,
 `clone(f, 3)(x)` computes `f(f'(f''(x)))`.
 
-| Argument    | Type               | Description                        |
-| ----------- | -------------------| ---------------------------------- |
-| `orig`      | <tt>Model</tt>     | The layer to copy.                 |
-| `n`         | <tt>int</tt>       | The number of copies to construct. |
-| **RETURNS** | <tt>Model</tt>, ... | The composed model.                |
+| Argument    | Type                | Description                        |
+| ----------- | ------------------- | ---------------------------------- |
+| `orig`      | <tt>Model</tt>      | The layer to copy.                 |
+| `n`         | <tt>int</tt>        | The number of copies to construct. |
+| **RETURNS** | <tt>Model</tt>, ... | One or more copies.                |
 
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/clone.py
@@ -963,7 +961,7 @@ Compose two or more models `f`, `g`, etc, such that their outputs are
 concatenated, i.e. `concatenate(f, g)(x)` computes `hstack(f(x), g(x))`.
 
 | Argument    | Type                | Description            |
-| ----------- | --------------------| ---------------------- |
+| ----------- | ------------------- | ---------------------- |
 | `*layers`   | <tt>Model</tt>, ... | The models to compose. |
 | **RETURNS** | <tt>Model</tt>      | The composed model.    |
 
@@ -1026,22 +1024,14 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/noop.py
 
 <inline-list>
 
-- **Input:** <ndarray>List[FloatsXd]</ndarray> /
-<ndarray>Ragged</ndarray> /
-<ndarray>Padded</ndarray> /
-<ndarray>FloatsXd</ndarray>
-<ndarray>Floats1d</ndarray>
-<ndarray>Floats2d</ndarray>
-<ndarray>Floats3d</ndarray>
-<ndarray>Floats4d</ndarray>
-- **Output:** <ndarray>List[FloatsXd]</ndarray> /
-<ndarray>Ragged</ndarray> /
-<ndarray>Padded</ndarray> /
-<ndarray>FloatsXd</ndarray>
-<ndarray>Floats1d</ndarray>
-<ndarray>Floats2d</ndarray>
-<ndarray>Floats3d</ndarray>
-<ndarray>Floats4d</ndarray>
+- **Input:** <ndarray>List[FloatsXd]</ndarray> / <ndarray>Ragged</ndarray> /
+  <ndarray>Padded</ndarray> / <ndarray>FloatsXd</ndarray>
+  <ndarray>Floats1d</ndarray> <ndarray>Floats2d</ndarray>
+  <ndarray>Floats3d</ndarray> <ndarray>Floats4d</ndarray>
+- **Output:** <ndarray>List[FloatsXd]</ndarray> / <ndarray>Ragged</ndarray> /
+  <ndarray>Padded</ndarray> / <ndarray>FloatsXd</ndarray>
+  <ndarray>Floats1d</ndarray> <ndarray>Floats2d</ndarray>
+  <ndarray>Floats3d</ndarray> <ndarray>Floats4d</ndarray>
 
 </inline-list>
 
@@ -1101,11 +1091,11 @@ minibatch. The `uniqued` wrapper is useful for word inputs, because common words
 are seen often, but we may want to compute complicated features for the words,
 using e.g. character LSTM.
 
-| Argument       | Type                              | Description                  |
-| -------------- | --------------------------------- | ---------------------------- |
-| `layer`        | <tt>Model</tt>                    | The layer.                   |
-| _keyword-only_ |                                   |                              |
-| `column`       | <tt>int</tt>                      | The column. Defaults to `0`. |
+| Argument       | Type                             | Description                  |
+| -------------- | -------------------------------- | ---------------------------- |
+| `layer`        | <tt>Model</tt>                   | The layer.                   |
+| _keyword-only_ |                                  |                              |
+| `column`       | <tt>int</tt>                     | The column. Defaults to `0`. |
 | **RETURNS**    | <tt>Model[Ints2d, Floats2d]</tt> | The composed model.          |
 
 ```python
@@ -1151,8 +1141,8 @@ Transform sequences to ragged arrays if necessary. If sequences are already
 ragged, do nothing. A ragged array is a tuple `(data, lengths)`, where `data` is
 the concatenated data.
 
-| Argument    | Type                                   | Description                              |
-| ----------- | -------------------------------------- | ---------------------------------------- |
+| Argument    | Type                            | Description                              |
+| ----------- | ------------------------------- | ---------------------------------------- |
 | **RETURNS** | <tt>Model[List2d, Array2d]</tt> | The layer to compute the transformation. |
 
 ```python
@@ -1172,8 +1162,8 @@ Transform sequences to ragged arrays if necessary and return the ragged array.
 If sequences are already ragged, do nothing. A ragged array is a tuple
 `(data, lengths)`, where `data` is the concatenated data.
 
-| Argument    | Type                                  | Description                              |
-| ----------- | ------------------------------------- | ---------------------------------------- |
+| Argument    | Type                           | Description                              |
+| ----------- | ------------------------------ | ---------------------------------------- |
 | **RETURNS** | <tt>Model[ListXd, Ragged]</tt> | The layer to compute the transformation. |
 
 ```python
@@ -1192,8 +1182,8 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/list2ragged.py
 Create a layer to convert a list of array inputs into
 [`Padded`](/docs/api-types#padded).
 
-| Argument    | Type                                  | Description                              |
-| ----------- | ------------------------------------- | ---------------------------------------- |
+| Argument    | Type                           | Description                              |
+| ----------- | ------------------------------ | ---------------------------------------- |
 | **RETURNS** | <tt>Model[List2d, Padded]</tt> | The layer to compute the transformation. |
 
 ```python
@@ -1211,8 +1201,8 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/list2padded.py
 
 Transform sequences from a ragged format into lists.
 
-| Argument    | Type                                   | Description                              |
-| ----------- | -------------------------------------- | ---------------------------------------- |
+| Argument    | Type                           | Description                              |
+| ----------- | ------------------------------ | ---------------------------------------- |
 | **RETURNS** | <tt>Model[Ragged, ListXd]</tt> | The layer to compute the transformation. |
 
 ```python
@@ -1231,8 +1221,8 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/ragged2list.py
 Create a layer to convert a [`Padded`](/docs/api-types#padded) input into a list
 of arrays.
 
-| Argument    | Type                                | Description                              |
-| ----------- | ----------------------------------- | ---------------------------------------- |
+| Argument    | Type                           | Description                              |
+| ----------- | ------------------------------ | ---------------------------------------- |
 | **RETURNS** | <tt>Model[Padded, List2d]</tt> | The layer to compute the transformation. |
 
 ```python
@@ -1344,10 +1334,10 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/with_array.py
 Flatten nested inputs on the way into a layer and reverse the transformation
 over the outputs.
 
-| Argument    | Type                                                              | Description        |
-| ----------- | --------------................................................... | ------------------ |
-| `layer`     | <tt>Model[Sequence[Sequence[Any]], Sequence[Sequence[Any]]]</tt>  | The layer to wrap. |
-| **RETURNS** | <tt>Model[ListXd, ListXd]</tt> | The wrapped layer. |
+| Argument    | Type                                                             | Description        |
+| ----------- | ---------------------------------------------------------------- | ------------------ |
+| `layer`     | <tt>Model[Sequence[Sequence[Any]], Sequence[Sequence[Any]]]</tt> | The layer to wrap. |
+| **RETURNS** | <tt>Model[ListXd, ListXd]</tt>                                   | The wrapped layer. |
 
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/with_flatten.py
@@ -1406,10 +1396,10 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/with_ragged.py
 Convert sequence input into lists on the way into a layer and reverse the
 transformation on the outputs.
 
-| Argument    | Type                                         | Description        |
-| ----------- | -------------------------------------------- | ------------------ |
+| Argument    | Type                           | Description        |
+| ----------- | ------------------------------ | ------------------ |
 | `layer`     | <tt>Model[List2d, List2d]</tt> | The layer to wrap. |
-| **RETURNS** | <tt>Model</tt>                               | The wrapped layer. |
+| **RETURNS** | <tt>Model</tt>                 | The wrapped layer. |
 
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/with_list.py
