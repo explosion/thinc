@@ -801,6 +801,9 @@ def test_reduce_max(ops, dtype):
     with pytest.raises(ValueError):
         ops.reduce_max(m, ops.xp.array([-1, 10, 5, 5], dtype="i"))
 
+    with pytest.raises(ValueError):
+        ops.reduce_max(m, ops.xp.array([5, 5, 0, 3, 6], dtype="i"))
+
 
 @pytest.mark.parametrize("ops", ALL_OPS)
 @pytest.mark.parametrize("dtype", FLOAT_TYPES)
@@ -834,6 +837,13 @@ def test_backprop_reduce_max(ops, dtype):
             ops.xp.arange(1, 7, dtype=dtype).reshape(2, 3),
             ops.xp.array([[2, 1, 0], [1, 0, 1]]).astype("int32"),
             ops.xp.array([-3, 2], dtype="int32"),
+        )
+
+    with pytest.raises(ValueError):
+        ops.backprop_reduce_max(
+            ops.xp.arange(1, 7, dtype=dtype).reshape(2, 3),
+            ops.xp.array([[2, 1, 0], [1, 0, 1], [1, 0, 1]]).astype("int32"),
+            ops.xp.array([3, 0, 2], dtype="int32"),
         )
 
 

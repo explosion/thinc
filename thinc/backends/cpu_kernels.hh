@@ -83,9 +83,7 @@ void cpu_reduce_max(A* maxes__bo, L* which__bo, const A* X__to,
     static_assert(std::is_integral<L>::value, "Array length should be integral");
 
     for (const L* length = lengths__b; length < lengths__b + B; ++length) {
-        if (*length == 0)
-            continue;
-        else if (*length < 0)
+        if (*length <= 0)
             throw std::invalid_argument(std::string("all sequence lengths must be >= 0, was: ") + std::to_string(*length));
         else if (*length > T) {
             throw std::out_of_range("lengths must sum up to the number of rows");
