@@ -5,12 +5,7 @@ from collections import defaultdict
 
 try:
     import cupy
-
-    try:
-        cupy.cuda.runtime.getDeviceCount()
-    except cupy.cuda.runtime.CUDARuntimeError:
-        cupy = None
-except (ImportError, AttributeError):
+except ImportError:
     cupy = None
 
 
