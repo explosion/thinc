@@ -1203,7 +1203,8 @@ Backpropagate the hard Swish MobileNet activation.
 
 </inline-list>
 
-Perform sequence-wise summation for data in the ragged format.
+Perform sequence-wise summation for data in the ragged format. Zero-length
+sequences are reduced to a zero vector.
 
 | Argument    | Type              | Description                   |
 | ----------- | ----------------- | ----------------------------- |
@@ -1239,7 +1240,8 @@ Backpropagate the `reduce_sum` operation.
 
 </inline-list>
 
-Perform sequence-wise averaging for data in the ragged format.
+Perform sequence-wise averaging for data in the ragged format. Zero-length
+sequences are reduced to a zero vector.
 
 | Argument    | Type              | Description                 |
 | ----------- | ----------------- | --------------------------- |
@@ -1275,7 +1277,9 @@ Backpropagate the `reduce_mean` operation.
 
 </inline-list>
 
-Perform sequence-wise max pooling for data in the ragged format.
+Perform sequence-wise max pooling for data in the ragged format. Zero-length
+sequences are not allowed. A `ValueError` is raised if one any element in
+`lengths` is zero.
 
 | Argument    | Type                             | Description                 |
 | ----------- | -------------------------------- | --------------------------- |
@@ -1293,7 +1297,8 @@ Perform sequence-wise max pooling for data in the ragged format.
 
 </inline-list>
 
-Backpropagate the `reduce_max` operation.
+Backpropagate the `reduce_max` operation. A `ValueError` is raised if one any
+element in `lengths` is zero.
 
 | Argument    | Type              | Description                                 |
 | ----------- | ----------------- | ------------------------------------------- |
