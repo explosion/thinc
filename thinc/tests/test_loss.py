@@ -162,7 +162,7 @@ def test_crossentropy_incorrect_scores_targets():
 
 @pytest.mark.parametrize(
     "guesses, labels, grad",
-    [(guesses1, labels1, d_guesses1_0_missing)],
+    [(guesses1, [2, 1, 0, 2], d_guesses1_0_missing)],
 )
 def test_categorical_crossentropy_int_list_missing(guesses, labels, grad):
     d_scores = CategoricalCrossentropy(normalize=True, missing_value=0).get_grad(
@@ -178,32 +178,21 @@ def test_categorical_crossentropy_int_list_missing(guesses, labels, grad):
 
 
 @pytest.mark.parametrize(
-    "guesses, labels", [(guesses1, labels1), (guesses1, labels1_full)]
+    "guesses, labels, grad", [
+        (guesses1, labels1, d_guesses1_0_missing),
+        (guesses1, labels1_full, d_guesses1_0_missing)]
 )
-def test_categorical_crossentropy_missing(guesses, labels):
+def test_categorical_crossentropy_missing(guesses, labels, grad):
     d_scores = CategoricalCrossentropy(normalize=True, missing_value=0).get_grad(
         guesses, labels
     )
     assert d_scores.shape == guesses.shape
-
-    # The normalization divides the difference (e.g. 0.4) by the number of vectors (4)
-    assert d_scores[1][0] == pytest.approx(0.1, eps)
-    assert d_scores[1][1] == pytest.approx(-0.1, eps)
-
-    # Label 0 is masked, because it represents the missing value
-    assert d_scores[2][0] == 0.0
-    assert d_scores[2][1] == 0.0
-    assert d_scores[2][2] == 0.0
-
-    # The fourth vector predicted no labels but should have predicted the last one
-    assert d_scores[3][0] == pytest.approx(0, eps)
-    assert d_scores[3][1] == pytest.approx(0, eps)
-    assert d_scores[3][2] == pytest.approx(-0.25, eps)
+    assert numpy.allclose(d_scores, grad)
 
     loss = CategoricalCrossentropy(normalize=True, missing_value=0).get_loss(
         guesses, labels
     )
-    assert loss == pytest.approx(0.114375, eps)
+    assert numpy.isclose(loss, loss1_0_missing)
 
 
 @pytest.mark.parametrize(
