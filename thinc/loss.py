@@ -111,7 +111,7 @@ class CategoricalCrossentropy(Loss):
             elif truths.ndim == 2:
                 if not xp.all(truths.sum(axis=1) == 1):
                     raise ValueError(
-                        "Cannot calcuate CategoricalCrossentropy. "
+                        "Cannot calculate CategoricalCrossentropy. "
                         "All rows of 'truths' have to be a "
                         "valid categorical distribution (sum to 1)."
                     )
@@ -153,7 +153,7 @@ class CategoricalCrossentropy(Loss):
         xp = get_array_module(target)
         if not xp.allclose(guesses.sum(axis=1), 1.):
             raise ValueError(
-                "Cannot calcuate CategoricalCrossentropy if "
+                "Cannot calculate CategoricalCrossentropy if "
                 "some rows of 'guesses' are not "
                 "valid categorical distributions (don't sum to 1)."
             )
@@ -174,14 +174,14 @@ class CategoricalCrossentropy(Loss):
         difference *= mask
         if self.normalize:
             difference = difference / guesses.shape[0]
-        return difference
+        return difference.astype('float32')
 
     def get_loss(self, guesses: Floats2d, truths: IntsOrFloatsOrStrs) -> float:
         xp = get_array_module(guesses)
         target, mask = self.convert_truths(truths, guesses)
         self._validate_input(guesses, target)
-        target *= mask
         logprobs = xp.log(guesses + 1e-9)
+        logprobs *= mask
         if self.normalize:
             return -(target * logprobs).sum(1).mean()
         else:
