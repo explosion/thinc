@@ -44,13 +44,21 @@ d_guesses1_0_missing = numpy.array(
         [0.025, 0.0125, -0.0375]
     ]
 )
-
+d_guesses1_sum = numpy.array(
+    [
+        [0.1, 0.5, -0.6],
+        [0.4, -0.7, 0.3],
+        [-1., 1., 0.],
+        [0.1, 0.05, -0.15],
+    ]
+)
 loss1 = 5.75151207
 loss1_0_missing = 0.57069561
-guesses2 = numpy.asarray([[0.2, 0.3, 0.0]])
+guesses2 = numpy.asarray([[0.2, 0.3, 0.5]])
 labels2 = numpy.asarray([1])
 labels2_strings = ["B"]
-
+d_guesses2_sum = numpy.asarray([[0.2, -0.7, 0.5]])
+sequence_loss = 24.210021096627
 eps = 0.0001
 
 
@@ -196,47 +204,47 @@ def test_categorical_crossentropy_missing(guesses, labels, grad):
 
 
 @pytest.mark.parametrize(
-    "guesses, labels, names",
+    "guesses, labels, names, grad, loss",
     [
-        ([guesses1, guesses2], [labels1, labels2], []),
-        ([guesses1, guesses2], [labels1_full, labels2], []),
-        ([guesses1, guesses2], [labels1_strings, labels2_strings], ["A", "B", "C"]),
+        (
+            [guesses1, guesses2],
+            [labels1, labels2],
+            [],
+            [d_guesses1_sum, d_guesses2_sum],
+            sequence_loss
+        ),
+        (
+            [guesses1, guesses2],
+            [labels1_full, labels2],
+            [],
+            [d_guesses1_sum, d_guesses2_sum],
+            sequence_loss
+        ),
+        (
+            [guesses1, guesses2],
+            [labels1_strings, labels2_strings],
+            ["A", "B", "C"],
+            [d_guesses1_sum, d_guesses2_sum],
+            sequence_loss
+        ),
     ],
 )
-def test_sequence_categorical_crossentropy(guesses, labels, names):
+def test_sequence_categorical_crossentropy(guesses, labels, names, grad, loss):
     d_scores = SequenceCategoricalCrossentropy(normalize=False, names=names).get_grad(
         guesses, labels
     )
-    d_scores1 = d_scores[0]
-    d_scores2 = d_scores[1]
-    assert d_scores1.shape == guesses1.shape
-    assert d_scores2.shape == guesses2.shape
-    assert d_scores1[1][0] == pytest.approx(0.4, eps)
-    assert d_scores1[1][1] == pytest.approx(-0.4, eps)
+    assert numpy.allclose(d_scores[0], grad[0])
+    assert numpy.allclose(d_scores[1], grad[1])
     # The normalization divides the difference (e.g. 0.4) by the number of seqs
     d_scores = SequenceCategoricalCrossentropy(normalize=True, names=names).get_grad(guesses, labels)
-    d_scores1 = d_scores[0]
-    d_scores2 = d_scores[1]
-
-    assert d_scores1[1][0] == pytest.approx(0.2, eps)
-    assert d_scores1[1][1] == pytest.approx(-0.2, eps)
-
-    # The third vector predicted all labels, but only the first one was correct
-    assert d_scores1[2][0] == pytest.approx(0, eps)
-    assert d_scores1[2][1] == pytest.approx(0.5, eps)
-    assert d_scores1[2][2] == pytest.approx(0.5, eps)
-
-    # The fourth vector predicted no labels but should have predicted the last one
-    assert d_scores1[3][0] == pytest.approx(0, eps)
-    assert d_scores1[3][1] == pytest.approx(0, eps)
-    assert d_scores1[3][2] == pytest.approx(-0.5, eps)
-
-    # Test the second batch
-    assert d_scores2[0][0] == pytest.approx(0.1, eps)
-    assert d_scores2[0][1] == pytest.approx(-0.35, eps)
-
-    loss = SequenceCategoricalCrossentropy(normalize=True, names=names).get_loss(guesses, labels)
-    assert loss == pytest.approx(1.09, eps)
+    assert numpy.allclose(d_scores[0], grad[0] / 2.)
+    assert numpy.allclose(d_scores[1], grad[1] / 2.)
+    loss_val = SequenceCategoricalCrossentropy(
+        normalize=True, names=names
+    ).get_loss(
+        guesses, labels
+    )
+    assert numpy.isclose(loss_val, loss)
 
 
 @pytest.mark.parametrize(
