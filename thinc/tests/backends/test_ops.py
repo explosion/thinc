@@ -55,6 +55,9 @@ def create_pytorch_funcs():
     def torch_hard_swish_mobilenet(x):
         return torch.nn.functional.hardswish(x)
 
+    def torch_sigmoid(x):
+        return torch.nn.functional.sigmoid(x)
+
     # https://github.com/huggingface/transformers/blob/master/src/transformers/activations.py#L37
     def torch_gelu_approx(x):
         return (
@@ -81,6 +84,7 @@ def create_pytorch_funcs():
         ("hard_swish_mobilenet", torch_hard_swish_mobilenet),
         ("gelu_approx", torch_gelu_approx),
         ("gelu", torch_gelu),
+        ("sigmoid", torch_sigmoid),
     ]
 
 
@@ -1036,6 +1040,14 @@ def test_compare_activations_to_torch(ops, dtype, x, torch_func):
         assert ops.xp.isclose(
             dx_thinc,
             backward(dY=dY_thinc_inplace, Y=y_thinc, X=x_thinc, inplace=True),
+        )
+        assert ops.xp.isclose(x_torch.grad.item(), float(dx_thinc), atol=1e-06)
+    elif backward.__name__ == "backprop_sigmoid":
+        dx_thinc = backward(dY_thinc, Y=y_thinc)
+        assert dx_thinc.dtype == x_thinc.dtype
+        assert ops.xp.isclose(
+            dx_thinc,
+            backward(dY=dY_thinc_inplace, Y=y_thinc, inplace=True),
         )
         assert ops.xp.isclose(x_torch.grad.item(), float(dx_thinc), atol=1e-06)
     else:
