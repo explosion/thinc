@@ -95,7 +95,7 @@ class Model(Generic[InT, OutT]):
         # across all models.
         with Model.global_id_lock:
             Model.global_id += 1
-        self.id = Model.global_id
+            self.id = Model.global_id
         self._has_params = {}
         for name, value in params.items():
             self._has_params[name] = None
