@@ -374,12 +374,13 @@ Allocate an array of a certain shape. If possible, you should always use the
 allow more sophisticated static [type checking](/docs/usage-type-checking) of
 the inputs and outputs.
 
-| Argument       | Type             | Description                                                     |
-| -------------- | ---------------- | --------------------------------------------------------------- |
-| `shape`        | <tt>Shape</tt>   | The shape.                                                      |
-| _keyword-only_ |                  |                                                                 |
-| `dtype`        | <tt>DTypes</tt>  | The data type (default: `float32`).                             |
-| **RETURNS**    | <tt>ArrayXd</tt> | An array of the correct shape and data type, filled with zeros. |
+| Argument       | Type             | Description                                  |
+| -------------- | ---------------- | -------------------------------------------- |
+| `shape`        | <tt>Shape</tt>   | The shape.                                   |
+| _keyword-only_ |                  |                                              |
+| `dtype`        | <tt>DTypes</tt>  | The data type (default: `float32`).          |
+| `zeros`        | <tt>bool</tt>    | Fill the array with zeros (default: `True`). |
+| **RETURNS**    | <tt>ArrayXd</tt> | An array of the correct shape and data type. |
 
 ### Ops.to_numpy {#to_numpy tag="method"}
 
@@ -426,7 +427,8 @@ Y = model.ops.alloc1i(4)  # Ints1d
 | `*shape`       | <tt>int</tt>                              | The shape, one positional argument per dimension.                          |
 | _keyword-only_ |                                           |                                                                            |
 | `dtype`        | <tt>DTypesInt</tt> / <tt>DTypesFloat</tt> | The data type (float type for float methods and int type for int methods). |
-| **RETURNS**    | <tt>ArrayXd</tt>                          | An array of the correct shape and data type, filled with zeros.            |
+| `zeros`        | <tt>bool</tt>                             | Fill the array with zeros (default: `True`).                               |
+| **RETURNS**    | <tt>ArrayXd</tt>                          | An array of the correct shape and data type.                               |
 
 ### Ops.reshape {#reshape tag="method"}
 

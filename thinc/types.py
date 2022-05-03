@@ -9,7 +9,7 @@ try:
     import cupy
 
     get_array_module = cupy.get_array_module
-except ImportError:
+except (ImportError, AttributeError):
     get_array_module = lambda obj: numpy
 
 # Use typing_extensions for Python versions < 3.8
@@ -684,7 +684,7 @@ class Floats4d(_Array4d, _Floats):
     def __setitem__(self, key: _4_Key3d, value: Floats3d) -> None: ...
     @overload
     def __setitem__(self, key: _4_Key4d, value: "Floats4d") -> None: ...
- 
+
     def __setitem__(self, key: _4_AllKeys, value: _F4_AllReturns) -> None: ...
 
     @overload
