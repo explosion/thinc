@@ -1036,9 +1036,9 @@ def test_compare_activations_to_torch(ops, dtype, x, torch_func):
     dY_thinc_inplace = dY_thinc.copy()
 
     s = inspect.signature(backward)
-    params = {p for p in s.parameters if p not in ["inplace", "threshold", "n"]}
+    params = {p for p in s.parameters if p in ["dY", "X", "Y"]}
 
-    if params == {"X", "Y", "dY"}:
+    if params == {"dY", "X", "Y"}:
         dx_thinc = backward(dY_thinc, Y=y_thinc, X=x_thinc)
         assert dx_thinc.dtype == x_thinc.dtype
         assert ops.xp.isclose(
