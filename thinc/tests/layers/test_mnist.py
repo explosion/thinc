@@ -1,13 +1,14 @@
 import pytest
 from thinc.api import Relu, Softmax, chain, clone, Adam
 from thinc.api import PyTorchWrapper, TensorFlowWrapper
-from thinc.util import has_torch, has_tensorflow
+from thinc.compat import has_torch, has_tensorflow
 
 
 @pytest.fixture(scope="module")
 def mnist(limit=5000):
     pytest.importorskip("ml_datasets")
     import ml_datasets
+
     (train_X, train_Y), (dev_X, dev_Y) = ml_datasets.mnist()
     return (train_X[:limit], train_Y[:limit]), (dev_X[:limit], dev_Y[:limit])
 

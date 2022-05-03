@@ -4,12 +4,11 @@ from typing import Optional, List, overload
 from dataclasses import dataclass
 import numpy
 import sys
+from .compat import has_cupy, cupy
 
-try:
-    import cupy
-
+if has_cupy:
     get_array_module = cupy.get_array_module
-except (ImportError, AttributeError):
+else:
     get_array_module = lambda obj: numpy
 
 # Use typing_extensions for Python versions < 3.8

@@ -5,13 +5,14 @@ from contextvars import ContextVar
 import threading
 
 from .ops import Ops
-from .cupy_ops import CupyOps, has_cupy
+from .cupy_ops import CupyOps
 from .numpy_ops import NumpyOps
 from ._cupy_allocators import cupy_tensorflow_allocator, cupy_pytorch_allocator
 from ._param_server import ParamServer
 from ..util import assert_tensorflow_installed, assert_pytorch_installed
 from ..util import is_cupy_array, set_torch_tensor_type_for_ops, require_cpu
 from .. import registry
+from ..compat import cupy
 
 
 context_ops: ContextVar[Optional[Ops]] = ContextVar("context_ops", default=None)
@@ -94,7 +95,7 @@ def get_ops(name: str, **kwargs) -> Ops:
 
     cls: Optional[Callable[..., Ops]] = None
     if name == "cpu":
-        _import_extra_cpu_backends()        
+        _import_extra_cpu_backends()
         cls = ops_by_name.get("numpy")
         cls = ops_by_name.get("apple", cls)
         cls = ops_by_name.get("bigendian", cls)
@@ -174,5 +175,4 @@ __all__ = [
     "Ops",
     "CupyOps",
     "NumpyOps",
-    "has_cupy",
 ]

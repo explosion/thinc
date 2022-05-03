@@ -4,9 +4,10 @@ import threading
 import time
 from thinc.api import Adam, CupyOps, Dropout, Linear, Model, Relu
 from thinc.api import Shim, Softmax, chain, change_attr_values
-from thinc.api import concatenate, has_cupy, set_dropout_rate
+from thinc.api import concatenate, set_dropout_rate
 from thinc.api import use_ops, with_debug, wrap_model_recursive
 from thinc.util import gpu_is_available
+from thinc.compat import has_cupy
 import numpy
 
 from ..util import make_tempdir
@@ -349,10 +350,10 @@ def test_all_operators(op):
             with pytest.raises(TypeError):
                 value = m1 % m2
         if op == "**":
-            value = m1 ** m2
+            value = m1**m2
         else:
             with pytest.raises(TypeError):
-                value = m1 ** m2
+                value = m1**m2
         if op == "<<":
             value = m1 << m2
         else:

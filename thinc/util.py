@@ -13,53 +13,11 @@ import threading
 import contextlib
 from contextvars import ContextVar
 from dataclasses import dataclass
+from .compat import has_cupy, has_mxnet, has_torch, has_tensorflow
+from .compat import has_cupy_gpu, has_torch_gpu
+from .compat import torch, cupy, tensorflow, mxnet, cupy_from_dlpack
 
 DATA_VALIDATION: ContextVar[bool] = ContextVar("DATA_VALIDATION", default=False)
-
-try:  # pragma: no cover
-    import cupy
-
-    has_cupy = True
-except (ImportError, AttributeError):
-    cupy = None
-    has_cupy = False
-
-
-try:  # pragma: no cover
-    import torch
-    from torch import tensor
-    import torch.utils.dlpack
-
-    has_torch = True
-    has_torch_gpu = torch.cuda.device_count() != 0
-    torch_version = Version(str(torch.__version__))
-    has_torch_amp = (
-        torch_version >= Version("1.9.0")
-        and not torch.cuda.amp.common.amp_definitely_not_available()
-    )
-except ImportError:  # pragma: no cover
-    has_torch = False
-    has_torch_gpu = False
-    has_torch_amp = False
-    torch_version = Version("0.0.0")
-
-try:  # pragma: no cover
-    import tensorflow.experimental.dlpack
-    import tensorflow as tf
-
-    has_tensorflow = True
-    has_tensorflow_gpu = len(tf.config.get_visible_devices("GPU")) > 0
-except ImportError:  # pragma: no cover
-    has_tensorflow = False
-    has_tensorflow_gpu = False
-
-
-try:  # pragma: no cover
-    import mxnet as mx
-
-    has_mxnet = True
-except ImportError:  # pragma: no cover
-    has_mxnet = False
 
 from .types import ArrayXd, ArgsKwargs, Ragged, Padded, FloatsXd, IntsXd  # noqa: E402
 from . import types  # noqa: E402
@@ -77,14 +35,7 @@ def get_array_module(arr):  # pragma: no cover
 
 
 def gpu_is_available():
-    if not has_cupy:
-        return False
-
-    try:
-        cupy.cuda.runtime.getDeviceCount()
-        return True
-    except cupy.cuda.runtime.CUDARuntimeError:
-        return False
+    return has_cupy_gpu
 
 
 def fix_random_seed(seed: int = 0) -> None:  # pragma: no cover
@@ -95,7 +46,7 @@ def fix_random_seed(seed: int = 0) -> None:  # pragma: no cover
         torch.manual_seed(seed)
     if has_cupy and gpu_is_available():
         cupy.random.seed(seed)
-        if has_torch and torch.cuda.is_available():
+        if has_torch and has_torch_gpu:
             torch.cuda.manual_seed_all(seed)
             torch.backends.cudnn.deterministic = True
             torch.backends.cudnn.benchmark = False
@@ -140,7 +91,7 @@ def is_torch_gpu_array(obj: Any) -> bool:  # pragma: no cover
 def is_tensorflow_array(obj: Any) -> bool:  # pragma: no cover
     if not has_tensorflow:
         return False
-    elif isinstance(obj, tf.Tensor):
+    elif isinstance(obj, tensorflow.Tensor):
         return True
     else:
         return False
@@ -153,7 +104,7 @@ def is_tensorflow_gpu_array(obj: Any) -> bool:  # pragma: no cover
 def is_mxnet_array(obj: Any) -> bool:  # pragma: no cover
     if not has_mxnet:
         return False
-    elif isinstance(obj, mx.nd.NDArray):
+    elif isinstance(obj, mxnet.nd.NDArray):
         return True
     else:
         return False
@@ -178,13 +129,11 @@ def set_active_gpu(gpu_id: int) -> "cupy.cuda.Device":  # pragma: no cover
 
     device = cupy.cuda.device.Device(gpu_id)
     device.use()
-    try:
-        import torch
 
+    if has_torch_gpu:
         torch.cuda.set_device(gpu_id)
         torch.set_default_tensor_type("torch.cuda.FloatTensor")
-    except ImportError:
-        pass
+
     return device
 
 
@@ -203,7 +152,7 @@ def prefer_gpu(gpu_id: int = 0) -> bool:  # pragma: no cover
     """Use GPU if it's available. Returns True if so, False otherwise."""
     from .backends.cupy_ops import CupyOps
 
-    if CupyOps.xp is None:
+    if not gpu_is_available():
         return False
     else:
         require_gpu(gpu_id=gpu_id)
@@ -386,7 +335,7 @@ def torch2xp(
         if isinstance(ops, NumpyOps):
             return torch_tensor.detach().cpu().numpy()
         else:
-            return cupy.fromDlpack(torch.utils.dlpack.to_dlpack(torch_tensor))
+            return cupy_from_dlpack(torch.utils.dlpack.to_dlpack(torch_tensor))
     else:
         if isinstance(ops, NumpyOps) or ops is None:
             return torch_tensor.detach().numpy()
@@ -396,29 +345,29 @@ def torch2xp(
 
 def xp2tensorflow(
     xp_tensor: ArrayXd, requires_grad: bool = False, as_variable: bool = False
-) -> "tf.Tensor":  # pragma: no cover
+) -> "tensorflow.Tensor":  # pragma: no cover
     """Convert a numpy or cupy tensor to a TensorFlow Tensor or Variable"""
     assert_tensorflow_installed()
     if hasattr(xp_tensor, "toDlpack"):
         dlpack_tensor = xp_tensor.toDlpack()  # type: ignore
         tf_tensor = tensorflow.experimental.dlpack.from_dlpack(dlpack_tensor)
     else:
-        tf_tensor = tf.convert_to_tensor(xp_tensor)
+        tf_tensor = tensorflow.convert_to_tensor(xp_tensor)
     if as_variable:
         # tf.Variable() automatically puts in GPU if available.
         # So we need to control it using the context manager
-        with tf.device(tf_tensor.device):
-            tf_tensor = tf.Variable(tf_tensor, trainable=requires_grad)
+        with tensorflow.device(tf_tensor.device):
+            tf_tensor = tensorflow.Variable(tf_tensor, trainable=requires_grad)
     if requires_grad is False and as_variable is False:
         # tf.stop_gradient() automatically puts in GPU if available.
         # So we need to control it using the context manager
-        with tf.device(tf_tensor.device):
-            tf_tensor = tf.stop_gradient(tf_tensor)
+        with tensorflow.device(tf_tensor.device):
+            tf_tensor = tensorflow.stop_gradient(tf_tensor)
     return tf_tensor
 
 
 def tensorflow2xp(
-    tf_tensor: "tf.Tensor", *, ops: Optional["Ops"] = None
+    tf_tensor: "tensorflow.Tensor", *, ops: Optional["Ops"] = None
 ) -> ArrayXd:  # pragma: no cover
     """Convert a Tensorflow tensor to numpy or cupy tensor depending on the `ops` parameter.
     If `ops` is `None`, the type of the resultant tensor will be determined by the source tensor's device.
@@ -431,7 +380,7 @@ def tensorflow2xp(
             return tf_tensor.numpy()
         else:
             dlpack_tensor = tensorflow.experimental.dlpack.to_dlpack(tf_tensor)
-            return cupy.fromDlpack(dlpack_tensor)
+            return cupy_from_dlpack(dlpack_tensor)
     else:
         if isinstance(ops, NumpyOps) or ops is None:
             return tf_tensor.numpy()
@@ -441,21 +390,21 @@ def tensorflow2xp(
 
 def xp2mxnet(
     xp_tensor: ArrayXd, requires_grad: bool = False
-) -> "mx.nd.NDArray":  # pragma: no cover
+) -> "mxnet.nd.NDArray":  # pragma: no cover
     """Convert a numpy or cupy tensor to a MXNet tensor."""
     assert_mxnet_installed()
     if hasattr(xp_tensor, "toDlpack"):
         dlpack_tensor = xp_tensor.toDlpack()  # type: ignore
-        mx_tensor = mx.nd.from_dlpack(dlpack_tensor)
+        mx_tensor = mxnet.nd.from_dlpack(dlpack_tensor)
     else:
-        mx_tensor = mx.nd.from_numpy(xp_tensor)
+        mx_tensor = mxnet.nd.from_numpy(xp_tensor)
     if requires_grad:
         mx_tensor.attach_grad()
     return mx_tensor
 
 
 def mxnet2xp(
-    mx_tensor: "mx.nd.NDArray", *, ops: Optional["Ops"] = None
+    mx_tensor: "mxnet.nd.NDArray", *, ops: Optional["Ops"] = None
 ) -> ArrayXd:  # pragma: no cover
     """Convert a MXNet tensor to a numpy or cupy tensor."""
     from .api import NumpyOps
@@ -465,7 +414,7 @@ def mxnet2xp(
         if isinstance(ops, NumpyOps):
             return mx_tensor.detach().asnumpy()
         else:
-            return cupy.fromDlpack(mx_tensor.to_dlpack_for_write())
+            return cupy_from_dlpack(mx_tensor.to_dlpack_for_write())
     else:
         if isinstance(ops, NumpyOps) or ops is None:
             return mx_tensor.detach().asnumpy()
