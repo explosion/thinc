@@ -265,9 +265,19 @@ class Ops:
      ) -> ArrayXd:
         ...
 
+    @overload 
     def flatten(
         self,
-        X: ListXd,
+        X: Sequence[ArrayXd],
+        dtype: Optional[DTypes] = None,
+        pad: int = 0,
+        ndim_if_empty: int = 2,
+     ) -> ArrayXd:
+        ...
+
+    def flatten(
+        self,
+        X: Sequence[ArrayXd],
         dtype: Optional[DTypes] = None,
         pad: int = 0,
         ndim_if_empty: int = 2,
@@ -277,7 +287,7 @@ class Ops:
             return self.alloc((0,) * ndim_if_empty, dtype=dtype or "f")
         xp = get_array_module(X[0])
         shape_if_empty = X[0].shape
-        X = cast(ListXd, [x for x in X if x.size != 0])
+        X = [x for x in X if x.size != 0]
         if len(X) == 0:
             return self.alloc(shape_if_empty, dtype=dtype or "f")
         if int(pad) >= 1:

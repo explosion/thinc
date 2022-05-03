@@ -1,4 +1,4 @@
-from typing import Tuple, Sequence, cast, TypeVar, Generic, Any, Union, Optional
+from typing import Tuple, Sequence, cast, TypeVar, Generic, Any, Union, Optional, List
 from typing import Dict
 
 from .types import Floats2d, Ints1d
@@ -223,14 +223,14 @@ class SequenceCategoricalCrossentropy(Loss):
 
     def __call__(
         self, guesses: Sequence[Floats2d], truths: Sequence[IntsOrFloatsOrStrs]
-    ) -> Tuple[Sequence[Floats2d], float]:
+    ) -> Tuple[List[Floats2d], float]:
         grads = self.get_grad(guesses, truths)
         loss = self._get_loss_from_grad(grads)
         return grads, loss
 
     def get_grad(
         self, guesses: Sequence[Floats2d], truths: Sequence[IntsOrFloatsOrStrs]
-    ) -> Sequence[Floats2d]:
+    ) -> List[Floats2d]:
         err = "Cannot calculate SequenceCategoricalCrossentropy loss: guesses and truths must be same length"
         if len(guesses) != len(truths):  # pragma: no cover
             raise ValueError(err)
