@@ -123,9 +123,10 @@ def to_numpy(data):  # pragma: no cover
         return numpy.array(data)
 
 
-def set_active_gpu(gpu_id: int) -> "cupy.cuda.Device":  # pragma: no cover
+def set_active_gpu(gpu_id: int) -> Optional["cupy.cuda.Device"]:  # pragma: no cover
     """Set the current GPU device for cupy and torch (if available)."""
-    import cupy.cuda.device
+    if not gpu_is_available():
+        return None
 
     device = cupy.cuda.device.Device(gpu_id)
     device.use()
@@ -162,8 +163,8 @@ def prefer_gpu(gpu_id: int = 0) -> bool:  # pragma: no cover
 def require_gpu(gpu_id: int = 0) -> bool:  # pragma: no cover
     from .backends import set_current_ops, CupyOps
 
-    if CupyOps.xp is None:
-        raise ValueError("GPU is not accessible. Was the library installed correctly?")
+    if not gpu_is_available():
+        raise ValueError("No GPU devices detected")
 
     set_current_ops(CupyOps())
     set_active_gpu(gpu_id)
