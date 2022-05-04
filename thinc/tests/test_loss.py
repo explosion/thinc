@@ -24,7 +24,9 @@ scores0 = numpy.zeros((3, 3), dtype="f")
 labels0 = numpy.asarray([0, 1, 1], dtype="i")
 
 # a few more diverse ones to test realistic values
-guesses1 = numpy.asarray([[0.1, 0.5, 0.4], [0.4, 0.3, 0.3], [0, 1, 0], [0.1, 0.05, 0.85]])
+guesses1 = numpy.asarray(
+    [[0.1, 0.5, 0.4], [0.4, 0.3, 0.3], [0, 1, 0], [0.1, 0.05, 0.85]]
+)
 labels1 = numpy.asarray([2, 1, 0, 2])
 labels1_full = numpy.asarray([[0, 0, 1], [0, 1, 0], [1, 0, 0], [0, 0, 1]])
 labels1_strings = ["C", "B", "A", "C"]
@@ -32,23 +34,23 @@ d_guesses1 = numpy.array(
     [
         [0.025, 0.125, -0.15],
         [0.1, -0.175, 0.075],
-        [-0.25, 0.25, 0.],
-        [0.025, 0.0125, -0.0375]
+        [-0.25, 0.25, 0.0],
+        [0.025, 0.0125, -0.0375],
     ]
 )
 d_guesses1_0_missing = numpy.array(
     [
         [0.025, 0.125, -0.15],
         [0.1, -0.175, 0.075],
-        [0., 0., 0.],
-        [0.025, 0.0125, -0.0375]
+        [0.0, 0.0, 0.0],
+        [0.025, 0.0125, -0.0375],
     ]
 )
 d_guesses1_sum = numpy.array(
     [
         [0.1, 0.5, -0.6],
         [0.4, -0.7, 0.3],
-        [-1., 1., 0.],
+        [-1.0, 1.0, 0.0],
         [0.1, 0.05, -0.15],
     ]
 )
@@ -79,14 +81,14 @@ def test_cross_entropy_types_shapes():
     n_samples=integers(min_value=1, max_value=100),
     n_classes=integers(min_value=1, max_value=100),
     low=floats(min_value=-20, max_value=10),
-    offset=floats(min_value=1, max_value=10)
+    offset=floats(min_value=1, max_value=10),
 )
 def test_compare_cross_entropy_to_torch(xp, n_samples, n_classes, low, offset):
     import torch
 
     loss_sum = CategoricalCrossentropy(normalize=False)
     loss_mean = CategoricalCrossentropy()
-    torch_loss_sum = torch.nn.CrossEntropyLoss(reduction='sum')
+    torch_loss_sum = torch.nn.CrossEntropyLoss(reduction="sum")
     torch_loss_mean = torch.nn.CrossEntropyLoss()
     logits = xp.random.uniform(low, low + offset, (n_samples, n_classes))
     labels = xp.random.randint(0, n_classes, n_samples)
@@ -108,9 +110,7 @@ def test_compare_cross_entropy_to_torch(xp, n_samples, n_classes, low, offset):
     assert xp.allclose(d_mean, torch_d_mean.numpy())
 
 
-@pytest.mark.parametrize(
-    "dist", [CosineDistance(ignore_zeros=True), L2Distance()]
-)
+@pytest.mark.parametrize("dist", [CosineDistance(ignore_zeros=True), L2Distance()])
 @pytest.mark.parametrize("vect", [scores0, guesses1, guesses2])
 def test_equal_distance(dist, vect):
     assert int(dist.get_grad(vect, vect)[0][0]) == pytest.approx(0, eps)
@@ -118,10 +118,11 @@ def test_equal_distance(dist, vect):
 
 
 @pytest.mark.parametrize(
-    "guesses, labels, grad, loss", [
+    "guesses, labels, grad, loss",
+    [
         (guesses1, labels1, d_guesses1, loss1),
         (guesses1, labels1_full, d_guesses1, loss1),
-    ]
+    ],
 )
 def test_categorical_crossentropy(guesses, labels, grad, loss):
     d_scores = CategoricalCrossentropy(normalize=True).get_grad(guesses, labels)
@@ -140,9 +141,7 @@ def test_crossentropy_incorrect_scores_targets():
 
     guesses_dont_sum_one = numpy.asarray([[0.1, 0.5, 0.6]])
     with pytest.raises(ValueError, match=r"Cannot calculate.*guesses"):
-        CategoricalCrossentropy(normalize=True).get_grad(
-            guesses_dont_sum_one, labels
-        )
+        CategoricalCrossentropy(normalize=True).get_grad(guesses_dont_sum_one, labels)
 
     guesses_larger_than_one = numpy.asarray([[1.1, 0.5, 0.6]])
     with pytest.raises(ValueError, match=r"Cannot calculate.*guesses"):
@@ -186,9 +185,11 @@ def test_categorical_crossentropy_int_list_missing(guesses, labels, grad):
 
 
 @pytest.mark.parametrize(
-    "guesses, labels, grad", [
+    "guesses, labels, grad",
+    [
         (guesses1, labels1, d_guesses1_0_missing),
-        (guesses1, labels1_full, d_guesses1_0_missing)]
+        (guesses1, labels1_full, d_guesses1_0_missing),
+    ],
 )
 def test_categorical_crossentropy_missing(guesses, labels, grad):
     d_scores = CategoricalCrossentropy(normalize=True, missing_value=0).get_grad(
@@ -211,21 +212,21 @@ def test_categorical_crossentropy_missing(guesses, labels, grad):
             [labels1, labels2],
             [],
             [d_guesses1_sum, d_guesses2_sum],
-            sequence_loss
+            sequence_loss,
         ),
         (
             [guesses1, guesses2],
             [labels1_full, labels2],
             [],
             [d_guesses1_sum, d_guesses2_sum],
-            sequence_loss
+            sequence_loss,
         ),
         (
             [guesses1, guesses2],
             [labels1_strings, labels2_strings],
             ["A", "B", "C"],
             [d_guesses1_sum, d_guesses2_sum],
-            sequence_loss
+            sequence_loss,
         ),
     ],
 )
@@ -236,52 +237,41 @@ def test_sequence_categorical_crossentropy(guesses, labels, names, grad, loss):
     assert numpy.allclose(d_scores[0], grad[0])
     assert numpy.allclose(d_scores[1], grad[1])
     # The normalization divides the difference (e.g. 0.4) by the number of seqs
-    d_scores = SequenceCategoricalCrossentropy(normalize=True, names=names).get_grad(guesses, labels)
-    assert numpy.allclose(d_scores[0], grad[0] / 2.)
-    assert numpy.allclose(d_scores[1], grad[1] / 2.)
-    loss_val = SequenceCategoricalCrossentropy(
-        normalize=True, names=names
-    ).get_loss(
+    d_scores = SequenceCategoricalCrossentropy(normalize=True, names=names).get_grad(
+        guesses, labels
+    )
+    assert numpy.allclose(d_scores[0], grad[0] / 2.0)
+    assert numpy.allclose(d_scores[1], grad[1] / 2.0)
+    loss_val = SequenceCategoricalCrossentropy(normalize=True, names=names).get_loss(
         guesses, labels
     )
     assert numpy.isclose(loss_val, loss)
 
 
 @pytest.mark.parametrize(
-    "guesses, labels, names",
+    "guesses, labels, names, grad",
     [
-        ([guesses1], [["A", "!A", "", "!C"]], ["A", "B", "C"]),
+        (
+            [guesses1],
+            [["A", "!A", "", "!C"]],
+            ["A", "B", "C"],
+            numpy.array(
+                [
+                    [-0.9, 0.5, 0.4],  # First is correct
+                    [0.4, 0.0, 0.0],  # Not first one
+                    [0.0, 0.0, 0.0],  # Missing
+                    [0.0, 0.0, 0.85],  # Not last one
+                ]
+            ),
+        )
     ],
 )
-def test_sequence_categorical_missing_negative(guesses, labels, names):
+def test_sequence_categorical_missing_negative(guesses, labels, names, grad):
     d_scores = SequenceCategoricalCrossentropy(
         normalize=False, names=names, neg_prefix="!", missing_value=""
-    ).get_grad(
-        guesses, labels
-    )
-    d_scores0 = d_scores[0]
-    print(d_scores)
-    """
-    # [0.1, 0.5, 0.6] should be A
-    assert d_scores0[0][0] == pytest.approx(-0.9, eps)
-    assert d_scores0[0][1] == pytest.approx(0.5, eps)
-    assert d_scores0[0][2] == pytest.approx(0.6, eps)
+    ).get_grad(guesses, labels)
+    assert numpy.allclose(d_scores, grad)
 
-    # [0.4, 0.6, 0.3] should NOT be A
-    assert d_scores0[1][0] == pytest.approx(0.4, eps)
-    assert d_scores0[1][1] == pytest.approx(0.0, eps)
-    assert d_scores0[1][2] == pytest.approx(0.0, eps)
-
-    # [1, 1, 1] has missing gold label
-    assert d_scores0[2][0] == pytest.approx(0.0, eps)
-    assert d_scores0[2][1] == pytest.approx(0.0, eps)
-    assert d_scores0[2][2] == pytest.approx(0.0, eps)
-
-    # [0.0, 0.0, 0.0] should NOT be C
-    assert d_scores0[3][0] == pytest.approx(0.0, eps)
-    assert d_scores0[3][1] == pytest.approx(0.0, eps)
-    assert d_scores0[3][2] == pytest.approx(0.0, eps)
-    """
 
 def test_L2():
     # L2 loss = 2²+4²=20 (or normalized: 1²+2²=5)
@@ -345,12 +335,20 @@ def test_cosine_unmatched():
 @pytest.mark.parametrize(
     "name,kwargs,args",
     [
-        ("CategoricalCrossentropy.v1", {}, (scores0, labels0)),
-        ("SequenceCategoricalCrossentropy.v1", {}, ([scores0], [labels0])),
-        ("CategoricalCrossentropy.v2", {"neg_prefix": "!"}, (scores0, labels0)),
-        ("CategoricalCrossentropy.v3", {"neg_prefix": "!"}, (scores0, labels0)),
-        ("SequenceCategoricalCrossentropy.v2", {"neg_prefix": "!"}, ([scores0], [labels0])),
-        ("SequenceCategoricalCrossentropy.v3", {"neg_prefix": "!"}, ([scores0], [labels0])),
+        ("CategoricalCrossentropy.v1", {}, (guesses1, labels1)),
+        ("SequenceCategoricalCrossentropy.v1", {}, ([guesses1], [labels1])),
+        ("CategoricalCrossentropy.v2", {"neg_prefix": "!"}, (guesses1, labels1)),
+        ("CategoricalCrossentropy.v3", {"neg_prefix": "!"}, (guesses1, labels1)),
+        (
+            "SequenceCategoricalCrossentropy.v2",
+            {"neg_prefix": "!"},
+            ([guesses1], [labels1]),
+        ),
+        (
+            "SequenceCategoricalCrossentropy.v3",
+            {"neg_prefix": "!"},
+            ([guesses1], [labels1]),
+        ),
         ("L2Distance.v1", {}, (scores0, scores0)),
         (
             "CosineDistance.v1",
