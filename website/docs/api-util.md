@@ -163,10 +163,10 @@ Convert a PyTorch tensor to a `numpy` or `cupy` tensor.
 Convert a `numpy` or `cupy` tensor to a TensorFlow tensor.
 
 | Argument        | Type                       | Description                                           |
-| --------------- | -------------------------- | ----------------------------------------------------- | --- |
+| --------------- | -------------------------- | ----------------------------------------------------- |
 | `xp_tensor`     | <tt>ArrayXd</tt>           | The tensor to convert.                                |
 | `requires_grad` | <tt>bool</tt>              | Whether to backpropagate through the variable.        |
-| `as_variable`   | <tt>bool</tt>              | Convert the result to a `tensorflow.Variable` object. |     |
+| `as_variable`   | <tt>bool</tt>              | Convert the result to a `tensorflow.Variable` object. |
 | **RETURNS**     | <tt>tensorflow.Tensor</tt> | The converted tensor.                                 |
 
 ### tensorflow2xp {#tensorflow2xp tag="function"}
