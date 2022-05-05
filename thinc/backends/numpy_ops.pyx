@@ -413,8 +413,8 @@ class NumpyOps(Ops):
         cdef int T = 0
 
         for length in lengths[:B]:
-            if length < 0:
-                raise ValueError(f"all sequence lengths must be >= 0, got {length}")
+            if length <= 0:
+                raise ValueError(f"all sequence lengths must be > 0, got {length}")
             T += length
 
         assert T != 0
