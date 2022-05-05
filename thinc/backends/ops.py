@@ -1073,7 +1073,7 @@ class Ops:
         start = 0
         for i, length in enumerate(lengths):
             if length <= 0:
-                raise ValueError(f"all sequence lengths must be >= 0, got {length}")
+                raise ValueError(f"all sequence lengths must be > 0, got {length}")
             elif start + length > X.shape[0]:
                 raise IndexError("lengths must sum up to the number of rows")
             elif length:
@@ -1113,7 +1113,7 @@ class Ops:
         start = 0
         for i, length in enumerate(lengths):
             if length <= 0:
-                raise ValueError(f"all sequence lengths must be >= 0, got {length}")
+                raise ValueError(f"all sequence lengths must be > 0, got {length}")
 
             self.xp.put_along_axis(
                 dX[start : start + length], which[i].reshape((1, -1)), d_maxes[i], 0

@@ -863,7 +863,7 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/reduce_last.py
 </inline-list>
 
 Pooling layer that reduces the dimensions of the data by selecting the maximum
-value for each feature. A `ValueError` is raised if one any element in `lengths`
+value for each feature. A `ValueError` is raised if any element in `lengths`
 is zero.
 
 | Argument    | Type                             | Description                |

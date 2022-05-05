@@ -1278,7 +1278,7 @@ Backpropagate the `reduce_mean` operation.
 </inline-list>
 
 Perform sequence-wise max pooling for data in the ragged format. Zero-length
-sequences are not allowed. A `ValueError` is raised if one any element in
+sequences are not allowed. A `ValueError` is raised if any element in
 `lengths` is zero.
 
 | Argument    | Type                             | Description                 |
@@ -1297,7 +1297,7 @@ sequences are not allowed. A `ValueError` is raised if one any element in
 
 </inline-list>
 
-Backpropagate the `reduce_max` operation. A `ValueError` is raised if one any
+Backpropagate the `reduce_max` operation. A `ValueError` is raised if any
 element in `lengths` is zero.
 
 | Argument    | Type              | Description                                 |
