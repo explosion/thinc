@@ -1204,7 +1204,7 @@ Backpropagate the hard Swish MobileNet activation.
 </inline-list>
 
 Perform sequence-wise summation for data in the ragged format. Zero-length
-sequences are reduced to a zero vector.
+sequences are reduced to the zero vector.
 
 | Argument    | Type              | Description                   |
 | ----------- | ----------------- | ----------------------------- |
@@ -1241,7 +1241,7 @@ Backpropagate the `reduce_sum` operation.
 </inline-list>
 
 Perform sequence-wise averaging for data in the ragged format. Zero-length
-sequences are reduced to a zero vector.
+sequences are reduced to the zero vector.
 
 | Argument    | Type              | Description                 |
 | ----------- | ----------------- | --------------------------- |

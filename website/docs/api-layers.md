@@ -884,7 +884,7 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/reduce_max.py
 </inline-list>
 
 Pooling layer that reduces the dimensions of the data by computing the average
-value of each feature. Zero-length sequences are reduced to a zero vector.
+value of each feature. Zero-length sequences are reduced to the zero vector.
 
 | Argument    | Type                             | Description                |
 | ----------- | -------------------------------- | -------------------------- |
@@ -904,7 +904,7 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/reduce_mean.py
 </inline-list>
 
 Pooling layer that reduces the dimensions of the data by computing the sum for
-each feature. Zero-length sequences are reduced to a zero vector.
+each feature. Zero-length sequences are reduced to the zero vector.
 
 | Argument    | Type                             | Description                |
 | ----------- | -------------------------------- | -------------------------- |
