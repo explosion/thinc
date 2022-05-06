@@ -9,7 +9,7 @@ try:
     import cupy
 
     get_array_module = cupy.get_array_module
-except ImportError:
+except (ImportError, AttributeError):
     get_array_module = lambda obj: numpy
 
 # Use typing_extensions for Python versions < 3.8
@@ -684,7 +684,7 @@ class Floats4d(_Array4d, _Floats):
     def __setitem__(self, key: _4_Key3d, value: Floats3d) -> None: ...
     @overload
     def __setitem__(self, key: _4_Key4d, value: "Floats4d") -> None: ...
- 
+
     def __setitem__(self, key: _4_AllKeys, value: _F4_AllReturns) -> None: ...
 
     @overload
@@ -792,7 +792,7 @@ class Padded:
             self.data.copy(),
             self.size_at_t.copy(),
             self.lengths.copy(),
-            self.indices.copy()
+            self.indices.copy(),
         )
 
     def __len__(self) -> int:
@@ -923,7 +923,7 @@ class Pairs(Generic[_P]):
 class ArgsKwargs:
     """A tuple of (args, kwargs) that can be spread into some function f:
 
-        f(*args, **kwargs)
+    f(*args, **kwargs)
     """
 
     args: Tuple[Any, ...]
