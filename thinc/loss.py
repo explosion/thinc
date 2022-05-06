@@ -146,11 +146,10 @@ class CategoricalCrossentropy(Loss):
     def __call__(
         self, guesses: Floats2d, truths: IntsOrFloatsOrStrs
     ) -> Tuple[Floats2d, float]:
-        # XXX not ideal to run convert_input and _validate_input twice.
-        # Once for get_grad and once for get_loss.
-        # This is similar to how the L2Distance calls get_grad in get_loss.
-        d_truth = self.get_grad(guesses, truths)
-        loss = self.get_loss(guesses, truths)
+        target, mask = self.convert_truths(truths, guesses)
+        self._validate_input(guesses, target)
+        d_truth = self._get_grad(guesses, target, mask)
+        loss = self._get_loss(guesses, target, mask)
         return (d_truth, loss)
 
     def _validate_input(self, guesses: Floats2d, target: Floats2d) -> None:
@@ -159,37 +158,53 @@ class CategoricalCrossentropy(Loss):
             raise ValueError(
                 "Cannot calculate CategoricalCrossentropy if "
                 "some rows of 'guesses' are not "
-                "valid categorical distributions (don't sum to 1)."
+                "valid categorical distributions (do not sum to 1)."
             )
         if guesses.shape != target.shape:  # pragma: no cover
-            err = f"Cannot calculate CategoricalCrossentropy loss: mismatched shapes: {guesses.shape} vs {target.shape}."
-            raise ValueError(err)
+            raise ValueError(
+                "Cannot calculate CategoricalCrossentropy loss: "
+                f"mismatched shapes: {guesses.shape} vs {target.shape}."
+            )
         if xp.any(guesses > 1) or xp.any(guesses < 0):  # pragma: no cover
-            err = f"Cannot calculate CategoricalCrossentropy loss with guesses outside the [0,1] interval."
-            raise ValueError(err)
+            raise ValueError(
+                "Cannot calculate CategoricalCrossentropy loss "
+                "with guesses outside the [0,1] interval."
+            )
         if xp.any(target > 1) or xp.any(target < 0):  # pragma: no cover
-            err = f"Cannot calculate CategoricalCrossentropy loss with truth values outside the [0,1] interval."
-            raise ValueError(err)
+            raise ValueError(
+                "Cannot calculate CategoricalCrossentropy loss "
+                "with truth values outside the [0,1] interval."
+            )
 
-    def get_grad(self, guesses: Floats2d, truths: IntsOrFloatsOrStrs) -> Floats2d:
-        target, mask = self.convert_truths(truths, guesses)
-        self._validate_input(guesses, target)
+    def _get_grad(
+        self, guesses: Floats2d, target: Floats2d, mask: Floats2d
+    ) -> Floats2d:
         difference = guesses - target
         difference *= mask
         if self.normalize:
             difference = difference / guesses.shape[0]
-        return difference.astype('float32')
+        return cast(Floats2d, difference.astype('float32'))
 
-    def get_loss(self, guesses: Floats2d, truths: IntsOrFloatsOrStrs) -> float:
+    def _get_loss(
+        self, guesses: Floats2d, target: Floats2d, mask: Floats2d
+    ) -> float:
         xp = get_array_module(guesses)
-        target, mask = self.convert_truths(truths, guesses)
-        self._validate_input(guesses, target)
         logprobs = xp.log(guesses + 1e-9)
         logprobs *= mask
         if self.normalize:
             return -(target * logprobs).sum(1).mean()
         else:
             return -(target * logprobs).sum()
+
+    def get_grad(self, guesses: Floats2d, truths: IntsOrFloatsOrStrs) -> Floats2d:
+        target, mask = self.convert_truths(truths, guesses)
+        self._validate_input(guesses, target)
+        return self._get_grad(guesses, target, mask)
+
+    def get_loss(self, guesses: Floats2d, truths: IntsOrFloatsOrStrs) -> float:
+        target, mask = self.convert_truths(truths, guesses)
+        self._validate_input(guesses, target)
+        return self._get_loss(guesses, target, mask)
 
 
 @registry.losses("CategoricalCrossentropy.v1")
