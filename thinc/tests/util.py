@@ -5,7 +5,7 @@ import shutil
 from thinc.api import Linear, Ragged, Padded, ArgsKwargs
 import numpy
 import pytest
-from thinc.util import has_cupy
+from thinc.util import has_cupy, is_cupy_array, is_numpy_array
 
 
 @contextlib.contextmanager
@@ -98,12 +98,7 @@ def check_input_converters(Y, backprop, data, n_args, kwargs_keys, type_):
     dX = backprop(Y)
 
     def is_supported_backend_array(arr):
-        if has_cupy:
-            import cupy
-
-            return isinstance(arr, cupy.ndarray) or isinstance(arr, numpy.ndarray)
-        else:
-            return isinstance(arr, numpy.ndarray)
+        return is_cupy_array(arr) or is_numpy_array(arr)
 
     input_type = type(data) if not isinstance(data, list) else tuple
     assert isinstance(dX, input_type) or is_supported_backend_array(dX)
