@@ -58,7 +58,9 @@ class CategoricalCrossentropy(Loss):
         else:
             self._name_to_i = {}
 
-    def convert_truths(self, truths, guesses: Floats2d) -> Tuple[Floats2d, Floats2d]:
+    def convert_truths(
+        self, truths: IntsOrFloatsOrStrs, guesses: Floats2d
+    ) -> Tuple[Floats2d, Floats2d]:
         xp = get_array_module(guesses)
         missing = []
         negatives_mask = None
@@ -66,7 +68,6 @@ class CategoricalCrossentropy(Loss):
             negatives_mask = xp.ones((len(truths), len(self.names)), dtype="f")
         missing_value = self.missing_value
         if isinstance(truths, list):
-            truths = list(truths)
             if len(truths):
                 # Collect missing values for List[int]
                 if isinstance(truths[0], int):
@@ -83,6 +84,7 @@ class CategoricalCrossentropy(Loss):
                         )
                     # Convert List[str] to List[int]
                     # and collect missing values.
+                    truths = cast(List[str], truths)
                     for i, value in enumerate(truths):
                         if value == missing_value:
                             truths[i] = self.names[0]
@@ -105,11 +107,15 @@ class CategoricalCrossentropy(Loss):
             # get mask for 2d array
             mask = _make_mask_by_value(truths, guesses, missing_value)
         # Convert 1d truths to 2d and apply smoothing.
+        truths = cast(IntsOrFloats, truths)
         if truths.ndim == 1:
-            truths = to_categorical(
-                cast(Ints1d, truths),
-                n_classes=guesses.shape[-1],
-                label_smoothing=self.label_smoothing,
+            truths = cast(
+                Floats2d,
+                to_categorical(
+                    truths,
+                    n_classes=guesses.shape[-1],
+                    label_smoothing=self.label_smoothing,
+                ),
             )
         # Validate 2d truths and apply smoothing if its one-hot.
         elif truths.ndim == 2:
@@ -136,6 +142,7 @@ class CategoricalCrossentropy(Loss):
             )
         # Transform negative annotations to a 0 for the negated value
         # + mask all other values for that row
+        truths = cast(Floats2d, truths)
         if negatives_mask is not None:
             truths *= negatives_mask
             truths[truths == -1] = 0
@@ -154,7 +161,7 @@ class CategoricalCrossentropy(Loss):
 
     def _validate_input(self, guesses: Floats2d, target: Floats2d) -> None:
         xp = get_array_module(target)
-        if not xp.allclose(guesses.sum(axis=1), 1.):
+        if not xp.allclose(guesses.sum(axis=1), 1.0):
             raise ValueError(
                 "Cannot calculate CategoricalCrossentropy if "
                 "some rows of 'guesses' are not "
@@ -183,11 +190,9 @@ class CategoricalCrossentropy(Loss):
         difference *= mask
         if self.normalize:
             difference = difference / guesses.shape[0]
-        return cast(Floats2d, difference.astype('float32'))
+        return cast(Floats2d, difference.astype("float32"))
 
-    def _get_loss(
-        self, guesses: Floats2d, target: Floats2d, mask: Floats2d
-    ) -> float:
+    def _get_loss(self, guesses: Floats2d, target: Floats2d, mask: Floats2d) -> float:
         xp = get_array_module(guesses)
         logprobs = xp.log(guesses + 1e-9)
         logprobs *= mask
