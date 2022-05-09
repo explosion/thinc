@@ -61,7 +61,6 @@ class NumpyOps(Ops):
             raise ValueError("BLIS support requires blis: pip install blis")
 
     def asarray(self, data, dtype=None):
-        array = None
         cast_array = True
 
         if isinstance(data, self.xp.ndarray):
