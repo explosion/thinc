@@ -1,5 +1,5 @@
 from typing import Any, Union, Sequence, cast, Dict, Optional, Callable, TypeVar
-from typing import List, Tuple
+from typing import List, Mapping, Tuple
 import numpy
 from packaging.version import Version
 import random
@@ -490,7 +490,11 @@ def partial(
 
 class DataValidationError(ValueError):
     def __init__(
-        self, name: str, X: Any, Y: Any, errors: List[Dict[str, Any]] = []
+        self,
+        name: str,
+        X: Any,
+        Y: Any,
+        errors: Union[Sequence[Mapping[str, Any]], List[Dict[str, Any]]] = [],
     ) -> None:
         """Custom error for validating inputs / outputs at runtime."""
         message = f"Data validation error in '{name}'"
@@ -564,7 +568,7 @@ def data_validation(validation):
 
 
 @contextlib.contextmanager
-def use_nvtx_range(message: int, id_color: int = -1):
+def use_nvtx_range(message: str, id_color: int = -1):
     """Context manager to register the executed code as an NVTX range. The
     ranges can be used as markers in CUDA profiling."""
     if has_cupy:

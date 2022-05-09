@@ -17,6 +17,8 @@ def forward(model: Model[InT, InT], X: InT, is_train: bool) -> Tuple[InT, Callab
     Y = model.ops.sigmoid(X, inplace=False)
 
     def backprop(dY: InT) -> InT:
-        return dY * model.ops.dsigmoid(Y, inplace=False) # type: ignore
+        return cast(
+            InT, dY * model.ops.dsigmoid(Y, inplace=False)  # type:ignore[operator]
+        )
 
     return Y, backprop

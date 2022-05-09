@@ -4,9 +4,10 @@ from ..model import Model
 from ..config import registry
 from ..types import Floats1d, Floats2d, Floats3d, Floats4d, FloatsXd, Ragged, Padded
 
-
 # fmt: off
-InT = TypeVar("InT", List[Floats1d], List[Floats2d], List[Floats3d], List[Floats4d], Ragged, Padded, FloatsXd)
+InT = TypeVar(  
+    "InT", List[Floats1d], List[Floats2d], List[Floats3d], List[Floats4d], 
+    Ragged, Padded, FloatsXd, Floats1d, Floats2d, Floats3d, Floats4d)
 # fmt: on
 
 

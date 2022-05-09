@@ -42,7 +42,7 @@ List1d = Union[List["Floats1d"], List["Ints1d"]]
 List2d = Union[List["Floats2d"], List["Ints2d"]]
 List3d = Union[List["Floats3d"], List["Ints3d"]]
 List4d = Union[List["Floats4d"], List["Ints4d"]]
-ListXd = Union[List["FloatsXd"], List["IntsXd"]]
+ListXd = Union[List1d, List2d, List3d, List4d]
 
 ArrayT = TypeVar("ArrayT")
 SelfT = TypeVar("SelfT")
@@ -712,7 +712,31 @@ class Ints4d(_Array4d, _Ints):
         yield lambda v: validate_array(v, ndim=4, dtype="i")
 
     def __iter__(self) -> Iterator[Ints3d]: ...
-    # def __getitem__(self, key: int) -> Ints3d: ...
+
+    @overload
+    def __getitem__(self, key: _4_KeyScalar) -> int: ...
+    @overload
+    def __getitem__(self, key: _4_Key1d) -> Ints1d: ...
+    @overload
+    def __getitem__(self, key: _4_Key2d) -> Ints2d: ...
+    @overload
+    def __getitem__(self, key: _4_Key3d) -> Ints3d: ...
+    @overload
+    def __getitem__(self, key: _4_Key4d) -> "Ints4d": ...
+    def __getitem__(self, key: _4_AllKeys) -> _I4_AllReturns: ...
+
+    @overload
+    def __setitem__(self, key: _4_KeyScalar, value: int) -> None: ...
+    @overload
+    def __setitem__(self, key: _4_Key1d, value: Ints1d) -> None: ...
+    @overload
+    def __setitem__(self, key: _4_Key2d, value: Ints2d) -> None: ...
+    @overload
+    def __setitem__(self, key: _4_Key3d, value: Ints3d) -> None: ...
+    @overload
+    def __setitem__(self, key: _4_Key4d, value: "Ints4d") -> None: ...
+ 
+    def __setitem__(self, key: _4_AllKeys, value: _I4_AllReturns) -> None: ...
 
     @overload
     def sum(self, *, keepdims: Tru, axis: _4_AllAx = None, out: Optional["Ints4d"] = None) -> "Ints4d": ...
@@ -782,7 +806,7 @@ class Padded:
     and the indices indicates the original ordering.
     """
 
-    data: Floats3d
+    data: Array3d
     size_at_t: Ints1d
     lengths: Ints1d
     indices: Ints1d

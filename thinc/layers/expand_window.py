@@ -24,7 +24,7 @@ def forward(model: Model[InT, InT], X: InT, is_train: bool) -> Tuple[InT, Callab
 
 
 def _expand_window_floats(
-    model: Model[Floats2d, Floats2d], X: Floats2d
+    model: Model[InT, InT], X: Floats2d
 ) -> Tuple[Floats2d, Callable]:
     nW = model.attrs["window_size"]
     if len(X) > 0:
@@ -40,7 +40,7 @@ def _expand_window_floats(
 
 
 def _expand_window_ragged(
-    model: Model[Ragged, Ragged], Xr: Ragged
+    model: Model[InT, InT], Xr: Ragged
 ) -> Tuple[Ragged, Callable]:
     nW = model.attrs["window_size"]
     Y = Ragged(
