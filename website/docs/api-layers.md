@@ -946,11 +946,11 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/chain.py
 Construct `n` copies of a layer, with distinct weights. For example,
 `clone(f, 3)(x)` computes `f(f'(f''(x)))`.
 
-| Argument    | Type                | Description                        |
-| ----------- | ------------------- | ---------------------------------- |
-| `orig`      | <tt>Model</tt>      | The layer to copy.                 |
-| `n`         | <tt>int</tt>        | The number of copies to construct. |
-| **RETURNS** | <tt>Model</tt>, ... | One or more copies.                |
+| Argument    | Type           | Description                                      |
+| ----------- | -------------- | ------------------------------------------------ |
+| `orig`      | <tt>Model</tt> | The layer to copy.                               |
+| `n`         | <tt>int</tt>   | The number of copies to construct.               |
+| **RETURNS** | <tt>Model</tt> | A composite model containing two or more copies. |
 
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/clone.py
