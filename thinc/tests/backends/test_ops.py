@@ -60,6 +60,9 @@ def create_pytorch_funcs():
     def torch_hard_swish_mobilenet(x):
         return torch.nn.functional.hardswish(x)
 
+    def torch_sigmoid(x):
+        return torch.nn.functional.sigmoid(x)
+
     # https://github.com/huggingface/transformers/blob/master/src/transformers/activations.py#L37
     def torch_gelu_approx(x):
         return (
@@ -87,6 +90,7 @@ def create_pytorch_funcs():
         ("hard_swish_mobilenet", torch_hard_swish_mobilenet),
         ("gelu_approx", torch_gelu_approx),
         ("gelu", torch_gelu),
+        ("sigmoid", torch_sigmoid),
     ]
 
 
@@ -736,17 +740,25 @@ def test_flatten_unflatten_roundtrip(cpu_ops, X):
 @pytest.mark.parametrize("ops", ALL_OPS)
 @pytest.mark.parametrize("dtype", FLOAT_TYPES)
 def test_reduce_sum(ops, dtype):
-    m = ops.xp.zeros((19, 5), dtype=dtype)
-    m += 1
-    lengths = ops.xp.array([5, 5, 3, 6], dtype="i")
-    output = ops.reduce_sum(m, lengths)
-    assert output.sum() == m.sum(), (output.sum(), m.sum())
+    X = ops.asarray2f(
+        [[1.0, 2.0], [3.0, 4.0], [5.0, 6.0], [1.0, 2.0], [3.0, 4.0]], dtype=dtype
+    )
+    lengths = ops.asarray1i([3, 2])
+    ops.xp.testing.assert_allclose(
+        ops.reduce_sum(X, lengths), [[9.0, 12.0], [4.0, 6.0]]
+    )
+
+    # Zero-length array
+    lengths = ops.asarray1i([3, 0, 2])
+    ops.xp.testing.assert_allclose(
+        ops.reduce_sum(X, lengths), [[9.0, 12.0], [0.0, 0.0], [4.0, 6.0]]
+    )
 
     with pytest.raises(IndexError):
-        ops.reduce_sum(m, ops.xp.array([5, 5, 5, 5], dtype="i"))
+        ops.reduce_sum(X, ops.xp.array([5, 5, 5, 5], dtype="i"))
 
     with pytest.raises(ValueError):
-        ops.reduce_sum(m, ops.xp.array([-1, 10, 5, 5], dtype="i"))
+        ops.reduce_sum(X, ops.xp.array([-1, 10, 5, 5], dtype="i"))
 
 
 @pytest.mark.parametrize("ops", ALL_OPS)
@@ -803,6 +815,9 @@ def test_reduce_max(ops, dtype):
     with pytest.raises(ValueError):
         ops.reduce_max(m, ops.xp.array([-1, 10, 5, 5], dtype="i"))
 
+    with pytest.raises(ValueError):
+        ops.reduce_max(m, ops.xp.array([5, 5, 0, 3, 6], dtype="i"))
+
 
 @pytest.mark.parametrize("ops", ALL_OPS)
 @pytest.mark.parametrize("dtype", FLOAT_TYPES)
@@ -838,16 +853,36 @@ def test_backprop_reduce_max(ops, dtype):
             ops.xp.array([-3, 2], dtype="int32"),
         )
 
+    with pytest.raises(ValueError):
+        ops.backprop_reduce_max(
+            ops.xp.arange(1, 7, dtype=dtype).reshape(2, 3),
+            ops.xp.array([[2, 1, 0], [1, 0, 1], [1, 0, 1]]).astype("int32"),
+            ops.xp.array([3, 0, 2], dtype="int32"),
+        )
+
 
 @pytest.mark.parametrize("ops", ALL_OPS)
 @pytest.mark.parametrize("dtype", FLOAT_TYPES)
 def test_reduce_mean(ops, dtype):
     X = ops.asarray2f(
-        [[1.0, 2.0], [3.0, 4.0], [5.0, 6.0], [1.0, 2], [3.0, 4.0]], dtype=dtype
+        [[1.0, 2.0], [3.0, 4.0], [5.0, 6.0], [1.0, 2.0], [3.0, 4.0]], dtype=dtype
     )
     lengths = ops.asarray1i([3, 2])
     ops.xp.testing.assert_allclose(
         ops.reduce_mean(X, lengths), [[3.0, 4.0], [2.0, 3.0]]
+    )
+
+    # Zero-length array
+    lengths = ops.asarray1i([3, 0, 2])
+    ops.xp.testing.assert_allclose(
+        ops.reduce_mean(X, lengths), [[3.0, 4.0], [0.0, 0.0], [2.0, 3.0]]
+    )
+
+    # Zero-length array last.
+    X = ops.asarray2f([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]], dtype=dtype)
+    lengths = ops.asarray1i([3, 0])
+    ops.xp.testing.assert_allclose(
+        ops.reduce_mean(X, lengths), [[3.0, 4.0], [0.0, 0.0]]
     )
 
     with pytest.raises(IndexError):
@@ -1230,7 +1265,11 @@ def test_compare_activations_to_torch(ops, dtype, x, torch_func):
     x_thinc = ops.asarray([x], dtype=dtype)
     dY_thinc = ops.asarray([1.0], dtype=dtype)
     dY_thinc_inplace = dY_thinc.copy()
-    if backward.__name__ == "backprop_swish":
+
+    s = inspect.signature(backward)
+    params = {p for p in s.parameters if p in ["dY", "X", "Y"]}
+
+    if params == {"dY", "X", "Y"}:
         dx_thinc = backward(dY_thinc, Y=y_thinc, X=x_thinc)
         assert dx_thinc.dtype == x_thinc.dtype
         assert ops.xp.isclose(
@@ -1238,15 +1277,15 @@ def test_compare_activations_to_torch(ops, dtype, x, torch_func):
             backward(dY=dY_thinc_inplace, Y=y_thinc, X=x_thinc, inplace=True),
         )
         assert ops.xp.isclose(x_torch.grad.item(), float(dx_thinc), atol=1e-06)
-    elif backward.__name__ == "backprop_relu":
+    elif params == {"Y", "dY"}:
         dx_thinc = backward(dY_thinc, Y=y_thinc)
-        assert dx_thinc.dtype == dY_thinc.dtype
+        assert dx_thinc.dtype == x_thinc.dtype
         assert ops.xp.isclose(
             dx_thinc,
             backward(dY=dY_thinc_inplace, Y=y_thinc, inplace=True),
         )
         assert ops.xp.isclose(x_torch.grad.item(), float(dx_thinc), atol=1e-06)
-    else:
+    elif params == {"dY", "X"}:
         dx_thinc = backward(dY_thinc, X=x_thinc)
         assert dx_thinc.dtype == x_thinc.dtype
         assert ops.xp.isclose(
@@ -1254,6 +1293,10 @@ def test_compare_activations_to_torch(ops, dtype, x, torch_func):
         )
         assert ops.xp.isclose(
             x_torch.grad.item(), float(backward(dY_thinc, X=x_thinc)), atol=1e-06
+        )
+    else:
+        raise NotImplementedError(
+            f"No PyTorch comparison implemented for parameter set: {params}"
         )
 
 

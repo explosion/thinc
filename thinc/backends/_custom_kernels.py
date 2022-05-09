@@ -314,7 +314,7 @@ def reduce_max(X, lengths, *, threads_per_block=128, num_blocks=128):
     T = X.shape[0]
     O = X.shape[1]
 
-    _check_lengths(lengths, T)
+    _check_lengths(lengths, T, min_length=1)
 
     out_shape = (B, O)
     maxes = _alloc(out_shape, dtype=X.dtype, zeros=False)
@@ -577,7 +577,7 @@ def backprop_reduce_max(
     B = len(lengths)
     T = int(lengths.sum())
     O = d_maxes.shape[1]
-    _check_lengths(lengths, T)
+    _check_lengths(lengths, T, min_length=1)
 
     out = _alloc((T, O), dtype=d_maxes.dtype, zeros=True)
 
@@ -643,10 +643,10 @@ def _is_float_array(out, *, shape: Optional[Tuple] = None):
         raise ValueError(msg)
 
 
-def _check_lengths(lengths, n_elems: int):
+def _check_lengths(lengths, n_elems: int, *, min_length=0):
     assert lengths.dtype == "int32", "lengths should be encoded as 32-bit integers"
-    if not cupy.all(lengths >= 0):
-        raise ValueError("all sequence lengths must be >= 0")
+    if not cupy.all(lengths >= min_length):
+        raise ValueError(f"all sequence lengths must be >= {min_length}")
     if cupy.sum(lengths) != n_elems:
         raise IndexError("lengths must sum up to the batch size")
 
