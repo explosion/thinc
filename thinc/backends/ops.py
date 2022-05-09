@@ -5,9 +5,9 @@ from typing import Iterator, overload
 import numpy
 import itertools
 
-from .. import registry
 from ..types import Xp, Shape, DTypes, DTypesInt, DTypesFloat, List2d, ArrayXd
-from ..types import Array3d, Floats1d, Floats2d, Floats3d, Floats4d
+from ..types import Floats1d, Floats2d, Floats3d, Floats4d
+from ..types import Array1d, Array2d, Array3d, Array4d, ListXd
 from ..types import FloatsXd, Ints1d, Ints2d, Ints3d, Ints4d, IntsXd, _Floats
 from ..types import DeviceTypes, Generator, Padded, Batchable, SizedGenerator
 from ..util import get_array_module, is_xp_array, to_numpy
@@ -135,13 +135,11 @@ class Ops:
         if isinstance(sequence, list):
             subseq = [sequence[i] for i in indices]
         elif isinstance(sequence, tuple):
-            subseq = tuple(sequence[i] for i in indices)  # type: ignore
+            subseq = tuple(sequence[i] for i in indices)
         else:
-            subseq = sequence[indices]  # type: ignore
+            subseq = sequence[indices]
         if is_xp_array(subseq):
-            subseq = self.as_contig(
-                cast(ArrayXd, self.xp.asarray(subseq))
-            )  # type: ignore
+            subseq = self.as_contig(self.xp.asarray(subseq))
         return subseq
 
     def _get_batch_sizes(self, length: int, sizes: Iterator[int]):
@@ -225,13 +223,65 @@ class Ops:
         Y += b
         return Y
 
+    @overload 
     def flatten(
         self,
-        X: Sequence[ArrayT],
+        X: List[Floats2d],
         dtype: Optional[DTypes] = None,
         pad: int = 0,
         ndim_if_empty: int = 2,
-    ) -> ArrayT:
+     ) -> Floats2d:
+        ...
+
+    @overload 
+    def flatten(
+        self,
+        X: List[Ints1d],
+        dtype: Optional[DTypes] = None,
+        pad: int = 0,
+        ndim_if_empty: int = 2,
+     ) -> Ints1d:
+        ...
+
+    @overload 
+    def flatten(
+        self,
+        X: List2d,
+        dtype: Optional[DTypes] = None,
+        pad: int = 0,
+        ndim_if_empty: int = 2,
+     ) -> Array2d:
+        ...
+
+    # further specific typed signatures can be added as necessary
+
+    @overload 
+    def flatten(
+        self,
+        X: ListXd,
+        dtype: Optional[DTypes] = None,
+        pad: int = 0,
+        ndim_if_empty: int = 2,
+     ) -> ArrayXd:
+        ...
+
+    @overload 
+    def flatten(
+        self,
+        X: Sequence[ArrayXd],
+        dtype: Optional[DTypes] = None,
+        pad: int = 0,
+        ndim_if_empty: int = 2,
+     ) -> ArrayXd:
+        ...
+
+    def flatten(
+        self,
+        X: Sequence[ArrayXd],
+        dtype: Optional[DTypes] = None,
+        pad: int = 0,
+        ndim_if_empty: int = 2,
+    ) -> ArrayXd:
         """Flatten a list of arrays into one large array."""
         if X is None or len(X) == 0:
             return self.alloc((0,) * ndim_if_empty, dtype=dtype or "f")
@@ -252,7 +302,25 @@ class Ops:
             result = xp.asarray(result, dtype=dtype)
         return result
 
+    @overload
     def unflatten(self, X: Floats2d, lengths: Ints1d, pad: int = 0) -> List[Floats2d]:
+        ...
+
+    @overload
+    def unflatten(self, X: Ints1d, lengths: Ints1d, pad: int = 0) -> List[Ints1d]:
+        ...
+
+    @overload
+    def unflatten(self, X: Array2d, lengths: Ints1d, pad: int = 0) -> List2d:
+        ...
+
+    # further specific typed signatures can be added as necessary
+
+    @overload
+    def unflatten(self, X: ArrayXd, lengths: Ints1d, pad: int = 0) -> ListXd:
+        ...
+
+    def unflatten(self, X: ArrayXd, lengths: Ints1d, pad: int = 0) -> ListXd:
         """The reverse/backward operation of the `flatten` function: unflatten
         a large array into a list of arrays according to the given lengths.
         """
@@ -302,7 +370,7 @@ class Ops:
         output: Array3d = self.alloc(final_shape, dtype=seqs[0].dtype)
         for i, arr in enumerate(seqs):
             # It's difficult to convince this that the dtypes will match.
-            output[i, : arr.shape[0]] = arr  # type: ignore
+            output[i, : arr.shape[0]] = arr  # type: ignore[assignment, call-overload]
         return output
 
     def unpad(self, padded: Array3d, lengths: List[int]) -> List2d:
@@ -314,14 +382,14 @@ class Ops:
             output.append(padded[i, :length])
         return cast(List2d, output)
 
-    def list2padded(self, seqs: List[Floats2d]) -> Padded:
+    def list2padded(self, seqs: List2d) -> Padded:
         """Pack a sequence of 2d arrays into a Padded datatype."""
         if not seqs:
             return Padded(
                 self.alloc3f(0, 0, 0), self.alloc1i(0), self.alloc1i(0), self.alloc1i(0)
             )
         elif len(seqs) == 1:
-            data = self.reshape3f(seqs[0], seqs[0].shape[0], 1, seqs[0].shape[1])
+            data = self.reshape3(seqs[0], seqs[0].shape[0], 1, seqs[0].shape[1])
             size_at_t = self.asarray1i([1] * data.shape[0])
             lengths = self.asarray1i([data.shape[0]])
             indices = self.asarray1i([0])
@@ -336,8 +404,8 @@ class Ops:
         # Reorder the sequences, by length. This looks the same in either
         # direction: you're swapping elements between their original and sorted
         # position.
-        seqs = [seqs[i] for i in indices_]
-        arr: Floats3d = self.pad(seqs)
+        seqs = cast(List2d, [seqs[i] for i in indices_])
+        arr: Array3d = self.pad(seqs)
         assert arr.shape == (nB, nS, nO), (nB, nS, nO)
         arr = self.as_contig(arr.transpose((1, 0, 2)))
         assert arr.shape == (nS, nB, nO)
@@ -350,7 +418,7 @@ class Ops:
             batch_size_at_t_[t] = current_size
         assert sum(lengths_) == sum(batch_size_at_t_)
         return Padded(
-            cast(Floats3d, arr),
+            arr,
             self.asarray1i(batch_size_at_t_),
             self.asarray1i(lengths_),
             self.asarray1i(indices_),
@@ -361,7 +429,7 @@ class Ops:
         data = padded.data
         indices = to_numpy(padded.indices)
         lengths = to_numpy(padded.lengths)
-        unpadded: List[Optional[Floats2d]] = [None] * len(lengths)
+        unpadded: List[Optional[Array2d]] = [None] * len(lengths)
         # Transpose from (length, batch, data) to (batch, length, data)
         data = self.as_contig(data.transpose((1, 0, 2)))
         for i in range(data.shape[0]):
@@ -382,18 +450,35 @@ class Ops:
         mask = (coinflips >= drop) / (1.0 - drop)
         return cast(FloatsXd, self.asarray(mask, dtype="float32"))
 
-    def alloc1f(self, d0: int, *, dtype: Optional[DTypesFloat] = "float32") -> Floats1d:
-        return self.alloc((d0,), dtype=dtype)
+    def alloc1f(
+        self,
+        d0: int,
+        *,
+        dtype: Optional[DTypesFloat] = "float32",
+        zeros: bool = True,
+    ) -> Floats1d:
+        return self.alloc((d0,), dtype=dtype, zeros=zeros)
 
     def alloc2f(
-        self, d0: int, d1: int, *, dtype: Optional[DTypesFloat] = "float32"
+        self,
+        d0: int,
+        d1: int,
+        *,
+        dtype: Optional[DTypesFloat] = "float32",
+        zeros: bool = True,
     ) -> Floats2d:
-        return self.alloc((d0, d1), dtype=dtype)
+        return self.alloc((d0, d1), dtype=dtype, zeros=zeros)
 
     def alloc3f(
-        self, d0: int, d1: int, d2: int, *, dtype: Optional[DTypesFloat] = "float32"
+        self,
+        d0: int,
+        d1: int,
+        d2: int,
+        *,
+        dtype: Optional[DTypesFloat] = "float32",
+        zeros: bool = True,
     ) -> Floats3d:
-        return self.alloc((d0, d1, d2), dtype=dtype)
+        return self.alloc((d0, d1, d2), dtype=dtype, zeros=zeros)
 
     def alloc4f(
         self,
@@ -403,26 +488,48 @@ class Ops:
         d3: int,
         *,
         dtype: Optional[DTypesFloat] = "float32",
+        zeros: bool = True,
     ) -> Floats4d:
-        return self.alloc((d0, d1, d2, d3), dtype=dtype)
+        return self.alloc((d0, d1, d2, d3), dtype=dtype, zeros=zeros)
 
     def alloc_f(
-        self, shape: Shape, *, dtype: Optional[DTypesFloat] = "float32"
+        self,
+        shape: Shape,
+        *,
+        dtype: Optional[DTypesFloat] = "float32",
+        zeros: bool = True,
     ) -> FloatsXd:
-        return self.alloc(shape, dtype=dtype)
+        return self.alloc(shape, dtype=dtype, zeros=zeros)
 
-    def alloc1i(self, d0: int, *, dtype: Optional[DTypesInt] = "int32") -> Ints1d:
-        return self.alloc((d0,), dtype=dtype)
+    def alloc1i(
+        self,
+        d0: int,
+        *,
+        dtype: Optional[DTypesInt] = "int32",
+        zeros: bool = True,
+    ) -> Ints1d:
+        return self.alloc((d0,), dtype=dtype, zeros=zeros)
 
     def alloc2i(
-        self, d0: int, d1: int, *, dtype: Optional[DTypesInt] = "int32"
+        self,
+        d0: int,
+        d1: int,
+        *,
+        dtype: Optional[DTypesInt] = "int32",
+        zeros: bool = True,
     ) -> Ints2d:
-        return self.alloc((d0, d1), dtype=dtype)
+        return self.alloc((d0, d1), dtype=dtype, zeros=zeros)
 
     def alloc3i(
-        self, d0: int, d1: int, d2: int, *, dtype: Optional[DTypesInt] = "int32"
+        self,
+        d0: int,
+        d1: int,
+        d2: int,
+        *,
+        dtype: Optional[DTypesInt] = "int32",
+        zeros: bool = True,
     ) -> Ints3d:
-        return self.alloc((d0, d1, d2), dtype=dtype)
+        return self.alloc((d0, d1, d2), dtype=dtype, zeros=zeros)
 
     def alloc4i(
         self,
@@ -432,17 +539,46 @@ class Ops:
         d3: int,
         *,
         dtype: Optional[DTypesInt] = "int32",
+        zeros: bool = True,
     ) -> Ints4d:
-        return self.alloc((d0, d1, d2, d3), dtype=dtype)
+        return self.alloc((d0, d1, d2, d3), dtype=dtype, zeros=zeros)
 
-    def alloc_i(self, shape: Shape, *, dtype: Optional[DTypesInt] = "int32") -> IntsXd:
-        return self.alloc(shape, dtype=dtype)
+    def alloc_i(
+        self,
+        shape: Shape,
+        *,
+        dtype: Optional[DTypesInt] = "int32",
+        zeros: bool = True,
+    ) -> IntsXd:
+        return self.alloc(shape, dtype=dtype, zeros=zeros)
 
-    def alloc(self, shape: Shape, *, dtype: Optional[DTypes] = "float32") -> ArrayT:
+    def alloc(
+        self,
+        shape: Shape,
+        *,
+        dtype: Optional[DTypes] = "float32",
+        zeros: bool = True,
+    ) -> ArrayT:
         """Allocate an array of a certain shape."""
         if isinstance(shape, int):
             shape = (shape,)
-        return self.xp.zeros(shape, dtype=dtype)
+
+        if zeros:
+            return self.xp.zeros(shape, dtype=dtype)
+        else:
+            return self.xp.empty(shape, dtype=dtype)
+
+    def reshape1(self, array: ArrayXd, d0: int) -> Array1d:
+        return cast(Array1d, self.reshape(array, (d0,)))
+
+    def reshape2(self, array: ArrayXd, d0: int, d1: int) -> Array2d:
+        return cast(Array2d, self.reshape(array, (d0, d1)))
+
+    def reshape3(self, array: ArrayXd, d0: int, d1: int, d2: int) -> Array3d:
+        return cast(Array3d, self.reshape(array, (d0, d1, d2)))
+
+    def reshape4(self, array: ArrayXd, d0: int, d1: int, d2: int, d3: int) -> Array4d:
+        return cast(Array4d, self.reshape(array, (d0, d1, d2, d3)))
 
     def reshape1f(self, array: FloatsXd, d0: int) -> Floats1d:
         return cast(Floats1d, self.reshape(array, (d0,)))
@@ -563,7 +699,7 @@ class Ops:
                 return self.xp.asarray(data, dtype=dtype)
         elif hasattr(data, "numpy"):
             # Handles PyTorch Tensor
-            return data.numpy()  # type: ignore
+            return data.numpy()  # type: ignore[union-attr]
         elif dtype is not None:
             return self.xp.array(data, dtype=dtype)
         else:
@@ -585,8 +721,8 @@ class Ops:
 
         if inplace:
             self.xp.exp(-X, out=X)
-            X += 1.0  # type: ignore
-            X **= -1.0  # type: ignore
+            X += 1.0  # type: ignore[assignment]
+            X **= -1.0  # type: ignore[assignment]
             return cast(FloatsType, X)
         else:
             return cast(FloatsType, 1.0 / (1.0 + self.xp.exp(-X)))
@@ -695,11 +831,11 @@ class Ops:
         return dX, d_params
 
     def maxout(self, X: Floats3d) -> Tuple[Floats2d, Ints2d]:
-        which = X.argmax(axis=-1, keepdims=False)
+        which = X.argmax(axis=-1)
         return X.max(axis=-1), which
 
     def backprop_maxout(self, dY: Floats2d, which: Ints2d, P: int) -> Floats3d:
-        dX = self.alloc3f(dY.shape[0], dY.shape[1], P)
+        dX = self.alloc3f(dY.shape[0], dY.shape[1], P, dtype=dY.dtype)
         for b in range(dY.shape[0]):
             for o in range(dY.shape[1]):
                 dX[b, o, which[b, o]] = dY[b, o]
@@ -730,10 +866,10 @@ class Ops:
         inplace: bool = False,
     ) -> FloatsType:
         if inplace:
-            X *= slope  # type: ignore
-            X += offset  # type: ignore
+            X *= slope  # type: ignore[assignment]
+            X += offset  # type: ignore[assignment]
             return cast(FloatsType, self.xp.clip(X, min_val, max_val, out=X))
-        out = X * slope + offset  # type: ignore
+        out = X * slope + offset  # type: ignore[assignment]
         return cast(FloatsType, self.xp.clip(out, min_val, max_val))
 
     def backprop_clipped_linear(
@@ -784,27 +920,27 @@ class Ops:
 
     def swish(self, X: FloatsType, inplace: bool = False) -> FloatsType:
         if inplace:
-            X *= self.sigmoid(X)  # type: ignore
+            X *= self.sigmoid(X)  # type: ignore[operator, assignment]
             return cast(FloatsType, X)
-        out = X * self.sigmoid(X)  # type: ignore
+        out = X * self.sigmoid(X)  # type: ignore[operator]
         return cast(FloatsType, out)
 
     def backprop_swish(
         self, dY: FloatsType, X: FloatsType, Y: FloatsType, inplace: bool = False
     ) -> FloatsType:
-        Y = Y + self.sigmoid(X) * (1 - Y)  # type: ignore
+        Y = Y + self.sigmoid(X) * (1 - Y)  # type: ignore[operator]
         if inplace:
-            dY *= Y  # type: ignore
+            dY *= Y  # type: ignore[operator, assignment]
             return cast(FloatsType, dY)
-        out = dY * Y  # type: ignore
+        out = dY * Y  # type: ignore[operator]
         return cast(FloatsType, out)
 
     # Following https://www.scitepress.org/Papers/2019/74696/74696.pdf
     def hard_swish(self, X: FloatsType, inplace: bool = False) -> FloatsType:
         if inplace:
-            X *= self.hard_sigmoid(X)  # type: ignore
+            X *= self.hard_sigmoid(X)  # type: ignore[operator, assignment]
             return cast(FloatsType, X)
-        out = X * self.hard_sigmoid(X)  # type: ignore
+        out = X * self.hard_sigmoid(X)  # type: ignore[operator]
         return cast(FloatsType, out)
 
     def backprop_hard_swish(
@@ -868,10 +1004,10 @@ class Ops:
         if inplace:
             X *= tmp
             return X
-        Y = self.xp.zeros_like(X)
-        Y += tmp
-        Y *= X
-        return cast(FloatsType, Y)
+        else:
+            Y = self.xp.array(X)
+            Y *= tmp
+            return Y
 
     def backprop_gelu_approx(
         self, dY: FloatsType, X: FloatsType, inplace: bool = False
@@ -893,15 +1029,15 @@ class Ops:
         # GELU(x) = x · Φ(x)
         cdf = gaussian_cdf(self, X)
         if inplace:
-            X *= cdf  # type: ignore
+            X *= cdf  # type: ignore[operator, assignment]
             return X
-        return X * cdf  # type: ignore
+        return X * cdf  # type: ignore[operator, return-value]
 
     def backprop_gelu(
         self, dY: FloatsType, X: FloatsType, inplace: bool = False
     ) -> FloatsType:
         # GELU'(x) = Φ(x) + x · PDF(x)
-        dX = gaussian_cdf(self, X) + X * gaussian_pdf(self, X)  # type: ignore
+        dX = gaussian_cdf(self, X) + X * gaussian_pdf(self, X)  # type: ignore[operator]
         if inplace:
             dY *= dX
             return dY
@@ -925,6 +1061,10 @@ class Ops:
         threshold: float = 20.0,
         inplace: bool = False,
     ) -> FloatsType:
+        if dY.shape != X.shape:
+            msg = f"arrays have incompatible shapes: {dY.shape} and {X.shape}"
+            raise ValueError(msg)
+
         xp = get_array_module(X)
         indices = X < threshold
         Xsub = X[indices]
@@ -991,45 +1131,70 @@ class Ops:
         return -loss
 
     def reduce_sum(self, X: Floats2d, lengths: Ints1d) -> Floats2d:
-        Y = self.alloc2f(lengths.shape[0], X.shape[1])
+        Y = self.alloc2f(lengths.shape[0], X.shape[1], zeros=False)
         start = 0
         for i, length in enumerate(lengths):
-            Y[i] = X[start : start + length].sum(axis=0)
-            start += length
+            if length < 0:
+                raise ValueError(f"all sequence lengths must be >= 0, got {length}")
+            elif start + length > X.shape[0]:
+                raise IndexError("lengths must sum up to the number of rows")
+            elif length:
+                Y[i] = X[start : start + length].sum(axis=0)
+                start += length
+            else:
+                Y[i] = 0.0
         return Y
 
     def reduce_mean(self, X: Floats2d, lengths: Ints1d) -> Floats2d:
-        Y = self.alloc2f(lengths.shape[0], X.shape[1])
+        Y = self.alloc2f(lengths.shape[0], X.shape[1], zeros=False)
         start = 0
         for i, length in enumerate(lengths):
-            if length:
+            if length < 0:
+                raise ValueError(f"all sequence lengths must be >= 0, got {length}")
+            elif start + length > X.shape[0]:
+                raise IndexError("lengths must sum up to the number of rows")
+            elif length:
                 Y[i] = X[start : start + length].mean(axis=0)
+            else:
+                Y[i] = 0.0
             start += length
         return Y
 
     def reduce_max(self, X: Floats2d, lengths: Ints1d) -> Tuple[Floats2d, Ints2d]:
-        Y = self.alloc2f(lengths.shape[0], X.shape[1])
-        which = self.alloc2i(lengths.shape[0], X.shape[1])
+        Y = self.alloc2f(lengths.shape[0], X.shape[1], dtype=X.dtype, zeros=False)
+        which = self.alloc2i(lengths.shape[0], X.shape[1], zeros=False)
         start = 0
         for i, length in enumerate(lengths):
-            if length:
+            if length <= 0:
+                raise ValueError(f"all sequence lengths must be > 0, got {length}")
+            elif start + length > X.shape[0]:
+                raise IndexError("lengths must sum up to the number of rows")
+            elif length:
                 which[i] = X[start : start + length].argmax(axis=0)
                 Y[i] = X[start : start + length].max(axis=0)
             start += length
         return Y, which
 
     def backprop_reduce_sum(self, d_sums: Floats2d, lengths: Ints1d) -> Floats2d:
-        dX = self.alloc2f(lengths.sum(), d_sums.shape[1])
+        dX = self.alloc2f(
+            lengths.sum(), d_sums.shape[1], dtype=d_sums.dtype, zeros=False
+        )
         start = 0
         for i, length in enumerate(lengths):
+            if length < 0:
+                raise ValueError(f"all sequence lengths must be >= 0, got {length}")
             dX[start : start + length] = d_sums[i]
             start += length
         return dX
 
     def backprop_reduce_mean(self, d_means: Floats2d, lengths: Ints1d) -> Floats2d:
-        dX = self.alloc2f(lengths.sum(), d_means.shape[1])
+        dX = self.alloc2f(
+            lengths.sum(), d_means.shape[1], dtype=d_means.dtype, zeros=False
+        )
         start = 0
         for i, length in enumerate(lengths):
+            if length < 0:
+                raise ValueError(f"all sequence lengths must be >= 0, got {length}")
             dX[start : start + length] = d_means[i] / length
             start += length
         return dX
@@ -1037,9 +1202,12 @@ class Ops:
     def backprop_reduce_max(
         self, d_maxes: Floats2d, which: Ints2d, lengths: Ints1d
     ) -> Floats2d:
-        dX = self.alloc2f(lengths.sum(), d_maxes.shape[1])
+        dX = self.alloc2f(lengths.sum(), d_maxes.shape[1], dtype=d_maxes.dtype)
         start = 0
         for i, length in enumerate(lengths):
+            if length <= 0:
+                raise ValueError(f"all sequence lengths must be > 0, got {length}")
+
             self.xp.put_along_axis(
                 dX[start : start + length], which[i].reshape((1, -1)), d_maxes[i], 0
             )
@@ -1151,8 +1319,8 @@ def lstm_forward_training(
         for d in range(dirs):
             # The inits are shaped (depth, dirs, nO). We add the internal dimension
             # to make them set correctly.
-            Yt2 = h_init[i, d].reshape((1, nO))  # type: ignore
-            Ct2 = c_init[i, d].reshape((1, nO))  # type: ignore
+            Yt2 = h_init[i, d].reshape((1, nO))  # type: ignore[assignment]
+            Ct2 = c_init[i, d].reshape((1, nO))  # type: ignore[assignment]
             layer_params, params_i = _split_weights(params, i, nO, nI, params_i)
             Wx, Wh, bias = _transpose_weights(layer_params)
             G[i, d] += xp.dot(X, Wx.T)

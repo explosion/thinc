@@ -1,11 +1,11 @@
-from typing import Tuple, Callable
+from typing import Tuple, Callable, TypeVar, cast
 
 from ..types import Padded, List2d
 from ..model import Model
 from ..config import registry
 
 
-InT = List2d
+InT = TypeVar("InT", bound=List2d)
 OutT = Padded
 
 
@@ -16,9 +16,9 @@ def list2padded() -> Model[InT, OutT]:
 
 
 def forward(model: Model[InT, OutT], Xs: InT, is_train: bool) -> Tuple[OutT, Callable]:
-    Yp = model.ops.list2padded(Xs)  # type: ignore
+    Yp = model.ops.list2padded(Xs)
 
     def backprop(dYp: OutT) -> InT:
-        return model.ops.padded2list(dYp)  # type: ignore
+        return cast(InT, model.ops.padded2list(dYp))
 
     return Yp, backprop
