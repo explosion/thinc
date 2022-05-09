@@ -123,10 +123,10 @@ def to_numpy(data):  # pragma: no cover
         return numpy.array(data)
 
 
-def set_active_gpu(gpu_id: int) -> Optional["cupy.cuda.Device"]:  # pragma: no cover
+def set_active_gpu(gpu_id: int) -> "cupy.cuda.Device":  # pragma: no cover
     """Set the current GPU device for cupy and torch (if available)."""
     if not gpu_is_available():
-        return None
+        raise ValueError("No GPU devices detected")
 
     device = cupy.cuda.device.Device(gpu_id)
     device.use()

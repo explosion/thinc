@@ -69,8 +69,8 @@ require_gpu()
 
 ### set_active_gpu {#set_active_gpu tag="function"}
 
-Set the current GPU device for `cupy` and `torch` and returns a `cupy` device,
-if available. Returns `None` otherwise.
+Set the current GPU device for `cupy` (and for `torch`, if installed) and return
+a `cupy` device. Will raise an error if no GPU is available.
 
 ```python
 ### Example
@@ -78,10 +78,10 @@ from thinc.api import set_active_gpu
 set_active_gpu(0)
 ```
 
-| Argument    | Type                                | Description             |
-| ----------- | ----------------------------------- | ----------------------- |
-| `gpu_id`    | <tt>int</tt>                        | Device index to select. |
-| **RETURNS** | <tt>Optional[cupy.cuda.Device]</tt> | The device.             |
+| Argument    | Type                      | Description             |
+| ----------- | ------------------------- | ----------------------- |
+| `gpu_id`    | <tt>int</tt>              | Device index to select. |
+| **RETURNS** | <tt>cupy.cuda.Device</tt> | The device.             |
 
 ### use_pytorch_for_gpu_memory {#use_pytorch_for_gpu_memory tag="function"}
 
