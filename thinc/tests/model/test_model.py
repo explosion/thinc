@@ -617,9 +617,40 @@ def test_walk_bfs_post_order_fails():
 
 
 def test_model_copy_with_loop():
+    class MyShim(Shim):
+        name = "testshim"
+
+        def to_bytes(self):
+            return test_replace_node_with_indirect_node_ref
+
+        def from_bytes(self, bytes):
+            pass
+
+    model_a = create_model("a")
+    working_shim = MyShim(None)
+    layer = Model(
+        "test",
+        lambda X: (X, lambda dY: dY),
+        dims={"nI": 5, "nO": 5},
+        params={"W": numpy.zeros((10,)), "b": None},
+        refs={"a": model_a, "b": None},
+        attrs={"foo": "bar"},
+        shims=[working_shim],
+        layers=[model_a, model_a],
+    )
+    layer2 = Model(
+        "test2",
+        lambda X: (X, lambda dY: dY),
+        dims={"nI": 5, "nO": 5},
+        params={"W": numpy.zeros((10,)), "b": None},
+        refs={"a": model_a, "b": None},
+        attrs={"foo": "bar"},
+        shims=[working_shim],
+        layers=[model_a, model_a],
+    )
     relu = Relu(5)
-    relu2 = Relu(5)
-    model = chain(relu, relu2, relu)
+    model = chain(layer, relu, layer, layer2)
     model2 = model.copy()
     model.from_dict(model2.to_dict())
-    assert model.name == "relu>>relu>>relu"
+    assert model2.name == "test>>relu>>test>>test2"
+    assert id(model2.layers[0].shims[0]) == id(model2.layers[3].shims[0])
