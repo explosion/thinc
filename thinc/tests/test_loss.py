@@ -10,11 +10,11 @@ from hypothesis.strategies import integers, floats
 
 
 ALL_XP = [numpy]
-# try:
-#    import cupy
-#    ALL_XP.append(cupy)
-# except ImportError:
-#    pass
+try:
+    import cupy
+    ALL_XP.append(cupy)
+except ImportError:
+    pass
 
 
 softmax_func = partial(softmax_activation(), is_train=False)
