@@ -106,8 +106,8 @@ class CategoricalCrossentropy(Loss):
         else:
             # get mask for 2d array
             mask = _make_mask_by_value(truths, guesses, missing_value)
-        # Convert 1d truths to 2d and apply smoothing.
         truths = cast(IntsOrFloats, truths)
+        # Convert 1d truths to 2d and apply smoothing.
         if truths.ndim == 1:
             truths = cast(
                 Floats2d,
@@ -117,8 +117,9 @@ class CategoricalCrossentropy(Loss):
                     label_smoothing=self.label_smoothing,
                 ),
             )
-        # Validate 2d truths and apply smoothing if its one-hot.
+        # Check if 2D array is valid and maybe apply smoothing.
         elif truths.ndim == 2:
+            # Validate if each row sums to 1.
             if not xp.all(truths.sum(axis=1) == 1):
                 raise ValueError(
                     "Cannot calculate CategoricalCrossentropy. "
@@ -126,20 +127,13 @@ class CategoricalCrossentropy(Loss):
                     "valid categorical distribution (sum to 1)."
                 )
             if self.label_smoothing:
-                # Check if one-hot
-                if xp.all(truths.sum(axis=0) == 1):
+                # Validate that array is binary, ergo one-hot at this point
+                if ((truths == 0) | (truths == 1)).all():
                     truths = smooth_one_hot(truths, self.label_smoothing)
                 else:
                     raise ValueError(
                         "Can only apply label-smoothing to one-hot target."
                     )
-        # Something went wrong.
-        else:
-            raise ValueError(
-                "Invalid format provided for 'truths', "
-                "it has to be one of List[int], List[str], "
-                "Ints1d, Floats2d."
-            )
         # Transform negative annotations to a 0 for the negated value
         # + mask all other values for that row
         truths = cast(Floats2d, truths)
