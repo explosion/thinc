@@ -12,6 +12,7 @@ from ..types import FloatsXd, Ints1d, Ints2d, Ints3d, Ints4d, IntsXd, _Floats
 from ..types import DeviceTypes, Generator, Padded, Batchable, SizedGenerator
 from ..util import get_array_module, is_xp_array, to_numpy
 
+from .cblas import CBlas
 
 ArrayT = TypeVar("ArrayT", bound=ArrayXd)
 FloatsT = TypeVar("FloatsT", bound=_Floats)
@@ -30,6 +31,11 @@ class Ops:
     ) -> None:
         self.device_type = device_type
         self.device_id = device_id
+
+    def cblas(self) -> CBlas:
+        """Return C BLAS function table."""
+        err = f"{type(self).__name__} does not provide C BLAS functions"
+        raise NotImplementedError(err)
 
     def to_numpy(self, data, *, byte_order=None):  # pragma: no cover
         if isinstance(data, numpy.ndarray):

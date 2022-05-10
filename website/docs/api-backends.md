@@ -382,6 +382,26 @@ the inputs and outputs.
 | `zeros`        | <tt>bool</tt>    | Fill the array with zeros (default: `True`). |
 | **RETURNS**    | <tt>ArrayXd</tt> | An array of the correct shape and data type. |
 
+### Ops.cblas {#cblas tag="method"}
+
+<inline-list>
+
+- **default:** <i name="no"></i>
+- **numpy:** <i name="yes"></i>
+- **cupy:** <i name="no"></i>
+
+</inline-list>
+
+Get a table of C BLAS functions usable in Cython `cdef nogil` functions. This
+method does not take any arguments.
+
+<infobox variant="warning">
+
+This method is only supported by `NumpyOps`. A `NotImplementedError` exception
+is raised when calling this method on `Ops` or `CupyOps`.
+
+</infobox>
+
 ### Ops.to_numpy {#to_numpy tag="method"}
 
 <inline-list>
