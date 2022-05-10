@@ -397,9 +397,8 @@ method does not take any arguments.
 
 <infobox variant="warning">
 
-This method is only supported by `NumpyOps` and subclasses of `NumpyOps`. A
-`NotImplementedError` exception is raised when calling this method on `Ops` or
-`CupyOps`.
+This method is only supported by `NumpyOps`. A `NotImplementedError` exception
+is raised when calling this method on `Ops` or `CupyOps`.
 
 </infobox>
 
