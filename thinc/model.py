@@ -456,7 +456,7 @@ class Model(Generic[InT, OutT]):
                 gradients[(node.id, name)] = (param, grad)
         return gradients
 
-    def copy(self: SelfT) -> SelfT:
+    def copy(self: SelfT, copied_dict: Optional[Dict[int, "Model"]] = None) -> SelfT:
         """
         Create a copy of the model, its attributes, and its parameters. Any child
         layers will also be deep-copied. The copy will receive a distinct `model.id`
@@ -466,6 +466,17 @@ class Model(Generic[InT, OutT]):
         for name in self.param_names:
             params[name] = self.get_param(name) if self.has_param(name) else None
 
+        if copied_dict is None:
+            copied_dict = {}
+        copied_layers = []
+        for layer in self.layers:
+            if id(layer) in copied_dict:
+                copied_layers.append(copied_dict[id(layer)])
+            else:
+                copied_layer = layer.copy(copied_dict)
+                copied_dict[id(layer)] = copied_layer
+                copied_layers.append(copied_layer)
+
         copied: Model[InT, OutT] = Model(
             self.name,
             self._func,
@@ -473,7 +484,7 @@ class Model(Generic[InT, OutT]):
             params=copy.deepcopy(params),
             dims=copy.deepcopy(self._dims),
             attrs=copy.deepcopy(self._attrs),
-            layers=[layer.copy() for layer in self.layers],
+            layers=copied_layers,
             shims=[shim.copy() for shim in self.shims],
         )
         for name in self.grad_names:

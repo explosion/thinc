@@ -349,10 +349,10 @@ def test_all_operators(op):
             with pytest.raises(TypeError):
                 value = m1 % m2
         if op == "**":
-            value = m1 ** m2
+            value = m1**m2
         else:
             with pytest.raises(TypeError):
-                value = m1 ** m2
+                value = m1**m2
         if op == "<<":
             value = m1 << m2
         else:
@@ -614,3 +614,12 @@ def test_walk_bfs_post_order_fails():
     relu = Relu(5)
     with pytest.raises(ValueError, match="Invalid order"):
         relu.walk(order="dfs_post_order")
+
+
+def test_model_copy_with_loop():
+    relu = Relu(5)
+    relu2 = Relu(5)
+    model = chain(relu, relu2, relu)
+    model2 = model.copy()
+    model.from_dict(model2.to_dict())
+    assert model.name == "relu>>relu>>relu"
