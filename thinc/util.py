@@ -38,6 +38,7 @@ try:  # pragma: no cover
         and not torch.cuda.amp.common.amp_definitely_not_available()
     )
 except ImportError:  # pragma: no cover
+    torch = None
     has_torch = False
     has_torch_gpu = False
     has_torch_amp = False
