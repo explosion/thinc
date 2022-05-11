@@ -1,11 +1,7 @@
 from typing import Dict, Iterable, List, Union, cast
 
-from ..util import has_torch_amp, is_torch_array
-
-try:
-    import torch
-except ImportError:  # pragma: no cover
-    pass
+from ..compat import has_torch_amp, torch
+from ..util import is_torch_array
 
 
 class PyTorchGradScaler:

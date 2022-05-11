@@ -5,7 +5,8 @@ import pytest
 from thinc.api import Adam, ArgsKwargs, Model, Ops, MXNetWrapper
 from thinc.api import get_current_ops, mxnet2xp, xp2mxnet
 from thinc.types import Array2d, Array1d, IntsXd
-from thinc.util import has_cupy, has_mxnet, to_categorical
+from thinc.compat import has_cupy, has_mxnet
+from thinc.util import to_categorical
 
 from ..util import check_input_converters, make_tempdir
 

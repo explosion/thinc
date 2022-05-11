@@ -4,7 +4,8 @@ from thinc.api import chain, get_current_ops, Relu
 from thinc.backends import context_pools
 from thinc.shims.pytorch_grad_scaler import PyTorchGradScaler
 from thinc.util import has_torch, has_torch_amp, has_torch_gpu
-from thinc.util import has_cupy
+from thinc.compat import has_torch, has_torch_amp, has_torch_gpu
+from thinc.compat import has_cupy
 import numpy
 import pytest
 

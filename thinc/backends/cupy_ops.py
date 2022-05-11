@@ -1,19 +1,4 @@
 import numpy
-
-try:
-    import cupy
-    import cupyx
-    import cupy.cuda
-    from cupy.cuda.compiler import compile_with_cache  # noqa: F401
-
-    has_cupy = True
-
-    # We no longer have to set up the memory pool, fortunately.
-except ImportError:
-    cupy = None
-    cupyx = None
-    has_cupy = False
-
 from .. import registry
 from .ops import Ops
 from .numpy_ops import NumpyOps
@@ -22,6 +7,7 @@ from ..types import DeviceTypes
 from ..util import torch2xp, tensorflow2xp, mxnet2xp
 from ..util import is_cupy_array
 from ..util import is_torch_gpu_array, is_tensorflow_gpu_array, is_mxnet_gpu_array
+from ..compat import cupy, cupyx
 
 
 @registry.ops("CupyOps")

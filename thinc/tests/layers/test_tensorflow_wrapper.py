@@ -2,7 +2,8 @@ import numpy
 import pytest
 from thinc.api import Adam, ArgsKwargs, Linear, Model, TensorFlowWrapper
 from thinc.api import get_current_ops, keras_subclass, tensorflow2xp, xp2tensorflow
-from thinc.util import gpu_is_available, has_tensorflow, to_categorical
+from thinc.util import gpu_is_available, to_categorical
+from thinc.compat import has_tensorflow
 
 from ..util import check_input_converters, make_tempdir
 
