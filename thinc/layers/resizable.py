@@ -10,8 +10,7 @@ OutT = TypeVar("OutT")
 
 @registry.layers("resizable.v1")
 def resizable(layer, resize_layer: Callable) -> Model[InT, OutT]:
-    """Container that holds one layer that can change dimensions.
-    """
+    """Container that holds one layer that can change dimensions."""
     return Model(
         f"resizable({layer.name})",
         forward,

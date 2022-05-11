@@ -9,7 +9,7 @@ from ..util import get_width
 LayerT = TypeVar("LayerT")
 SimT = TypeVar("SimT")
 InT = Tuple[LayerT, LayerT]
-OutT = ArrayXd
+OutT = TypeVar("OutT", bound=ArrayXd)
 
 
 @registry.layers("siamese.v1")

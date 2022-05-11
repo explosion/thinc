@@ -2,22 +2,7 @@ from typing import cast
 
 from ..types import ArrayXd
 from ..util import tensorflow2xp
-
-try:
-    import tensorflow
-except ImportError:
-    pass
-
-try:
-    import torch
-except ImportError:
-    pass
-
-try:
-    from cupy.cuda.memory import MemoryPointer
-    from cupy.cuda.memory import UnownedMemory
-except ImportError:
-    pass
+from ..compat import torch, cupy, tensorflow
 
 
 def cupy_tensorflow_allocator(size_in_bytes: int):
@@ -32,9 +17,9 @@ def cupy_tensorflow_allocator(size_in_bytes: int):
     cupy_array = cast(ArrayXd, tensorflow2xp(tensor))
     address = int(cupy_array.data)
     # cupy has a neat class to help us here. Otherwise it will try to free.
-    memory = UnownedMemory(address, size_in_bytes, cupy_array)
+    memory = cupy.cuda.memory.UnownedMemory(address, size_in_bytes, cupy_array)
     # Now return a new memory pointer.
-    return MemoryPointer(memory, 0)
+    return cupy.cuda.memory.MemoryPointer(memory, 0)
 
 
 def cupy_pytorch_allocator(size_in_bytes: int):
@@ -53,6 +38,6 @@ def cupy_pytorch_allocator(size_in_bytes: int):
     # cupy has a neat class to help us here. Otherwise it will try to free.
     # I think this is a private API? It's not in the types.
     address = torch_tensor.data_ptr()  # type: ignore
-    memory = UnownedMemory(address, size_in_bytes, torch_tensor)
+    memory = cupy.cuda.memory.UnownedMemory(address, size_in_bytes, torch_tensor)
     # Now return a new memory pointer.
-    return MemoryPointer(memory, 0)
+    return cupy.cuda.memory.MemoryPointer(memory, 0)
