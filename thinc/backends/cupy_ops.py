@@ -60,11 +60,8 @@ class CupyOps(Ops):
 
     def asarray(self, data, dtype=None):
         # We'll try to perform a zero-copy conversion if possible.
-        cast_array = True
-
         if is_cupy_array(data):
-            array = self.xp.asarray(data, dtype=dtype)
-            cast_array = False
+            array = self.xp.asarray(data)
         elif is_torch_gpu_array(data):
             array = torch2xp(data)
         elif is_tensorflow_gpu_array(data):
@@ -72,12 +69,9 @@ class CupyOps(Ops):
         elif is_mxnet_gpu_array(data):
             array = mxnet2xp(data)
         else:
-            array = self.xp.array(data, dtype=dtype)
-            cast_array = False
+            array = self.xp.array(data)
 
-        if cast_array and dtype is not None:
-            array = array.astype(dtype=dtype)
-
+        array = array.astype(dtype=dtype, copy=False)
         return array
 
     def maxout(self, X):
