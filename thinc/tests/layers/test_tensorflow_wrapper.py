@@ -65,10 +65,14 @@ def test_tensorflow_wrapper_roundtrip_conversion():
     import tensorflow as tf
 
     ops = get_current_ops()
-    xp_tensor = ops.alloc2f(2, 3, zeros=True)
+    xp_tensor = ops.alloc2f(2, 3)
     tf_tensor = xp2tensorflow(xp_tensor)
     assert isinstance(tf_tensor, tf.Tensor)
-    new_xp_tensor = tensorflow2xp(tf_tensor, ops=ops)
+    new_xp_tensor = tensorflow2xp(tf_tensor)
+    # The converted tensor will be backed by Cupy, so
+    # we'll need to convert it to current backend's repr.
+    new_xp_tensor = ops.asarray(new_xp_tensor)
+
     assert ops.xp.array_equal(xp_tensor, new_xp_tensor)
 
 
