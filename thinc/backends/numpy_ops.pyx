@@ -61,12 +61,8 @@ class NumpyOps(Ops):
             raise ValueError("BLIS support requires blis: pip install blis")
 
     def asarray(self, data, dtype=None):
-        array = None
-        cast_array = True
-
         if isinstance(data, self.xp.ndarray):
-            array = self.xp.asarray(data, dtype=dtype)
-            cast_array = False
+            array = self.xp.asarray(data)
         elif hasattr(data, 'numpy'):
             # Handles PyTorch Tensor
             array = data.numpy()
@@ -75,8 +71,8 @@ class NumpyOps(Ops):
         else:
             array = self.xp.array(data)
 
-        if cast_array and dtype is not None:
-            array = array.astype(dtype=dtype)
+        if dtype is not None:
+            array = array.astype(dtype=dtype, copy=False)
 
         return array
 
