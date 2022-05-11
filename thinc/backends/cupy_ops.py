@@ -71,7 +71,9 @@ class CupyOps(Ops):
         else:
             array = self.xp.array(data)
 
-        array = array.astype(dtype=dtype, copy=False)
+        if dtype is not None:
+            array = array.astype(dtype=dtype, copy=False)
+
         return array
 
     def maxout(self, X):
