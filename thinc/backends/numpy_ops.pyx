@@ -62,7 +62,7 @@ class NumpyOps(Ops):
 
     def asarray(self, data, dtype=None):
         if isinstance(data, self.xp.ndarray):
-            array = self.xp.asarray(data)
+            array = data
         elif hasattr(data, 'numpy'):
             # Handles PyTorch Tensor
             array = data.numpy()
