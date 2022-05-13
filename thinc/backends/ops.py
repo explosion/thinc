@@ -1123,7 +1123,6 @@ class Ops:
         mom2 += gradient * gradient * (1.0 - beta2)
         # Here we assume learn rate is calculated by the caller.
         # cdef weight_t a_t = learn_rate * sqrt(1-beta2**hp.t) / (1-beta1**hp.t);
-        print(mom1.shape, mom2.shape, weights.shape)
         weights -= learn_rate * (mom1 / (mod_rate * self.xp.sqrt(mom2) + eps))
         return weights, gradient, mom1, mom2
 
