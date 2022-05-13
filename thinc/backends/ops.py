@@ -1112,13 +1112,19 @@ class Ops:
         learn_rate: float,
         mod_rate: float = 1.0,
     ) -> Tuple[Floats1d, Floats1d, Floats1d, Floats1d]:
+        _check_compatible_shape(weights, gradient)
+        _check_compatible_shape(weights, mom1)
+        _check_compatible_shape(weights, mom2)
+
         # Internals for optimizer
         mom1 *= beta1
         mom2 *= beta2
+        print(mom1.shape, mom2.shape, gradient.shape, weights.shape)
         mom1 += gradient * (1.0 - beta1)
         mom2 += gradient * gradient * (1.0 - beta2)
         # Here we assume learn rate is calculated by the caller.
         # cdef weight_t a_t = learn_rate * sqrt(1-beta2**hp.t) / (1-beta1**hp.t);
+        print(mom1.shape, mom2.shape, weights.shape)
         weights -= learn_rate * (mom1 / (mod_rate * self.xp.sqrt(mom2) + eps))
         return weights, gradient, mom1, mom2
 
@@ -1570,3 +1576,9 @@ def gaussian_cdf(ops: Ops, X: FloatsType) -> FloatsType:
 def gaussian_pdf(ops: Ops, X: FloatsType) -> FloatsType:
     """Gaussian PDF for distribution with mean 0 and stdev 1."""
     return INV_SQRT_2PI * ops.xp.exp(-0.5 * X * X)
+
+
+def _check_compatible_shape(u: FloatsXd, v: FloatsXd):
+    if u.shape != v.shape:
+        msg = f"arrays have incompatible shapes: {u.shape} and {v.shape}"
+        raise ValueError(msg)
