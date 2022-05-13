@@ -20,7 +20,7 @@ from .compat import torch, cupy, tensorflow as tf, mxnet as mx, cupy_from_dlpack
 DATA_VALIDATION: ContextVar[bool] = ContextVar("DATA_VALIDATION", default=False)
 
 
-from .types import ArrayXd, ArgsKwargs, Ragged, Padded, FloatsXd, IntsXd  # noqa: E402
+from .types import ArrayXd, ArgsKwargs, Ragged, Padded, FloatsXd, IntsXd, Floats2d # noqa: E402
 from . import types  # noqa: E402
 from typing import TYPE_CHECKING
 
