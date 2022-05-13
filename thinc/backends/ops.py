@@ -1119,7 +1119,6 @@ class Ops:
         # Internals for optimizer
         mom1 *= beta1
         mom2 *= beta2
-        print(mom1.shape, mom2.shape, gradient.shape, weights.shape)
         mom1 += gradient * (1.0 - beta1)
         mom2 += gradient * gradient * (1.0 - beta2)
         # Here we assume learn rate is calculated by the caller.
