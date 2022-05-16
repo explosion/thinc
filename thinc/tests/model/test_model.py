@@ -653,4 +653,5 @@ def test_model_copy_with_loop():
     model2 = model.copy()
     model.from_dict(model2.to_dict())
     assert model2.name == "test>>relu>>test>>test2"
+    assert model2.layers[0] == model2.layers[2]
     assert id(model2.layers[0].shims[0]) == id(model2.layers[3].shims[0])

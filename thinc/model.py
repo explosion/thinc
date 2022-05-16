@@ -456,36 +456,35 @@ class Model(Generic[InT, OutT]):
                 gradients[(node.id, name)] = (param, grad)
         return gradients
 
-    def copy(
-        self: SelfT, copied_dict: Optional[Dict[int, Union["Model", Shim]]] = None
-    ) -> SelfT:
+    def copy(self: SelfT) -> SelfT:
         """
         Create a copy of the model, its attributes, and its parameters. Any child
         layers will also be deep-copied. The copy will receive a distinct `model.id`
         value.
         """
+        return self._copy({})
+
+    def _copy(self: SelfT, seen: Dict[int, Union["Model", Shim]]) -> SelfT:
         params = {}
         for name in self.param_names:
             params[name] = self.get_param(name) if self.has_param(name) else None
 
-        if copied_dict is None:
-            copied_dict = {}
         copied_layers: List[Model] = []
         for layer in self.layers:
-            if id(layer) in copied_dict:
-                copied_layers.append(cast(Model, copied_dict[id(layer)]))
+            if id(layer) in seen:
+                copied_layers.append(cast(Model, seen[id(layer)]))
             else:
-                copied_layer = layer.copy(copied_dict)
-                copied_dict[id(layer)] = copied_layer
+                copied_layer = layer._copy(seen)
+                seen[id(layer)] = copied_layer
                 copied_layers.append(copied_layer)
 
         copied_shims = []
         for shim in self.shims:
-            if id(shim) in copied_dict:
-                copied_shims.append(cast(Shim, copied_dict[id(shim)]))
+            if id(shim) in seen:
+                copied_shims.append(cast(Shim, seen[id(shim)]))
             else:
                 copied_shim = shim.copy()
-                copied_dict[id(shim)] = copied_shim
+                seen[id(shim)] = copied_shim
                 copied_shims.append(copied_shim)
 
         copied: Model[InT, OutT] = Model(
