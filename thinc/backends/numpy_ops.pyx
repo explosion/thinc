@@ -66,19 +66,20 @@ class NumpyOps(Ops):
 
     def asarray(self, data, dtype=None):
         if isinstance(data, self.xp.ndarray):
-            if dtype is not None:
-                return self.xp.asarray(data, dtype=dtype)
-            else:
-                return self.xp.asarray(data)
+            array = data
         elif hasattr(data, 'numpy'):
             # Handles PyTorch Tensor
-            return data.numpy()
+            array = data.numpy()
         elif hasattr(data, "get"):
-            return data.get()
-        elif dtype is not None:
-            return self.xp.array(data, dtype=dtype)
+            array = data.get()
         else:
-            return self.xp.array(data)
+            array = self.xp.array(data)
+
+        if dtype is not None:
+            array = array.astype(dtype=dtype, copy=False)
+
+        return array
+
 
     def alloc(self, shape: Shape, *, dtype: Optional[DTypes] = "float32", zeros: bool = True) -> ArrayXd:
         if zeros:
