@@ -281,6 +281,10 @@ class CupyOps(Ops):
     def adam(
         self, weights, gradient, mom1, mom2, beta1, beta2, eps, learn_rate, mod_rate=1.0
     ):
+        _check_compatible_shape(weights, gradient)
+        _check_compatible_shape(weights, mom1)
+        _check_compatible_shape(weights, mom2)
+
         adam_kernel(
             gradient, learn_rate, 1 - beta1, 1 - beta2, eps, weights, mom1, mom2
         )
@@ -303,3 +307,9 @@ if cupy is not None:
     )
 else:
     adam_kernel = None
+
+
+def _check_compatible_shape(u, v):
+    if u.shape != v.shape:
+        msg = f"arrays have incompatible shapes: {u.shape} and {v.shape}"
+        raise ValueError(msg)
