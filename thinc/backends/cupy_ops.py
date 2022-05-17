@@ -20,7 +20,8 @@ from .numpy_ops import NumpyOps
 from . import _custom_kernels
 from ..types import DeviceTypes
 from ..util import torch2xp, tensorflow2xp, mxnet2xp
-from ..util import is_torch_array, is_tensorflow_array, is_mxnet_array
+from ..util import is_torch_gpu_array, is_tensorflow_gpu_array, is_mxnet_gpu_array
+from ..util import is_cupy_array
 
 
 @registry.ops("CupyOps")
