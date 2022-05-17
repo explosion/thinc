@@ -4,16 +4,8 @@ from io import BytesIO
 import itertools
 import srsly
 
-try:
-    import torch.autograd
-    from torch.cuda import amp
-    import torch.optim
-    import torch
-except ImportError:  # pragma: no cover
-    pass
-
 from ..util import torch2xp, xp2torch, convert_recursive, iterate_recursive
-from ..util import has_torch_amp
+from ..compat import torch
 from ..backends import get_current_ops, context_pools, CupyOps
 from ..backends import set_gpu_allocator
 from ..optimizers import Optimizer
@@ -73,7 +65,7 @@ class PyTorchShim(Shim):
         """
         self._model.eval()
         with torch.no_grad():
-            with amp.autocast(self._mixed_precision):
+            with torch.cuda.amp.autocast(self._mixed_precision):
                 outputs = self._model(*inputs.args, **inputs.kwargs)
         self._model.train()
         return outputs
@@ -87,7 +79,7 @@ class PyTorchShim(Shim):
         self._model.train()
 
         # Note: mixed-precision autocast must not be applied to backprop.
-        with amp.autocast(self._mixed_precision):
+        with torch.cuda.amp.autocast(self._mixed_precision):
             output = self._model(*inputs.args, **inputs.kwargs)
 
         def backprop(grads):

@@ -193,13 +193,14 @@ cdef class Beam:
                         entry.first = s.score + scores[i][j]
                         entry.second = move_id + j
                         entries.push_back(entry)
-        cdef double max_ = entries[0].first
-        cdef double Z = 0.
-        cdef double cutoff = 0.0
+        cdef double max_, Z, cutoff
         if self.min_density == 0.0:
             for i in range(entries.size()):
                 q.push(entries[i])
-        else:
+        elif not entries.empty():
+            max_ = entries[0].first
+            Z = 0.
+            cutoff = 0.
             # Softmax into probabilities, so we can prune
             for i in range(entries.size()):
                 if entries[i].first > max_:

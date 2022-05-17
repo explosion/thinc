@@ -1,4 +1,4 @@
-from typing import Union, Dict, Any, Optional, List, Tuple, Callable, Type
+from typing import Union, Dict, Any, Optional, List, Tuple, Callable, Type, Mapping
 from typing import Iterable, Sequence, cast
 from types import GeneratorType
 from dataclasses import dataclass
@@ -550,7 +550,7 @@ class ConfigValidationError(ValueError):
         self,
         *,
         config: Optional[Union[Config, Dict[str, Dict[str, Any]], str]] = None,
-        errors: Iterable[Dict[str, Any]] = tuple(),
+        errors: Union[Sequence[Mapping[str, Any]], Iterable[Dict[str, Any]]] = tuple(),
         title: Optional[str] = "Config validation error",
         desc: Optional[str] = None,
         parent: Optional[str] = None,
@@ -560,9 +560,10 @@ class ConfigValidationError(ValueError):
 
         config (Union[Config, Dict[str, Dict[str, Any]], str]): The
             config the validation error refers to.
-        errors (Iterable[Dict[str, Any]]): A list of errors as dicts with keys
-            "loc" (list of strings describing the path of the value), "msg"
-            (validation message to show) and optional "type" (mostly internals).
+        errors (Union[Sequence[Mapping[str, Any]], Iterable[Dict[str, Any]]]):
+            A list of errors as dicts with keys "loc" (list of strings
+            describing the path of the value), "msg" (validation message
+            to show) and optional "type" (mostly internals).
             Same format as produced by pydantic's validation error (e.errors()).
         title (str): The error title.
         desc (str): Optional error description, displayed below the title.

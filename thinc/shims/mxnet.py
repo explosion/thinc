@@ -2,18 +2,12 @@ from typing import Any, cast
 import srsly
 import copy
 
-try:
-    import mxnet.autograd
-    import mxnet.optimizer
-    import mxnet as mx
-except ImportError:  # pragma: no cover
-    pass
-
 from ..util import mxnet2xp, convert_recursive, make_tempfile, xp2mxnet
 from ..util import get_array_module
 from ..optimizers import Optimizer
 from ..types import ArgsKwargs, FloatsXd
 from .shim import Shim
+from ..compat import mxnet as mx
 
 
 class MXNetShim(Shim):
@@ -33,7 +27,7 @@ class MXNetShim(Shim):
         evaluation mode.
         """
         mx.autograd.set_training(train_mode=False)
-        with mxnet.autograd.pause():
+        with mx.autograd.pause():
             outputs = self._model(*inputs.args, **inputs.kwargs)
         mx.autograd.set_training(train_mode=True)
         return outputs
@@ -50,7 +44,7 @@ class MXNetShim(Shim):
 
         def backprop(grads):
             mx.autograd.set_recording(False)
-            mxnet.autograd.backward(*grads.args, **grads.kwargs)
+            mx.autograd.backward(*grads.args, **grads.kwargs)
             return convert_recursive(
                 lambda x: hasattr(x, "grad"), lambda x: x.grad, inputs
             )

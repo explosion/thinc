@@ -10,21 +10,8 @@ from ..optimizers import Optimizer
 from ..types import ArgsKwargs, ArrayXd
 from ..util import get_array_module
 from .shim import Shim
-
-try:
-    import cupy
-except ImportError:
-    cupy = None
-
-try:
-    import tensorflow as tf
-except ImportError:  # pragma: no cover
-    pass
-
-try:
-    import h5py
-except ImportError:  # pragma: no cover
-    pass
+from ..compat import tensorflow as tf
+from ..compat import cupy, h5py
 
 keras_model_fns = catalogue.create("thinc", "keras", entry_points=True)
 

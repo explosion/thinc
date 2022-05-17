@@ -1,4 +1,4 @@
-from typing import Tuple, Callable, Optional, TypeVar, Any, Dict
+from typing import Tuple, Callable, Optional, TypeVar, Any, Dict, List, cast
 
 from ..model import Model
 from ..config import registry
@@ -7,9 +7,8 @@ from ..types import XY_YZ_OutT
 
 
 InT = TypeVar("InT")
-OutT = TypeVar("OutT")
 MidT = TypeVar("MidT")
-
+OutT = TypeVar("OutT")
 
 # Keep this function so we can provide variable arguments via the config
 @registry.layers("chain.v1")
@@ -18,29 +17,31 @@ def chain_no_types(*layer: Model) -> Model:
 
 
 def chain(
-    layer1: Model[InT, MidT], layer2: Model[MidT, OutT], *layers: Model
+    layer1: Model[InT, MidT], layer2: Model[MidT, Any], *layers: Model[Any, Any]
 ) -> Model[InT, XY_YZ_OutT]:
     """Compose two models `f` and `g` such that they become layers of a single
     feed-forward model that computes `g(f(x))`.
     Also supports chaining more than 2 layers.
+    Note that the type checking for additional layers is carried out by the Thinc Mypy plugin.
     """
-    layers = (layer1, layer2) + layers
+    all_layers: List[Model[Any, Any]] = [layer1, layer2]
+    all_layers.extend(layers)
     dims: Dict[str, Optional[int]] = {"nO": None}
     # set input dimension only if first layer has one - should be "False" otherwise
-    if layers[0].has_dim("nI") is True:
-        dims["nI"] = layers[0].get_dim("nI")
-    if layers[0].has_dim("nI") is None:
+    if all_layers[0].has_dim("nI") is True:
+        dims["nI"] = all_layers[0].get_dim("nI")
+    if all_layers[0].has_dim("nI") is None:
         dims["nI"] = None
     # set output dimension according to last layer
-    if layers[-1].has_dim("nO") is True:
-        dims["nO"] = layers[-1].get_dim("nO")
+    if all_layers[-1].has_dim("nO") is True:
+        dims["nO"] = all_layers[-1].get_dim("nO")
 
-    model: Model[InT, Any] = Model(
-        ">>".join(layer.name for layer in layers),
+    model: Model[InT, XY_YZ_OutT] = Model(
+        ">>".join(layer.name for layer in all_layers),
         forward,
         init=init,
         dims=dims,
-        layers=layers,
+        layers=all_layers,
     )
     return model
 
@@ -65,7 +66,9 @@ def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Call
 
 
 def init(
-    model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = None
+    model: Model[InT, OutT],
+    X: Optional[InT] = None,
+    Y: Optional[OutT] = None,
 ) -> None:
     if X is None and Y is None:
         for layer in model.layers:
@@ -92,10 +95,9 @@ def init(
         model.set_dim("nI", model.layers[0].get_dim("nI"))
     if model.has_dim("nO") is None:
         try:
-            nO = get_width(curr_input)  # type: ignore
+            nO = get_width(curr_input)  # type: ignore[arg-type]
+            model.set_dim("nO", nO)
         except ValueError:
             if model.layers[-1].has_dim("nO"):
                 nO = model.layers[-1].get_dim("nO")
-            else:
-                nO = None  # type: ignore
-        model.set_dim("nO", nO)
+                model.set_dim("nO", nO)

@@ -3,7 +3,8 @@ from thinc.api import xp2torch, torch2xp, ArgsKwargs, use_ops
 from thinc.api import chain, get_current_ops, Relu
 from thinc.backends import context_pools
 from thinc.shims.pytorch_grad_scaler import PyTorchGradScaler
-from thinc.util import has_torch, has_torch_amp, has_torch_gpu
+from thinc.compat import has_torch, has_torch_amp, has_torch_gpu
+from thinc.compat import has_cupy
 import numpy
 import pytest
 
@@ -63,7 +64,7 @@ def test_pytorch_wrapper(nN, nI, nO):
     assert isinstance(model.predict(X), numpy.ndarray)
 
 
-@pytest.mark.skipif(not has_torch_gpu, reason="needs PyTorch with CUDA-capable GPU")
+@pytest.mark.skipif(not has_cupy or not has_torch_gpu, reason="needs PyTorch with CUDA-capable GPU")
 @pytest.mark.parametrize("nN,nI,nO", [(2, 3, 4)])
 @pytest.mark.parametrize("mixed_precision", TORCH_MIXED_PRECISION)
 def test_pytorch_wrapper_thinc_input(nN, nI, nO, mixed_precision):

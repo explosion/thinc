@@ -39,7 +39,7 @@ def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Call
     Y = model.ops.sigmoid(Y)
 
     def backprop(dY: InT) -> OutT:
-        dY = dY * model.ops.dsigmoid(Y, inplace=False)
+        dY = model.ops.backprop_sigmoid(dY, Y, inplace=False)
         model.inc_grad("b", dY.sum(axis=0))
         model.inc_grad("W", model.ops.gemm(dY, X, trans1=True))
         return model.ops.gemm(dY, W)
