@@ -346,9 +346,14 @@ class NumpyOps(Ops):
 
     @cython.boundscheck(False)
     @cython.wraparound(False)
-    def adam(self, np.ndarray weights, np.ndarray gradient, np.ndarray mom1,
-             np.ndarray mom2, const float beta1, const float beta2, float eps,
+    def adam(self, np.ndarray[np.float32_t] weights, np.ndarray[np.float32_t] gradient,
+            np.ndarray[np.float32_t] mom1, np.ndarray[np.float32_t] mom2,
+            const float beta1, const float beta2, float eps,
             float learn_rate, float mod_rate=1.):
+        _check_compatible_shape(weights, gradient)
+        _check_compatible_shape(weights, mom1)
+        _check_compatible_shape(weights, mom2)
+
         _adam_momentum(<float*>gradient.data, <float*>mom1.data, <float*>mom2.data,
             weights.shape[0], beta1, beta2, eps, learn_rate)
         VecVec.add_i(<float*>weights.data,

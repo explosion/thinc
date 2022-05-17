@@ -121,6 +121,22 @@ def test_ops_consistency(op):
 
 
 @pytest.mark.parametrize("ops", ALL_OPS)
+def test_adam_incorrect_inputs(ops):
+    one = ops.xp.zeros(1, dtype="f")
+    two = ops.xp.zeros(2, dtype="f")
+
+    ops.adam(one, one, one, one, 0.0, 0.0, 0.0, 0.0)
+    with pytest.raises(ValueError):
+        ops.adam(two, one, one, one, 0.0, 0.0, 0.0, 0.0)
+    with pytest.raises(ValueError):
+        ops.adam(one, two, one, one, 0.0, 0.0, 0.0, 0.0)
+    with pytest.raises(ValueError):
+        ops.adam(one, one, two, one, 0.0, 0.0, 0.0, 0.0)
+    with pytest.raises(ValueError):
+        ops.adam(one, one, one, two, 0.0, 0.0, 0.0, 0.0)
+
+
+@pytest.mark.parametrize("ops", ALL_OPS)
 def test_alloc(ops):
     float_methods = (ops.alloc1f, ops.alloc2f, ops.alloc3f, ops.alloc4f)
     for i, method in enumerate(float_methods):
