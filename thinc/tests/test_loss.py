@@ -93,7 +93,7 @@ def test_compare_cross_entropy_to_torch(xp, n_samples, n_classes, low, offset):
     logits = xp.random.uniform(low, low + offset, (n_samples, n_classes))
     labels = xp.random.randint(0, n_classes, n_samples)
     torch_logits = torch.tensor(logits, requires_grad=True)
-    torch_labels = torch.tensor(labels)
+    torch_labels = torch.tensor(labels, dtype=torch.long)
     probs, _ = softmax_func(logits)
     d_sum, l_sum = loss_sum(probs, labels)
     torch_l_sum = torch_loss_sum(torch_logits, torch_labels)
