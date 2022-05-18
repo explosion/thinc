@@ -2,7 +2,7 @@ import numpy
 import pytest
 from thinc.api import Adam, ArgsKwargs, Linear, Model, TensorFlowWrapper
 from thinc.api import get_current_ops, keras_subclass, tensorflow2xp, xp2tensorflow
-from thinc.util import has_cupy, has_tensorflow, to_categorical
+from thinc.util import has_tensorflow, to_categorical, gpu_is_available
 
 from ..util import check_input_converters, make_tempdir
 
@@ -64,11 +64,16 @@ def model(tf_model):
 def test_tensorflow_wrapper_roundtrip_conversion():
     import tensorflow as tf
 
-    xp_tensor = numpy.zeros((2, 3), dtype="f")
+    ops = get_current_ops()
+    xp_tensor = ops.alloc2f(2, 3)
     tf_tensor = xp2tensorflow(xp_tensor)
     assert isinstance(tf_tensor, tf.Tensor)
     new_xp_tensor = tensorflow2xp(tf_tensor)
-    assert numpy.array_equal(xp_tensor, new_xp_tensor)
+    # The converted tensor will be backed by Cupy, so
+    # we'll need to convert it to current backend's repr.
+    new_xp_tensor = ops.asarray(new_xp_tensor)
+
+    assert ops.xp.array_equal(xp_tensor, new_xp_tensor)
 
 
 @pytest.mark.skipif(not has_tensorflow, reason="needs TensorFlow")
@@ -99,8 +104,12 @@ def test_tensorflow_wrapper_predict(model, X):
 @pytest.mark.skipif(not has_tensorflow, reason="needs TensorFlow")
 def test_tensorflow_wrapper_train_overfits(model, X, Y, answer):
     optimizer = Adam()
+    ops = get_current_ops()
     for i in range(100):
         guesses, backprop = model(X, is_train=True)
+        # Ensure that the tensor is type-compatible with the current backend.
+        guesses = ops.asarray(guesses)
+
         d_guesses = (guesses - Y) / guesses.shape[0]
         backprop(d_guesses)
         model.finish_update(optimizer)
@@ -114,8 +123,12 @@ def test_tensorflow_wrapper_accumulate_gradients(model, X, Y, answer):
 
     optimizer = Adam()
     gradients = []
+    ops = get_current_ops()
     for i in range(3):
         guesses, backprop = model(X, is_train=True)
+        # Ensure that the tensor is type-compatible with the current backend.
+        guesses = ops.asarray(guesses)
+
         d_guesses = (guesses - Y) / guesses.shape[0]
         backprop(d_guesses)
         shim_grads = [tf.identity(var) for var in model.shims[0].gradients]
@@ -173,6 +186,9 @@ def test_tensorflow_wrapper_serialize_model_subclass(
     optimizer = Adam()
     for i in range(50):
         guesses, backprop = model(X, is_train=True)
+        # Ensure that the tensor is type-compatible with the current backend.
+        guesses = ops.asarray(guesses)
+
         d_guesses = (guesses - Y) / guesses.shape[0]
         backprop(d_guesses)
         model.finish_update(optimizer)
@@ -323,10 +339,14 @@ def test_tensorflow_wrapper_from_bytes(model, X):
 @pytest.mark.skipif(not has_tensorflow, reason="needs TensorFlow")
 def test_tensorflow_wrapper_use_params(model, X, Y, answer):
     optimizer = Adam()
+    ops = get_current_ops()
     with model.use_params(optimizer.averages):
         assert model.predict(X).argmax() is not None
     for i in range(10):
         guesses, backprop = model.begin_update(X)
+        # Ensure that the tensor is type-compatible with the current backend.
+        guesses = ops.asarray(guesses)
+
         d_guesses = (guesses - Y) / guesses.shape[0]
         backprop(d_guesses)
         model.finish_update(optimizer)
@@ -342,7 +362,7 @@ def test_tensorflow_wrapper_to_cpu(tf_model):
 
 
 @pytest.mark.skipif(not has_tensorflow, reason="needs TensorFlow")
-@pytest.mark.skipif(not has_cupy, reason="needs cupy")
+@pytest.mark.skipif(not gpu_is_available(), reason="needs GPU/cupy")
 def test_tensorflow_wrapper_to_gpu(model, X):
     model.to_gpu(0)
 

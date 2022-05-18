@@ -62,19 +62,20 @@ class NumpyOps(Ops):
 
     def asarray(self, data, dtype=None):
         if isinstance(data, self.xp.ndarray):
-            if dtype is not None:
-                return self.xp.asarray(data, dtype=dtype)
-            else:
-                return self.xp.asarray(data)
+            array = data
         elif hasattr(data, 'numpy'):
             # Handles PyTorch Tensor
-            return data.numpy()
+            array = data.numpy()
         elif hasattr(data, "get"):
-            return data.get()
-        elif dtype is not None:
-            return self.xp.array(data, dtype=dtype)
+            array = data.get()
         else:
-            return self.xp.array(data)
+            array = self.xp.array(data)
+
+        if dtype is not None:
+            array = array.astype(dtype=dtype, copy=False)
+
+        return array
+
 
     def alloc(self, shape: Shape, *, dtype: Optional[DTypes] = "float32") -> ArrayXd:
         return self.xp.zeros(shape, dtype=dtype)
@@ -345,9 +346,14 @@ class NumpyOps(Ops):
 
     @cython.boundscheck(False)
     @cython.wraparound(False)
-    def adam(self, np.ndarray weights, np.ndarray gradient, np.ndarray mom1,
-             np.ndarray mom2, const float beta1, const float beta2, float eps,
+    def adam(self, np.ndarray[np.float32_t] weights, np.ndarray[np.float32_t] gradient,
+            np.ndarray[np.float32_t] mom1, np.ndarray[np.float32_t] mom2,
+            const float beta1, const float beta2, float eps,
             float learn_rate, float mod_rate=1.):
+        _check_compatible_shape(weights, gradient)
+        _check_compatible_shape(weights, mom1)
+        _check_compatible_shape(weights, mom2)
+
         _adam_momentum(<float*>gradient.data, <float*>mom1.data, <float*>mom2.data,
             weights.shape[0], beta1, beta2, eps, learn_rate)
         VecVec.add_i(<float*>weights.data,
@@ -1258,3 +1264,9 @@ cdef void MurmurHash3_x86_128_uint64(
     out[1] = h1 >> 32
     out[2] = h2 & 0xffffffffu
     out[3] = h2 >> 32
+
+def _check_compatible_shape(u: np.ndarray, v: np.ndarray):
+    if u.shape != v.shape:
+        msg = f"arrays have incompatible shapes: {u.shape} and {v.shape}"
+        raise ValueError(msg)
+

@@ -72,6 +72,9 @@ def get_array_module(arr):  # pragma: no cover
 
 
 def gpu_is_available():
+    if not has_cupy:
+        return False
+
     try:
         cupy.cuda.runtime.getDeviceCount()
         return True
@@ -125,6 +128,10 @@ def is_torch_array(obj: Any) -> bool:  # pragma: no cover
         return False
 
 
+def is_torch_gpu_array(obj: Any) -> bool:  # pragma: no cover
+    return is_torch_array(obj) and obj.is_cuda
+
+
 def is_tensorflow_array(obj: Any) -> bool:  # pragma: no cover
     if not has_tensorflow:
         return False
@@ -134,6 +141,10 @@ def is_tensorflow_array(obj: Any) -> bool:  # pragma: no cover
         return False
 
 
+def is_tensorflow_gpu_array(obj: Any) -> bool:  # pragma: no cover
+    return is_tensorflow_array(obj) and "GPU:" in obj.device
+
+
 def is_mxnet_array(obj: Any) -> bool:  # pragma: no cover
     if not has_mxnet:
         return False
@@ -141,6 +152,10 @@ def is_mxnet_array(obj: Any) -> bool:  # pragma: no cover
         return True
     else:
         return False
+
+
+def is_mxnet_gpu_array(obj: Any) -> bool:  # pragma: no cover
+    return is_mxnet_array(obj) and obj.context.device_type != "cpu"
 
 
 def to_numpy(data):  # pragma: no cover

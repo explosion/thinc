@@ -20,7 +20,8 @@ from .numpy_ops import NumpyOps
 from . import _custom_kernels
 from ..types import DeviceTypes
 from ..util import torch2xp, tensorflow2xp, mxnet2xp
-from ..util import is_torch_array, is_tensorflow_array, is_mxnet_array
+from ..util import is_torch_gpu_array, is_tensorflow_gpu_array, is_mxnet_gpu_array
+from ..util import is_cupy_array
 
 
 @registry.ops("CupyOps")
@@ -72,29 +73,20 @@ class CupyOps(Ops):
             return out
 
     def asarray(self, data, dtype=None):
-        # This is sort of frustrating, but we can't easily otherwise pass
-        # forward "unset".
-        dtype = {"dtype": dtype} if dtype is not None else {}
-
         # We'll try to perform a zero-copy conversion if possible.
-        array = None
-        cast_array = False
-        if isinstance(data, cupy.ndarray):
-            array = self.xp.asarray(data, **dtype)
-        elif is_torch_array(data) and data.device.type == "cuda":
+        if is_cupy_array(data):
+            array = data
+        elif is_torch_gpu_array(data):
             array = torch2xp(data)
-            cast_array = True
-        elif is_tensorflow_array(data) and "GPU:" in data.device:
+        elif is_tensorflow_gpu_array(data):
             array = tensorflow2xp(data)
-            cast_array = True
-        elif is_mxnet_array(data) and data.context.device_type != "cpu":
+        elif is_mxnet_gpu_array(data):
             array = mxnet2xp(data)
-            cast_array = True
         else:
-            array = self.xp.array(data, **dtype)
+            array = self.xp.array(data)
 
-        if cast_array and dtype != {}:
-            array = array.astype(dtype["dtype"])
+        if dtype is not None:
+            array = array.astype(dtype=dtype, copy=False)
 
         return array
 
@@ -263,6 +255,10 @@ class CupyOps(Ops):
     def adam(
         self, weights, gradient, mom1, mom2, beta1, beta2, eps, learn_rate, mod_rate=1.0
     ):
+        _check_compatible_shape(weights, gradient)
+        _check_compatible_shape(weights, mom1)
+        _check_compatible_shape(weights, mom2)
+
         adam_kernel(
             gradient, learn_rate, 1 - beta1, 1 - beta2, eps, weights, mom1, mom2
         )
@@ -285,3 +281,9 @@ if cupy is not None:
     )
 else:
     adam_kernel = None
+
+
+def _check_compatible_shape(u, v):
+    if u.shape != v.shape:
+        msg = f"arrays have incompatible shapes: {u.shape} and {v.shape}"
+        raise ValueError(msg)

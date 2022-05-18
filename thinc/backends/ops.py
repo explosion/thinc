@@ -966,6 +966,10 @@ class Ops:
         learn_rate: float,
         mod_rate: float = 1.0,
     ) -> Tuple[Floats1d, Floats1d, Floats1d, Floats1d]:
+        _check_compatible_shape(weights, gradient)
+        _check_compatible_shape(weights, mom1)
+        _check_compatible_shape(weights, mom2)
+
         # Internals for optimizer
         mom1 *= beta1
         mom2 *= beta2
@@ -1396,3 +1400,9 @@ def gaussian_cdf(ops: Ops, X: FloatsType) -> FloatsType:
 def gaussian_pdf(ops: Ops, X: FloatsType) -> FloatsType:
     """Gaussian PDF for distribution with mean 0 and stdev 1."""
     return INV_SQRT_2PI * ops.xp.exp(-0.5 * X * X)
+
+
+def _check_compatible_shape(u: FloatsXd, v: FloatsXd):
+    if u.shape != v.shape:
+        msg = f"arrays have incompatible shapes: {u.shape} and {v.shape}"
+        raise ValueError(msg)
