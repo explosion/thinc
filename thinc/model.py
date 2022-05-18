@@ -462,9 +462,11 @@ class Model(Generic[InT, OutT]):
         layers will also be deep-copied. The copy will receive a distinct `model.id`
         value.
         """
-        return self._copy({})
+        return self._copy()
 
-    def _copy(self: SelfT, seen: Dict[int, Union["Model", Shim]]) -> SelfT:
+    def _copy(self: SelfT, seen: Optional[Dict[int, Union["Model", Shim]]] = None) -> SelfT:
+        if seen is None:
+            seen = {}
         params = {}
         for name in self.param_names:
             params[name] = self.get_param(name) if self.has_param(name) else None
