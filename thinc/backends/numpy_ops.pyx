@@ -1264,3 +1264,9 @@ cdef void MurmurHash3_x86_128_uint64(
     out[1] = h1 >> 32
     out[2] = h2 & 0xffffffffu
     out[3] = h2 >> 32
+
+def _check_compatible_shape(u: np.ndarray, v: np.ndarray):
+    if u.shape != v.shape:
+        msg = f"arrays have incompatible shapes: {u.shape} and {v.shape}"
+        raise ValueError(msg)
+
