@@ -84,10 +84,19 @@ jobs:
       pip install -r requirements.txt
       pip install "tensorflow~=2.5.0"
       pip install "mxnet; sys_platform != 'win32'"
-      pip install "torch==1.9.0+cpu" -f https://download.pytorch.org/whl/torch_stable.html
       pip install ipykernel pydot graphviz
       python -m ipykernel install --name thinc-notebook-tests --user
     displayName: 'Install test dependencies'
+
+  - script: |
+      pip install "torch==1.5.0+cpu" -f https://download.pytorch.org/whl/torch_stable.html
+    displayName: 'Install PyTorch (lower bound)'
+    condition: eq(variables['python.version'], '3.6')
+
+  - script: |
+      pip install "torch==1.11.0+cpu" -f https://download.pytorch.org/whl/torch_stable.html
+    displayName: 'Install PyTorch'
+    condition: ne(variables['python.version'], '3.6')
 
   - script: |
       python -m pytest --pyargs thinc --cov=thinc --cov-report=term
