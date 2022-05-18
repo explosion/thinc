@@ -22,24 +22,31 @@ jobs:
       Python36Windows:
         imageName: 'windows-2019'
         python.version: '3.6'
+        torchCpuSuffix: '+cpu'
       Python37Mac:
         imageName: 'macos-10.15'
         python.version: '3.7'
+        torchCpuSuffix: ''
       Python38Linux:
         imageName: 'ubuntu-latest'
         python.version: '3.8'
+        torchCpuSuffix: '+cpu'
       Python39Windows:
         imageName: 'windows-latest'
         python.version: '3.9'
+        torchCpuSuffix: '+cpu'
       Python310Linux:
         imageName: 'ubuntu-latest'
         python.version: '3.10'
+        torchCpuSuffix: '+cpu'
       Python310Windows:
         imageName: 'windows-latest'
         python.version: '3.10'
+        torchCpuSuffix: '+cpu'
       Python310Mac:
         imageName: 'macos-latest'
         python.version: '3.10'
+        torchCpuSuffix: ''
     maxParallel: 4
   pool:
     vmImage: $(imageName)
@@ -94,7 +101,7 @@ jobs:
     condition: eq(variables['python.version'], '3.6')
 
   - script: |
-      pip install "torch==1.11.0+cpu" -f https://download.pytorch.org/whl/torch_stable.html
+      pip install "torch==1.11.0$(torchCpuSuffix)" -f https://download.pytorch.org/whl/torch_stable.html
     displayName: 'Install PyTorch'
     condition: ne(variables['python.version'], '3.6')
 
