@@ -96,7 +96,7 @@ jobs:
     displayName: 'Install test dependencies'
 
   - script: |
-      pip install "torch==1.5.0+cpu" -f https://download.pytorch.org/whl/torch_stable.html
+      pip install "torch==1.6.0+cpu" -f https://download.pytorch.org/whl/torch_stable.html
     displayName: 'Install PyTorch (lower bound)'
     condition: eq(variables['python.version'], '3.6')
 
