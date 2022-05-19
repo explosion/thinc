@@ -1,6 +1,7 @@
 import pytest
 from thinc.api import Relu, Softmax, chain, clone, Adam
 from thinc.api import PyTorchWrapper, TensorFlowWrapper
+from thinc.api import get_current_ops
 from thinc.compat import has_torch, has_tensorflow
 
 
@@ -80,9 +81,14 @@ def test_small_end_to_end(width, nb_epoch, min_score, create_model, mnist):
     optimizer = Adam(0.001)
     losses = []
     scores = []
+    ops = get_current_ops()
+
     for i in range(nb_epoch):
         for X, Y in model.ops.multibatch(batch_size, train_X, train_Y, shuffle=True):
             Yh, backprop = model.begin_update(X)
+            # Ensure that the tensor is type-compatible with the current backend.
+            Yh = ops.asarray(Yh)
+
             backprop(Yh - Y)
             model.finish_update(optimizer)
             losses.append(((Yh - Y) ** 2).sum())
@@ -90,6 +96,8 @@ def test_small_end_to_end(width, nb_epoch, min_score, create_model, mnist):
         total = 0
         for X, Y in model.ops.multibatch(batch_size, dev_X, dev_Y):
             Yh = model.predict(X)
+            Yh = ops.asarray(Yh)
+
             correct += (Yh.argmax(axis=1) == Y.argmax(axis=1)).sum()
             total += Yh.shape[0]
         score = correct / total
