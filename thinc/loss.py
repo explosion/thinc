@@ -120,7 +120,7 @@ class CategoricalCrossentropy(Loss):
         # Check if 2D array is valid and maybe apply smoothing.
         elif truths.ndim == 2:
             # Validate if each row sums to 1.
-            if not xp.allclose(truths.sum(axis=1) == 1.0):
+            if not xp.allclose(truths.sum(axis=1), 1.0):
                 raise ValueError(
                     "Cannot calculate CategoricalCrossentropy. "
                     "All rows of 'truths' have to be a "
