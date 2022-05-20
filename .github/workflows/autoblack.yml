@@ -18,7 +18,7 @@ jobs:
       - uses: actions/setup-python@v2
       - run: pip install black
       - name: Auto-format code if needed
-        run: black spacy
+        run: black thinc
       # We can't run black --check here because that returns a non-zero excit
       # code and makes GitHub think the action failed
       - name: Check for modified files
