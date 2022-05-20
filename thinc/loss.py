@@ -277,7 +277,7 @@ class SequenceCategoricalCrossentropy(Loss):
         self._validate_input(guesses, truths)
         n = len(guesses)
         d_scores = []
-        loss = 0
+        loss = 0.0
         for yh, y in zip(guesses, truths):
             d_yh, l = self.cc(yh, y)
             if self.normalize:
