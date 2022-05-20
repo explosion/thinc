@@ -82,8 +82,9 @@ class CategoricalCrossentropy(Loss):
                             "create the loss object, "
                             "e.g. CategoricalCrossentropy(names=['dog', 'cat'])"
                         )
-                    # Convert List[str] to List[int]
-                    # and collect missing values.
+                    # Make sure "truths" is List[str]
+                    assert isinstance(truths[0], str)
+                    # Convert List[str] to List[int] and collect missing values.
                     truths = cast(List[str], truths)
                     for i, value in enumerate(truths):
                         if value == missing_value:
