@@ -27,6 +27,22 @@ if TYPE_CHECKING:
     from .api import Ops
 
 
+def get_torch_default_device() -> "torch.device":
+    if torch is None:
+        raise ValueError("Cannot get default Torch device when Torch is not available.")
+
+    from .backends import get_current_ops
+    from .backends.cupy_ops import CupyOps
+    import cupy
+
+    ops = get_current_ops()
+    if isinstance(ops, CupyOps):
+        device_id = cupy.cuda.device.get_device_id()
+        return torch.device(f"cuda:{device_id}")
+
+    return torch.device("cpu")
+
+
 def get_array_module(arr):  # pragma: no cover
     if is_cupy_array(arr):
         return cupy
@@ -144,7 +160,6 @@ def require_cpu() -> bool:  # pragma: no cover
 
     ops = get_ops("cpu")
     set_current_ops(ops)
-    set_torch_tensor_type_for_ops(ops)
 
     return True
 
@@ -309,17 +324,27 @@ def iterate_recursive(is_match: Callable[[Any], bool], obj: Any) -> Any:
 
 
 def xp2torch(
-    xp_tensor: ArrayXd, requires_grad: bool = False
+    xp_tensor: ArrayXd,
+    requires_grad: bool = False,
+    device: Optional["torch.device"] = None,
 ) -> "torch.Tensor":  # pragma: no cover
     """Convert a numpy or cupy tensor to a PyTorch tensor."""
     assert_pytorch_installed()
+
+    if device is None:
+        device = get_torch_default_device()
+
     if hasattr(xp_tensor, "toDlpack"):
         dlpack_tensor = xp_tensor.toDlpack()  # type: ignore
         torch_tensor = torch.utils.dlpack.from_dlpack(dlpack_tensor)
     else:
         torch_tensor = torch.from_numpy(xp_tensor)
+
+    torch_tensor = torch_tensor.to(device)
+
     if requires_grad:
         torch_tensor.requires_grad_()
+
     return torch_tensor
 
 
@@ -529,22 +554,6 @@ def use_nvtx_range(message: str, id_color: int = -1):
         yield
 
 
-def set_torch_tensor_type_for_ops(ops):
-    """Set the PyTorch default tensor type for the given ops. This is a
-    no-op if PyTorch is not available."""
-    from .backends.cupy_ops import CupyOps
-
-    try:
-        import torch
-
-        if CupyOps.xp is not None and isinstance(ops, CupyOps):
-            torch.set_default_tensor_type("torch.cuda.FloatTensor")
-        else:
-            torch.set_default_tensor_type("torch.FloatTensor")
-    except ImportError:
-        pass
-
-
 @dataclass
 class ArrayInfo:
     """Container for info for checking array compatibility."""
@@ -569,6 +578,7 @@ class ArrayInfo:
 
 __all__ = [
     "get_array_module",
+    "get_torch_default_device",
     "fix_random_seed",
     "is_cupy_array",
     "is_numpy_array",
@@ -586,6 +596,5 @@ __all__ = [
     "DataValidationError",
     "make_tempfile",
     "use_nvtx_range",
-    "set_torch_tensor_type_for_ops",
     "ArrayInfo",
 ]

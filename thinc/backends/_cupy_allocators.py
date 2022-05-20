@@ -1,7 +1,7 @@
 from typing import cast
 
 from ..types import ArrayXd
-from ..util import tensorflow2xp
+from ..util import get_torch_default_device, tensorflow2xp
 from ..compat import torch, cupy, tensorflow
 
 
@@ -23,6 +23,7 @@ def cupy_tensorflow_allocator(size_in_bytes: int):
 
 
 def cupy_pytorch_allocator(size_in_bytes: int):
+    device = get_torch_default_device()
     """Function that can be passed into cupy.cuda.set_allocator, to have cupy
     allocate memory via PyTorch. This is important when using the two libraries
     together, as otherwise OOM errors can occur when there's available memory
@@ -34,7 +35,9 @@ def cupy_pytorch_allocator(size_in_bytes: int):
     # creating a whole Tensor.
     # This turns out to be way faster than making FloatStorage? Maybe
     # a Python vs C++ thing I guess?
-    torch_tensor = torch.zeros((size_in_bytes // 4,), requires_grad=False)
+    torch_tensor = torch.zeros(
+        (size_in_bytes // 4,), requires_grad=False, device=device
+    )
     # cupy has a neat class to help us here. Otherwise it will try to free.
     # I think this is a private API? It's not in the types.
     address = torch_tensor.data_ptr()  # type: ignore
