@@ -1,5 +1,7 @@
 from typing import Any, Union, Sequence, cast, Dict, Optional, Callable, TypeVar
 from typing import List, Mapping
+from typing import TYPE_CHECKING
+
 import numpy
 import random
 import functools
@@ -18,6 +20,9 @@ from .compat import torch, cupy, tensorflow as tf, mxnet as mx, cupy_from_dlpack
 
 from .types import ArrayXd, ArgsKwargs, Ragged, Padded, FloatsXd, IntsXd, Floats2d  # noqa: E402
 from . import types  # noqa: E402
+
+if TYPE_CHECKING:
+    from .api import Ops
 
 DATA_VALIDATION: ContextVar[bool] = ContextVar("DATA_VALIDATION", default=False)
 
