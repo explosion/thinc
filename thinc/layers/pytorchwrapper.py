@@ -1,5 +1,6 @@
 from typing import Callable, Tuple, Optional, Any, cast
 
+from ..compat import torch
 from ..model import Model
 from ..shims import PyTorchGradScaler, PyTorchShim
 from ..config import registry
@@ -157,7 +158,7 @@ def forward(model: Model, X: Any, is_train: bool) -> Tuple[Any, Callable]:
 def convert_pytorch_default_inputs(
     model: Model, X: Any, is_train: bool
 ) -> Tuple[ArgsKwargs, Callable[[ArgsKwargs], Any]]:
-    shim = model.shims[0]
+    shim = cast(PyTorchShim, model.shims[0])
     xp2torch_ = lambda x: xp2torch(x, requires_grad=is_train, device=shim.device)
     converted = convert_recursive(is_xp_array, xp2torch_, X)
     if isinstance(converted, ArgsKwargs):
@@ -190,7 +191,7 @@ def convert_pytorch_default_inputs(
 
 
 def convert_pytorch_default_outputs(model: Model, X_Ytorch: Any, is_train: bool):
-    shim = model.shims[0]
+    shim = cast(PyTorchShim, model.shims[0])
     X, Ytorch = X_Ytorch
     Y = convert_recursive(is_torch_array, torch2xp, Ytorch)
 
@@ -207,7 +208,7 @@ def convert_pytorch_default_outputs(model: Model, X_Ytorch: Any, is_train: bool)
 
 
 def convert_rnn_inputs(model: Model, Xp: Padded, is_train: bool):
-    shim = model.shims[0]
+    shim = cast(PyTorchShim, model.shims[0])
     size_at_t = Xp.size_at_t
     lengths = Xp.lengths
     indices = Xp.indices
@@ -224,7 +225,7 @@ def convert_rnn_inputs(model: Model, Xp: Padded, is_train: bool):
 
 
 def convert_rnn_outputs(model: Model, inputs_outputs: Tuple, is_train):
-    shim = model.shims[0]
+    shim = cast(PyTorchShim, model.shims[0])
     Xp, (Ytorch, _) = inputs_outputs
 
     def convert_for_torch_backward(dYp: Padded) -> ArgsKwargs:
