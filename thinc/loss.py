@@ -274,16 +274,31 @@ class SequenceCategoricalCrossentropy(Loss):
     def __call__(
         self, guesses: Sequence[Floats2d], truths: Sequence[IntsOrFloatsOrStrs]
     ) -> Tuple[List[Floats2d], float]:
-        grads = self.get_grad(guesses, truths)
-        loss = self.get_loss(guesses, truths)
-        return grads, loss
+        self._validate_input(guesses, truths)
+        n = len(guesses)
+        d_scores = []
+        loss = 0
+        for yh, y in zip(guesses, truths):
+            d_yh, l = self.cc(yh, y)
+            if self.normalize:
+                d_yh /= n
+            d_scores.append(d_yh)
+            loss += l
+        return d_scores, loss
+
+    def _validate_input(
+        self, guesses: Sequence[Floats2d], truths: Sequence[IntsOrFloatsOrStrs]
+    ):
+        if len(guesses) != len(truths):  # pragma: no cover
+            raise ValueError(
+                "Cannot calculate SequenceCategoricalCrossentropy loss: "
+                "guesses and truths must be same length!"
+            )
 
     def get_grad(
         self, guesses: Sequence[Floats2d], truths: Sequence[IntsOrFloatsOrStrs]
     ) -> List[Floats2d]:
-        err = "Cannot calculate SequenceCategoricalCrossentropy loss: guesses and truths must be same length"
-        if len(guesses) != len(truths):  # pragma: no cover
-            raise ValueError(err)
+        self._validate_input(guesses, truths)
         n = len(guesses)
         d_scores = []
         for yh, y in zip(guesses, truths):
@@ -296,9 +311,7 @@ class SequenceCategoricalCrossentropy(Loss):
     def get_loss(
         self, guesses: Sequence[Floats2d], truths: Sequence[IntsOrFloatsOrStrs]
     ) -> float:
-        err = "Cannot calculate SequenceCategoricalCrossentropy loss: guesses and truths must be same length"
-        if len(guesses) != len(truths):  # pragma: no cover
-            raise ValueError(err)
+        self._validate_input(guesses, truths)
         loss = 0.0
         for guess, truth in zip(guesses, truths):
             loss += self.cc.get_loss(guess, truth)

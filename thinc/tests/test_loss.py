@@ -246,7 +246,11 @@ def test_sequence_categorical_crossentropy(guesses, labels, names, grad, loss):
         guesses, labels
     )
     assert numpy.isclose(loss_val, loss)
-
+    loss_func = SequenceCategoricalCrossentropy(normalize=False, names=names)
+    d_scores, loss_val = loss_func(guesses, labels)
+    assert numpy.isclose(loss_val, loss)
+    assert numpy.allclose(d_scores[0], grad[0])
+    assert numpy.allclose(d_scores[1], grad[1])
 
 @pytest.mark.parametrize(
     "guesses, labels, names, grad",
