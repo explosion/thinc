@@ -101,10 +101,8 @@ class CategoricalCrossentropy(Loss):
                     truths = [self._name_to_i[name] for name in truths]
             # cast truths as 1d array
             truths = xp.asarray(truths, dtype="i")
-            # get mask for 1d array
             mask = _make_mask(guesses, missing)
         else:
-            # get mask for 2d array
             mask = _make_mask_by_value(truths, guesses, missing_value)
         truths = cast(IntsOrFloats, truths)
         # Convert 1d truths to 2d and apply smoothing.
