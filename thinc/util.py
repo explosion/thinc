@@ -1,7 +1,6 @@
 from typing import Any, Union, Sequence, cast, Dict, Optional, Callable, TypeVar
-from typing import List, Mapping, Tuple
+from typing import List, Mapping
 import numpy
-from packaging.version import Version
 import random
 import functools
 from wasabi import table
@@ -17,15 +16,10 @@ from .compat import has_cupy, has_mxnet, has_torch, has_tensorflow
 from .compat import has_cupy_gpu, has_torch_gpu
 from .compat import torch, cupy, tensorflow as tf, mxnet as mx, cupy_from_dlpack
 
-DATA_VALIDATION: ContextVar[bool] = ContextVar("DATA_VALIDATION", default=False)
-
-
-from .types import ArrayXd, ArgsKwargs, Ragged, Padded, FloatsXd, IntsXd, Floats2d # noqa: E402
+from .types import ArrayXd, ArgsKwargs, Ragged, Padded, FloatsXd, IntsXd, Floats2d  # noqa: E402
 from . import types  # noqa: E402
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from .api import Ops
+DATA_VALIDATION: ContextVar[bool] = ContextVar("DATA_VALIDATION", default=False)
 
 
 def get_array_module(arr):  # pragma: no cover
