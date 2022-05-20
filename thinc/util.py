@@ -33,7 +33,6 @@ def get_torch_default_device() -> "torch.device":
 
     from .backends import get_current_ops
     from .backends.cupy_ops import CupyOps
-    import cupy
 
     ops = get_current_ops()
     if isinstance(ops, CupyOps):
