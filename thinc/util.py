@@ -44,7 +44,7 @@ def fix_random_seed(seed: int = 0) -> None:  # pragma: no cover
     numpy.random.seed(seed)
     if has_torch:
         torch.manual_seed(seed)
-    if has_cupy and gpu_is_available():
+    if has_cupy_gpu:
         cupy.random.seed(seed)
         if has_torch and has_torch_gpu:
             torch.cuda.manual_seed_all(seed)
@@ -125,7 +125,7 @@ def to_numpy(data):  # pragma: no cover
 
 def set_active_gpu(gpu_id: int) -> "cupy.cuda.Device":  # pragma: no cover
     """Set the current GPU device for cupy and torch (if available)."""
-    if not gpu_is_available():
+    if not has_cupy_gpu:
         raise ValueError("No GPU devices detected")
 
     device = cupy.cuda.device.Device(gpu_id)
@@ -153,7 +153,7 @@ def prefer_gpu(gpu_id: int = 0) -> bool:  # pragma: no cover
     """Use GPU if it's available. Returns True if so, False otherwise."""
     from .backends.cupy_ops import CupyOps
 
-    if not gpu_is_available():
+    if not has_cupy_gpu:
         return False
     else:
         require_gpu(gpu_id=gpu_id)
@@ -163,7 +163,7 @@ def prefer_gpu(gpu_id: int = 0) -> bool:  # pragma: no cover
 def require_gpu(gpu_id: int = 0) -> bool:  # pragma: no cover
     from .backends import set_current_ops, CupyOps
 
-    if not gpu_is_available():
+    if not has_cupy_gpu:
         raise ValueError("No GPU devices detected")
 
     set_current_ops(CupyOps())
