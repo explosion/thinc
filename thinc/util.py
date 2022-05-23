@@ -151,8 +151,6 @@ def require_cpu() -> bool:  # pragma: no cover
 
 def prefer_gpu(gpu_id: int = 0) -> bool:  # pragma: no cover
     """Use GPU if it's available. Returns True if so, False otherwise."""
-    from .backends.cupy_ops import CupyOps
-
     if not has_cupy_gpu:
         return False
     else:
