@@ -75,6 +75,12 @@ class CategoricalCrossentropy(Loss):
                         if value == missing_value:
                             missing.append(i)
                 else:
+                    # Make sure "truths" is List[str]
+                    if not isinstance(truths[0], str):
+                        raise ValueError(
+                            "When truths are provided as a list "
+                            "elements must be strings or integers"
+                        )
                     if self.names is None:
                         raise ValueError(
                             "Cannot calculate loss from list of strings without names. "
@@ -82,8 +88,6 @@ class CategoricalCrossentropy(Loss):
                             "create the loss object, "
                             "e.g. CategoricalCrossentropy(names=['dog', 'cat'])"
                         )
-                    # Make sure "truths" is List[str]
-                    assert isinstance(truths[0], str)
                     # Convert List[str] to List[int] and collect missing values.
                     truths = cast(List[str], truths)
                     for i, value in enumerate(truths):
