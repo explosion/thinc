@@ -36,7 +36,7 @@ def get_torch_default_device() -> "torch.device":
 
     ops = get_current_ops()
     if isinstance(ops, CupyOps):
-        device_id = cupy.cuda.device.get_device_id()
+        device_id = torch.cuda.current_device()
         return torch.device(f"cuda:{device_id}")
 
     return torch.device("cpu")
@@ -148,7 +148,6 @@ def set_active_gpu(gpu_id: int) -> "cupy.cuda.Device":  # pragma: no cover
 
     if has_torch_gpu:
         torch.cuda.set_device(gpu_id)
-        torch.set_default_tensor_type("torch.cuda.FloatTensor")
 
     return device
 
