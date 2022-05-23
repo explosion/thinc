@@ -26,7 +26,8 @@ class Shim:  # pragma: no cover
     def __init__(self, model: Any, config=None, optimizer: Any = None):
         with Shim.global_id_lock:
             Shim.global_id += 1
-        self.id = Shim.global_id
+            self.id = Shim.global_id
+
         self.cfg = dict(config) if config is not None else {}
         self._model = model
         self._optimizer = optimizer
