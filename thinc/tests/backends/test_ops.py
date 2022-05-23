@@ -62,7 +62,7 @@ def create_pytorch_funcs():
         return torch.nn.functional.hardswish(x)
 
     def torch_sigmoid(x):
-        return torch.nn.functional.sigmoid(x)
+        return torch.sigmoid(x)
 
     # https://github.com/huggingface/transformers/blob/master/src/transformers/activations.py#L37
     def torch_gelu_approx(x):
