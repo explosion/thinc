@@ -1001,6 +1001,8 @@ class Ops:
         return out
 
     def sechsq(self, X: FloatsType) -> FloatsType:
+        # Avoid overflow in cosh. Clipping at |20| has an error of 1.7e-17.
+        X = self.xp.clip(X, -20.0, 20.0)
         return (1 / self.xp.cosh(X)) ** 2
 
     def gelu_approx(self, X: FloatsType, inplace: bool = False) -> FloatsType:
