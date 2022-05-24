@@ -162,7 +162,7 @@ def require_gpu(gpu_id: int = 0) -> bool:  # pragma: no cover
     from .backends import set_current_ops, CupyOps
 
     if not has_cupy_gpu:
-        raise ValueError("No GPU devices detected")
+        raise ValueError("No CUDA GPU devices detected")
 
     set_current_ops(CupyOps())
     set_active_gpu(gpu_id)
