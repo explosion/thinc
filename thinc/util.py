@@ -126,7 +126,7 @@ def to_numpy(data):  # pragma: no cover
 def set_active_gpu(gpu_id: int) -> "cupy.cuda.Device":  # pragma: no cover
     """Set the current GPU device for cupy and torch (if available)."""
     if not has_cupy_gpu:
-        raise ValueError("No GPU devices detected")
+        raise ValueError("No CUDA GPU devices detected")
 
     device = cupy.cuda.device.Device(gpu_id)
     device.use()
