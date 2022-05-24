@@ -8,13 +8,14 @@ from thinc.api import chain, with_array, Adam, strings2arrays
 def ancora():
     pytest.importorskip("ml_datasets")
     import ml_datasets
+
     return ml_datasets.ud_ancora_pos_tags()
 
 
 def create_embed_relu_relu_softmax(depth, width, vector_length):
     with Model.define_operators({">>": chain}):
         model = strings2arrays() >> with_array(
-            HashEmbed(width, vector_length)
+            HashEmbed(width, vector_length, column=0)
             >> expand_window(window_size=1)
             >> Relu(width, width * 3)
             >> Relu(width, width)
