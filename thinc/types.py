@@ -4,7 +4,7 @@ from typing import Optional, List, overload
 from dataclasses import dataclass
 import numpy
 import sys
-from .compat import has_cupy, cupy
+from ._compat import has_cupy, cupy
 
 if has_cupy:
     get_array_module = cupy.get_array_module

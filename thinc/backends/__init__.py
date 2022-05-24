@@ -12,7 +12,7 @@ from ._param_server import ParamServer
 from ..util import assert_tensorflow_installed, assert_pytorch_installed
 from ..util import is_cupy_array, set_torch_tensor_type_for_ops, require_cpu
 from .. import registry
-from ..compat import cupy, has_cupy
+from .._compat import cupy, has_cupy
 
 
 context_ops: ContextVar[Optional[Ops]] = ContextVar("context_ops", default=None)

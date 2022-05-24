@@ -2,7 +2,7 @@ import numpy
 import timeit
 from thinc.api import NumpyOps, LSTM, PyTorchLSTM, with_padded, fix_random_seed
 from thinc.api import Ops
-from thinc.compat import has_torch
+from thinc._compat import has_torch
 import pytest
 
 

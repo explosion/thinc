@@ -1,7 +1,7 @@
 import pytest
 
 from thinc.api import CupyOps
-from thinc.compat import has_torch, has_torch_gpu
+from thinc._compat import has_torch, has_torch_gpu
 
 
 @pytest.mark.skipif(not has_torch, reason="needs PyTorch")

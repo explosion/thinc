@@ -7,7 +7,7 @@ from ..types import DeviceTypes
 from ..util import torch2xp, tensorflow2xp, mxnet2xp
 from ..util import is_cupy_array
 from ..util import is_torch_gpu_array, is_tensorflow_gpu_array, is_mxnet_gpu_array
-from ..compat import cupy, cupyx
+from .._compat import cupy, cupyx
 
 
 @registry.ops("CupyOps")

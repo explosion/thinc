@@ -2,7 +2,7 @@ from typing import Optional, Tuple
 import re
 from pathlib import Path
 from collections import defaultdict
-from ..compat import cupy, has_cupy_gpu
+from .._compat import cupy, has_cupy_gpu
 
 
 PWD = Path(__file__).parent

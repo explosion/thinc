@@ -1,7 +1,7 @@
 import pytest
 from thinc.api import Relu, Softmax, chain, clone, Adam
 from thinc.api import PyTorchWrapper, TensorFlowWrapper
-from thinc.compat import has_torch, has_tensorflow
+from thinc._compat import has_torch, has_tensorflow
 
 
 @pytest.fixture(scope="module")

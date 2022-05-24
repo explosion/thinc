@@ -2,7 +2,7 @@ import pytest
 
 from hypothesis import given, settings
 from hypothesis.strategies import lists, one_of, tuples
-from thinc.compat import has_torch, has_torch_amp, has_torch_gpu, torch
+from thinc._compat import has_torch, has_torch_amp, has_torch_gpu, torch
 from thinc.util import is_torch_array
 from thinc.api import PyTorchGradScaler
 

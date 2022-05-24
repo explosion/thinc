@@ -2,7 +2,7 @@ from typing import cast
 
 from ..types import ArrayXd
 from ..util import tensorflow2xp
-from ..compat import torch, cupy, tensorflow
+from .._compat import torch, cupy, tensorflow
 
 
 def cupy_tensorflow_allocator(size_in_bytes: int):

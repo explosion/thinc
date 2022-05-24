@@ -1,6 +1,6 @@
 from typing import Dict, Iterable, List, Union, cast
 
-from ..compat import has_torch_amp, torch
+from .._compat import has_torch_amp, torch
 from ..util import is_torch_array
 
 

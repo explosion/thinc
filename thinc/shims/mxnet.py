@@ -7,7 +7,7 @@ from ..util import get_array_module
 from ..optimizers import Optimizer
 from ..types import ArgsKwargs, FloatsXd
 from .shim import Shim
-from ..compat import mxnet as mx
+from .._compat import mxnet as mx
 
 
 class MXNetShim(Shim):

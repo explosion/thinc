@@ -13,9 +13,9 @@ import threading
 import contextlib
 from contextvars import ContextVar
 from dataclasses import dataclass
-from .compat import has_cupy, has_mxnet, has_torch, has_tensorflow
-from .compat import has_cupy_gpu, has_torch_gpu
-from .compat import torch, cupy, tensorflow as tf, mxnet as mx, cupy_from_dlpack
+from ._compat import has_cupy, has_mxnet, has_torch, has_tensorflow
+from ._compat import has_cupy_gpu, has_torch_gpu
+from ._compat import torch, cupy, tensorflow as tf, mxnet as mx, cupy_from_dlpack
 
 DATA_VALIDATION: ContextVar[bool] = ContextVar("DATA_VALIDATION", default=False)
 

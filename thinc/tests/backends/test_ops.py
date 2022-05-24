@@ -9,7 +9,7 @@ from packaging.version import Version
 from thinc.api import NumpyOps, CupyOps, Ops, get_ops
 from thinc.api import get_current_ops, use_ops
 from thinc.util import torch2xp, xp2torch
-from thinc.compat import has_cupy_gpu, has_torch, torch_version
+from thinc._compat import has_cupy_gpu, has_torch, torch_version
 from thinc.api import fix_random_seed
 from thinc.api import LSTM
 from thinc.types import Floats2d
