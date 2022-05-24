@@ -10,7 +10,7 @@ from .numpy_ops import NumpyOps
 from ._cupy_allocators import cupy_tensorflow_allocator, cupy_pytorch_allocator
 from ._param_server import ParamServer
 from ..util import assert_tensorflow_installed, assert_pytorch_installed
-from ..util import is_cupy_array, set_torch_tensor_type_for_ops, require_cpu
+from ..util import is_cupy_array, require_cpu
 from .. import registry
 from ..compat import cupy, has_cupy
 
@@ -134,7 +134,6 @@ def set_current_ops(ops: Ops) -> None:
     """Change the current backend object."""
     context_ops.set(ops)
     _get_thread_state().ops = ops
-    set_torch_tensor_type_for_ops(ops)
 
 
 def contextvars_eq_thread_ops() -> bool:
