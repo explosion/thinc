@@ -46,7 +46,7 @@ def test_array_module_cpu_gpu_helpers():
     assert not is_numpy_array((1, 2))
 
 
-@given(label_smoothing=strategies.floats(min_value=0.0, max_value=0.5))
+@given(label_smoothing=strategies.floats(min_value=0.0, max_value=0.49))
 def test_to_categorical(label_smoothing):
     # Test without n_classes
     one_hot = to_categorical(numpy.asarray([1, 2], dtype="i"))
