@@ -343,6 +343,7 @@ def test_cosine_unmatched():
         ("SequenceCategoricalCrossentropy.v1", {}, ([guesses1], [labels1])),
         ("CategoricalCrossentropy.v2", {"neg_prefix": "!"}, (guesses1, labels1)),
         ("CategoricalCrossentropy.v3", {"neg_prefix": "!"}, (guesses1, labels1)),
+        ("CategoricalCrossentropy.v4", {"neg_prefix": "!"}, (guesses1, labels1)),
         (
             "SequenceCategoricalCrossentropy.v2",
             {"neg_prefix": "!"},
@@ -350,6 +351,11 @@ def test_cosine_unmatched():
         ),
         (
             "SequenceCategoricalCrossentropy.v3",
+            {"neg_prefix": "!"},
+            ([guesses1], [labels1]),
+        ),
+        (
+            "SequenceCategoricalCrossentropy.v4",
             {"neg_prefix": "!"},
             ([guesses1], [labels1]),
         ),
