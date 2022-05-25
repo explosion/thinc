@@ -217,7 +217,7 @@ def configure_CategoricalCrossentropy_v1(
     normalize: bool = True,
     names: Optional[Sequence[str]] = None,
     missing_value: Optional[Union[str, int]] = None,
-) -> CategoricalCrossentropy:
+) -> LegacyCrossEntropy:
     return LegacyCrossEntropy(
         normalize=normalize, names=names, missing_value=missing_value
     )
@@ -230,7 +230,7 @@ def configure_CategoricalCrossentropy_v2(
     names: Optional[Sequence[str]] = None,
     missing_value: Optional[Union[str, int]] = None,
     neg_prefix: Optional[str] = None,
-) -> CategoricalCrossentropy:
+) -> LegacyCrossEntropy:
     return LegacyCrossEntropy(
         normalize=normalize,
         names=names,
@@ -247,7 +247,7 @@ def configure_CategoricalCrossentropy_v3(
     missing_value: Optional[Union[str, int]] = None,
     neg_prefix: Optional[str] = None,
     label_smoothing: float = 0.0,
-) -> CategoricalCrossentropy:
+) -> LegacyCrossEntropy:
     return LegacyCrossEntropy(
         normalize=normalize,
         names=names,
@@ -344,7 +344,7 @@ class SequenceCategoricalCrossentropy(Loss):
 @registry.losses("SequenceCategoricalCrossentropy.v1")
 def configure_SequenceCategoricalCrossentropy_v1(
     *, normalize: bool = True, names: Optional[Sequence[str]] = None
-) -> SequenceCategoricalCrossentropy:
+) -> LegacySequenceCrossEntropy:
     return LegacySequenceCrossEntropy(
         normalize=normalize, names=names
     )
@@ -356,7 +356,7 @@ def configure_SequenceCategoricalCrossentropy_v2(
     normalize: bool = True,
     names: Optional[Sequence[str]] = None,
     neg_prefix: Optional[str] = None,
-) -> SequenceCategoricalCrossentropy:
+) -> LegacySequenceCrossEntropy:
     return LegacySequenceCrossEntropy(
         normalize=normalize, names=names, neg_prefix=neg_prefix
     )
@@ -370,7 +370,7 @@ def configure_SequenceCategoricalCrossentropy_v3(
     missing_value: Optional[Union[str, int]] = None,
     neg_prefix: Optional[str] = None,
     label_smoothing: float = 0.0,
-) -> SequenceCategoricalCrossentropy:
+) -> LegacySequenceCrossEntropy:
     return LegacySequenceCrossEntropy(
         normalize=normalize,
         names=names,
