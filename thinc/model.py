@@ -464,7 +464,9 @@ class Model(Generic[InT, OutT]):
         """
         return self._copy()
 
-    def _copy(self: SelfT, seen: Optional[Dict[int, Union["Model", Shim]]] = None) -> SelfT:
+    def _copy(
+        self: SelfT, seen: Optional[Dict[int, Union["Model", Shim]]] = None
+    ) -> SelfT:
         if seen is None:
             seen = {}
         params = {}

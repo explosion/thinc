@@ -34,8 +34,9 @@ def HardSwish(
     return model
 
 
-def forward(model: Model[Floats2d, Floats2d],
-            X: Floats2d, is_train: bool) -> Tuple[Floats2d, Callable]:
+def forward(
+    model: Model[Floats2d, Floats2d], X: Floats2d, is_train: bool
+) -> Tuple[Floats2d, Callable]:
     W = cast(Floats2d, model.get_param("W"))
     b = cast(Floats1d, model.get_param("b"))
     Y_preact = model.ops.affine(X, W, b)
