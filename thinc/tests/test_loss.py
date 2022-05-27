@@ -168,7 +168,9 @@ def test_sequence_categorical_crossentropy(guesses, labels, names):
     assert d_scores1[1][0] == pytest.approx(0.4, eps)
     assert d_scores1[1][1] == pytest.approx(-0.4, eps)
     # The normalization divides the difference (e.g. 0.4) by the number of seqs
-    d_scores = SequenceCategoricalCrossentropy(normalize=True, names=names).get_grad(guesses, labels)
+    d_scores = SequenceCategoricalCrossentropy(normalize=True, names=names).get_grad(
+        guesses, labels
+    )
     d_scores1 = d_scores[0]
     d_scores2 = d_scores[1]
 
@@ -189,7 +191,9 @@ def test_sequence_categorical_crossentropy(guesses, labels, names):
     assert d_scores2[0][0] == pytest.approx(0.1, eps)
     assert d_scores2[0][1] == pytest.approx(-0.35, eps)
 
-    loss = SequenceCategoricalCrossentropy(normalize=True, names=names).get_loss(guesses, labels)
+    loss = SequenceCategoricalCrossentropy(normalize=True, names=names).get_loss(
+        guesses, labels
+    )
     assert loss == pytest.approx(1.09, eps)
 
 
@@ -200,9 +204,9 @@ def test_sequence_categorical_crossentropy(guesses, labels, names):
     ],
 )
 def test_sequence_categorical_missing_negative(guesses, labels, names):
-    d_scores = SequenceCategoricalCrossentropy(normalize=False, names=names, neg_prefix="!", missing_value="").get_grad(
-        guesses, labels
-    )
+    d_scores = SequenceCategoricalCrossentropy(
+        normalize=False, names=names, neg_prefix="!", missing_value=""
+    ).get_grad(guesses, labels)
     d_scores0 = d_scores[0]
 
     # [0.1, 0.5, 0.6] should be A
@@ -292,8 +296,16 @@ def test_cosine_unmatched():
         ("SequenceCategoricalCrossentropy.v1", {}, ([scores0], [labels0])),
         ("CategoricalCrossentropy.v2", {"neg_prefix": "!"}, (scores0, labels0)),
         ("CategoricalCrossentropy.v3", {"neg_prefix": "!"}, (scores0, labels0)),
-        ("SequenceCategoricalCrossentropy.v2", {"neg_prefix": "!"}, ([scores0], [labels0])),
-        ("SequenceCategoricalCrossentropy.v3", {"neg_prefix": "!"}, ([scores0], [labels0])),
+        (
+            "SequenceCategoricalCrossentropy.v2",
+            {"neg_prefix": "!"},
+            ([scores0], [labels0]),
+        ),
+        (
+            "SequenceCategoricalCrossentropy.v3",
+            {"neg_prefix": "!"},
+            ([scores0], [labels0]),
+        ),
         ("L2Distance.v1", {}, (scores0, scores0)),
         (
             "CosineDistance.v1",

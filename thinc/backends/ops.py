@@ -229,56 +229,56 @@ class Ops:
         Y += b
         return Y
 
-    @overload 
+    @overload
     def flatten(
         self,
         X: List[Floats2d],
         dtype: Optional[DTypes] = None,
         pad: int = 0,
         ndim_if_empty: int = 2,
-     ) -> Floats2d:
+    ) -> Floats2d:
         ...
 
-    @overload 
+    @overload
     def flatten(
         self,
         X: List[Ints1d],
         dtype: Optional[DTypes] = None,
         pad: int = 0,
         ndim_if_empty: int = 2,
-     ) -> Ints1d:
+    ) -> Ints1d:
         ...
 
-    @overload 
+    @overload
     def flatten(
         self,
         X: List2d,
         dtype: Optional[DTypes] = None,
         pad: int = 0,
         ndim_if_empty: int = 2,
-     ) -> Array2d:
+    ) -> Array2d:
         ...
 
     # further specific typed signatures can be added as necessary
 
-    @overload 
+    @overload
     def flatten(
         self,
         X: ListXd,
         dtype: Optional[DTypes] = None,
         pad: int = 0,
         ndim_if_empty: int = 2,
-     ) -> ArrayXd:
+    ) -> ArrayXd:
         ...
 
-    @overload 
+    @overload
     def flatten(
         self,
         X: Sequence[ArrayXd],
         dtype: Optional[DTypes] = None,
         pad: int = 0,
         ndim_if_empty: int = 2,
-     ) -> ArrayXd:
+    ) -> ArrayXd:
         ...
 
     def flatten(
