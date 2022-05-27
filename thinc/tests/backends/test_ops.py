@@ -216,7 +216,7 @@ def test_seq2col_window_one_small(ops):
 @given(X=strategies.arrays_BOP())
 def test_maxout(ops, dtype, X):
     X = ops.asarray(X, dtype=dtype)
-    expected_best = X.max(axis=-1)
+    expected_best = X.max(axis=-1).astype(dtype)
     predicted_best, which = ops.maxout(X)
     assert predicted_best.dtype == dtype
     ops.xp.testing.assert_allclose(
