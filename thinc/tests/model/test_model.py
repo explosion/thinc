@@ -6,8 +6,7 @@ from thinc.api import Adam, CupyOps, Dropout, Linear, Model, Relu
 from thinc.api import Shim, Softmax, chain, change_attr_values
 from thinc.api import concatenate, set_dropout_rate
 from thinc.api import use_ops, with_debug, wrap_model_recursive
-from thinc.util import gpu_is_available
-from thinc.compat import has_cupy
+from thinc.compat import has_cupy_gpu
 import numpy
 
 from ..util import make_tempdir
@@ -410,7 +409,7 @@ def test_model_gpu():
     import ml_datasets
 
     ops = "cpu"
-    if has_cupy and gpu_is_available():
+    if has_cupy_gpu:
         ops = "cupy"
 
     with use_ops(ops):
