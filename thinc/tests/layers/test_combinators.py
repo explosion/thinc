@@ -271,10 +271,7 @@ def test_concatenate():
 def test_map_list():
     nI = 4
     nO = 9
-    Xs = [
-        numpy.zeros((6, nI), dtype="f"),
-        numpy.ones((3, nI), dtype="f")
-    ]
+    Xs = [numpy.zeros((6, nI), dtype="f"), numpy.ones((3, nI), dtype="f")]
     Y_shapes = [(x.shape[0], nO) for x in Xs]
     model = map_list(Linear())
     model.initialize(X=Xs, Y=[numpy.zeros(shape, dtype="f") for shape in Y_shapes])

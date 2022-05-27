@@ -26,8 +26,8 @@ def list_input(shapes):
     for i, x in enumerate(data):
         # Give values that make it easy to see where rows or columns mismatch.
         x += i * 100
-        x += numpy.arange(x.shape[0]).reshape((-1, 1)) * 10 
-        x += numpy.arange(x.shape[1]).reshape((1, -1)) 
+        x += numpy.arange(x.shape[0]).reshape((-1, 1)) * 10
+        x += numpy.arange(x.shape[1]).reshape((1, -1))
     return data
 
 
@@ -68,8 +68,10 @@ def noop_models():
         with_array(noop()),
         with_array2d(noop()),
         with_list(noop()),
-        with_ragged(noop())
+        with_ragged(noop()),
     ]
+
+
 # As an example operation, lets just trim the last dimension. That
 # should catch stuff that confuses the input and output.
 
@@ -180,14 +182,14 @@ def test_noop_transforms(noop_models, ragged_input, padded_input, list_input):
     d_ragged = Ragged(ragged_input.data + 1, ragged_input.lengths)
     d_padded = padded_input.copy()
     d_padded.data += 1
-    d_list = [dx+1 for dx in list_input]
+    d_list = [dx + 1 for dx in list_input]
     for model in noop_models:
         print(model.name)
         check_transform_doesnt_change_noop_values(model, padded_input, d_padded)
         check_transform_doesnt_change_noop_values(model, list_input, d_list)
         check_transform_doesnt_change_noop_values(model, ragged_input, d_ragged)
 
-    
+
 def test_with_array_initialize(ragged_input, padded_input, list_input, array_input):
     for inputs in (ragged_input, padded_input, list_input, array_input):
         check_initialize(get_array_model(), inputs)
