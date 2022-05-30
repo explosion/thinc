@@ -353,7 +353,7 @@ def xp2tensorflow(
         dlpack_tensor = xp_tensor.toDlpack()  # type: ignore
         tf_tensor = tf.experimental.dlpack.from_dlpack(dlpack_tensor)
     elif hasattr(xp_tensor, "__dlpack__"):
-        torch_tensor = torch.utils.dlpack.from_dlpack(xp_tensor)
+        tf_tensor = tf.experimental.dlpack.from_dlpack(xp_tensor)
     else:
         tf_tensor = tf.convert_to_tensor(xp_tensor)
     if as_variable:
