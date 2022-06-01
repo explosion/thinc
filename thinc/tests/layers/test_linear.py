@@ -87,6 +87,7 @@ def test_predict_small(W_b_input):
 
 
 @given(arrays_OI_O_BI(max_batch=20, max_out=30, max_in=30))
+@settings(deadline=None)
 def test_predict_extensive(W_b_input):
     W, b, input_ = W_b_input
     nr_out, nr_in = W.shape
