@@ -411,8 +411,8 @@ def test_model_gpu():
     import ml_datasets
 
     if has_tensorflow:
-        # Ensure that CuPy enough memory as TF just loves to
-        # bogart all of the GPU's memory on init
+        # Ensure that CuPy has enough memory as TF just
+        # loves to bogart all of the GPU's memory on init.
         set_gpu_allocator("tensorflow")
 
     with use_ops("cupy"):
