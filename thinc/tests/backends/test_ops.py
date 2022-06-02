@@ -29,6 +29,8 @@ if CupyOps.xp is not None:
     XP_OPS.append(CupyOps())
 ALL_OPS = XP_OPS + [VANILLA_OPS]
 
+FLOAT_TYPES = ["float32"]
+
 
 def create_pytorch_funcs():
     import torch
@@ -204,12 +206,14 @@ def test_seq2col_window_one_small(ops):
 
 
 @pytest.mark.parametrize("ops", XP_OPS)
+@pytest.mark.parametrize("dtype", FLOAT_TYPES)
 @settings(max_examples=MAX_EXAMPLES, deadline=None)
 @given(X=strategies.arrays_BOP())
-def test_maxout(ops, X):
-    X = ops.asarray(X)
-    expected_best = X.max(axis=-1)
+def test_maxout(ops, dtype, X):
+    X = ops.asarray(X, dtype=dtype)
+    expected_best = X.max(axis=-1).astype(dtype)
     predicted_best, which = ops.maxout(X)
+    assert predicted_best.dtype == dtype
     ops.xp.testing.assert_allclose(
         expected_best, predicted_best, rtol=0.001, atol=0.001
     )
@@ -1031,22 +1035,19 @@ def test_ngrams():
 def test_compare_activations_to_torch(ops, dtype, x, torch_func):
     import torch
 
-    def cast_torch(scalar: float):
-        return torch.tensor([scalar], requires_grad=True)
-
     func_name, pytorch_func = torch_func
     forward = getattr(ops, func_name)
     backward = getattr(ops, "backprop_" + func_name)
     # The tolerance of isclose is set to 1e-06 instead of
     # the default 1e-08 due to the GELU
     x_thinc = ops.asarray([x], dtype=dtype)
-    x_torch = cast_torch(x)
+    x_torch = xp2torch(x_thinc, requires_grad=True)
     y = pytorch_func(x_torch)
     y_thinc = forward(x_thinc)
     y.backward()
     assert x_thinc.dtype == y_thinc.dtype
     assert ops.xp.isclose(y_thinc, forward(x_thinc, inplace=True), atol=1e-06)
-    assert ops.xp.isclose(y_thinc, y.detach().numpy(), atol=1e-06)
+    assert ops.xp.isclose(y_thinc, y.detach(), atol=1e-06)
     x_thinc = ops.asarray([x], dtype=dtype)
     dY_thinc = ops.asarray([1.0], dtype=dtype)
     dY_thinc_inplace = dY_thinc.copy()
