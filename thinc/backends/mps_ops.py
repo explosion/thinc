@@ -14,7 +14,7 @@ else:
         from thinc_apple_ops import AppleOps
 
         _Ops = AppleOps
-    except:
+    except ImportError:
         _Ops = NumpyOps
 
 
