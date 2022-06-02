@@ -5,9 +5,8 @@ import time
 from thinc.api import Adam, CupyOps, Dropout, Linear, Model, Relu
 from thinc.api import Shim, Softmax, chain, change_attr_values
 from thinc.api import concatenate, set_dropout_rate, set_gpu_allocator
-from thinc.api import with_debug, wrap_model_recursive, use_ops
-from thinc.util import gpu_is_available
-from thinc.compat import has_tensorflow
+from thinc.api import use_ops, with_debug, wrap_model_recursive
+from thinc.compat import has_cupy_gpu, has_tensorflow
 import numpy
 
 from ..util import make_tempdir
@@ -405,7 +404,7 @@ def test_unique_id_multithreading():
     assert len(list_of_ids) == len(list(set(list_of_ids)))
 
 
-@pytest.mark.skipif(not gpu_is_available(), reason="needs GPU")
+@pytest.mark.skipif(not has_cupy_gpu, reason="needs CuPy GPU")
 def test_model_gpu():
     pytest.importorskip("ml_datasets")
     import ml_datasets
