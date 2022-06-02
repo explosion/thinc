@@ -29,6 +29,8 @@ if CupyOps.xp is not None:
     XP_OPS.append(CupyOps())
 ALL_OPS = XP_OPS + [VANILLA_OPS]
 
+FLOAT_TYPES = ["float32"]
+
 
 def create_pytorch_funcs():
     import torch
@@ -204,12 +206,14 @@ def test_seq2col_window_one_small(ops):
 
 
 @pytest.mark.parametrize("ops", XP_OPS)
+@pytest.mark.parametrize("dtype", FLOAT_TYPES)
 @settings(max_examples=MAX_EXAMPLES, deadline=None)
 @given(X=strategies.arrays_BOP())
 def test_maxout(ops, dtype, X):
     X = ops.asarray(X, dtype=dtype)
     expected_best = X.max(axis=-1).astype(dtype)
     predicted_best, which = ops.maxout(X)
+    assert predicted_best.dtype == dtype
     ops.xp.testing.assert_allclose(
         expected_best, predicted_best, rtol=0.001, atol=0.001
     )
