@@ -64,7 +64,9 @@ def test_pytorch_wrapper(nN, nI, nO):
     assert isinstance(model.predict(X), numpy.ndarray)
 
 
-@pytest.mark.skipif(not has_cupy or not has_torch_gpu, reason="needs PyTorch with CUDA-capable GPU")
+@pytest.mark.skipif(
+    not has_cupy or not has_torch_gpu, reason="needs PyTorch with CUDA-capable GPU"
+)
 @pytest.mark.parametrize("nN,nI,nO", [(2, 3, 4)])
 @pytest.mark.parametrize("mixed_precision", TORCH_MIXED_PRECISION)
 def test_pytorch_wrapper_thinc_input(nN, nI, nO, mixed_precision):
