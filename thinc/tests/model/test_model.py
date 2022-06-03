@@ -4,9 +4,9 @@ import threading
 import time
 from thinc.api import Adam, CupyOps, Dropout, Linear, Model, Relu
 from thinc.api import Shim, Softmax, chain, change_attr_values
-from thinc.api import concatenate, set_dropout_rate, set_gpu_allocator
+from thinc.api import concatenate, set_dropout_rate
 from thinc.api import use_ops, with_debug, wrap_model_recursive
-from thinc.compat import has_cupy_gpu, has_tensorflow
+from thinc.compat import has_cupy_gpu
 import numpy
 
 from ..util import make_tempdir
@@ -408,11 +408,6 @@ def test_unique_id_multithreading():
 def test_model_gpu():
     pytest.importorskip("ml_datasets")
     import ml_datasets
-
-    if has_tensorflow:
-        # Ensure that CuPy has enough memory as TF just
-        # loves to bogart all of the GPU's memory on init.
-        set_gpu_allocator("tensorflow")
 
     with use_ops("cupy"):
         n_hidden = 32
