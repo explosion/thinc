@@ -34,17 +34,16 @@ def HardSwishMobilenet(
     return model
 
 
-def forward(model: Model[Floats2d, Floats2d],
-            X: Floats2d, is_train: bool) -> Tuple[Floats2d, Callable]:
+def forward(
+    model: Model[Floats2d, Floats2d], X: Floats2d, is_train: bool
+) -> Tuple[Floats2d, Callable]:
     W = cast(Floats2d, model.get_param("W"))
     b = cast(Floats1d, model.get_param("b"))
     Y_preact = model.ops.affine(X, W, b)
     Y = model.ops.hard_swish_mobilenet(Y_preact)
 
     def backprop(dY: Floats2d) -> Floats2d:
-        dY = model.ops.backprop_hard_swish_mobilenet(dY,
-                                                     Y_preact,
-                                                     inplace=False)
+        dY = model.ops.backprop_hard_swish_mobilenet(dY, Y_preact, inplace=False)
         model.inc_grad("b", dY.sum(axis=0))
         model.inc_grad("W", model.ops.gemm(dY, X, trans1=True))
         return model.ops.gemm(dY, W)
