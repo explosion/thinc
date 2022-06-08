@@ -1,6 +1,24 @@
 import pytest
 
 
+def pytest_sessionstart(session):
+    # If Tensorflow is installed, attempt to enable memory growth
+    # to prevent it from allocating all of the GPU's free memory
+    # to its internal memory pool(s).
+    try:
+        import tensorflow as tf
+
+        physical_devices = tf.config.list_physical_devices("GPU")
+        for device in physical_devices:
+            try:
+                tf.config.experimental.set_memory_growth(device, True)
+            except:
+                # Invalid device or cannot modify virtual devices once initialized.
+                print(f"failed to enable Tensorflow memory growth on {device}")
+    except ImportError:
+        pass
+
+
 def pytest_addoption(parser):
     try:
         parser.addoption("--slow", action="store_true", help="include slow tests")
