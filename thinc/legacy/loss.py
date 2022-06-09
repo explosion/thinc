@@ -1,7 +1,7 @@
-from ..util import to_categorical, get_array_module
 from typing import Optional, Sequence, Dict, Union, Tuple
 from typing import TypeVar, Generic, Any, cast, List
 from ..types import Floats2d, Ints1d
+from ..util import to_categorical, get_array_module
 
 
 LossT = TypeVar("LossT")
