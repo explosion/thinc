@@ -179,7 +179,7 @@ class LegacySequenceCategoricalCrossentropy(SequenceCategoricalCrossentropy):
     def _get_loss_from_grad(self, grads: Sequence[Floats2d]) -> float:
         loss = 0.0
         for grad in grads:
-            loss += self.cc._get_loss_from_grad(grad)
+            loss += self.cc._get_loss_from_grad(grad)  # type: ignore
         return loss
 
 

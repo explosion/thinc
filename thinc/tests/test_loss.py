@@ -70,11 +70,15 @@ eps = 0.0001
 
 
 def _get_legacy_cross_entropy(version: int, **kwargs):
-    return registry.losses.get(f"CategoricalCrossentropy.v{version}")(**kwargs)
+    return registry.get(
+        "losses", f"CategoricalCrossentropy.v{version}"
+    )(**kwargs)
 
 
 def _get_legacy_seq_cross_entropy(version: int, **kwargs):
-    return registry.losses.get(f"SequenceCategoricalCrossentropy.v{version}")(**kwargs)
+    return registry.get(
+        "losses", f"SequenceCategoricalCrossentropy.v{version}"
+    )(**kwargs)
 
 
 def test_cross_entropy_types_shapes():
