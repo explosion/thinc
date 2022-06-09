@@ -189,7 +189,7 @@ def configure_CategoricalCrossentropy_v1(
     normalize: bool = True,
     names: Optional[Sequence[str]] = None,
     missing_value: Optional[Union[str, int]] = None,
-) -> CategoricalCrossentropy:
+) -> LegacyCategoricalCrossentropy:
     return LegacyCategoricalCrossentropy(
         normalize=normalize, names=names, missing_value=missing_value
     )
@@ -202,7 +202,7 @@ def configure_CategoricalCrossentropy_v2(
     names: Optional[Sequence[str]] = None,
     missing_value: Optional[Union[str, int]] = None,
     neg_prefix: Optional[str] = None,
-) -> CategoricalCrossentropy:
+) -> LegacyCategoricalCrossentropy:
     return LegacyCategoricalCrossentropy(
         normalize=normalize,
         names=names,
@@ -219,7 +219,7 @@ def configure_CategoricalCrossentropy_v3(
     missing_value: Optional[Union[str, int]] = None,
     neg_prefix: Optional[str] = None,
     label_smoothing: float = 0.0,
-) -> CategoricalCrossentropy:
+) -> LegacyCategoricalCrossentropy:
     return LegacyCategoricalCrossentropy(
         normalize=normalize,
         names=names,
@@ -232,7 +232,7 @@ def configure_CategoricalCrossentropy_v3(
 @registry.losses("SequenceCategoricalCrossentropy.v1")
 def configure_SequenceCategoricalCrossentropy_v1(
     *, normalize: bool = True, names: Optional[Sequence[str]] = None
-) -> SequenceCategoricalCrossentropy:
+) -> LegacySequenceCategoricalCrossentropy:
     return LegacySequenceCategoricalCrossentropy(
         normalize=normalize, names=names
     )
