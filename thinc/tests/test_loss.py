@@ -7,6 +7,7 @@ from thinc import registry
 from thinc.util import has_torch
 from hypothesis import given, settings
 from hypothesis.strategies import integers, floats
+from thinc.legacy import loss
 
 
 ALL_XP = [numpy]

@@ -4,8 +4,6 @@ from typing import Dict
 from .types import Floats2d, Ints1d
 from .util import get_array_module, to_categorical, smooth_one_hot
 from .config import registry
-from .legacy import CategoricalCrossentropy as LegacyCrossEntropy
-from .legacy import SequenceCategoricalCrossentropy as LegacySequenceCrossEntropy
 
 
 LossT = TypeVar("LossT")
@@ -211,52 +209,6 @@ class CategoricalCrossentropy(Loss):
         return self._get_loss(guesses, target, mask)
 
 
-@registry.losses("CategoricalCrossentropy.v1")
-def configure_CategoricalCrossentropy_v1(
-    *,
-    normalize: bool = True,
-    names: Optional[Sequence[str]] = None,
-    missing_value: Optional[Union[str, int]] = None,
-) -> LegacyCrossEntropy:
-    return LegacyCrossEntropy(
-        normalize=normalize, names=names, missing_value=missing_value
-    )
-
-
-@registry.losses("CategoricalCrossentropy.v2")
-def configure_CategoricalCrossentropy_v2(
-    *,
-    normalize: bool = True,
-    names: Optional[Sequence[str]] = None,
-    missing_value: Optional[Union[str, int]] = None,
-    neg_prefix: Optional[str] = None,
-) -> LegacyCrossEntropy:
-    return LegacyCrossEntropy(
-        normalize=normalize,
-        names=names,
-        missing_value=missing_value,
-        neg_prefix=neg_prefix,
-    )
-
-
-@registry.losses("CategoricalCrossentropy.v3")
-def configure_CategoricalCrossentropy_v3(
-    *,
-    normalize: bool = True,
-    names: Optional[Sequence[str]] = None,
-    missing_value: Optional[Union[str, int]] = None,
-    neg_prefix: Optional[str] = None,
-    label_smoothing: float = 0.0,
-) -> LegacyCrossEntropy:
-    return LegacyCrossEntropy(
-        normalize=normalize,
-        names=names,
-        missing_value=missing_value,
-        neg_prefix=neg_prefix,
-        label_smoothing=label_smoothing,
-    )
-
-
 @registry.losses("CategoricalCrossentropy.v4")
 def configure_CategoricalCrossentropy_v4(
     *,
@@ -339,44 +291,6 @@ class SequenceCategoricalCrossentropy(Loss):
         for guess, truth in zip(guesses, truths):
             loss += self.cc.get_loss(guess, truth)
         return loss
-
-
-@registry.losses("SequenceCategoricalCrossentropy.v1")
-def configure_SequenceCategoricalCrossentropy_v1(
-    *, normalize: bool = True, names: Optional[Sequence[str]] = None
-) -> LegacySequenceCrossEntropy:
-    return LegacySequenceCrossEntropy(
-        normalize=normalize, names=names
-    )
-
-
-@registry.losses("SequenceCategoricalCrossentropy.v2")
-def configure_SequenceCategoricalCrossentropy_v2(
-    *,
-    normalize: bool = True,
-    names: Optional[Sequence[str]] = None,
-    neg_prefix: Optional[str] = None,
-) -> LegacySequenceCrossEntropy:
-    return LegacySequenceCrossEntropy(
-        normalize=normalize, names=names, neg_prefix=neg_prefix
-    )
-
-
-@registry.losses("SequenceCategoricalCrossentropy.v3")
-def configure_SequenceCategoricalCrossentropy_v3(
-    *,
-    normalize: bool = True,
-    names: Optional[Sequence[str]] = None,
-    missing_value: Optional[Union[str, int]] = None,
-    neg_prefix: Optional[str] = None,
-    label_smoothing: float = 0.0,
-) -> LegacySequenceCrossEntropy:
-    return LegacySequenceCrossEntropy(
-        normalize=normalize,
-        names=names,
-        neg_prefix=neg_prefix,
-        label_smoothing=label_smoothing
-    )
 
 
 @registry.losses("SequenceCategoricalCrossentropy.v4")

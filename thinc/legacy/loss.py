@@ -1,38 +1,14 @@
+from ..config import registry
 from ..util import to_categorical, get_array_module
 from typing import Optional, Sequence, Dict, Union, Tuple
-from typing import TypeVar, Generic, Any, cast, List
+from typing import cast, List
 from ..types import Floats2d, Ints1d
+from ..loss import CategoricalCrossentropy, IntsOrFloatsOrStrs
+from ..loss import _make_mask, _make_mask_by_value
+from ..loss import SequenceCategoricalCrossentropy
 
 
-LossT = TypeVar("LossT")
-GradT = TypeVar("GradT")
-GuessT = TypeVar("GuessT")
-TruthT = TypeVar("TruthT")
-IntsOrFloats = Union[Ints1d, Floats2d]
-IntsOrFloatsOrStrs = Union[Ints1d, Floats2d, Sequence[int], Sequence[str]]
-
-
-class Loss(Generic[GuessT, TruthT, GradT, LossT]):  # pragma: no cover
-    """Base class for classes computing the loss / gradient. The class can
-    be initialized with settings if needed. It provides get_loss and
-    get_grad as separate methods to allow calculating them separately. It
-    also provides a __call__ method that returns a tuple of both.
-    """
-
-    def __init__(self, **kwargs: Any) -> None:
-        ...
-
-    def __call__(self, guesses: GuessT, truths: TruthT) -> Tuple[GradT, LossT]:
-        return self.get_grad(guesses, truths), self.get_loss(guesses, truths)
-
-    def get_grad(self, guesses: GuessT, truths: TruthT) -> GradT:
-        ...
-
-    def get_loss(self, guesses: GuessT, truths: TruthT) -> LossT:
-        ...
-
-
-class CategoricalCrossentropy(Loss):
+class LegacyCategoricalCrossentropy(CategoricalCrossentropy):
     names: Optional[Sequence[str]]
     missing_value: Optional[Union[str, int]]
     _name_to_i: Dict[str, int]
@@ -154,30 +130,7 @@ class CategoricalCrossentropy(Loss):
         return (d_truth**2).sum()  # type: ignore
 
 
-def _make_mask(guesses, missing) -> Floats2d:
-    xp = get_array_module(guesses)
-    mask = xp.ones(guesses.shape, dtype="f")
-    mask[missing] = 0
-    return mask
-
-
-def _make_mask_by_value(truths, guesses, missing_value) -> Floats2d:
-    xp = get_array_module(guesses)
-    mask = xp.ones(guesses.shape, dtype="f")
-
-    if missing_value is not None:
-        if truths.ndim == 1:
-            mask[truths == missing_value] = 0.0
-        else:
-            # In 2D truths, labels are encoded as one-hot vectors, so we can get
-            # the label indices using argmax.
-            labels = xp.argmax(truths, axis=-1)
-            mask[labels == missing_value] = 0.0
-
-    return mask
-
-
-class SequenceCategoricalCrossentropy(Loss):
+class LegacySequenceCategoricalCrossentropy(SequenceCategoricalCrossentropy):
     def __init__(
         self,
         *,
@@ -187,12 +140,12 @@ class SequenceCategoricalCrossentropy(Loss):
         neg_prefix: Optional[str] = None,
         label_smoothing: float = 0.0,
     ):
-        self.cc = CategoricalCrossentropy(
+        self.cc = LegacyCategoricalCrossentropy(
             normalize=False,
             names=names,
             missing_value=missing_value,
             neg_prefix=neg_prefix,
-            label_smoothing=label_smoothing,
+            label_smoothing=label_smoothing
         )
         self.normalize = normalize
 
@@ -228,3 +181,88 @@ class SequenceCategoricalCrossentropy(Loss):
         for grad in grads:
             loss += self.cc._get_loss_from_grad(grad)
         return loss
+
+
+@registry.losses("CategoricalCrossentropy.v1")
+def configure_CategoricalCrossentropy_v1(
+    *,
+    normalize: bool = True,
+    names: Optional[Sequence[str]] = None,
+    missing_value: Optional[Union[str, int]] = None,
+) -> CategoricalCrossentropy:
+    return LegacyCategoricalCrossentropy(
+        normalize=normalize, names=names, missing_value=missing_value
+    )
+
+
+@registry.losses("CategoricalCrossentropy.v2")
+def configure_CategoricalCrossentropy_v2(
+    *,
+    normalize: bool = True,
+    names: Optional[Sequence[str]] = None,
+    missing_value: Optional[Union[str, int]] = None,
+    neg_prefix: Optional[str] = None,
+) -> CategoricalCrossentropy:
+    return LegacyCategoricalCrossentropy(
+        normalize=normalize,
+        names=names,
+        missing_value=missing_value,
+        neg_prefix=neg_prefix,
+    )
+
+
+@registry.losses("CategoricalCrossentropy.v3")
+def configure_CategoricalCrossentropy_v3(
+    *,
+    normalize: bool = True,
+    names: Optional[Sequence[str]] = None,
+    missing_value: Optional[Union[str, int]] = None,
+    neg_prefix: Optional[str] = None,
+    label_smoothing: float = 0.0,
+) -> CategoricalCrossentropy:
+    return LegacyCategoricalCrossentropy(
+        normalize=normalize,
+        names=names,
+        missing_value=missing_value,
+        neg_prefix=neg_prefix,
+        label_smoothing=label_smoothing,
+    )
+
+
+@registry.losses("SequenceCategoricalCrossentropy.v1")
+def configure_SequenceCategoricalCrossentropy_v1(
+    *, normalize: bool = True, names: Optional[Sequence[str]] = None
+) -> SequenceCategoricalCrossentropy:
+    return LegacySequenceCategoricalCrossentropy(
+        normalize=normalize, names=names
+    )
+
+
+@registry.losses("SequenceCategoricalCrossentropy.v2")
+def configure_SequenceCategoricalCrossentropy_v2(
+    *,
+    normalize: bool = True,
+    names: Optional[Sequence[str]] = None,
+    neg_prefix: Optional[str] = None,
+) -> LegacySequenceCategoricalCrossentropy:
+    return LegacySequenceCategoricalCrossentropy(
+        normalize=normalize, names=names, neg_prefix=neg_prefix
+    )
+
+
+@registry.losses("SequenceCategoricalCrossentropy.v3")
+def configure_SequenceCategoricalCrossentropy_v3(
+    *,
+    normalize: bool = True,
+    names: Optional[Sequence[str]] = None,
+    missing_value: Optional[Union[str, int]] = None,
+    neg_prefix: Optional[str] = None,
+    label_smoothing: float = 0.0,
+) -> LegacySequenceCategoricalCrossentropy:
+    return LegacySequenceCategoricalCrossentropy(
+        normalize=normalize,
+        names=names,
+        neg_prefix=neg_prefix,
+        missing_value=missing_value,
+        label_smoothing=label_smoothing
+    )
