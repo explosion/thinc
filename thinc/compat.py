@@ -37,7 +37,7 @@ try:  # pragma: no cover
         and torch.has_mps
         and torch.backends.mps.is_available()
     )
-    has_torch_gpu = has_torch_cuda_gpu or has_torch_mps_gpu
+    has_torch_gpu = has_torch_cuda_gpu
     torch_version = Version(str(torch.__version__))
     has_torch_amp = (
         torch_version >= Version("1.9.0")
