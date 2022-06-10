@@ -404,15 +404,12 @@ def test_unique_id_multithreading():
     assert len(list_of_ids) == len(list(set(list_of_ids)))
 
 
+@pytest.mark.skipif(not has_cupy_gpu, reason="needs CuPy GPU")
 def test_model_gpu():
     pytest.importorskip("ml_datasets")
     import ml_datasets
 
-    ops = "cpu"
-    if has_cupy_gpu:
-        ops = "cupy"
-
-    with use_ops(ops):
+    with use_ops("cupy"):
         n_hidden = 32
         dropout = 0.2
         (train_X, train_Y), (dev_X, dev_Y) = ml_datasets.mnist()
