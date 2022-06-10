@@ -14,7 +14,7 @@ import contextlib
 from contextvars import ContextVar
 from dataclasses import dataclass
 from .compat import has_cupy, has_mxnet, has_torch, has_tensorflow
-from .compat import has_cupy_gpu, has_torch_cuda_gpu, has_torch_gpu
+from .compat import has_cupy_gpu, has_torch_cuda_gpu, has_gpu
 from .compat import has_torch_mps_gpu
 from .compat import torch, cupy, tensorflow as tf, mxnet as mx, cupy_from_dlpack
 
@@ -54,7 +54,7 @@ def get_array_module(arr):  # pragma: no cover
 
 
 def gpu_is_available():
-    return has_cupy_gpu or has_torch_mps_gpu
+    return has_gpu
 
 
 def fix_random_seed(seed: int = 0) -> None:  # pragma: no cover
@@ -176,11 +176,11 @@ def require_cpu() -> bool:  # pragma: no cover
 
 def prefer_gpu(gpu_id: int = 0) -> bool:  # pragma: no cover
     """Use GPU if it's available. Returns True if so, False otherwise."""
-    if not (has_cupy_gpu or has_torch_mps_gpu):
-        return False
-    else:
+    if has_gpu:
         require_gpu(gpu_id=gpu_id)
         return True
+    else:
+        return False
 
 
 def require_gpu(gpu_id: int = 0) -> bool:  # pragma: no cover

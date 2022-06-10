@@ -76,3 +76,6 @@ try:
     import h5py
 except ImportError:  # pragma: no cover
     h5py = None
+
+
+has_gpu = has_cupy_gpu or has_torch_mps_gpu
