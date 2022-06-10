@@ -178,9 +178,7 @@ def prefer_gpu(gpu_id: int = 0) -> bool:  # pragma: no cover
     """Use GPU if it's available. Returns True if so, False otherwise."""
     if has_gpu:
         require_gpu(gpu_id=gpu_id)
-        return True
-    else:
-        return False
+    return has_gpu
 
 
 def require_gpu(gpu_id: int = 0) -> bool:  # pragma: no cover
