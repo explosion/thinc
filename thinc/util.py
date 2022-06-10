@@ -186,7 +186,7 @@ def prefer_gpu(gpu_id: int = 0) -> bool:  # pragma: no cover
 def require_gpu(gpu_id: int = 0) -> bool:  # pragma: no cover
     from .backends import set_current_ops, CupyOps, MPSOps
 
-    if not (has_cupy_gpu or has_torch_mps_gpu):
+    if not has_gpu:
         raise ValueError("No GPU devices detected")
 
     if has_cupy_gpu:
