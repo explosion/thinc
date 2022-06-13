@@ -408,7 +408,7 @@ void cpu_gather_add(saxpy_ptr saxpy, float* out_bo, const float* table_to, const
             if (idx > T) {
                 throw std::out_of_range("Embedding index out-of-bounds");
             }
-            (*saxpy)(O, 1.0, table_to + idx * O, 1, out_bo + b * O, 1);
+            saxpy(O, 1.0, table_to + idx * O, 1, out_bo + b * O, 1);
         }
     }
 }
