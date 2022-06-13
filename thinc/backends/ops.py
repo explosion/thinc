@@ -1254,6 +1254,9 @@ class Ops:
         numpy_ops = NumpyOps()
         return self.asarray2f(numpy_ops.position_encode(N, D, period, out))
 
+    def gather_add(self, table: FloatsXd, indices: IntsXd):
+        return table[indices].sum(axis=1)
+
     def scatter_add(
         self, table: FloatsXd, indices: IntsXd, values: FloatsXd
     ) -> FloatsXd:

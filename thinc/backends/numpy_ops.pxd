@@ -1,3 +1,5 @@
+from .cblas cimport saxpy_ptr
+
 ctypedef double[:, ::1] double2d_t
 ctypedef double[:, :, ::1] double3d_t
 ctypedef float[:, ::1] float2d_t
@@ -35,3 +37,5 @@ cdef extern from "cpu_kernels.hh":
     void cpu_relu[A, L](A* X, L N)
     void backprop_seq2col[A, L](A* d_seqs, const A* d_cols, const L* lengths, L B, L I, L nW, L nL)
     void seq2col[A, L](A* output, const A* X, const L* lengths, L nW, L B, L I, L nL)
+    void cpu_gather_add[I, L](saxpy_ptr saxpy, float* out_bo, const float* table_to, const I* indices_bk,
+                              L T, L O, L B, L K) except +
