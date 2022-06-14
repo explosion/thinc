@@ -22,6 +22,26 @@ struct Constants<float> {
 };
 
 
+template <typename U>
+__global__ void gather_add(U* out_bo, const U* table_to, const int* indices_bk,
+        int T, int O, int B, int K)
+{
+    int _loop_start = blockIdx.x * blockDim.x + threadIdx.x;
+    int _loop_stride = blockDim.x * gridDim.x;
+
+    for (int b = _loop_start; b < B; b += _loop_stride) {
+        for (int k = 0; k < K; ++k) {
+            int idx = indices_bk[b * K + k];
+            const U* table = table_to + idx * O;
+            U* out = out_bo + b * O;
+            for (int o = 0; o < O; ++o) {
+                out[o] += table[o];
+            }
+        }
+    }
+}
+
+
 template <typename T>
 __global__ void seq2col(T* output, const T* X, const int* lengths,
         int nW, int B, int I, int nL)

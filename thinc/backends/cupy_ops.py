@@ -30,6 +30,12 @@ class CupyOps(Ops):
             data = numpy.asarray(data, dtype=dtype)
         return data
 
+    def gather_add(self, table, indices):
+        if table.dtype in ("float32", "float64"):
+            return _custom_kernels.gather_add(table, indices)
+        else:
+            return super().gather_add(table, indices)
+
     def gelu(self, X, inplace=False):
         if X.dtype in ("float32", "float64"):
             return _custom_kernels.gelu(X, inplace=inplace, threshold=6.0)
