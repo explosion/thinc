@@ -440,7 +440,7 @@ class NumpyOps(Ops):
 
         return dX
 
-    def gather_add(self, reals2d_ft table, unsigned int[:, ::1] indices):
+    def gather_add(self, reals2d_ft table, ints2d_ft indices):
         cdef CBlas cblas = self.cblas()
         rows = indices.shape[0]
         dims = table.shape[1]

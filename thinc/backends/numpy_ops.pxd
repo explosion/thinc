@@ -4,6 +4,12 @@ ctypedef double[:, ::1] double2d_t
 ctypedef double[:, :, ::1] double3d_t
 ctypedef float[:, ::1] float2d_t
 ctypedef float[:, :, ::1] float3d_t
+ctypedef int[:, ::1] int2d_t
+ctypedef unsigned int[:, ::1] uint2d_t
+
+cdef fused ints2d_ft:
+    int2d_t
+    uint2d_t
 
 cdef fused reals2d_ft:
     float2d_t
