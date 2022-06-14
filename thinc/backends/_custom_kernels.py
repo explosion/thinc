@@ -170,6 +170,10 @@ def clipped_linear(
 
 
 def gather_add(table, indices, *, threads_per_block=128, num_blocks=128):
+    if table.ndim != 2:
+        raise ValueError(f"gather_add expects table with dimensionality 2, was: {table.ndim}")
+    if indices.ndim != 2:
+        raise ValueError(f"gather_add expects indices with dimensionality 2, was: {indices.ndim}")
     _is_float_array(table)
     indices = indices.astype("int32")
     _check_indices(indices, table.shape[0])
