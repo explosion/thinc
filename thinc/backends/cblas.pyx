@@ -4,6 +4,7 @@ from libcpp.memory cimport make_shared
 
 
 cdef struct BlasFuncs:
+    daxpy_ptr daxpy
     saxpy_ptr saxpy
     sgemm_ptr sgemm
 
@@ -15,15 +16,22 @@ cdef class CBlas:
         """Construct a CBlas instance set to use BLIS implementations of the
            supported BLAS functions."""
         cdef BlasFuncs funcs
+        funcs.daxpy = blis.cy.daxpy
         funcs.saxpy = blis.cy.saxpy
         funcs.sgemm = blis.cy.sgemm
         self.ptr = make_shared[BlasFuncs](funcs)
+
+    cdef daxpy_ptr daxpy(self) nogil:
+        return deref(self.ptr).daxpy
 
     cdef saxpy_ptr saxpy(self) nogil:
         return deref(self.ptr).saxpy
 
     cdef sgemm_ptr sgemm(self) nogil:
         return deref(self.ptr).sgemm
+
+    cdef void set_daxpy(self, daxpy_ptr daxpy) nogil:
+        deref(self.ptr).daxpy = daxpy
 
     cdef void set_saxpy(self, saxpy_ptr saxpy) nogil:
         deref(self.ptr).saxpy = saxpy

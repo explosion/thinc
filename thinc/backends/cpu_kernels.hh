@@ -8,9 +8,22 @@
 #include <string>
 #include <type_traits>
 
+// Ideally we'd use an alias declaration for a generic definition of
+// *axpy. But Cython does support alias declarations yet:
+//
+// https://github.com/cython/cython/issues/3272
+//
+// template <typename T>
+// using axpy = void (*)(int N, float alpha, const float* X, int incX,
+//                       float *Y, int incY);
+//
+// So, instead we'll do this the pre-C++11 way:
 
-typedef void (*saxpy_ptr)(int N, float alpha, const float* X, int incX,
-                          float *Y, int incY);
+template <typename T>
+struct axpy {
+    typedef void (*ptr)(int N, T alpha, const T* X, int incX, T *Y, int incY);
+};
+
 
 // All elementwise functions, such as most activations, work in-place.
 
@@ -398,17 +411,15 @@ void backprop_seq2col(A* d_seqs, const A* d_cols, const L* lengths, L B, L I, L 
     }
 }
 
-
-template <typename I, typename L>
-void cpu_gather_add(saxpy_ptr saxpy, float* out_bo, const float* table_to, const I* indices_bk, L T, L O, L B, L K)
-{
-    for (L b = 0; b < B; ++b) {
+template <typename F, typename I, typename L>
+void cpu_gather_add(typename axpy<F>::ptr axpy, F* out_bo, const F* table_to, const I* indices_bk, L T, L O, L B, L K) {
+     for (L b = 0; b < B; ++b) {
         for (L k = 0; k < K; ++k) {
             I idx = indices_bk[b * K + k];
             if (idx > T) {
                 throw std::out_of_range("Embedding index out-of-bounds");
             }
-            saxpy(O, 1.0, table_to + idx * O, 1, out_bo + b * O, 1);
+            axpy(O, 1.0, table_to + idx * O, 1, out_bo + b * O, 1);
         }
     }
 }

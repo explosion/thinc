@@ -440,13 +440,21 @@ class NumpyOps(Ops):
 
         return dX
 
-    def gather_add(self, float[:, ::1] table, unsigned int[:, ::1] indices):
+    def gather_add(self, reals2d_ft table, unsigned int[:, ::1] indices):
         cdef CBlas cblas = self.cblas()
         rows = indices.shape[0]
         dims = table.shape[1]
-        cdef np.ndarray output = self.xp.zeros((rows, dims), dtype="float32")
-        cpu_gather_add(cblas.saxpy(), <float *>output.data, &table[0, 0], &indices[0, 0],
-                       table.shape[0], dims, rows, indices.shape[1])
+
+        cdef np.ndarray output
+        if reals2d_ft is float2d_t:
+            output = self.xp.zeros((rows, dims), dtype="float32")
+            cpu_gather_add(cblas.saxpy(), <float *>output.data, &table[0, 0], &indices[0, 0],
+                        table.shape[0], dims, rows, indices.shape[1])
+        else:
+            output = self.xp.zeros((rows, dims), dtype="float64")
+            cpu_gather_add(cblas.daxpy(), <double *>output.data, &table[0, 0], &indices[0, 0],
+                        table.shape[0], dims, rows, indices.shape[1])
+
         return output
 
     def scatter_add(self, np.ndarray table, np.ndarray indices, np.ndarray values):
