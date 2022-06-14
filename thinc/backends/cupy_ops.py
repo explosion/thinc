@@ -6,7 +6,7 @@ from . import _custom_kernels
 from ..types import DeviceTypes
 from ..util import torch2xp, tensorflow2xp, mxnet2xp
 from ..util import is_cupy_array
-from ..util import is_torch_gpu_array, is_tensorflow_gpu_array, is_mxnet_gpu_array
+from ..util import is_torch_cuda_array, is_tensorflow_gpu_array, is_mxnet_gpu_array
 from ..compat import cupy, cupyx
 
 
@@ -62,7 +62,7 @@ class CupyOps(Ops):
         # We'll try to perform a zero-copy conversion if possible.
         if is_cupy_array(data):
             array = data
-        elif is_torch_gpu_array(data):
+        elif is_torch_cuda_array(data):
             array = torch2xp(data)
         elif is_tensorflow_gpu_array(data):
             array = tensorflow2xp(data)

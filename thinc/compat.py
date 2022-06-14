@@ -31,7 +31,13 @@ try:  # pragma: no cover
     import torch
 
     has_torch = True
-    has_torch_gpu = torch.cuda.device_count() != 0
+    has_torch_cuda_gpu = torch.cuda.device_count() != 0
+    has_torch_mps_gpu = (
+        hasattr(torch, "has_mps")
+        and torch.has_mps
+        and torch.backends.mps.is_available()
+    )
+    has_torch_gpu = has_torch_cuda_gpu
     torch_version = Version(str(torch.__version__))
     has_torch_amp = (
         torch_version >= Version("1.9.0")
@@ -40,7 +46,9 @@ try:  # pragma: no cover
 except ImportError:  # pragma: no cover
     torch = None  # type: ignore
     has_torch = False
+    has_torch_cuda_gpu = False
     has_torch_gpu = False
+    has_torch_mps_gpu = False
     has_torch_amp = False
     torch_version = Version("0.0.0")
 
@@ -68,3 +76,6 @@ try:
     import h5py
 except ImportError:  # pragma: no cover
     h5py = None
+
+
+has_gpu = has_cupy_gpu or has_torch_mps_gpu

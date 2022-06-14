@@ -2,7 +2,7 @@ import pytest
 
 from hypothesis import given, settings
 from hypothesis.strategies import lists, one_of, tuples
-from thinc.compat import has_torch, has_torch_amp, has_torch_gpu, torch
+from thinc.compat import has_torch, has_torch_amp, has_torch_cuda_gpu, torch
 from thinc.util import is_torch_array
 from thinc.api import PyTorchGradScaler
 
@@ -14,7 +14,7 @@ def tensors():
 
 
 @pytest.mark.skipif(not has_torch, reason="needs PyTorch")
-@pytest.mark.skipif(not has_torch_gpu, reason="needs a GPU")
+@pytest.mark.skipif(not has_torch_cuda_gpu, reason="needs a GPU")
 @pytest.mark.skipif(
     not has_torch_amp, reason="requires PyTorch with mixed-precision support"
 )
@@ -37,7 +37,7 @@ def test_scale_random_inputs(X):
 
 
 @pytest.mark.skipif(not has_torch, reason="needs PyTorch")
-@pytest.mark.skipif(not has_torch_gpu, reason="needs a GPU")
+@pytest.mark.skipif(not has_torch_cuda_gpu, reason="needs a GPU")
 @pytest.mark.skipif(
     not has_torch_amp, reason="requires PyTorch with mixed-precision support"
 )
