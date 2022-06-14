@@ -9,7 +9,7 @@
 #include <type_traits>
 
 // Ideally we'd use an alias declaration for a generic definition of
-// *axpy. But Cython does support alias declarations yet:
+// *axpy. But Cython doesn't support alias declarations yet:
 //
 // https://github.com/cython/cython/issues/3272
 //
