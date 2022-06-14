@@ -31,9 +31,6 @@ except ImportError:
     has_blis = False
 
 
-cblas = CBlas()
-
-
 ctypedef float weight_t
 
 
@@ -88,7 +85,7 @@ class NumpyOps(Ops):
             return self.xp.empty(shape, dtype=dtype)
 
     def cblas(self) -> CBlas:
-        return cblas
+        return CBlas()
 
     def gemm(self, np.ndarray x, np.ndarray y, *, np.ndarray out=None, trans1=False, trans2=False):
         if x.ndim != 2:
