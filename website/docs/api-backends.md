@@ -1298,8 +1298,8 @@ Backpropagate the `reduce_mean` operation.
 </inline-list>
 
 Perform sequence-wise max pooling for data in the ragged format. Zero-length
-sequences are not allowed. A `ValueError` is raised if any element in
-`lengths` is zero.
+sequences are not allowed. A `ValueError` is raised if any element in `lengths`
+is zero.
 
 | Argument    | Type                             | Description                 |
 | ----------- | -------------------------------- | --------------------------- |
@@ -1363,6 +1363,25 @@ Create hashed ngram features.
 | `n`         | <tt>int</tt>    | The window to calculate each feature over. |
 | `keys`      | <tt>Ints1d</tt> | The input sequence.                        |
 | **RETURNS** | <tt>Ints1d</tt> | The hashed ngrams.                         |
+
+### Ops.gather_add {#gather_add tag="method"}
+
+<inline-list>
+
+- **default:** <i name="yes"></i>
+- **numpy:** <i name="yes"></i>
+- **cupy:** <i name="yes"></i>
+
+</inline-list>
+
+Gather rows from `table` with shape `(T, O)` using array `indices` with shape
+`(B, K)`, then sum the resulting array with shape `(B, K, O)` over the `K` axis.
+
+| Argument    | Type              | Description             |
+| ----------- | ----------------- | ----------------------- |
+| `table`     | <tt>Floats2d</tt> | The array to increment. |
+| `indices`   | <tt>Ints2d</tt>   | The indices to use.     |
+| **RETURNS** | <tt>Floats2d</tt> | The summed rows.        |
 
 ### Ops.scatter_add {#scatter_add tag="method"}
 
