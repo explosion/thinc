@@ -18,7 +18,15 @@ cdef struct BlasFuncs
 
 cdef class CBlas:
     cdef shared_ptr[BlasFuncs] ptr
-    cdef saxpy_ptr saxpy(self) nogil
-    cdef sgemm_ptr sgemm(self) nogil
-    cdef void set_saxpy(self, saxpy_ptr saxpy) nogil
-    cdef void set_sgemm(self, sgemm_ptr sgemm) nogil
+
+
+# Note: the following functions are intentionally standalone. If we make them
+# methods of CBlas, Cython will generate and use a vtable. This makes it
+# impossible to add new BLAS functions later without breaking the ABI.
+#
+# See https://github.com/explosion/thinc/pull/700 for more information.
+
+cdef saxpy_ptr saxpy(CBlas cblas) nogil
+cdef sgemm_ptr sgemm(CBlas cblas) nogil
+cdef void set_saxpy(CBlas cblas, saxpy_ptr saxpy) nogil
+cdef void set_sgemm(CBlas cblas, sgemm_ptr sgemm) nogil
