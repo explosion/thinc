@@ -23,6 +23,8 @@ cdef class CBlas:
 # Note: the following functions are intentionally standalone. If we make them
 # methods of CBlas, Cython will generate and use a vtable. This makes it
 # impossible to add new BLAS functions later without breaking the ABI.
+#
+# See https://github.com/explosion/thinc/pull/700 for more information.
 
 cdef saxpy_ptr saxpy(CBlas cblas) nogil
 cdef sgemm_ptr sgemm(CBlas cblas) nogil
