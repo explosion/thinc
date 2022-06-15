@@ -27,7 +27,7 @@ Afterwards, the website can be built and run in the container:
 
 ```bash
 docker run --rm -it \
-  -v $(pwd):/thinc-io/website \
+  -v $PWD:/thinc-io/website \
   -p 8000:8000 \
   thinc-io \
   gatsby develop -H 0.0.0.0
