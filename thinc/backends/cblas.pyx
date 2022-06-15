@@ -19,14 +19,14 @@ cdef class CBlas:
         funcs.sgemm = blis.cy.sgemm
         self.ptr = make_shared[BlasFuncs](funcs)
 
-    cdef saxpy_ptr saxpy(self) nogil:
-        return deref(self.ptr).saxpy
+cdef saxpy_ptr saxpy(CBlas cblas) nogil:
+    return deref(cblas.ptr).saxpy
 
-    cdef sgemm_ptr sgemm(self) nogil:
-        return deref(self.ptr).sgemm
+cdef sgemm_ptr sgemm(CBlas cblas) nogil:
+    return deref(cblas.ptr).sgemm
 
-    cdef void set_saxpy(self, saxpy_ptr saxpy) nogil:
-        deref(self.ptr).saxpy = saxpy
+cdef void set_saxpy(CBlas cblas, saxpy_ptr saxpy) nogil:
+    deref(cblas.ptr).saxpy = saxpy
 
-    cdef void set_sgemm(self, sgemm_ptr sgemm) nogil:
-        deref(self.ptr).sgemm = sgemm
+cdef void set_sgemm(CBlas cblas, sgemm_ptr sgemm) nogil:
+    deref(cblas.ptr).sgemm = sgemm
