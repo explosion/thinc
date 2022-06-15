@@ -25,7 +25,7 @@ argmax_result<T, L> argmax(T const *arr, L len)
         "Array should be floating point");
     static_assert(std::is_integral<L>::value, "Array length should be integral");
 
-    argmax_result<T, L> r { .max = arr[0], .max_idx = 0 };
+    argmax_result<T, L> r { arr[0],  0 };
 
     for (L i = 1; i < len; ++i) {
         if (arr[i] > r.max) {
@@ -42,7 +42,7 @@ argmax_result<T, L> argmax(T const *arr, L len)
 template <typename T, typename L>
 argmax_result<T, L> argmax(T a) {
     static_assert(std::is_floating_point<T>::value, "Argument should be floating point");
-    argmax_result<T, L> acc { .max = a, .max_idx = 0 };
+    argmax_result<T, L> acc { a, 0 };
     return acc;
 }
 
