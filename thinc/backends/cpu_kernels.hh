@@ -14,8 +14,8 @@
 // https://github.com/cython/cython/issues/3272
 //
 // template <typename T>
-// using axpy = void (*)(int N, float alpha, const float* X, int incX,
-//                       float *Y, int incY);
+// using axpy = void (*)(int N, T alpha, const T* X, int incX,
+//                       T *Y, int incY);
 //
 // So, instead we'll do this the pre-C++11 way:
 
