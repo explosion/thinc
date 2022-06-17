@@ -47,10 +47,12 @@ def get_torch_default_device() -> "torch.device":
 
 
 def get_array_module(arr):  # pragma: no cover
-    if is_cupy_array(arr):
+    if is_numpy_array(arr):
+        return numpy
+    elif is_cupy_array(arr):
         return cupy
     else:
-        return numpy
+        return None
 
 
 def gpu_is_available():
