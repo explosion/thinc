@@ -1,8 +1,8 @@
-from .loss import CategoricalCrossentropy
-from .loss import SequenceCategoricalCrossentropy
+from .loss import LegacyCategoricalCrossentropy
+from .loss import LegacySequenceCategoricalCrossentropy
 
 
 __all__ = [
-    "CategoricalCrossentropy",
-    "SequenceCategoricalCrossentropy"
+    "LegacyCategoricalCrossentropy",
+    "LegacySequenceCategoricalCrossentropy"
 ]
