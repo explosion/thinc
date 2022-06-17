@@ -3,6 +3,7 @@ from typing import Dict
 
 from .types import Floats2d, Ints1d
 from .util import get_array_module, to_categorical, smooth_one_hot
+from .util import is_xp_array
 from .config import registry
 
 
@@ -12,6 +13,7 @@ GuessT = TypeVar("GuessT")
 TruthT = TypeVar("TruthT")
 IntsOrFloats = Union[Ints1d, Floats2d]
 IntsOrFloatsOrStrs = Union[Ints1d, Floats2d, Sequence[int], Sequence[str]]
+Categories1d = Union[Ints1d, Sequence[int], Sequence[str]]
 
 
 class Loss(Generic[GuessT, TruthT, GradT, LossT]):  # pragma: no cover
@@ -207,6 +209,165 @@ class CategoricalCrossentropy(Loss):
         target, mask = self.convert_truths(truths, guesses)
         self._validate_input(guesses, target)
         return self._get_loss(guesses, target, mask)
+
+
+class SparseCE(CategoricalCrossentropy):
+    names: Optional[Sequence[str]]
+    missing_value: Optional[Union[str, int]]
+    _name_to_i: Dict[str, int]
+
+    def __init__(
+        self,
+        *,
+        normalize: bool = True,
+        names: Optional[Sequence[str]] = None,
+        missing_value: Optional[Union[str, int]] = None,
+        neg_prefix: Optional[str] = None,
+        label_smoothing: float = 0.0,
+    ):
+        self.normalize = normalize
+        self.names = names
+        self.missing_value = missing_value
+        self.neg_prefix = neg_prefix
+        self.label_smoothing = label_smoothing
+        if names is not None:
+            self._name_to_i = {name: i for i, name in enumerate(names)}
+        else:
+            self._name_to_i = {}
+
+    def _check_ints1d(self, arr):
+        """
+        Check whether array is 1D and has type integer.
+        """
+        if arr.ndim != 1:
+            raise ValueError(
+                "SparseCE only accepts 1D arrays "
+                f"array with shape {arr.shape} was given."
+            )
+        if arr.dtype.kind != 'i':
+            raise ValueError(
+                "SparseCE only accepts integer arrays "
+                f"array with {arr.dtype} was given."
+            )
+
+    def _convert_ints(
+        self, guesses: Floats2d, truths: Sequence[int]
+    ) -> List[int]:
+        """
+        Convert Sequence[int] into a Floats2d one-hot array.
+        """
+        missing_value = self.missing_value
+        if missing_value is not None and not isinstance(missing_value, int):
+            raise ValueError(
+                "truths provided in Sequence[int] format, but "
+                f"missing_value was set to be {self.missing_value} "
+                f", which has type {type(self.missing_value)}."
+            )
+        missing = []
+        for i, value in enumerate(truths):
+            if not isinstance(value, int):
+                raise ValueError(
+                    "The first value of the truths was of type "
+                    f"integer, but found {type(value)} during iteration."
+                )
+            if value == missing_value:
+                missing.append(i)
+        xp = get_array_module(guesses)
+        truths = xp.asarray(truths, dtype="i")
+        truths = to_categorical(
+            truths, n_classes=guesses.shape[-1], label_smoothing=self.label_smoothing
+        )
+        mask = _make_mask(guesses, missing)
+        return truths, mask
+
+    def _convert_strs(
+        self, guesses: Floats2d, truths: Sequence[str]
+    ):
+        """
+        Convert Sequence[int] into a Floats2d one-hot array.
+        """
+
+        missing_value = self.missing_value
+        if self.names is None:
+            raise ValueError(
+                "Cannot calculate loss from Sequence[str] without names. "
+                "You can pass the names as a keyword argument when you "
+                "create the loss object, "
+                "e.g. CategoricalCrossentropy(names=['dog', 'cat'])"
+            )
+        if missing_value is not None and not isinstance(missing_value, str):
+            raise ValueError(
+                "truths provided in Sequence[str] format, but "
+                f"missing_value was set to be {self.missing_value} "
+                f", which has type {type(self.missing_value)}."
+            )
+        xp = get_array_module(guesses)
+        missing = []
+        negatives_mask = xp.ones((len(truths), len(self.names)), dtype="f")
+        truths_int = []
+        for i, value in enumerate(truths):
+            if not isinstance(value, str):
+                raise ValueError(
+                    "The first value of the truths was of type "
+                    f"string, but found {type(value)} during iteration."
+                )
+            # missing value
+            if value == missing_value:
+                label_i = self._name_to_i[self.names[0]]
+                missing.append(i)
+            # negative labels
+            elif (
+                self.neg_prefix
+                and value.startswith(self.neg_prefix)
+            ):
+                label_i = self._name_to_i[value[len(self.neg_prefix) :]]
+                negatives_mask[i] = 0  # type: ignore
+                negatives_mask[i][label_i] = -1  # type: ignore
+            # nothing special
+            else:
+                label_i = self._name_to_i[value]
+            truths_int.append(label_i)
+        truths = xp.asarray(truths_int, dtype="i")
+        truths = to_categorical(
+            truths, n_classes=guesses.shape[-1], label_smoothing=self.label_smoothing
+        )
+        mask = _make_mask(guesses, missing)
+        truths *= negatives_mask
+        truths[truths == -1] = 0
+        negatives_mask[negatives_mask == -1] = 1
+        mask *= negatives_mask
+        return truths, mask
+
+    def convert_truths(
+        self, truths: Categories1d, guesses: Floats2d
+    ) -> Tuple[Floats2d, Floats2d]:
+
+        if is_xp_array(truths):
+            self._check_ints1d(truths)
+            truths = to_categorical(
+                truths, label_smoothing=self.label_smoothing
+            )
+            mask = _make_mask_by_value(truths, guesses, self.missing_value)
+        elif isinstance(truths, Sequence):
+            if isinstance(truths[0], int):
+                truths, mask = self._convert_ints(guesses, truths)
+            elif isinstance(truths[0], str):
+                truths, mask = self._convert_strs(guesses, truths)
+            else:
+                raise ValueError(
+                    "When truths to SparseCE is provided "
+                    "in Sequence format, elements need to be "
+                    "of type str or int, but first element "
+                    f"was found to be {type(truths[0])}."
+                )
+        else:
+            raise ValueError(
+                "Truths have to be provided either as 1D "
+                "numpy/cupy integer array or as Sequence[int] or "
+                "Sequence[str], but truths has different type."
+            )
+
+        return truths, mask
 
 
 @registry.losses("CategoricalCrossentropy.v4")
