@@ -1,13 +1,14 @@
-from typing import Union, Sequence, Tuple
+from typing import Union, Sequence, Tuple, TypeVar
 from ..types import ArrayXd, FloatsXd, IntsXd
 from ..model import Model
 
 
 AxisIndex = Union[int, slice, Sequence[int]]
 Index = Union[AxisIndex, Tuple[AxisIndex, ...]]
+ArrayTXd = TypeVar("ArrayTXd", bound=ArrayXd)
 
 
-def array_getitem(index: Index) -> Model[ArrayXd, ArrayXd]:
+def array_getitem(index: Index) -> Model[ArrayTXd, ArrayTXd]:
     """Index into input arrays, and return the subarrays.
 
     index:

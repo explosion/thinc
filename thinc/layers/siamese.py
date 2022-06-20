@@ -9,7 +9,7 @@ from ..util import get_width
 LayerT = TypeVar("LayerT")
 SimT = TypeVar("SimT")
 InT = Tuple[LayerT, LayerT]
-OutT = ArrayXd
+OutT = TypeVar("OutT", bound=ArrayXd)
 
 
 @registry.layers("siamese.v1")
@@ -44,7 +44,7 @@ def forward(
 
 def init(
     model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = None
-) -> Model[InT, OutT]:
+) -> None:
     if X is not None:
         model.layers[0].set_dim("nI", get_width(X[1]))
         model.layers[0].initialize(X=X[0])
@@ -52,4 +52,3 @@ def init(
     model.layers[1].initialize(X=X, Y=Y)
     model.set_dim("nI", model.layers[0].get_dim("nI"))
     model.set_dim("nO", model.layers[1].get_dim("nO"))
-    return model

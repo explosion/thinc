@@ -92,6 +92,7 @@ def test_reduce_mean(Xs):
     dX = backprop(Y)
     assert dX.dataXd.shape == X.dataXd.shape
 
+
 def test_reduce_sum(Xs):
     model = reduce_sum()
     lengths = model.ops.asarray([x.shape[0] for x in Xs], dtype="i")
@@ -106,6 +107,7 @@ def test_reduce_sum(Xs):
     assert numpy.all(Y[1] == Y[1][0])
     dX = backprop(Y)
     assert dX.dataXd.shape == X.dataXd.shape
+
 
 def test_size_mismatch(Xs):
     for reduce in [reduce_first, reduce_last, reduce_max, reduce_mean, reduce_sum]:

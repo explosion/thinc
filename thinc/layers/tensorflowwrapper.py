@@ -7,11 +7,7 @@ from ..shims import TensorFlowShim, keras_model_fns, maybe_handshake_model
 from ..util import xp2tensorflow, tensorflow2xp, assert_tensorflow_installed
 from ..util import is_tensorflow_array, convert_recursive, is_xp_array
 from ..types import ArrayXd, ArgsKwargs
-
-try:
-    import tensorflow as tf
-except ImportError:  # pragma: no cover
-    pass
+from ..compat import tensorflow as tf
 
 InT = TypeVar("InT")
 OutT = TypeVar("OutT")

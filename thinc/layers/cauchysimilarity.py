@@ -23,14 +23,15 @@ def CauchySimilarity(nI: Optional[int] = None) -> Model[InT, OutT]:
         params={"W": None},
     )
 
+
 def forward(
     model: Model[InT, OutT], X1_X2: InT, is_train: bool
 ) -> Tuple[OutT, Callable]:
     X1, X2 = X1_X2
     W = cast(Floats2d, model.get_param("W"))
     diff = X1 - X2
-    square_diff = diff ** 2
-    total = (W * square_diff).sum(axis=1)  # type: ignore
+    square_diff = diff**2
+    total = (W * square_diff).sum(axis=1)
     sim, bp_sim = inverse(total)
 
     def backprop(d_sim: OutT) -> InT:
@@ -46,14 +47,13 @@ def forward(
 
 def init(
     model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = None
-) -> Model[InT, OutT]:
+) -> None:
     if X is not None:
         model.set_dim("nI", get_width(X[0]))
     # Initialize weights to 1
     W = model.ops.alloc1f(model.get_dim("nI"))
     W += 1
     model.set_param("W", W)
-    return model
 
 
 def inverse(total: OutT) -> Tuple[OutT, Callable]:

@@ -95,7 +95,7 @@ class Model(Generic[InT, OutT]):
         # across all models.
         with Model.global_id_lock:
             Model.global_id += 1
-        self.id = Model.global_id
+            self.id = Model.global_id
         self._has_params = {}
         for name, value in params.items():
             self._has_params[name] = None
@@ -462,9 +462,34 @@ class Model(Generic[InT, OutT]):
         layers will also be deep-copied. The copy will receive a distinct `model.id`
         value.
         """
+        return self._copy()
+
+    def _copy(
+        self: SelfT, seen: Optional[Dict[int, Union["Model", Shim]]] = None
+    ) -> SelfT:
+        if seen is None:
+            seen = {}
         params = {}
         for name in self.param_names:
             params[name] = self.get_param(name) if self.has_param(name) else None
+
+        copied_layers: List[Model] = []
+        for layer in self.layers:
+            if id(layer) in seen:
+                copied_layers.append(cast(Model, seen[id(layer)]))
+            else:
+                copied_layer = layer._copy(seen)
+                seen[id(layer)] = copied_layer
+                copied_layers.append(copied_layer)
+
+        copied_shims = []
+        for shim in self.shims:
+            if id(shim) in seen:
+                copied_shims.append(cast(Shim, seen[id(shim)]))
+            else:
+                copied_shim = shim.copy()
+                seen[id(shim)] = copied_shim
+                copied_shims.append(copied_shim)
 
         copied: Model[InT, OutT] = Model(
             self.name,
@@ -473,8 +498,8 @@ class Model(Generic[InT, OutT]):
             params=copy.deepcopy(params),
             dims=copy.deepcopy(self._dims),
             attrs=copy.deepcopy(self._attrs),
-            layers=[layer.copy() for layer in self.layers],
-            shims=[shim.copy() for shim in self.shims],
+            layers=copied_layers,
+            shims=copied_shims,
         )
         for name in self.grad_names:
             copied.set_grad(name, self.get_grad(name).copy())

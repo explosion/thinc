@@ -14,6 +14,30 @@ npm run dev  # start dev server
 A `.prettierrc` is included in the repo, so if you set up auto-formatting with
 Prettier, it should match the style.
 
+## Build and run the website in a Docker container
+
+Rather than installing NPM locally, you can also build a Docker container with
+the prerequisite dependencies:
+
+```bash
+docker build -t thinc-io .
+```
+
+Afterwards, the website can be built and run in the container:
+
+```bash
+docker run --rm -it \
+  -v $PWD:/thinc-io/website \
+  -p 8000:8000 \
+  thinc-io \
+  gatsby develop -H 0.0.0.0
+```
+
+This is currently the only way to build the website on ARM64 Macs, since the
+required Node.js version is not built for macOS/ARM64.
+
+These commands also work with Podman by replacing `docker` by `podman`.
+
 ## Directory structure
 
 - `/docs`: Docs pages as Markdown.

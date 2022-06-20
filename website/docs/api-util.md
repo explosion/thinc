@@ -20,9 +20,9 @@ fix_random_seed(0)
 
 ### require_cpu {#require_cpu tag="function"}
 
-Allocate data and perform operations on CPU. 
-If data has already been allocated on GPU, it will not be moved.
-Ideally, this function should be called right after importing Thinc.
+Allocate data and perform operations on CPU. If data has already been allocated
+on GPU, it will not be moved. Ideally, this function should be called right
+after importing Thinc.
 
 ```python
 ### Example
@@ -69,7 +69,8 @@ require_gpu()
 
 ### set_active_gpu {#set_active_gpu tag="function"}
 
-Set the current GPU device for `cupy` and `torch` (if available).
+Set the current GPU device for `cupy` (and for `torch`, if installed) and return
+a `cupy` device. Will raise an error if no GPU is available.
 
 ```python
 ### Example
@@ -165,7 +166,7 @@ Convert a `numpy` or `cupy` tensor to a TensorFlow tensor.
 | --------------- | -------------------------- | ----------------------------------------------------- |
 | `xp_tensor`     | <tt>ArrayXd</tt>           | The tensor to convert.                                |
 | `requires_grad` | <tt>bool</tt>              | Whether to backpropagate through the variable.        |
-| `as_variable`   | <tt>bool</tt>              | Convert the result to a `tensorflow.Variable` object. |  |
+| `as_variable`   | <tt>bool</tt>              | Convert the result to a `tensorflow.Variable` object. |
 | **RETURNS**     | <tt>tensorflow.Tensor</tt> | The converted tensor.                                 |
 
 ### tensorflow2xp {#tensorflow2xp tag="function"}

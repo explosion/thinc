@@ -4,20 +4,9 @@ next: /docs/usage-config
 ---
 
 Thinc is compatible with **64-bit CPython 3.6+** and runs on **Unix/Linux**,
-**macOS/OS X** and **Windows**. The latest releases with binary wheels are
-available from [pip](https://pypi.python.org/pypi/thinc). For the most recent
-releases, pip 19.3 or newer is recommended.
-
-```bash
-### pip
-$ pip install thinc --pre
-```
-
-<!--The latest releases are available from
+**macOS/OS X** and **Windows**. The latest releases are available from
 [pip](https://pypi.python.org/pypi/thinc) and
-[conda](https://anaconda.org/conda-forge/thinc). Both installations should come
-with binary wheels for Thinc and its dependencies, so you shouldn't have to
-compile anything locally.
+[conda](https://anaconda.org/conda-forge/thinc).
 
 <grid>
 
@@ -26,14 +15,14 @@ compile anything locally.
 $ pip install thinc
 ```
 
-<!-- ```bash
+```bash
 ### conda
 $ conda install -c conda-forge thinc
-``` -->
+```
 
 </grid>
 
-<quickstart title="Extended installation" id="extended" suffix=" --pre"></quickstart>
+<quickstart title="Extended installation" id="extended" suffix=""></quickstart>
 
 <infobox variant="warning">
 
@@ -54,6 +43,43 @@ available).
 from thinc.api import prefer_gpu
 is_gpu = prefer_gpu()
 ```
+
+### Using build constraints when compiling from source
+
+If you install Thinc from source or with `pip` for platforms where there are not
+binary wheels on PyPI (currently any non-`x86_64` platforms, so commonly Linux
+`aarch64` or OS X M1/`arm64`), you may need to use build constraints if any
+package in your environment requires an older version of `numpy`.
+
+If `numpy` gets downgraded from the most recent release at any point after
+you've compiled `thinc`, you might see an error that looks like this:
+
+```none
+numpy.ndarray size changed, may indicate binary incompatibility.
+```
+
+To fix this, create a new virtual environment and install `thinc` and all of its
+dependencies using build constraints.
+[Build constraints](https://pip.pypa.io/en/stable/user_guide/#constraints-files)
+specify an older version of `numpy` that is only used while compiling `thinc`,
+and then your runtime environment can use any newer version of `numpy` and still
+be compatible. In addition, use `--no-cache-dir` to ignore any previously cached
+wheels so that all relevant packages are recompiled from scratch:
+
+```shell
+PIP_CONSTRAINT=https://raw.githubusercontent.com/explosion/thinc/master/build-constraints.txt \
+pip install thinc --no-cache-dir
+```
+
+Our build constraints currently specify the oldest supported `numpy` available
+on PyPI for `x86_64`. Depending on your platform and environment, you may want
+to customize the specific versions of `numpy`. For other platforms, you can have
+a look at SciPy's
+[`oldest-supported-numpy`](https://github.com/scipy/oldest-supported-numpy/blob/main/setup.cfg)
+package to see what the oldest recommended versions of `numpy` are.
+
+(_Warning_: don't use `pip install -c constraints.txt` instead of
+`PIP_CONSTRAINT`, since this isn't applied to the isolated build environments.)
 
 ---
 

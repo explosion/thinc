@@ -2,7 +2,7 @@ import pytest
 
 from hypothesis import given, settings
 from hypothesis.strategies import lists, one_of, tuples
-from thinc.util import has_torch, has_torch_amp, has_torch_gpu
+from thinc.compat import has_torch, has_torch_amp, has_torch_cuda_gpu, torch
 from thinc.util import is_torch_array
 from thinc.api import PyTorchGradScaler
 
@@ -10,19 +10,11 @@ from ..strategies import ndarrays
 
 
 def tensors():
-    # This function is not used without Torch + CUDA,
-    # but we have to do some wrapping to avoid import
-    # failures.
-    try:
-        import torch
-
-        return ndarrays().map(lambda a: torch.tensor(a).cuda())
-    except ImportError:
-        pass
+    return ndarrays().map(lambda a: torch.tensor(a).cuda())
 
 
 @pytest.mark.skipif(not has_torch, reason="needs PyTorch")
-@pytest.mark.skipif(not has_torch_gpu, reason="needs a GPU")
+@pytest.mark.skipif(not has_torch_cuda_gpu, reason="needs a GPU")
 @pytest.mark.skipif(
     not has_torch_amp, reason="requires PyTorch with mixed-precision support"
 )
@@ -45,7 +37,7 @@ def test_scale_random_inputs(X):
 
 
 @pytest.mark.skipif(not has_torch, reason="needs PyTorch")
-@pytest.mark.skipif(not has_torch_gpu, reason="needs a GPU")
+@pytest.mark.skipif(not has_torch_cuda_gpu, reason="needs a GPU")
 @pytest.mark.skipif(
     not has_torch_amp, reason="requires PyTorch with mixed-precision support"
 )
@@ -97,6 +89,7 @@ def test_grad_scaler():
 )
 def test_raises_on_old_pytorch():
     import torch
+
     scaler = PyTorchGradScaler(enabled=True)
     with pytest.raises(ValueError, match=r"not supported.*1.9.0"):
         scaler.scale([torch.tensor([1.0], device="cpu")])
