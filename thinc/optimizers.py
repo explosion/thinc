@@ -1,6 +1,7 @@
 import math
 
 from typing import Dict, Optional, Union, Tuple, List, cast
+from typing import Generic, Any, TypeVar, Callable
 from collections import defaultdict
 
 from .backends import get_array_ops
@@ -11,6 +12,9 @@ from .config import registry
 KeyT = Tuple[int, str]
 FloatOrSeq = Union[float, List[float], Generator]
 IntOrSeq = Union[int, List[int], Generator]
+GradT = TypeVar("GradT", bound=FloatsXd)
+WeightT = TypeVar("GradT", bound=FloatsXd)
+
 
 SGD_DEFAULTS: Dict[str, Union[float, bool, int]] = {
     "L2": 0.0,
@@ -100,7 +104,23 @@ def SGD(
     )
 
 
-class Optimizer(object):
+
+
+class OptimizerABC(Generic[GradT, WeightT]):
+    def __init__(self, **kwargs: Any) -> None:
+        ...
+
+    def __call__(
+        self,
+        key: Tuple[int, str],
+        weights: WeightT,
+        gradient: GradT,
+        **kwargs: Any
+    ) -> Tuple[WeightT, GradT]:
+        ...
+
+
+class Optimizer(OptimizerABC):
     """Do various flavours of stochastic gradient descent, with first and
     second order momentum. Currently support 'vanilla' SGD, Adam, and RAdam.
     """
@@ -354,12 +374,19 @@ class Optimizer(object):
         )
 
 
-class SWA(object):
+class SWA(OptimizerABC):
     """
     After the optimization ran 'start_step' number of steps
     it switches the learning-rate of the optimizer and starts
     recording the moving averages of all weights.
     """
+    optimizer: Optimizer
+    start_step: int
+    freq: int
+    learn_rate: float
+    nr_update: Dict[Tuple[int, str], int]
+    run_swa: bool
+    averages: Dict[Tuple[int, str], FloatsXd]
 
     def __init__(
         self,
@@ -380,9 +407,9 @@ class SWA(object):
         self.start_step = start_step
         self.freq = freq
         self.learn_rate = learn_rate
-        self.nr_update: Dict[Tuple[int, str], int] = defaultdict(int)
+        self.nr_update = defaultdict(int)
         self.run_swa = False
-        self.averages: Dict[Tuple[int, str], FloatsXd] = {}
+        self.averages = {}
 
     def _update_averages(
         self,
@@ -410,8 +437,8 @@ class SWA(object):
     def __call__(
         self,
         key: Tuple[int, str],
-        weights: FloatsXd,
-        gradient: FloatsXd,
+        weights: WeightT,
+        gradient: GradT,
         *,
         lr_scale: float = 1.0,
     ):
@@ -427,13 +454,18 @@ class SWA(object):
         return weights, gradient
 
 
-class Lookahead(object):
+class Lookahead(OptimizerABC):
     """
     Keeps a "slow" exponential moving average
     of all "fast" weights. At each 'freq' update
     it updates the slow-weights and replaces the
     "fast" weights with them.
     """
+    optimizer: Optimizer
+    nr_update: Dict[Tuple[int, str], int]
+    freq: int
+    pullback: float
+    averages: Dict[Tuple[int, str], FloatsXd]
 
     def __init__(self, optimizer: Optimizer, *, freq: int, pullback: float):
         """
@@ -468,8 +500,8 @@ class Lookahead(object):
     def __call__(
         self,
         key: Tuple[int, str],
-        weights: FloatsXd,
-        gradient: FloatsXd,
+        weights: WeightT,
+        gradient: GradT,
         *,
         lr_scale: float = 1.0,
     ):
@@ -483,4 +515,43 @@ class Lookahead(object):
         return weights, gradient
 
 
-__all__ = ["Adam", "RAdam", "SGD", "Optimizer", "ADAM_DEFAULTS", "SGD_DEFAULTS"]
+@registry.optimizers("SWA.v1")
+def build_SWA(
+    optimizer_factory: Callable[Any, Optimizer],
+    learn_rate: float,
+    start_step: int,
+    freq: int = 5
+) -> SWA:
+    optimizer = optimizer_factory()
+    return SWA(
+        optimizer=optimizer,
+        learn_rate=learn_rate,
+        freq=freq,
+        start_step=start_step
+    )
+
+
+@registry.optimizers("Lookahead.v1")
+def build_Lookahead(
+    optimizer_factory: Callable[Any, Optimizer],
+    freq: int = 6,
+    pullback: float = 0.5
+) -> Lookahead:
+    optimizer = optimizer_factory()
+    return Lookahead(
+        optimizer=optimizer,
+        freq=freq,
+        pullback=pullback,
+    )
+
+
+__all__ = [
+    "Adam",
+    "RAdam",
+    "SGD",
+    "Optimizer",
+    "SWA",
+    "Lookahead",
+    "ADAM_DEFAULTS",
+    "SGD_DEFAULTS"
+]
