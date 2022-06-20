@@ -37,116 +37,39 @@ class Loss(Generic[GuessT, TruthT, GradT, LossT]):  # pragma: no cover
 
 
 class CategoricalCrossentropy(Loss):
-    names: Optional[Sequence[str]]
     missing_value: Optional[Union[str, int]]
-    _name_to_i: Dict[str, int]
 
     def __init__(
         self,
         *,
         normalize: bool = True,
-        names: Optional[Sequence[str]] = None,
         missing_value: Optional[Union[str, int]] = None,
-        neg_prefix: Optional[str] = None,
         label_smoothing: float = 0.0,
     ):
         self.normalize = normalize
-        self.names = names
         self.missing_value = missing_value
-        self.neg_prefix = neg_prefix
         self.label_smoothing = label_smoothing
-        if names is not None:
-            self._name_to_i = {name: i for i, name in enumerate(names)}
-        else:
-            self._name_to_i = {}
 
     def convert_truths(
-        self, truths: IntsOrFloatsOrStrs, guesses: Floats2d
+        self, truths: Floats2d, guesses: Floats2d
     ) -> Tuple[Floats2d, Floats2d]:
-        xp = get_array_module(guesses)
-        missing = []
-        negatives_mask = None
-        if self.names:
-            negatives_mask = xp.ones((len(truths), len(self.names)), dtype="f")
         missing_value = self.missing_value
-        if isinstance(truths, list):
-            if len(truths):
-                # Collect missing values for List[int]
-                if isinstance(truths[0], int):
-                    for i, value in enumerate(truths):
-                        if value == missing_value:
-                            missing.append(i)
-                else:
-                    # Make sure "truths" is List[str]
-                    if not isinstance(truths[0], str):
-                        raise ValueError(
-                            "When truths are provided as a list "
-                            "elements must be strings or integers"
-                        )
-                    if self.names is None:
-                        raise ValueError(
-                            "Cannot calculate loss from list of strings without names. "
-                            "You can pass the names as a keyword argument when you "
-                            "create the loss object, "
-                            "e.g. CategoricalCrossentropy(names=['dog', 'cat'])"
-                        )
-                    # Convert List[str] to List[int] and collect missing values.
-                    truths = cast(List[str], truths)
-                    for i, value in enumerate(truths):
-                        if value == missing_value:
-                            truths[i] = self.names[0]
-                            missing.append(i)
-                        elif (
-                            value
-                            and self.neg_prefix
-                            and value.startswith(self.neg_prefix)
-                        ):
-                            truths[i] = value[len(self.neg_prefix) :]
-                            neg_index = self._name_to_i[truths[i]]
-                            negatives_mask[i] = 0  # type: ignore
-                            negatives_mask[i][neg_index] = -1  # type: ignore
-                    truths = [self._name_to_i[name] for name in truths]
-            # cast truths as 1d array
-            truths = xp.asarray(truths, dtype="i")
-            mask = _make_mask(guesses, missing)
-        else:
-            mask = _make_mask_by_value(truths, guesses, missing_value)
-        truths = cast(IntsOrFloats, truths)
-        # Convert 1d truths to 2d and apply smoothing.
-        if truths.ndim == 1:
-            truths = cast(
-                Floats2d,
-                to_categorical(
-                    truths,
-                    n_classes=guesses.shape[-1],
-                    label_smoothing=self.label_smoothing,
-                ),
+        xp = get_array_module(guesses)
+        mask = _make_mask_by_value(truths, guesses, missing_value)
+        if not xp.allclose(truths.sum(axis=1), 1.0):
+            raise ValueError(
+                "Cannot calculate CategoricalCrossentropy. "
+                "All rows of 'truths' have to be a "
+                "valid categorical distribution (sum to 1)."
             )
-        # Check if 2D array is valid and maybe apply smoothing.
-        elif truths.ndim == 2:
-            # Validate if each row sums to 1.
-            if not xp.allclose(truths.sum(axis=1), 1.0):
+        if self.label_smoothing:
+            # Validate that array is binary, ergo one-hot at this point
+            if ((truths == 0) | (truths == 1)).all():
+                truths = smooth_one_hot(truths, self.label_smoothing)
+            else:
                 raise ValueError(
-                    "Cannot calculate CategoricalCrossentropy. "
-                    "All rows of 'truths' have to be a "
-                    "valid categorical distribution (sum to 1)."
+                    "Can only apply label-smoothing to one-hot target."
                 )
-            if self.label_smoothing:
-                # Validate that array is binary, ergo one-hot at this point
-                if ((truths == 0) | (truths == 1)).all():
-                    truths = smooth_one_hot(truths, self.label_smoothing)
-                else:
-                    raise ValueError(
-                        "Can only apply label-smoothing to one-hot target."
-                    )
-        # Transform negative annotations to a 0 for the negated value
-        # + mask all other values for that row
-        truths = cast(Floats2d, truths)
-        if negatives_mask is not None:
-            truths *= negatives_mask
-            truths[truths == -1] = 0
-            negatives_mask[negatives_mask == -1] = 1
-            mask *= negatives_mask
         return truths, mask
 
     def __call__(
@@ -241,12 +164,12 @@ class SparseCE(CategoricalCrossentropy):
         """
         if arr.ndim != 1:
             raise ValueError(
-                "SparseCE only accepts 1D arrays "
+                "SparseCE only accepts 1D arrays, but "
                 f"array with shape {arr.shape} was given."
             )
         if arr.dtype.kind != 'i':
             raise ValueError(
-                "SparseCE only accepts integer arrays "
+                "SparseCE only accepts integer arrays, but "
                 f"array with {arr.dtype} was given."
             )
 
@@ -378,14 +301,22 @@ def configure_CategoricalCrossentropy_v4(
     missing_value: Optional[Union[str, int]] = None,
     neg_prefix: Optional[str] = None,
     label_smoothing: float = 0.0,
+    sparse: bool = True,
 ) -> CategoricalCrossentropy:
-    return CategoricalCrossentropy(
-        normalize=normalize,
-        names=names,
-        missing_value=missing_value,
-        neg_prefix=neg_prefix,
-        label_smoothing=label_smoothing,
-    )
+    if names is None and neg_prefix is None and not sparse:
+        return CategoricalCrossentropy(
+            normalize=normalize,
+            missing_value=missing_value,
+            label_smoothing=label_smoothing,
+        )
+    else:
+        return SparseCE(
+            normalize=normalize,
+            names=names,
+            missing_value=missing_value,
+            neg_prefix=neg_prefix,
+            label_smoothing=label_smoothing
+        )
 
 
 class SequenceCategoricalCrossentropy(Loss):
