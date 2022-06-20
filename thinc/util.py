@@ -52,7 +52,10 @@ def get_array_module(arr):  # pragma: no cover
     elif is_cupy_array(arr):
         return cupy
     else:
-        return None
+        raise ValueError(
+            "Input was neither a numpy or cupy array"
+            f", but was of type {type(arr)}."
+        )
 
 
 def gpu_is_available():
