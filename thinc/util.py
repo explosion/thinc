@@ -53,8 +53,10 @@ def get_array_module(arr):  # pragma: no cover
         return cupy
     else:
         raise ValueError(
-            "Input was neither a numpy or cupy array"
-            f", but was of type {type(arr)}."
+            "Only numpy and cupy arrays are supported"
+            f", but found {type(arr)} instead. If "
+            "get_array_module module wasn't called "
+            "directly, this might mean a bug in Thinc."
         )
 
 
