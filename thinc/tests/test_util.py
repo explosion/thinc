@@ -8,6 +8,13 @@ from thinc.types import ArgsKwargs
 
 from . import strategies
 
+ALL_XP = [numpy]
+try:
+    import cupy
+    ALL_XP.append(cupy)
+except ImportError:
+    pass
+
 
 @pytest.mark.parametrize(
     "obj,width",
@@ -39,11 +46,22 @@ def test_get_width_fail(obj):
         get_width(obj)
 
 
-def test_array_module_cpu_gpu_helpers():
-    xp = get_array_module(0)
-    assert hasattr(xp, "ndarray")
-    assert is_numpy_array(numpy.zeros((1, 2)))
-    assert not is_numpy_array((1, 2))
+@pytest.mark.parametrize("xp", ALL_XP)
+def test_array_module_cpu_gpu_helpers(xp):
+    error = ("Input was neither a numpy or cupy array"
+             f", but was of type <class 'int'>")
+    with pytest.raises(ValueError, match=error):
+        get_array_module(0)
+    zeros = xp.zeros((1, 2))
+    xp_ = get_array_module(zeros)
+    assert hasattr(xp_, "ndarray")
+    if xp == numpy:
+        assert is_numpy_array(zeros)
+        assert not is_numpy_array((1, 2))
+    else:
+        from thinc.util import is_cupy_array
+        assert is_cupy_array(zeros)
+        assert not is_cupy_array((1, 2))
 
 
 @given(
