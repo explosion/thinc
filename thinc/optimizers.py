@@ -12,8 +12,8 @@ from .config import registry
 KeyT = Tuple[int, str]
 FloatOrSeq = Union[float, List[float], Generator]
 IntOrSeq = Union[int, List[int], Generator]
-GradT = TypeVar("GradT", bound=FloatsXd)
-WeightT = TypeVar("GradT", bound=FloatsXd)
+GradT = TypeVar("GradT")
+WeightT = TypeVar("WeightT")
 
 
 SGD_DEFAULTS: Dict[str, Union[float, bool, int]] = {
@@ -102,8 +102,6 @@ def SGD(
         beta2=0.0,
         use_averages=use_averages,
     )
-
-
 
 
 class OptimizerABC(Generic[GradT, WeightT]):
@@ -383,7 +381,7 @@ class SWA(OptimizerABC):
     optimizer: Optimizer
     start_step: int
     freq: int
-    learn_rate: float
+    learn_rate: FloatOrSeq
     nr_update: Dict[Tuple[int, str], int]
     run_swa: bool
     averages: Dict[Tuple[int, str], FloatsXd]
@@ -437,8 +435,8 @@ class SWA(OptimizerABC):
     def __call__(
         self,
         key: Tuple[int, str],
-        weights: WeightT,
-        gradient: GradT,
+        weights: FloatsXd,
+        gradient: FloatsXd,
         *,
         lr_scale: float = 1.0,
     ):
@@ -500,8 +498,8 @@ class Lookahead(OptimizerABC):
     def __call__(
         self,
         key: Tuple[int, str],
-        weights: WeightT,
-        gradient: GradT,
+        weights: FloatsXd,
+        gradient: FloatsXd,
         *,
         lr_scale: float = 1.0,
     ):
@@ -517,7 +515,7 @@ class Lookahead(OptimizerABC):
 
 @registry.optimizers("SWA.v1")
 def build_SWA(
-    optimizer_factory: Callable[Any, Optimizer],
+    optimizer_factory: Callable[[], Optimizer],
     learn_rate: float,
     start_step: int,
     freq: int = 5
@@ -533,7 +531,7 @@ def build_SWA(
 
 @registry.optimizers("Lookahead.v1")
 def build_Lookahead(
-    optimizer_factory: Callable[Any, Optimizer],
+    optimizer_factory: Callable[[], Optimizer],
     freq: int = 6,
     pullback: float = 0.5
 ) -> Lookahead:
