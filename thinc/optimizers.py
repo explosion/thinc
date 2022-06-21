@@ -111,10 +111,11 @@ class OptimizerABC(Generic[GradT, WeightT]):
     def __call__(
         self,
         key: Tuple[int, str],
-        weights: WeightT,
-        gradient: GradT,
-        **kwargs: Any
-    ) -> Tuple[WeightT, GradT]:
+        weights: GradT,
+        gradient: WeightT,
+        *,
+        lr_scale: float
+    ) -> Tuple[FloatsXd, FloatsXd]:
         ...
 
 
@@ -233,7 +234,7 @@ class Optimizer(OptimizerABC):
         gradient: FloatsXd,
         *,
         lr_scale: float = 1.0,
-    ):
+    ) -> Tuple[FloatsXd, FloatsXd]:
         """Call the optimizer with weights and a gradient. The key is the
         identifier for the parameter, usually the node ID and parameter name.
         """
