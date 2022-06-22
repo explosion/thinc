@@ -1364,7 +1364,7 @@ Create hashed ngram features.
 | `keys`      | <tt>Ints1d</tt> | The input sequence.                        |
 | **RETURNS** | <tt>Ints1d</tt> | The hashed ngrams.                         |
 
-### Ops.gather_add {#gather_add tag="method"}
+### Ops.gather_add {#gather_add tag="method" new="8.1"}
 
 <inline-list>
 
