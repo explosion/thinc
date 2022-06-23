@@ -57,7 +57,7 @@ def test_array_module_cpu_gpu_helpers(xp):
         get_array_module(0)
     zeros = xp.zeros((1, 2))
     xp_ = get_array_module(zeros)
-    assert hasattr(xp_, "ndarray")
+    assert xp_ == xp
     if xp == numpy:
         assert is_numpy_array(zeros)
         assert not is_numpy_array((1, 2))
