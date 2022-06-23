@@ -68,7 +68,7 @@ def forward(
         nN = ids.shape[0]
         seed: int = model.attrs["seed"]
         keys = model.ops.hash(ids, seed) % nV
-        output = vectors[keys].sum(axis=1)
+        output = model.ops.gather_add(vectors, keys)
         drop_mask = None
         if is_train:
             dropout: Optional[float] = model.attrs.get("dropout_rate")
