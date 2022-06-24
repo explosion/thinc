@@ -4,6 +4,7 @@ from typing import Dict, Optional, Union, Tuple, List, cast
 from typing import Generic, Any, TypeVar, Callable
 from collections import defaultdict
 
+from .schedules import constant
 from .backends import get_array_ops
 from .types import Generator, FloatsXd
 from .config import registry
@@ -11,6 +12,7 @@ from .config import registry
 
 KeyT = Tuple[int, str]
 FloatOrSeq = Union[float, List[float], Generator]
+FloatOrSeqOrStr = Union[float, List[float], Generator, str]
 IntOrSeq = Union[int, List[int], Generator]
 GradT = TypeVar("GradT")
 WeightT = TypeVar("WeightT")
@@ -390,10 +392,11 @@ class SWA(OptimizerABC):
     def __init__(
         self,
         optimizer: Optimizer,
-        learn_rate: FloatOrSeq,
+        learn_rate: FloatOrSeqOrStr,
         *,
         freq: int = 1,
-        start_step: int = 0
+        start_step: int = 0,
+        on_plateau: bool = False
     ):
         """
         optimizer: The inner optimizer whose iterates to average.
@@ -409,6 +412,13 @@ class SWA(OptimizerABC):
         self.nr_update = defaultdict(int)
         self.run_swa = False
         self.averages = {}
+        if isinstance(self.learn_rate, str):
+            if self.learn_rate != "constant":
+                raise ValueError(
+                    "The only string option that can be "
+                    "provided as learning-rate for SWA is"
+                    " 'constant' currently."
+                )
 
     def _update_averages(
         self,
@@ -431,7 +441,12 @@ class SWA(OptimizerABC):
         """
         Overwrite the optimizer's learning rate.
         """
-        self.optimizer._set_attr_or_schedule("learn_rate", self.lr)
+        if self.learn_rate == "constant":
+            lr = self.optimizer.learn_rate
+            lr = constant(lr)
+        else:
+            lr = self.learn_rate
+        self.optimizer._set_attr_or_schedule("learn_rate", lr)
 
     def __call__(
         self,
@@ -515,16 +530,20 @@ class Lookahead(OptimizerABC):
 
 
 @registry.optimizers("SWA.v1")
-def build_SWA(
-    optimizer_factory: Callable[[], Optimizer],
-    learn_rate: float,
+def AdamSWA(
+    learn_rate: 0.001,
     start_step: int,
+    optimizer_factory: Callable[[], Optimizer] = Adam,
     freq: int = 5
 ) -> SWA:
+    """
+    Setup Adam with Stochastic Weight Averaging.
+    Does not use any special learning-rate schedule.
+    """
     optimizer = optimizer_factory()
     return SWA(
         optimizer=optimizer,
-        learn_rate=learn_rate,
+        learn_rate="constant",
         freq=freq,
         start_step=start_step
     )
