@@ -6,7 +6,6 @@ from .util import get_array_module, to_categorical, smooth_one_hot
 from .util import is_xp_array
 from .config import registry
 
-
 LossT = TypeVar("LossT")
 GradT = TypeVar("GradT")
 GuessT = TypeVar("GuessT")
@@ -43,7 +42,7 @@ class CategoricalCrossentropy(Loss):
         self,
         *,
         normalize: bool = True,
-        missing_value: Optional[Union[str, int]] = None,
+        missing_value: Optional[int] = None,
         label_smoothing: float = 0.0,
     ):
         self.normalize = normalize
