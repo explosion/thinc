@@ -216,6 +216,11 @@ def to_categorical(
     if n_classes is None:
         n_classes = int(numpy.max(Y) + 1)  # type: ignore
 
+    if label_smoothing < 0.0:
+        raise ValueError(
+            "Label-smoothing parameter has to be greater or equal to 0"
+        )
+
     if label_smoothing == 0.0:
         if n_classes == 0:
             raise ValueError("n_classes should be at least 1")
