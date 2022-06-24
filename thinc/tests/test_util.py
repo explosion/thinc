@@ -115,9 +115,9 @@ def test_to_categorical(label_smoothing):
     ):
         to_categorical(numpy.asarray([0, 0, 0]), label_smoothing=0.01),
 
-    error_msg = "For 5 number of classes "
-    error_msg += "label_smoothing parameter has to be less than "
-    error_msg += "0.8, but found 0.8."
+    error_msg = ("For 5 number of classes "
+                 "label_smoothing parameter has to be less than "
+                 "0.8, but found 0.8.")
     with pytest.raises(
         ValueError, match=error_msg
     ):
