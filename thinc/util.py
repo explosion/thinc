@@ -218,7 +218,7 @@ def to_categorical(
 
     if label_smoothing < 0.0:
         raise ValueError(
-            "Label-smoothing parameter has to be greater or equal to 0"
+            "Label-smoothing parameter has to be greater than or equal to 0"
         )
 
     if label_smoothing == 0.0:
