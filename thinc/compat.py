@@ -34,8 +34,8 @@ try:  # pragma: no cover
     has_torch_cuda_gpu = torch.cuda.device_count() != 0
     has_torch_mps_gpu = (
         hasattr(torch, "has_mps")
-        and torch.has_mps
-        and torch.backends.mps.is_available()
+        and torch.has_mps  # type: ignore[attr-defined]
+        and torch.backends.mps.is_available()  # type: ignore[attr-defined]
     )
     has_torch_gpu = has_torch_cuda_gpu
     torch_version = Version(str(torch.__version__))
