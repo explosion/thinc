@@ -32,6 +32,8 @@ KERNELS_LIST = [
     "backprop_swish<float>",
     "clipped_linear<double>",
     "clipped_linear<float>",
+    "gather_add<double>",
+    "gather_add<float>",
     "gelu<double>",
     "gelu<float>",
     "maxout<double>",
@@ -76,6 +78,8 @@ MMH_SRC = (PWD / "_murmur3.cu").read_text(encoding="utf8")
 
 clipped_linear_kernel_float = _get_kernel("clipped_linear<float>")
 clipped_linear_kernel_double = _get_kernel("clipped_linear<double>")
+gather_add_kernel_float = _get_kernel("gather_add<float>")
+gather_add_kernel_double = _get_kernel("gather_add<double>")
 gelu_kernel_float = _get_kernel("gelu<float>")
 gelu_kernel_double = _get_kernel("gelu<double>")
 hash_data_kernel = compile_mmh(MMH_SRC)
@@ -161,6 +165,36 @@ def clipped_linear(
             (num_blocks,),
             (threads_per_block,),
             (out, X, slope, offset, min_val, max_val, X.size),
+        )
+    return out
+
+
+def gather_add(table, indices, *, threads_per_block=128, num_blocks=128):
+    if table.ndim != 2:
+        raise ValueError(
+            f"gather_add expects table with dimensionality 2, was: {table.ndim}"
+        )
+    if indices.ndim != 2:
+        raise ValueError(
+            f"gather_add expects indices with dimensionality 2, was: {indices.ndim}"
+        )
+    _is_float_array(table)
+    indices = indices.astype("int32")
+    _check_indices(indices, table.shape[0])
+
+    B = indices.shape[0]
+    K = indices.shape[1]
+    T = table.shape[0]
+    O = table.shape[1]
+
+    out = _alloc((B, O), dtype=table.dtype, zeros=True)
+    if table.dtype == "float32":
+        gather_add_kernel_float(
+            (num_blocks,), (threads_per_block,), (out, table, indices, T, O, B, K)
+        )
+    else:
+        gather_add_kernel_double(
+            (num_blocks,), (threads_per_block,), (out, table, indices, T, O, B, K)
         )
     return out
 
@@ -645,6 +679,13 @@ def _check_lengths(lengths, n_elems: int, *, min_length=0):
         raise ValueError(f"all sequence lengths must be >= {min_length}")
     if cupy.sum(lengths) != n_elems:
         raise IndexError("lengths must sum up to the batch size")
+
+
+def _check_indices(indices, n: int):
+    assert indices.dtype == "int32", "indices should be encoded as 32-bit integers"
+
+    if not _values_within_range(indices, 0, n):
+        raise IndexError(f"index out of bounds, must be >= 0 && < {n}")
 
 
 def _check_which_maxout(which, B: int, I: int, P: int):
