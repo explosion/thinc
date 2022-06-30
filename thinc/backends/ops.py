@@ -722,15 +722,15 @@ class Ops:
         return self.xp.ascontiguousarray(data, **kwargs)
 
     def sigmoid(self, X: FloatsType, *, inplace: bool = False) -> FloatsType:
-        # To prevent overflows and help with regularization/numerical stability
-        X = self.xp.clip(X, -20.0, 20.0)
-
         if inplace:
+            # To prevent overflows and help with regularization/numerical stability
+            X = self.xp.clip(X, -20.0, 20.0, out=X)
             self.xp.exp(-X, out=X)
             X += 1.0  # type: ignore[assignment]
             X **= -1.0  # type: ignore[assignment]
             return cast(FloatsType, X)
         else:
+            X = self.xp.clip(X, -20.0, 20.0)
             return cast(FloatsType, 1.0 / (1.0 + self.xp.exp(-X)))
 
     def backprop_sigmoid(
@@ -909,7 +909,7 @@ class Ops:
         return self.backprop_clipped_linear(dY, X, max_val=n, inplace=inplace)
 
     def hard_sigmoid(self, X: FloatsType, inplace: bool = False) -> FloatsType:
-        return self.clipped_linear(X, slope=0.2, offset=0.5)
+        return self.clipped_linear(X, slope=0.2, offset=0.5, inplace=inplace)
 
     def backprop_hard_sigmoid(
         self, dY: FloatsType, X: FloatsType, inplace: bool = False
@@ -917,7 +917,7 @@ class Ops:
         return self.backprop_clipped_linear(dY, X, slope=0.2, offset=0.5)
 
     def hard_tanh(self, X: FloatsType, inplace: bool = False) -> FloatsType:
-        return self.clipped_linear(X, min_val=-1.0, max_val=1.0)
+        return self.clipped_linear(X, min_val=-1.0, max_val=1.0, inplace=inplace)
 
     def backprop_hard_tanh(
         self, dY: FloatsType, X: FloatsType, inplace: bool = False
