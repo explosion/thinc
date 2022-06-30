@@ -1157,6 +1157,29 @@ class Ops:
                 Y[i] = 0.0
         return Y
 
+    def reduce_first(self, X: Floats2d, lengths: Ints1d) -> Tuple[Floats2d, Ints1d]:
+        if lengths.size == 0:
+            return self.alloc2f(0, X.shape[1]), lengths
+        if not self.xp.all(lengths > 0):
+            raise ValueError(f"all sequence lengths must be >= 0")
+        starts_ends = self.alloc1i(lengths.shape[0] + 1, zeros=False)
+        starts_ends[0] = 0
+        starts_ends[1:] = lengths.cumsum()
+        if starts_ends[-1] != X.shape[0]:
+            raise IndexError("lengths must sum up to the number of rows")
+
+        return X[starts_ends[:-1]], starts_ends
+
+    def reduce_last(self, X: Floats2d, lengths: Ints1d) -> Tuple[Floats2d, Ints1d]:
+        if lengths.size == 0:
+            return self.alloc2f(0, X.shape[1]), lengths
+        if not self.xp.all(lengths > 0):
+            raise ValueError(f"all sequence lengths must be >= 0")
+        lasts = lengths.cumsum() - 1
+        if lasts[-1] + 1 != X.shape[0]:
+            raise IndexError("lengths must sum up to the number of rows")
+        return X[lasts], lasts
+
     def reduce_mean(self, X: Floats2d, lengths: Ints1d) -> Floats2d:
         Y = self.alloc2f(lengths.shape[0], X.shape[1], zeros=False)
         start = 0
@@ -1186,6 +1209,26 @@ class Ops:
                 Y[i] = X[start : start + length].max(axis=0)
             start += length
         return Y, which
+
+    def backprop_reduce_first(
+        self, d_firsts: Floats2d, starts_ends: Ints1d
+    ) -> Floats2d:
+        if starts_ends.size < 2:
+            raise ValueError(f"starts_ends should least have size 2")
+        dX = self.alloc2f(
+            starts_ends[-1], d_firsts.shape[1], dtype=d_firsts.dtype, zeros=True
+        )
+        dX[starts_ends[:-1]] = d_firsts
+        return dX
+
+    def backprop_reduce_last(self, d_lasts: Floats2d, lasts: Ints1d) -> Floats2d:
+        if lasts.size < 1:
+            raise ValueError(f"lasts should least have size 2")
+        dX = self.alloc2f(
+            lasts[-1] + 1, d_lasts.shape[1], dtype=d_lasts.dtype, zeros=True
+        )
+        dX[lasts] = d_lasts
+        return dX
 
     def backprop_reduce_sum(self, d_sums: Floats2d, lengths: Ints1d) -> Floats2d:
         dX = self.alloc2f(
