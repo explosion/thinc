@@ -233,11 +233,12 @@ def to_categorical(
             )
         nongold_prob = label_smoothing / (n_classes - 1)
 
-    if (1 - label_smoothing) < nongold_prob:
+    max_smooth = (n_classes - 1) / n_classes
+    if n_classes > 1 and label_smoothing >= max_smooth:
         raise ValueError(
             f"For {n_classes} number of classes "
             "label_smoothing parameter has to be less than "
-            f"{1 - nongold_prob}, but found {label_smoothing}."
+            f"{max_smooth}, but found {label_smoothing}."
         )
 
     xp = get_array_module(Y)
