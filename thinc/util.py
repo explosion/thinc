@@ -15,7 +15,8 @@ import contextlib
 from contextvars import ContextVar
 from dataclasses import dataclass
 from .compat import has_cupy, has_mxnet, has_torch, has_tensorflow
-from .compat import has_cupy_gpu, has_torch_gpu
+from .compat import has_cupy_gpu, has_torch_cuda_gpu, has_gpu
+from .compat import has_torch_mps_gpu
 from .compat import torch, cupy, tensorflow as tf, mxnet as mx, cupy_from_dlpack
 
 from .types import ArrayXd, ArgsKwargs, Ragged, Padded, FloatsXd, IntsXd, Floats2d  # noqa: E402
@@ -27,6 +28,24 @@ if TYPE_CHECKING:
 DATA_VALIDATION: ContextVar[bool] = ContextVar("DATA_VALIDATION", default=False)
 
 
+def get_torch_default_device() -> "torch.device":
+    if torch is None:
+        raise ValueError("Cannot get default Torch device when Torch is not available.")
+
+    from .backends import get_current_ops
+    from .backends.cupy_ops import CupyOps
+    from .backends.mps_ops import MPSOps
+
+    ops = get_current_ops()
+    if isinstance(ops, CupyOps):
+        device_id = torch.cuda.current_device()
+        return torch.device(f"cuda:{device_id}")
+    elif isinstance(ops, MPSOps):
+        return torch.device("mps")
+
+    return torch.device("cpu")
+
+
 def get_array_module(arr):  # pragma: no cover
     if is_cupy_array(arr):
         return cupy
@@ -35,7 +54,7 @@ def get_array_module(arr):  # pragma: no cover
 
 
 def gpu_is_available():
-    return has_cupy_gpu
+    return has_gpu
 
 
 def fix_random_seed(seed: int = 0) -> None:  # pragma: no cover
@@ -46,7 +65,7 @@ def fix_random_seed(seed: int = 0) -> None:  # pragma: no cover
         torch.manual_seed(seed)
     if has_cupy_gpu:
         cupy.random.seed(seed)
-        if has_torch and has_torch_gpu:
+        if has_torch and has_torch_cuda_gpu:
             torch.cuda.manual_seed_all(seed)
             torch.backends.cudnn.deterministic = True
             torch.backends.cudnn.benchmark = False
@@ -84,8 +103,16 @@ def is_torch_array(obj: Any) -> bool:  # pragma: no cover
         return False
 
 
-def is_torch_gpu_array(obj: Any) -> bool:  # pragma: no cover
+def is_torch_cuda_array(obj: Any) -> bool:  # pragma: no cover
     return is_torch_array(obj) and obj.is_cuda
+
+
+def is_torch_gpu_array(obj: Any) -> bool:  # pragma: no cover
+    return is_torch_cuda_array(obj) or is_torch_mps_array(obj)
+
+
+def is_torch_mps_array(obj: Any) -> bool:  # pragma: no cover
+    return is_torch_array(obj) and hasattr(obj, "is_mps") and obj.is_mps
 
 
 def is_tensorflow_array(obj: Any) -> bool:  # pragma: no cover
@@ -131,9 +158,8 @@ def set_active_gpu(gpu_id: int) -> "cupy.cuda.Device":  # pragma: no cover
     device = cupy.cuda.device.Device(gpu_id)
     device.use()
 
-    if has_torch_gpu:
+    if has_torch_cuda_gpu:
         torch.cuda.set_device(gpu_id)
-        torch.set_default_tensor_type("torch.cuda.FloatTensor")
 
     return device
 
@@ -144,28 +170,29 @@ def require_cpu() -> bool:  # pragma: no cover
 
     ops = get_ops("cpu")
     set_current_ops(ops)
-    set_torch_tensor_type_for_ops(ops)
 
     return True
 
 
 def prefer_gpu(gpu_id: int = 0) -> bool:  # pragma: no cover
     """Use GPU if it's available. Returns True if so, False otherwise."""
-    if not has_cupy_gpu:
-        return False
-    else:
+    if has_gpu:
         require_gpu(gpu_id=gpu_id)
-        return True
+    return has_gpu
 
 
 def require_gpu(gpu_id: int = 0) -> bool:  # pragma: no cover
-    from .backends import set_current_ops, CupyOps
+    from .backends import set_current_ops, CupyOps, MPSOps
 
-    if not has_cupy_gpu:
-        raise ValueError("No CUDA GPU devices detected")
+    if not has_gpu:
+        raise ValueError("No GPU devices detected")
 
-    set_current_ops(CupyOps())
-    set_active_gpu(gpu_id)
+    if has_cupy_gpu:
+        set_current_ops(CupyOps())
+        set_active_gpu(gpu_id)
+    else:
+        set_current_ops(MPSOps())
+
     return True
 
 
@@ -322,17 +349,29 @@ def iterate_recursive(is_match: Callable[[Any], bool], obj: Any) -> Any:
 
 
 def xp2torch(
-    xp_tensor: ArrayXd, requires_grad: bool = False
+    xp_tensor: ArrayXd,
+    requires_grad: bool = False,
+    device: Optional["torch.device"] = None,
 ) -> "torch.Tensor":  # pragma: no cover
     """Convert a numpy or cupy tensor to a PyTorch tensor."""
     assert_pytorch_installed()
+
+    if device is None:
+        device = get_torch_default_device()
+
     if hasattr(xp_tensor, "toDlpack"):
         dlpack_tensor = xp_tensor.toDlpack()  # type: ignore
         torch_tensor = torch.utils.dlpack.from_dlpack(dlpack_tensor)
+    elif hasattr(xp_tensor, "__dlpack__"):
+        torch_tensor = torch.utils.dlpack.from_dlpack(xp_tensor)
     else:
         torch_tensor = torch.from_numpy(xp_tensor)
+
+    torch_tensor = torch_tensor.to(device)
+
     if requires_grad:
         torch_tensor.requires_grad_()
+
     return torch_tensor
 
 
@@ -345,14 +384,14 @@ def torch2xp(
     from .api import NumpyOps
 
     assert_pytorch_installed()
-    if is_torch_gpu_array(torch_tensor):
+    if is_torch_cuda_array(torch_tensor):
         if isinstance(ops, NumpyOps):
             return torch_tensor.detach().cpu().numpy()
         else:
             return cupy_from_dlpack(torch.utils.dlpack.to_dlpack(torch_tensor))
     else:
         if isinstance(ops, NumpyOps) or ops is None:
-            return torch_tensor.detach().numpy()
+            return torch_tensor.detach().cpu().numpy()
         else:
             return cupy.asarray(torch_tensor)
 
@@ -365,6 +404,8 @@ def xp2tensorflow(
     if hasattr(xp_tensor, "toDlpack"):
         dlpack_tensor = xp_tensor.toDlpack()  # type: ignore
         tf_tensor = tf.experimental.dlpack.from_dlpack(dlpack_tensor)
+    elif hasattr(xp_tensor, "__dlpack__"):
+        tf_tensor = tf.experimental.dlpack.from_dlpack(xp_tensor)
     else:
         tf_tensor = tf.convert_to_tensor(xp_tensor)
     if as_variable:
@@ -542,22 +583,6 @@ def use_nvtx_range(message: str, id_color: int = -1):
         yield
 
 
-def set_torch_tensor_type_for_ops(ops):
-    """Set the PyTorch default tensor type for the given ops. This is a
-    no-op if PyTorch is not available."""
-    from .backends.cupy_ops import CupyOps
-
-    try:
-        import torch
-
-        if CupyOps.xp is not None and isinstance(ops, CupyOps):
-            torch.set_default_tensor_type("torch.cuda.FloatTensor")
-        else:
-            torch.set_default_tensor_type("torch.FloatTensor")
-    except ImportError:
-        pass
-
-
 @dataclass
 class ArrayInfo:
     """Container for info for checking array compatibility."""
@@ -582,6 +607,7 @@ class ArrayInfo:
 
 __all__ = [
     "get_array_module",
+    "get_torch_default_device",
     "fix_random_seed",
     "is_cupy_array",
     "is_numpy_array",
@@ -599,6 +625,5 @@ __all__ = [
     "DataValidationError",
     "make_tempfile",
     "use_nvtx_range",
-    "set_torch_tensor_type_for_ops",
     "ArrayInfo",
 ]

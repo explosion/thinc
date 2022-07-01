@@ -4,6 +4,7 @@ from libcpp.memory cimport make_shared
 
 
 cdef struct BlasFuncs:
+    daxpy_ptr daxpy
     saxpy_ptr saxpy
     sgemm_ptr sgemm
 
@@ -15,18 +16,25 @@ cdef class CBlas:
         """Construct a CBlas instance set to use BLIS implementations of the
            supported BLAS functions."""
         cdef BlasFuncs funcs
+        funcs.daxpy = blis.cy.daxpy
         funcs.saxpy = blis.cy.saxpy
         funcs.sgemm = blis.cy.sgemm
         self.ptr = make_shared[BlasFuncs](funcs)
 
-    cdef saxpy_ptr saxpy(self) nogil:
-        return deref(self.ptr).saxpy
+cdef daxpy_ptr daxpy(CBlas cblas) nogil:
+    return deref(cblas.ptr).daxpy
 
-    cdef sgemm_ptr sgemm(self) nogil:
-        return deref(self.ptr).sgemm
+cdef saxpy_ptr saxpy(CBlas cblas) nogil:
+    return deref(cblas.ptr).saxpy
 
-    cdef void set_saxpy(self, saxpy_ptr saxpy) nogil:
-        deref(self.ptr).saxpy = saxpy
+cdef sgemm_ptr sgemm(CBlas cblas) nogil:
+    return deref(cblas.ptr).sgemm
 
-    cdef void set_sgemm(self, sgemm_ptr sgemm) nogil:
-        deref(self.ptr).sgemm = sgemm
+cdef void set_daxpy(CBlas cblas, daxpy_ptr daxpy) nogil:
+    deref(cblas.ptr).daxpy = daxpy
+
+cdef void set_saxpy(CBlas cblas, saxpy_ptr saxpy) nogil:
+    deref(cblas.ptr).saxpy = saxpy
+
+cdef void set_sgemm(CBlas cblas, sgemm_ptr sgemm) nogil:
+    deref(cblas.ptr).sgemm = sgemm

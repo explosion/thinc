@@ -20,7 +20,7 @@ cimport blis.cy
 from .. import registry
 from ..util import copy_array, get_array_module
 from ..types import DeviceTypes, DTypes, Shape, ArrayXd
-from .cblas cimport CBlas
+from .cblas cimport CBlas, daxpy, saxpy
 from .linalg cimport VecVec, Vec
 from .ops import Ops
 
@@ -29,9 +29,6 @@ try:
     has_blis = True
 except ImportError:
     has_blis = False
-
-
-cblas = CBlas()
 
 
 ctypedef float weight_t
@@ -88,7 +85,7 @@ class NumpyOps(Ops):
             return self.xp.empty(shape, dtype=dtype)
 
     def cblas(self) -> CBlas:
-        return cblas
+        return CBlas()
 
     def gemm(self, np.ndarray x, np.ndarray y, *, np.ndarray out=None, trans1=False, trans2=False):
         if x.ndim != 2:
@@ -439,6 +436,23 @@ class NumpyOps(Ops):
                 &lengths[0], B, T, O)
 
         return dX
+
+    def gather_add(self, reals2d_ft table, ints2d_ft indices):
+        cdef CBlas cblas = self.cblas()
+        rows = indices.shape[0]
+        dims = table.shape[1]
+
+        cdef np.ndarray output
+        if reals2d_ft is float2d_t:
+            output = self.xp.zeros((rows, dims), dtype="float32")
+            cpu_gather_add(saxpy(cblas), <float *>output.data, &table[0, 0], &indices[0, 0],
+                        table.shape[0], dims, rows, indices.shape[1])
+        else:
+            output = self.xp.zeros((rows, dims), dtype="float64")
+            cpu_gather_add(daxpy(cblas), <double *>output.data, &table[0, 0], &indices[0, 0],
+                        table.shape[0], dims, rows, indices.shape[1])
+
+        return output
 
     def scatter_add(self, np.ndarray table, np.ndarray indices, np.ndarray values):
         if table.dtype == 'float32' \

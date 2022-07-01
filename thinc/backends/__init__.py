@@ -7,10 +7,11 @@ import threading
 from .ops import Ops
 from .cupy_ops import CupyOps
 from .numpy_ops import NumpyOps
+from .mps_ops import MPSOps
 from ._cupy_allocators import cupy_tensorflow_allocator, cupy_pytorch_allocator
 from ._param_server import ParamServer
 from ..util import assert_tensorflow_installed, assert_pytorch_installed
-from ..util import is_cupy_array, set_torch_tensor_type_for_ops, require_cpu
+from ..util import get_torch_default_device, is_cupy_array, require_cpu
 from .. import registry
 from ..compat import cupy, has_cupy
 
@@ -48,6 +49,10 @@ def use_pytorch_for_gpu_memory() -> None:  # pragma: no cover
     (or vice versa), but do not currently have an implementation for it.
     """
     assert_pytorch_installed()
+
+    if get_torch_default_device().type != "cuda":
+        return
+
     pools = context_pools.get()
     if "pytorch" not in pools:
         pools["pytorch"] = cupy.cuda.MemoryPool(allocator=cupy_pytorch_allocator)
@@ -134,7 +139,6 @@ def set_current_ops(ops: Ops) -> None:
     """Change the current backend object."""
     context_ops.set(ops)
     _get_thread_state().ops = ops
-    set_torch_tensor_type_for_ops(ops)
 
 
 def contextvars_eq_thread_ops() -> bool:
@@ -170,6 +174,7 @@ __all__ = [
     "ParamServer",
     "Ops",
     "CupyOps",
+    "MPSOps",
     "NumpyOps",
     "has_cupy",
 ]

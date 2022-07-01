@@ -5,6 +5,7 @@ import itertools
 import srsly
 
 from ..util import torch2xp, xp2torch, convert_recursive, iterate_recursive
+from ..util import get_torch_default_device
 from ..compat import torch
 from ..backends import get_current_ops, context_pools, CupyOps
 from ..backends import set_gpu_allocator
@@ -25,6 +26,10 @@ class PyTorchShim(Shim):
         The gradient scaler to use for mixed-precision training. If this
         argument is set to "None" and mixed precision is enabled, a gradient
         scaler with the default configuration is used.
+    device:
+        The PyTorch device to run the model on. When this argument is
+        set to "None", the default device for the currently active Thinc
+        ops is used.
     """
 
     def __init__(
@@ -34,11 +39,19 @@ class PyTorchShim(Shim):
         optimizer: Any = None,
         mixed_precision: bool = False,
         grad_scaler: Optional[PyTorchGradScaler] = None,
+        device: Optional["torch.device"] = None,
     ):
         super().__init__(model, config, optimizer)
 
+        if device is None:
+            device = get_torch_default_device()
+        if model is not None:
+            model.to(device)
+
         if grad_scaler is None:
             grad_scaler = PyTorchGradScaler(mixed_precision)
+
+        grad_scaler.to_(device)
 
         self._grad_scaler = grad_scaler
 
@@ -57,6 +70,14 @@ class PyTorchShim(Shim):
             return self.begin_update(inputs)
         else:
             return self.predict(inputs), lambda a: ...
+
+    @property
+    def device(self):
+        p = next(self._model.parameters(), None)
+        if p is None:
+            return get_torch_default_device()
+        else:
+            return p.device
 
     def predict(self, inputs: ArgsKwargs) -> Any:
         """Pass inputs through to the underlying PyTorch model, and return the
@@ -126,7 +147,9 @@ class PyTorchShim(Shim):
                         cast(FloatsXd, torch2xp(torch_data.data)),
                         cast(FloatsXd, torch2xp(torch_data.grad)),
                     )
-                    torch_data.data = xp2torch(param, requires_grad=True)
+                    torch_data.data = xp2torch(
+                        param, requires_grad=True, device=torch_data.device
+                    )
                 torch_data.grad.zero_()
 
         self._grad_scaler.update()
@@ -137,7 +160,7 @@ class PyTorchShim(Shim):
         state_dict = {}
         for k, v in params.items():
             if hasattr(k, "startswith") and k.startswith(key_prefix):
-                state_dict[k.replace(key_prefix, "")] = xp2torch(v)
+                state_dict[k.replace(key_prefix, "")] = xp2torch(v, device=self.device)
         if state_dict:
             backup = {k: v.clone() for k, v in self._model.state_dict().items()}
             self._model.load_state_dict(state_dict)
@@ -164,17 +187,12 @@ class PyTorchShim(Shim):
         return srsly.msgpack_dumps(msg)
 
     def from_bytes(self, bytes_data):
-        ops = get_current_ops()
+        device = get_torch_default_device()
         msg = srsly.msgpack_loads(bytes_data)
         self.cfg = msg["config"]
         filelike = BytesIO(msg["state"])
         filelike.seek(0)
-        if ops.device_type == "cpu":
-            map_location = "cpu"
-        else:  # pragma: no cover
-            device_id = torch.cuda.current_device()
-            map_location = "cuda:%d" % device_id
-        self._model.load_state_dict(torch.load(filelike, map_location=map_location))
-        self._model.to(map_location)
-        self._grad_scaler.to_(map_location)
+        self._model.load_state_dict(torch.load(filelike, map_location=device))
+        self._model.to(device)
+        self._grad_scaler.to_(device)
         return self

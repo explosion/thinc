@@ -16,7 +16,7 @@ from thinc.types import Floats2d
 import inspect
 
 from .. import strategies
-from ..strategies import ndarrays_of_shape
+from ..strategies import arrays_BI, ndarrays_of_shape
 
 
 MAX_EXAMPLES = 10
@@ -196,6 +196,38 @@ def test_get_dropout_not_empty(ops):
     assert (mask > 1.0).any()
     assert (mask == 0.0).any()
     assert mask.shape == shape
+
+
+@pytest.mark.parametrize("ops", ALL_OPS)
+@pytest.mark.parametrize("dtype", FLOAT_TYPES)
+@pytest.mark.parametrize("index_dtype", ["int32", "uint32"])
+def test_gather_add(ops, dtype, index_dtype):
+    table = ops.xp.arange(12, dtype=dtype).reshape(4, 3)
+    indices = ops.xp.array([[0, 2], [3, 1], [0, 1]], dtype=index_dtype)
+    gathered = ops.gather_add(table, indices)
+    ops.xp.testing.assert_allclose(
+        gathered, [[6.0, 8.0, 10.0], [12.0, 14.0, 16.0], [3.0, 5.0, 7.0]]
+    )
+
+
+@pytest.mark.parametrize("ops", XP_OPS)
+@given(table=strategies.arrays_BI())
+def test_gather_add_against_numpy(ops, table):
+    table = ops.asarray(table)
+    indices = ops.xp.arange(100, dtype="i").reshape(25, 4) % table.shape[0]
+    ops.xp.testing.assert_allclose(
+        ops.gather_add(table, indices),
+        table[indices].sum(1),
+        atol=1e-5,
+    )
+
+
+@pytest.mark.parametrize("ops", ALL_OPS)
+def test_gather_add_oob_raises(ops):
+    table = ops.xp.arange(12, dtype="f").reshape(4, 3)
+    indices = ops.xp.array([[0, 2], [3, 1], [5, 1]], dtype="i")
+    with pytest.raises(IndexError):
+        ops.gather_add(table, indices)
 
 
 @pytest.mark.parametrize("ops", CPU_OPS)
@@ -1270,7 +1302,10 @@ def test_compare_activations_to_torch(ops, dtype, x, torch_func):
     y_thinc = forward(x_thinc)
     y.backward()
     assert x_thinc.dtype == y_thinc.dtype
-    assert ops.xp.isclose(y_thinc, forward(x_thinc, inplace=True), atol=1e-06)
+    assert y_thinc is not x_thinc
+    y_think_inplace = forward(x_thinc, inplace=True)
+    assert y_think_inplace is x_thinc
+    assert ops.xp.isclose(y_thinc, y_think_inplace, atol=1e-06)
     assert ops.xp.isclose(y_thinc, y.detach(), atol=1e-06)
     x_thinc = ops.asarray([x], dtype=dtype)
     dY_thinc = ops.asarray([1.0], dtype=dtype)
@@ -1282,10 +1317,12 @@ def test_compare_activations_to_torch(ops, dtype, x, torch_func):
     if params == {"dY", "X", "Y"}:
         dx_thinc = backward(dY_thinc, Y=y_thinc, X=x_thinc)
         assert dx_thinc.dtype == x_thinc.dtype
-        assert ops.xp.isclose(
-            dx_thinc,
-            backward(dY=dY_thinc_inplace, Y=y_thinc, X=x_thinc, inplace=True),
+        assert dx_thinc is not dY_thinc
+        dx_thinc_inplace = backward(
+            dY=dY_thinc_inplace, Y=y_thinc, X=x_thinc, inplace=True
         )
+        assert dx_thinc_inplace is dY_thinc_inplace
+        assert ops.xp.isclose(dx_thinc, dx_thinc_inplace)
         assert ops.xp.isclose(x_torch.grad.item(), float(dx_thinc), atol=1e-06)
     elif params == {"Y", "dY"}:
         dx_thinc = backward(dY_thinc, Y=y_thinc)
