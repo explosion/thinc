@@ -835,8 +835,8 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/reduce_last.py
 </inline-list>
 
 Pooling layer that reduces the dimensions of the data by selecting the maximum
-value for each feature. A `ValueError` is raised if any element in `lengths`
-is zero.
+value for each feature. A `ValueError` is raised if any element in `lengths` is
+zero.
 
 | Argument    | Type                             | Description                |
 | ----------- | -------------------------------- | -------------------------- |
@@ -1529,6 +1529,43 @@ model.initialize()
 
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/with_nvtx_range.py
+```
+
+### with_signpost_interval {#with_signpost_interval tag="function"}
+
+<inline-list>
+
+- **Input:** <tt>Any</tt>
+- **Output:** <tt>Any</tt>
+
+</inline-list>
+
+Layer that wraps any layer and marks the forward and backprop passes as a
+(macOS) signpost interval. This can be helpful when profiling the performance of
+a layer using macOS Instruments.app. Use of this layer requies that the
+`os-signpost` package is installed.
+
+```python
+### Example
+from os_signpost import Signposter
+from thinc.api import Linear, with_signpost_interval
+
+signposter = Signposter("com.example.my_subsystem",
+    Signposter.Category.DynamicTracing)
+
+model = with_nvtx_range(Linear(2, 5), signposter)
+model.initialize()
+```
+
+| Argument     | Type                              | Description                                                                     |
+| ------------ | --------------------------------- | ------------------------------------------------------------------------------- |
+| `layer`      | <tt>Model</tt>                    | The layer to wrap.                                                              |
+| `signposter` | <tt>os_signposter.Signposter</tt> | `Signposter` object to log the interval with.                                   |
+| `name`       | <tt>Optional[str]</tt>            | Optional name for the wrapped layer. Defaults to the name of the wrapped layer. |
+| **RETURNS**  | <tt>Model</tt>                    | The wrapped layer.                                                              |
+
+```python
+https://github.com/explosion/thinc/blob/master/thinc/layers/with_signpost_interval.py
 ```
 
 ---
