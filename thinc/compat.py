@@ -77,5 +77,21 @@ try:
 except ImportError:  # pragma: no cover
     h5py = None
 
+try:
+    from thinc_apple_ops import AppleOps
+
+    has_thinc_apple_ops = True
+except ImportError:
+    AppleOps = None
+    has_thinc_apple_ops = False
+
+try:
+    from thinc_bigendian_ops import BigEndianOps
+
+    has_thinc_bigendian_ops = True
+except ImportError:
+    BigEndianOps = None
+    has_thinc_bigendian_ops = False
+
 
 has_gpu = has_cupy_gpu or has_torch_mps_gpu

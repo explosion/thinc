@@ -13,7 +13,8 @@ from ._param_server import ParamServer
 from ..util import assert_tensorflow_installed, assert_pytorch_installed
 from ..util import get_torch_default_device, is_cupy_array, require_cpu
 from .. import registry
-from ..compat import cupy, has_cupy
+from ..compat import has_cupy, has_thinc_apple_ops, has_thinc_bigendian_ops
+from ..compat import cupy, AppleOps, BigEndianOps
 
 
 context_ops: ContextVar[Optional[Ops]] = ContextVar("context_ops", default=None)
@@ -76,31 +77,22 @@ def use_tensorflow_for_gpu_memory() -> None:  # pragma: no cover
     cupy.cuda.set_allocator(pools["tensorflow"].malloc)
 
 
-def _import_extra_cpu_backends():
-    try:
-        from thinc_apple_ops import AppleOps
-    except ImportError:
-        pass
-    try:
-        from thinc_bigendian_ops import BigEndianOps
-    except ImportError:
-        pass
-
-
 def get_ops(name: str, **kwargs) -> Ops:
     """Get a backend object.
 
     The special name "cpu" returns the best available CPU backend."""
 
-    ops_by_name = {ops_cls.name: ops_cls for ops_cls in registry.ops.get_all().values()}  # type: ignore
-
     cls: Optional[Callable[..., Ops]] = None
     if name == "cpu":
-        _import_extra_cpu_backends()
-        cls = ops_by_name.get("numpy")
-        cls = ops_by_name.get("apple", cls)
-        cls = ops_by_name.get("bigendian", cls)
+        # Precedence is defined top-bottom.
+        if has_thinc_bigendian_ops:
+            cls = BigEndianOps
+        elif has_thinc_apple_ops:
+            cls = AppleOps
+        else:
+            cls = NumpyOps
     else:
+        ops_by_name = {ops_cls.name: ops_cls for ops_cls in registry.ops.get_all().values()}  # type: ignore
         cls = ops_by_name.get(name)
 
     if cls is None:
