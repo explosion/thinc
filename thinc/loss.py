@@ -52,6 +52,10 @@ class CategoricalCrossentropy(Loss):
     def convert_truths(
         self, truths: Floats2d, guesses: Floats2d
     ) -> Tuple[Floats2d, Floats2d]:
+        if truths.ndim != 2:
+            raise ValueError(
+                f"'truths' have to have 2 axes, but found {truths.ndim}"
+            )
         missing_value = self.missing_value
         xp = get_array_module(guesses)
         mask = _make_mask_by_value(truths, guesses, missing_value)
@@ -72,7 +76,7 @@ class CategoricalCrossentropy(Loss):
         return truths, mask
 
     def __call__(
-        self, guesses: Floats2d, truths: IntsOrFloatsOrStrs
+        self, guesses: Floats2d, truths: Floats2d
     ) -> Tuple[Floats2d, float]:
         target, mask = self.convert_truths(truths, guesses)
         self._validate_input(guesses, target)
@@ -267,7 +271,7 @@ class SparseCE(CategoricalCrossentropy):
         if is_xp_array(truths):
             self._check_ints1d(truths)
             truths = to_categorical(
-                truths, label_smoothing=self.label_smoothing
+                truths, label_smoothing=self.label_smoothing, n_classes=guesses.shape[1]
             )
             mask = _make_mask_by_value(truths, guesses, self.missing_value)
         elif isinstance(truths, Sequence):
@@ -296,11 +300,11 @@ class SparseCE(CategoricalCrossentropy):
 def configure_CategoricalCrossentropy_v4(
     *,
     normalize: bool = True,
+    sparse: bool = True,
     names: Optional[Sequence[str]] = None,
     missing_value: Optional[Union[str, int]] = None,
     neg_prefix: Optional[str] = None,
     label_smoothing: float = 0.0,
-    sparse: bool = True,
 ) -> CategoricalCrossentropy:
     if names is None and neg_prefix is None and not sparse:
         return CategoricalCrossentropy(
@@ -322,19 +326,14 @@ class SequenceCategoricalCrossentropy(Loss):
     def __init__(
         self,
         *,
+        cross_entropy: CategoricalCrossentropy,
         normalize: bool = True,
         names: Optional[Sequence[str]] = None,
         missing_value: Optional[Union[str, int]] = None,
         neg_prefix: Optional[str] = None,
         label_smoothing: float = 0.0,
     ):
-        self.cc = CategoricalCrossentropy(
-            normalize=False,
-            names=names,
-            missing_value=missing_value,
-            neg_prefix=neg_prefix,
-            label_smoothing=label_smoothing,
-        )
+        self.cc = cross_entropy
         self.normalize = normalize
 
     def __call__(
@@ -388,12 +387,28 @@ class SequenceCategoricalCrossentropy(Loss):
 def configure_SequenceCategoricalCrossentropy_v4(
     *,
     normalize: bool = True,
+    sparse: bool = True,
     names: Optional[Sequence[str]] = None,
     missing_value: Optional[Union[str, int]] = None,
     neg_prefix: Optional[str] = None,
     label_smoothing: float = 0.0,
 ) -> SequenceCategoricalCrossentropy:
+    if names is None and neg_prefix is None and not sparse:
+        cross_entropy = CategoricalCrossentropy(
+            normalize=False,
+            missing_value=missing_value,
+            label_smoothing=label_smoothing,
+        )
+    else:
+        cross_entropy = SparseCE(
+            normalize=False,
+            names=names,
+            missing_value=missing_value,
+            neg_prefix=neg_prefix,
+            label_smoothing=label_smoothing
+        )
     return SequenceCategoricalCrossentropy(
+        cross_entropy=cross_entropy,
         normalize=normalize,
         names=names,
         missing_value=missing_value,
