@@ -123,6 +123,11 @@ def test_to_categorical(label_smoothing):
     ):
         to_categorical(numpy.asarray([0, 1, 2, 3, 4]), label_smoothing=0.8)
 
+    with pytest.raises(
+        ValueError, match=error_msg
+    ):
+        to_categorical(numpy.asarray([0, 1, 2, 3, 4]), label_smoothing=0.88)
+
 
 def test_convert_recursive():
     is_match = lambda obj: obj == "foo"
