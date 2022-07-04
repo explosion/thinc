@@ -1,4 +1,5 @@
-from .config import Config, registry, ConfigValidationError
+from catalogue import Config, ConfigValidationError
+from thinc.config import registry
 from .initializers import normal_init, uniform_init, glorot_uniform_init, zero_init
 from .initializers import configure_normal_init
 from .loss import CategoricalCrossentropy, L2Distance, CosineDistance
