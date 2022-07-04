@@ -1,6 +1,5 @@
 import pytest
-from thinc.config import registry
-from thinc.api import Optimizer
+from thinc.api import registry, Optimizer
 import numpy
 
 
