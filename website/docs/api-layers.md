@@ -1553,7 +1553,7 @@ from thinc.api import Linear, with_signpost_interval
 signposter = Signposter("com.example.my_subsystem",
     Signposter.Category.DynamicTracing)
 
-model = with_nvtx_range(Linear(2, 5), signposter)
+model = with_signpost_interval(Linear(2, 5), signposter)
 model.initialize()
 ```
 
