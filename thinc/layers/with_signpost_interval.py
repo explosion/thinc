@@ -29,13 +29,11 @@ def with_signpost_interval(
     orig_init = layer.init
 
     def forward(model: Model, X: Any, is_train: bool) -> Tuple[Any, Callable]:
-        with signposter.use_interval(f"{name} forward", f"{name} forward"):
+        with signposter.use_interval(f"{name} forward"):
             layer_Y, layer_callback = orig_forward(model, X, is_train=is_train)
 
         def backprop(dY: Any) -> Any:
-            with signposter.use_interval(
-                f"{name} backprop", f"{name} backprop"
-            ):
+            with signposter.use_interval(f"{name} backprop"):
                 return layer_callback(dY)
 
         return layer_Y, backprop
