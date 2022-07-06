@@ -824,7 +824,7 @@ def test_reduce_first(ops, dtype):
     )
     lengths = ops.asarray1i([3, 2])
     Y, starts_ends = ops.reduce_first(X, lengths)
-    ops.xp.testing.assert_equal(starts_ends, ops.asarray1i([0, 3, 5]))
+    ops.xp.testing.assert_array_equal(starts_ends, ops.asarray1i([0, 3, 5]))
     ops.xp.testing.assert_allclose(Y, [[1.0, 6.0], [4.0, 9.0]])
 
     lengths = ops.asarray1i([3, 0, 2])
@@ -855,7 +855,7 @@ def test_reduce_last(ops, dtype):
     )
     lengths = ops.asarray1i([3, 2])
     Y, lasts = ops.reduce_last(X, lengths)
-    ops.xp.testing.assert_equal(lasts, ops.asarray1i([2, 4]))
+    ops.xp.testing.assert_array_equal(lasts, ops.asarray1i([2, 4]))
     ops.xp.testing.assert_allclose(Y, [[3.0, 8.0], [5.0, 10.0]])
 
     lengths = ops.asarray1i([3, 0, 2])

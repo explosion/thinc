@@ -1216,7 +1216,7 @@ class Ops:
         if starts_ends.size < 2:
             raise ValueError(f"starts_ends should least have size 2")
         dX = self.alloc2f(
-            starts_ends[-1], d_firsts.shape[1], dtype=d_firsts.dtype, zeros=True
+            int(starts_ends[-1]), d_firsts.shape[1], dtype=d_firsts.dtype, zeros=True
         )
         dX[starts_ends[:-1]] = d_firsts
         return dX
@@ -1225,7 +1225,7 @@ class Ops:
         if lasts.size < 1:
             raise ValueError(f"lasts should least have size 2")
         dX = self.alloc2f(
-            lasts[-1] + 1, d_lasts.shape[1], dtype=d_lasts.dtype, zeros=True
+            int(lasts[-1]) + 1, d_lasts.shape[1], dtype=d_lasts.dtype, zeros=True
         )
         dX[lasts] = d_lasts
         return dX
