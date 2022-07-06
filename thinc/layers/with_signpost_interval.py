@@ -40,7 +40,8 @@ def with_signpost_interval(
 
     def init(_model: Model, X: Any, Y: Any) -> Model:
         if orig_init is not None:
-            return orig_init(layer, X, Y)
+            with signposter.use_interval(f"{name} init"):
+                return orig_init(layer, X, Y)
         else:
             return layer
 
