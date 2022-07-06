@@ -23,7 +23,7 @@ def forward(
 
     array_info = ArrayInfo.from_array(Y)
 
-    def backprop(dY: OutT) -> Ragged:
+    def backprop(dY: OutT) -> InT:
         array_info.check_consistency(dY)
         dX = model.ops.backprop_reduce_first(dY, starts_ends)
         return Ragged(dX, Xr.lengths)
