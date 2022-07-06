@@ -261,6 +261,7 @@ def test_maxout(ops, dtype, X):
     ops.xp.testing.assert_allclose(
         ops.xp.take_along_axis(X, ops.xp.expand_dims(which, -1), axis=-1),
         ops.xp.expand_dims(expected_best, -1),
+        atol=1e-10,
     )
 
 
