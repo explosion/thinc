@@ -56,7 +56,7 @@ def get_array_module(arr):  # pragma: no cover
             "Only numpy and cupy arrays are supported"
             f", but found {type(arr)} instead. If "
             "get_array_module module wasn't called "
-            "directly, this might mean a bug in Thinc."
+            "directly, this might indicate a bug in Thinc."
         )
 
 
