@@ -1540,7 +1540,7 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/with_nvtx_range.py
 
 </inline-list>
 
-Layer that wraps any layer and marks the forward and backprop passes as a
+Layer that wraps any layer and marks the init, forward and backprop passes as a
 (macOS) signpost interval. This can be helpful when profiling the performance of
 a layer using macOS Instruments.app. Use of this layer requies that the
 `os-signpost` package is installed.

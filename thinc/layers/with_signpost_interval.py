@@ -12,8 +12,8 @@ def with_signpost_interval(
     signposter: "os_signpost.Signposter",
     name: Optional[str] = None,
 ) -> _ModelT:
-    """Wraps any layer and marks the forward and backprop phases using
-    sigpost intervals for macOS Instruments profiling
+    """Wraps any layer and marks the init, forward and backprop phases using
+    signpost intervals for macOS Instruments profiling
 
     By default, the name of the layer is used as the name of the range,
     followed by the name of the pass.
