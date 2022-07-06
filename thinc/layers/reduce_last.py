@@ -10,14 +10,14 @@ OutT = Floats2d
 
 
 @registry.layers("reduce_last.v1")
-def reduce_last() -> Model[Ragged, OutT]:
+def reduce_last() -> Model[InT, OutT]:
     """Reduce ragged-formatted sequences to their last element."""
     return Model("reduce_last", forward)
 
 
 def forward(
-    model: Model[Ragged, OutT], Xr: Ragged, is_train: bool
-) -> Tuple[OutT, Callable[[OutT], Ragged]]:
+    model: Model[InT, OutT], Xr: InT, is_train: bool
+) -> Tuple[OutT, Callable[[OutT], InT]]:
     Y, lasts = model.ops.reduce_last(cast(Floats2d, Xr.data), Xr.lengths)
     array_info = ArrayInfo.from_array(Y)
 

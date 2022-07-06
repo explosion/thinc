@@ -11,14 +11,14 @@ OutT = Floats2d
 
 
 @registry.layers("reduce_first.v1")
-def reduce_first() -> Model[Ragged, OutT]:
+def reduce_first() -> Model[InT, OutT]:
     """Reduce ragged-formatted sequences to their first element."""
     return Model("reduce_first", forward)
 
 
 def forward(
-    model: Model[Ragged, OutT], Xr: Ragged, is_train: bool
-) -> Tuple[OutT, Callable[[OutT], Ragged]]:
+    model: Model[InT, OutT], Xr: InT, is_train: bool
+) -> Tuple[OutT, Callable[[OutT], InT]]:
     Y, starts_ends = model.ops.reduce_first(cast(Floats2d, Xr.data), Xr.lengths)
 
     array_info = ArrayInfo.from_array(Y)
