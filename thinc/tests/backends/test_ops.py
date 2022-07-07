@@ -64,6 +64,9 @@ def create_pytorch_funcs():
     def torch_sigmoid(x):
         return torch.sigmoid(x)
 
+    def torch_dish(x):
+        return 0.5 * x * (x / (1 + x * x).sqrt() + 1)
+
     # https://github.com/huggingface/transformers/blob/master/src/transformers/activations.py#L37
     def torch_gelu_approx(x):
         return (
@@ -89,6 +92,7 @@ def create_pytorch_funcs():
         ("swish", torch_swish),
         ("hard_swish", torch_hard_swish),
         ("hard_swish_mobilenet", torch_hard_swish_mobilenet),
+        ("dish", torch_dish),
         ("gelu_approx", torch_gelu_approx),
         ("gelu", torch_gelu),
         ("sigmoid", torch_sigmoid),
@@ -1043,6 +1047,7 @@ def test_mish(ops, X):
     "op",
     [
         "backprop_clipped_linear",
+        "backprop_dish",
         "backprop_gelu",
         "backprop_gelu_approx",
         "backprop_hard_sigmoid",
@@ -1156,6 +1161,16 @@ def test_hard_swish_mobilenet(ops, X):
 def test_gelu_approx(ops, X):
     X = ops.asarray(X)
     Y = ops.gelu_approx(X)
+    assert Y.shape == X.shape
+    assert not ops.xp.isnan(Y).any()
+
+
+@pytest.mark.parametrize("ops", ALL_OPS)
+@settings(max_examples=MAX_EXAMPLES, deadline=None)
+@given(X=strategies.arrays_BI())
+def test_dish(ops, X):
+    X = ops.asarray(X)
+    Y = ops.dish(X)
     assert Y.shape == X.shape
     assert not ops.xp.isnan(Y).any()
 

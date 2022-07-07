@@ -978,6 +978,35 @@ class Ops:
             return dY
         return dX * dY
 
+    def dish(self, X: FloatsType, inplace: bool = False) -> FloatsType:
+        tmp = X * X
+        tmp += 1.0
+        self.xp.sqrt(tmp, out=tmp)
+        tmp = X / tmp
+        tmp += 1
+        tmp *= 0.5
+        if inplace:
+            X *= tmp
+            return X
+        else:
+            return X * tmp
+
+    def backprop_dish(
+        self, dY: FloatsType, X: FloatsType, inplace: bool = False
+    ) -> FloatsType:
+        x_sq = X * X
+        x_sq_plus_one = x_sq + 1.0
+        deriv = X / self.xp.sqrt(x_sq_plus_one)
+        second = 0.5 * X * x_sq
+        second /= x_sq_plus_one**1.5
+        deriv -= second
+        deriv += 0.5
+        if inplace:
+            dY *= deriv
+            return dY
+        else:
+            return dY * deriv
+
     # Code snippet taken from:
     # https://www.johndcook.com/blog/2009/01/19/stand-alone-error-function-erf/
     def erf(self, X: FloatsType) -> FloatsType:
