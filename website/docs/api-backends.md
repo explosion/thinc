@@ -937,7 +937,7 @@ Backpropagate the Swish activation
 
 </inline-list>
 
-Dish or "Daniel's Swish-like activation" is an activation function with a
+Dish or "Daniël's Swish-like activation" is an activation function with a
 similar shape to Swish or GELU. However, Dish does not rely on elementary
 functions like `exp` or `erf`, making it much [faster to
 compute](https://twitter.com/danieldekok/status/1484898130441166853) in most
