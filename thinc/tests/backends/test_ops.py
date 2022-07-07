@@ -1384,7 +1384,7 @@ def test_compare_activations_to_torch(ops, dtype, x, dY, torch_func):
     y_think_inplace = forward(x_thinc, inplace=True)
     assert y_think_inplace is x_thinc
     assert ops.xp.isclose(y_thinc, y_think_inplace, atol=1e-06)
-    assert ops.xp.isclose(y_thinc, y.detach(), atol=1e-06)
+    assert ops.xp.isclose(y_thinc, y.detach(), atol=1e-05)
     x_thinc = ops.asarray([x], dtype=dtype)
     dY_thinc = ops.asarray([dY], dtype=dtype)
     dY_thinc_inplace = dY_thinc.copy()
