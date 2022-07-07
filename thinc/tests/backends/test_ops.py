@@ -1365,8 +1365,8 @@ def test_ngrams():
 @pytest.mark.parametrize("dtype", ["float32", "float64"])
 @pytest.mark.parametrize("torch_func", TORCH_FUNCS)
 @settings(max_examples=MAX_EXAMPLES, deadline=None)
-@given(x=strategies.floats(min_value=-30, max_value=30))
-def test_compare_activations_to_torch(ops, dtype, x, torch_func):
+@given(x=strategies.floats(min_value=-30, max_value=30), dY=strategies.floats(min_value=-1, max_value=1))
+def test_compare_activations_to_torch(ops, dtype, x, dY, torch_func):
     import torch
 
     func_name, pytorch_func = torch_func
@@ -1386,7 +1386,7 @@ def test_compare_activations_to_torch(ops, dtype, x, torch_func):
     assert ops.xp.isclose(y_thinc, y_think_inplace, atol=1e-06)
     assert ops.xp.isclose(y_thinc, y.detach(), atol=1e-06)
     x_thinc = ops.asarray([x], dtype=dtype)
-    dY_thinc = ops.asarray([1.0], dtype=dtype)
+    dY_thinc = ops.asarray([dY], dtype=dtype)
     dY_thinc_inplace = dY_thinc.copy()
 
     s = inspect.signature(backward)
@@ -1401,7 +1401,7 @@ def test_compare_activations_to_torch(ops, dtype, x, torch_func):
         )
         assert dx_thinc_inplace is dY_thinc_inplace
         assert ops.xp.isclose(dx_thinc, dx_thinc_inplace)
-        assert ops.xp.isclose(x_torch.grad.item(), float(dx_thinc), atol=1e-06)
+        assert ops.xp.isclose(x_torch.grad.item() * dY, float(dx_thinc), atol=1e-06)
     elif params == {"Y", "dY"}:
         dx_thinc = backward(dY_thinc, Y=y_thinc)
         assert dx_thinc.dtype == x_thinc.dtype
@@ -1409,7 +1409,7 @@ def test_compare_activations_to_torch(ops, dtype, x, torch_func):
             dx_thinc,
             backward(dY=dY_thinc_inplace, Y=y_thinc, inplace=True),
         )
-        assert ops.xp.isclose(x_torch.grad.item(), float(dx_thinc), atol=1e-06)
+        assert ops.xp.isclose(x_torch.grad.item() * dY, float(dx_thinc), atol=1e-06)
     elif params == {"dY", "X"}:
         dx_thinc = backward(dY_thinc, X=x_thinc)
         assert dx_thinc.dtype == x_thinc.dtype
@@ -1417,7 +1417,7 @@ def test_compare_activations_to_torch(ops, dtype, x, torch_func):
             dx_thinc, backward(dY=dY_thinc_inplace, X=x_thinc, inplace=True)
         )
         assert ops.xp.isclose(
-            x_torch.grad.item(), float(backward(dY_thinc, X=x_thinc)), atol=1e-06
+            x_torch.grad.item() * dY, float(backward(dY_thinc, X=x_thinc)), atol=1e-06
         )
     else:
         raise NotImplementedError(

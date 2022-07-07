@@ -440,8 +440,8 @@ __global__ void backprop_dish(T* dX, const T* dY, const T* X, int N)
         T x = X[i];
         T x_sq = x * x;
         T x_sq_plus_one = x_sq + 1.0;
-        dX[i] = x/sqrt(x_sq_plus_one) - (0.5 * x * x_sq)
-            / pow(x_sq_plus_one, static_cast<T>(1.5)) + 0.5;
+        dX[i] = dY[i] * (x/sqrt(x_sq_plus_one) - (0.5 * x * x_sq)
+            / pow(x_sq_plus_one, static_cast<T>(1.5)) + 0.5);
     }
 }
 
