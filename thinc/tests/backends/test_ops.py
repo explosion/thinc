@@ -261,6 +261,7 @@ def test_maxout(ops, dtype, X):
     ops.xp.testing.assert_allclose(
         ops.xp.take_along_axis(X, ops.xp.expand_dims(which, -1), axis=-1),
         ops.xp.expand_dims(expected_best, -1),
+        atol=1e-10,
     )
 
 
@@ -814,6 +815,68 @@ def test_backprop_fails_with_incorrect_length(ops, dtype):
             ops.xp.arange(1, 7, dtype=dtype).reshape(2, 3),
             ops.xp.array([-1, 2], dtype="int32"),
         )
+
+
+@pytest.mark.parametrize("ops", ALL_OPS)
+@pytest.mark.parametrize("dtype", FLOAT_TYPES)
+def test_reduce_first(ops, dtype):
+    X = ops.asarray2f(
+        [[1.0, 6.0], [2.0, 7.0], [3.0, 8.0], [4.0, 9.0], [5.0, 10.0]], dtype=dtype
+    )
+    lengths = ops.asarray1i([3, 2])
+    Y, starts_ends = ops.reduce_first(X, lengths)
+    ops.xp.testing.assert_array_equal(starts_ends, ops.asarray1i([0, 3, 5]))
+    ops.xp.testing.assert_allclose(Y, [[1.0, 6.0], [4.0, 9.0]])
+
+    lengths = ops.asarray1i([3, 0, 2])
+    with pytest.raises(ValueError, match=r"all sequence lengths must be >= 0"):
+        ops.reduce_last(X, lengths)
+
+    lengths = ops.asarray1i([3, 2, 1])
+    with pytest.raises(IndexError, match=r"lengths must sum up to the number of rows"):
+        ops.reduce_last(X, lengths)
+
+
+@pytest.mark.parametrize("ops", ALL_OPS)
+@pytest.mark.parametrize("dtype", FLOAT_TYPES)
+def test_backprop_reduce_first(ops, dtype):
+    dY = ops.asarray2f([[1.0, 3.0], [2.0, 4.0]], dtype=dtype)
+    starts_ends = ops.asarray1i([0, 3, 5])
+    dX = ops.backprop_reduce_first(dY, starts_ends)
+    ops.xp.testing.assert_allclose(
+        dX, [[1.0, 3.0], [0.0, 0.0], [0.0, 0.0], [2.0, 4.0], [0.0, 0.0]]
+    )
+
+
+@pytest.mark.parametrize("ops", ALL_OPS)
+@pytest.mark.parametrize("dtype", FLOAT_TYPES)
+def test_reduce_last(ops, dtype):
+    X = ops.asarray2f(
+        [[1.0, 6.0], [2.0, 7.0], [3.0, 8.0], [4.0, 9.0], [5.0, 10.0]], dtype=dtype
+    )
+    lengths = ops.asarray1i([3, 2])
+    Y, lasts = ops.reduce_last(X, lengths)
+    ops.xp.testing.assert_array_equal(lasts, ops.asarray1i([2, 4]))
+    ops.xp.testing.assert_allclose(Y, [[3.0, 8.0], [5.0, 10.0]])
+
+    lengths = ops.asarray1i([3, 0, 2])
+    with pytest.raises(ValueError, match=r"all sequence lengths must be >= 0"):
+        ops.reduce_last(X, lengths)
+
+    lengths = ops.asarray1i([3, 2, 1])
+    with pytest.raises(IndexError, match=r"lengths must sum up to the number of rows"):
+        ops.reduce_last(X, lengths)
+
+
+@pytest.mark.parametrize("ops", ALL_OPS)
+@pytest.mark.parametrize("dtype", FLOAT_TYPES)
+def test_backprop_reduce_last(ops, dtype):
+    dY = ops.asarray2f([[1.0, 3.0], [2.0, 4.0]], dtype=dtype)
+    lasts = ops.asarray1i([2, 4])
+    dX = ops.backprop_reduce_last(dY, lasts)
+    ops.xp.testing.assert_allclose(
+        dX, [[0.0, 0.0], [0.0, 0.0], [1.0, 3.0], [0.0, 0.0], [2.0, 4.0]]
+    )
 
 
 @pytest.mark.parametrize("ops", ALL_OPS)
