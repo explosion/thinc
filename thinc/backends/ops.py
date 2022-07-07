@@ -979,7 +979,7 @@ class Ops:
         return dX * dY
 
     def dish(self, X: FloatsType, inplace: bool = False) -> FloatsType:
-        tmp = X * X
+        tmp = self.xp.square(X)
         tmp += 1.0
         self.xp.sqrt(tmp, out=tmp)
         tmp = X / tmp
@@ -994,7 +994,7 @@ class Ops:
     def backprop_dish(
         self, dY: FloatsType, X: FloatsType, inplace: bool = False
     ) -> FloatsType:
-        x_sq = X * X
+        x_sq = self.xp.square(X)
         x_sq_plus_one = x_sq + 1.0
         deriv = X / self.xp.sqrt(x_sq_plus_one)
         second = 0.5 * X * x_sq
