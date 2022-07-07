@@ -3,10 +3,18 @@ import numpy
 from hypothesis import given
 from thinc.api import get_width, Ragged, Padded
 from thinc.util import get_array_module, is_numpy_array, to_categorical
+from thinc.util import is_cupy_array
 from thinc.util import convert_recursive
 from thinc.types import ArgsKwargs
 
 from . import strategies
+
+ALL_XP = [numpy]
+try:
+    import cupy
+    ALL_XP.append(cupy)
+except ImportError:
+    pass
 
 
 @pytest.mark.parametrize(
@@ -39,11 +47,23 @@ def test_get_width_fail(obj):
         get_width(obj)
 
 
-def test_array_module_cpu_gpu_helpers():
-    xp = get_array_module(0)
-    assert hasattr(xp, "ndarray")
-    assert is_numpy_array(numpy.zeros((1, 2)))
-    assert not is_numpy_array((1, 2))
+@pytest.mark.parametrize("xp", ALL_XP)
+def test_array_module_cpu_gpu_helpers(xp):
+    error = ("Only numpy and cupy arrays are supported"
+             ", but found <class 'int'> instead. If "
+             "get_array_module module wasn't called "
+             "directly, this might indicate a bug in Thinc.")
+    with pytest.raises(ValueError, match=error):
+        get_array_module(0)
+    zeros = xp.zeros((1, 2))
+    xp_ = get_array_module(zeros)
+    assert xp_ == xp
+    if xp == numpy:
+        assert is_numpy_array(zeros)
+        assert not is_numpy_array((1, 2))
+    else:
+        assert is_cupy_array(zeros)
+        assert not is_cupy_array((1, 2))
 
 
 @given(

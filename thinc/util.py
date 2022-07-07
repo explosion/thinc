@@ -47,10 +47,17 @@ def get_torch_default_device() -> "torch.device":
 
 
 def get_array_module(arr):  # pragma: no cover
-    if is_cupy_array(arr):
+    if is_numpy_array(arr):
+        return numpy
+    elif is_cupy_array(arr):
         return cupy
     else:
-        return numpy
+        raise ValueError(
+            "Only numpy and cupy arrays are supported"
+            f", but found {type(arr)} instead. If "
+            "get_array_module module wasn't called "
+            "directly, this might indicate a bug in Thinc."
+        )
 
 
 def gpu_is_available():
