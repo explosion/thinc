@@ -726,22 +726,22 @@ class Ops:
             # To prevent overflows and help with regularization/numerical stability
             X = self.xp.clip(X, -20.0, 20.0, out=X)
             self.xp.exp(-X, out=X)
-            X += 1.0  # type: ignore[assignment]
-            X **= -1.0  # type: ignore[assignment]
-            return cast(FloatsXdT, X)
+            X += 1.0
+            X **= -1.0
+            return X
         else:
             X = self.xp.clip(X, -20.0, 20.0)
-            return cast(FloatsXdT, 1.0 / (1.0 + self.xp.exp(-X)))
+            return 1.0 / (1.0 + self.xp.exp(-X))
 
     def backprop_sigmoid(
         self, dY: FloatsXdT, Y: FloatsXdT, *, inplace: bool = False
     ) -> FloatsXdT:
         if inplace:
             self.dsigmoid(Y, inplace=True)
-            Y *= dY  # type: ignore
+            Y *= dY
             return Y
         else:
-            return dY * self.dsigmoid(Y, inplace=inplace)  # type: ignore
+            return dY * self.dsigmoid(Y, inplace=inplace)
 
     def dsigmoid(self, Y: FloatsXdT, *, inplace: bool = False) -> FloatsXdT:
         if inplace:
@@ -872,11 +872,11 @@ class Ops:
         inplace: bool = False,
     ) -> FloatsXdT:
         if inplace:
-            X *= slope  # type: ignore[assignment]
-            X += offset  # type: ignore[assignment]
-            return cast(FloatsXdT, self.xp.clip(X, min_val, max_val, out=X))
-        out = X * slope + offset  # type: ignore[assignment]
-        return cast(FloatsXdT, self.xp.clip(out, min_val, max_val))
+            X *= slope
+            X += offset
+            return self.xp.clip(X, min_val, max_val, out=X)
+        out = X * slope + offset
+        return self.xp.clip(out, min_val, max_val)
 
     def backprop_clipped_linear(
         self,
@@ -924,28 +924,28 @@ class Ops:
 
     def swish(self, X: FloatsXdT, inplace: bool = False) -> FloatsXdT:
         if inplace:
-            X *= self.sigmoid(X)  # type: ignore[operator, assignment]
-            return cast(FloatsXdT, X)
-        out = X * self.sigmoid(X)  # type: ignore[operator]
-        return cast(FloatsXdT, out)
+            X *= self.sigmoid(X)
+            return X
+        out = X * self.sigmoid(X)
+        return out
 
     def backprop_swish(
         self, dY: FloatsXdT, X: FloatsXdT, Y: FloatsXdT, inplace: bool = False
     ) -> FloatsXdT:
-        Y = Y + self.sigmoid(X) * (1 - Y)  # type: ignore[operator]
+        Y = Y + self.sigmoid(X) * (1 - Y)
         if inplace:
-            dY *= Y  # type: ignore[operator, assignment]
-            return cast(FloatsXdT, dY)
-        out = dY * Y  # type: ignore[operator]
-        return cast(FloatsXdT, out)
+            dY *= Y
+            return dY
+        out = dY * Y
+        return out
 
     # Following https://www.scitepress.org/Papers/2019/74696/74696.pdf
     def hard_swish(self, X: FloatsXdT, inplace: bool = False) -> FloatsXdT:
         if inplace:
-            X *= self.hard_sigmoid(X)  # type: ignore[operator, assignment]
-            return cast(FloatsXdT, X)
-        out = X * self.hard_sigmoid(X)  # type: ignore[operator]
-        return cast(FloatsXdT, out)
+            X *= self.hard_sigmoid(X)
+            return X
+        out = X * self.hard_sigmoid(X)
+        return out
 
     def backprop_hard_swish(
         self, dY: FloatsXdT, X: FloatsXdT, inplace: bool = False
@@ -1035,15 +1035,15 @@ class Ops:
         # GELU(x) = x · Φ(x)
         cdf = gaussian_cdf(self, X)
         if inplace:
-            X *= cdf  # type: ignore[operator, assignment]
+            X *= cdf
             return X
-        return X * cdf  # type: ignore[operator, return-value]
+        return X * cdf
 
     def backprop_gelu(
         self, dY: FloatsXdT, X: FloatsXdT, inplace: bool = False
     ) -> FloatsXdT:
         # GELU'(x) = Φ(x) + x · PDF(x)
-        dX = gaussian_cdf(self, X) + X * gaussian_pdf(self, X)  # type: ignore[operator]
+        dX = gaussian_cdf(self, X) + X * gaussian_pdf(self, X)
         if inplace:
             dY *= dX
             return dY
