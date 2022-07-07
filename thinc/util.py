@@ -236,7 +236,7 @@ def to_categorical(
     max_smooth = (n_classes - 1) / n_classes
     if n_classes > 1 and label_smoothing >= max_smooth:
         raise ValueError(
-            f"For {n_classes} number of classes "
+            f"For {n_classes} classes "
             "label_smoothing parameter has to be less than "
             f"{max_smooth}, but found {label_smoothing}."
         )
