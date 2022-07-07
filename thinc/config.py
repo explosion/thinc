@@ -2,7 +2,7 @@ from typing import Union, Dict, Any, Optional, List, Tuple, Callable, Type, Mapp
 from typing import Iterable, Sequence, cast
 from types import GeneratorType
 from dataclasses import dataclass
-from configparser import ConfigParser, ExtendedInterpolation, MAX_INTERPOLATION_DEPTH
+from configparser import ConfigParser, ExtendedInterpolation, MAX_INTERPOLATION_DEPTH, Error
 from configparser import InterpolationMissingOptionError, InterpolationSyntaxError
 from configparser import NoSectionError, NoOptionError, InterpolationDepthError
 from configparser import ParsingError
@@ -36,6 +36,41 @@ SECTION_PREFIX = "__SECTION__:"
 JSON_EXCEPTIONS = ("true", "false", "null")
 # Regex to detect whether a value contains a variable
 VARIABLE_RE = re.compile(r"\$\{[\w\.:]+\}")
+# Regex to extract parts of a section name. Most often, it only splits around
+# dots, but it also handles escaped strings (org."package.v1" -> ["org", "package.v1"])
+SECTION_PARTS_RE = re.compile(r"""
+    (?:\.|^)(?:              # a part is preceded by dot or start of string
+         "([^"']*)"(?=\.|$)  # part starting with " and ending after "
+        |'([^"']*)'(?=\.|$)  # part starting with ' and ending after '
+        |([^.]*)(?=\.|$)     # default case
+    )
+""", flags=re.VERBOSE)
+
+
+def get_section_parts(section):
+    last = 0
+    parts = []
+    for match in SECTION_PARTS_RE.finditer(section):
+        if match.start() != last:
+            raise SectionParsingError(section)
+        last = match.end()
+        parts.append(match.group(1) or match.group(2) or match.group(3))
+    if last != len(section):
+        raise SectionParsingError(section)
+    return parts
+
+
+class SectionParsingError(Error):
+    """Base class for ConfigParser exceptions."""
+
+    def __init__(self, section):
+        Error.__init__(self, "Could not parse section {}".format(repr(section)))
+
+    def __repr__(self):
+        return self.message
+
+    __str__ = __repr__
+
 
 
 class CustomInterpolation(ExtendedInterpolation):
@@ -205,12 +240,12 @@ class Config(dict):
         self._validate_sections(config)
         # Sort sections by depth, so that we can iterate breadth-first. This
         # allows us to check that we're not expanding an undefined block.
-        get_depth = lambda item: len(item[0].split("."))
+        get_depth = lambda item: len(get_section_parts(item[0]))
         for section, values in sorted(config.items(), key=get_depth):
             if section == "DEFAULT":
                 # Skip [DEFAULT] section so it doesn't cause validation error
                 continue
-            parts = section.split(".")
+            parts = get_section_parts(section)
             node = self
             for part in parts[:-1]:
                 if part == "*":
@@ -278,7 +313,7 @@ class Config(dict):
         if isinstance(value, str) and value.startswith(f'"{SECTION_PREFIX}'):
             value = try_load_json(value)
         if isinstance(value, str) and value.startswith(SECTION_PREFIX):
-            parts = value.replace(SECTION_PREFIX, "").split(".")
+            parts = get_section_parts(value.replace(SECTION_PREFIX, ""))
             result = self
             for item in parts:
                 try:
@@ -341,7 +376,7 @@ class Config(dict):
         """
         sort_map = {section: i for i, section in enumerate(self.section_order)}
         sort_key = lambda x: (
-            sort_map.get(x[0].split(".")[0], len(sort_map)),
+            sort_map.get(get_section_parts(x[0])[0], len(sort_map)),
             _mask_positional_args(x[0]),
         )
         return dict(sorted(data.items(), key=sort_key))
@@ -351,7 +386,7 @@ class Config(dict):
         err_title = "Error parsing config overrides"
         for key, value in overrides.items():
             err_msg = "not a section value that can be overwritten"
-            err = [{"loc": key.split("."), "msg": err_msg}]
+            err = [{"loc": get_section_parts(key), "msg": err_msg}]
             if "." not in key:
                 raise ConfigValidationError(errors=err, title=err_title)
             section, option = key.rsplit(".", 1)
@@ -399,7 +434,10 @@ class Config(dict):
         flattened = get_configparser(interpolate=interpolate)
         queue: List[Tuple[tuple, "Config"]] = [(tuple(), self)]
         for path, node in queue:
-            section_name = ".".join(path)
+            section_name = ".".join([
+                '"{}"'.format(part) if "." in part else part
+                for part in path
+            ])
             is_kwarg = path and path[-1] != "*"
             if is_kwarg and not flattened.has_section(section_name):
                 # Always create sections for non-'*' sections, not only if
@@ -463,7 +501,7 @@ def _mask_positional_args(name: str) -> List[Optional[str]]:
     """Create a section name representation that masks names
     of positional arguments to retain their order in sorts."""
 
-    stable_name = cast(List[Optional[str]], name.split("."))
+    stable_name = cast(List[Optional[str]], get_section_parts(name))
 
     # Remove names of sections that are a positional argument.
     for i in range(1, len(stable_name)):
@@ -981,7 +1019,7 @@ class registry(object):
     def _is_in_config(cls, prop: str, config: Union[Dict[str, Any], Config]):
         """Check whether a nested config property like "section.subsection.key"
         is in a given config."""
-        tree = prop.split(".")
+        tree = get_section_parts(prop)
         obj = dict(config)
         while tree:
             key = tree.pop(0)

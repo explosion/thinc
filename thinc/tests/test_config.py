@@ -82,6 +82,18 @@ warmup_steps = 10000
 total_steps = 100000
 """
 
+EXAMPLE_WITH_ESCAPED_SECTION_CFG = """
+["pipeline.with.dots.v1"]
+param = 0.5
+
+["pipeline.with.dots.v1".parser]
+name = "parser"
+factory = "parser"
+
+["pipeline.with.dots.v1".parser.'foo.bar']
+name = "foo"
+"""
+
 
 class my_registry(thinc.config.registry):
     cats = catalogue.create("thinc", "tests", "cats", entry_points=False)
@@ -311,6 +323,20 @@ def test_optimizer_config():
     cfg = Config().from_str(OPTIMIZER_CFG)
     optimizer = my_registry.resolve(cfg, validate=True)["optimizer"]
     assert optimizer.b1 == 0.9
+
+
+def test_config_with_escaped_section():
+    byte_string = EXAMPLE_WITH_ESCAPED_SECTION_CFG.encode("utf8")
+    cfg = Config().from_bytes(byte_string)
+
+    assert cfg['pipeline.with.dots.v1']["param"] == 0.5
+    assert cfg['pipeline.with.dots.v1']["parser"]["name"] == "parser"
+    assert cfg['pipeline.with.dots.v1']["parser"]["foo.bar"]["name"] == "foo"
+
+
+def test_config_with_escaped_section_to_str():
+    cfg = Config().from_str(EXAMPLE_WITH_ESCAPED_SECTION_CFG)
+    assert cfg.to_str().strip() == EXAMPLE_WITH_ESCAPED_SECTION_CFG.replace("'", '"').strip()
 
 
 def test_config_to_str():
