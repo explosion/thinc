@@ -52,7 +52,7 @@ def test_array_module_cpu_gpu_helpers(xp):
     error = ("Only numpy and cupy arrays are supported"
              ", but found <class 'int'> instead. If "
              "get_array_module module wasn't called "
-             "directly, this might mean a bug in Thinc.")
+             "directly, this might indicate a bug in Thinc.")
     with pytest.raises(ValueError, match=error):
         get_array_module(0)
     zeros = xp.zeros((1, 2))
