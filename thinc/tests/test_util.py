@@ -12,6 +12,7 @@ from . import strategies
 ALL_XP = [numpy]
 try:
     import cupy
+
     ALL_XP.append(cupy)
 except ImportError:
     pass
@@ -49,10 +50,12 @@ def test_get_width_fail(obj):
 
 @pytest.mark.parametrize("xp", ALL_XP)
 def test_array_module_cpu_gpu_helpers(xp):
-    error = ("Only numpy and cupy arrays are supported"
-             ", but found <class 'int'> instead. If "
-             "get_array_module module wasn't called "
-             "directly, this might indicate a bug in Thinc.")
+    error = (
+        "Only numpy and cupy arrays are supported"
+        ", but found <class 'int'> instead. If "
+        "get_array_module module wasn't called "
+        "directly, this might indicate a bug in Thinc."
+    )
     with pytest.raises(ValueError, match=error):
         get_array_module(0)
     zeros = xp.zeros((1, 2))
@@ -135,14 +138,10 @@ def test_to_categorical(label_smoothing):
     ):
         to_categorical(numpy.asarray([0, 0, 0]), label_smoothing=0.01),
 
-    with pytest.raises(
-        ValueError, match=r"label_smoothing parameter"
-    ):
+    with pytest.raises(ValueError, match=r"label_smoothing parameter"):
         to_categorical(numpy.asarray([0, 1, 2, 3, 4]), label_smoothing=0.8)
 
-    with pytest.raises(
-        ValueError, match=r"label_smoothing parameter"
-    ):
+    with pytest.raises(ValueError, match=r"label_smoothing parameter"):
         to_categorical(numpy.asarray([0, 1, 2, 3, 4]), label_smoothing=0.88)
 
 
