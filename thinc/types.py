@@ -316,7 +316,7 @@ class Floats1d(_Array1d, _Floats):
 
     @classmethod
     def __get_validators__(cls):
-        """Runtine validation for pydantic."""
+        """Runtime validation for pydantic."""
         yield lambda v: validate_array(v, ndim=1, dtype="f")
 
     def __iter__(self) -> Iterator[float]: ...
