@@ -1,9 +1,9 @@
-from typing import Tuple, Callable, Sequence
+from typing import Tuple, Callable, Sequence, cast
 from typing import Dict, Any, Union, Optional
 
 from ..model import Model
 from ..config import registry
-from ..types import Ints2d, DTypes, Array2d
+from ..types import Ints2d, DTypes, Array2d, Array1d
 from ..util import is_cupy_array, is_xp_array
 
 InT = Union[Sequence[Any], Array2d]
@@ -43,18 +43,20 @@ def forward(
     dtype = model.attrs["dtype"]
     column = model.attrs["column"]
     if column is not None:
+        inputs = cast(Array2d, inputs)
         inputs = inputs[:, column]
     # elements of cupy arrays are 0-dimensional arrays
     # not the integers stored in the original mapper.
-    if is_cupy_array(inputs) and inputs.dtype.kind == 'i':
-        inputs = map(int, inputs)
+    if is_cupy_array(inputs):  # type: ignore
+        if inputs.dtype.kind == 'i':  # type: ignore
+            inputs = map(int, inputs)  # type: ignore
     values = [table.get(x, default) for x in inputs]
     arr = model.ops.asarray2i(values, dtype=dtype)
     output = model.ops.reshape2i(arr, -1, 1)
 
     def backprop(dY: OutT) -> InT:
         if is_xp_array(inputs):
-            return model.ops.asarray([])
+            return model.ops.asarray([])  # type: ignore
         else:
             return []
 
