@@ -26,7 +26,7 @@ class CupyOps(Ops):
         **kwargs
     ) -> None:
         self.device_type = device_type
-        if device_id is None:
+        if device_id is None or device_id < 0:
             device_id = self.xp.cuda.runtime.getDevice()
         self.device_id = device_id
 

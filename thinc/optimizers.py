@@ -222,31 +222,32 @@ class Optimizer(object):
         if len(gradient) < 1:
             return weights, gradient
         ops = get_array_ops(weights)
-        self.nr_update[key] += 1
-        nr_upd = self.nr_update[key]
-        if self.L2 != 0 and not self.L2_is_weight_decay:
-            gradient += self.L2 * weights
-        if self.grad_clip:
-            gradient = ops.clip_gradient(gradient, self.grad_clip)
-        if self.use_radam:
-            weights, gradient = self._radam(
-                ops, weights, gradient, lr_scale, key, nr_upd
-            )
-        elif self.b1 > 0.0 and self.b2 > 0.0:
-            weights, gradient = self._adam(
-                ops, weights, gradient, lr_scale, key, nr_upd
-            )
-        elif self.b2 > 0.0:  # pragma: no cover
-            raise NotImplementedError  # TODO: error message
-        else:
-            weights -= lr_scale * self.learn_rate * gradient
-        gradient *= 0
-        if self.L2 != 0 and self.L2_is_weight_decay:
-            weights -= lr_scale * self.learn_rate * self.L2 * weights
-        if self.averages is not None:
-            if key not in self.averages:
-                self.averages[key] = ops.alloc(weights.shape, dtype="float32")
-            ops.update_averages(self.averages[key], weights, nr_upd)
+        with ops.context():
+            self.nr_update[key] += 1
+            nr_upd = self.nr_update[key]
+            if self.L2 != 0 and not self.L2_is_weight_decay:
+                gradient += self.L2 * weights
+            if self.grad_clip:
+                gradient = ops.clip_gradient(gradient, self.grad_clip)
+            if self.use_radam:
+                weights, gradient = self._radam(
+                    ops, weights, gradient, lr_scale, key, nr_upd
+                )
+            elif self.b1 > 0.0 and self.b2 > 0.0:
+                weights, gradient = self._adam(
+                    ops, weights, gradient, lr_scale, key, nr_upd
+                )
+            elif self.b2 > 0.0:  # pragma: no cover
+                raise NotImplementedError  # TODO: error message
+            else:
+                weights -= lr_scale * self.learn_rate * gradient
+            gradient *= 0
+            if self.L2 != 0 and self.L2_is_weight_decay:
+                weights -= lr_scale * self.learn_rate * self.L2 * weights
+            if self.averages is not None:
+                if key not in self.averages:
+                    self.averages[key] = ops.alloc(weights.shape, dtype="float32")
+                ops.update_averages(self.averages[key], weights, nr_upd)
         return weights, gradient
 
     def _radam(self, ops, weights, grad, lr_scale, key, nr_upd):

@@ -112,7 +112,7 @@ def set_backend(name, gpu_id):
         if gpu_id == -1:
             set_current_ops(NumpyOps(use_blis=True))
         else:
-            set_current_ops(CupyOps())
+            set_current_ops(CupyOps(device_id=gpu_id))
         if name == "pytorch":
             import torch
 

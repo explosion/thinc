@@ -98,7 +98,7 @@ class Ops:
         # return our SizedGenerator object, which provides a __len__.
         def _iter_items():
             if shuffle:
-                numpy.random.shuffle(indices)
+                self.xp.random.shuffle(indices)
             queue = []
             i = 0
             for size in sizes:

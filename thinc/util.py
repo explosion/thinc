@@ -195,7 +195,7 @@ def require_gpu(gpu_id: int = 0) -> bool:  # pragma: no cover
         raise ValueError("No GPU devices detected")
 
     if has_cupy_gpu:
-        set_current_ops(CupyOps())
+        set_current_ops(CupyOps(device_id=gpu_id))
         set_active_gpu(gpu_id)
     else:
         set_current_ops(MPSOps())

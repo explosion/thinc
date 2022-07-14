@@ -510,7 +510,7 @@ class Model(Generic[InT, OutT]):
         import cupy.cuda.device
 
         with cupy.cuda.device.Device(gpu_id):
-            self._to_ops(CupyOps())
+            self._to_ops(CupyOps(device_id=gpu_id))
 
     def to_cpu(self) -> None:  # pragma: no cover
         """Transfer the model to CPU."""
