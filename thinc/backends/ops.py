@@ -1,4 +1,6 @@
 import math
+from contextlib import contextmanager
+from functools import wraps
 
 from typing import Optional, List, Tuple, Sequence, Union, cast, TypeVar
 from typing import Iterator, overload
@@ -21,6 +23,15 @@ SQRT2PI = math.sqrt(2.0 / math.pi)
 INV_SQRT2 = 1.0 / math.sqrt(2.0)
 INV_SQRT_2PI = 1.0 / math.sqrt(2.0 * math.pi)
 
+def contextmethod(f):
+    # Run a class method inside a ``with self.context()`` block.
+    #
+    @wraps(f)
+    def wrapper(self, *args, **kwds):
+        with self.context():
+            return f(self, *args, **kwds)
+    return wrapper
+
 
 class Ops:
     name: str = "base"
@@ -31,6 +42,11 @@ class Ops:
     ) -> None:
         self.device_type = device_type
         self.device_id = device_id
+
+    @contextmanager
+    def context(self):
+        # Dummy context for compatibility with CupyOps.context()
+        yield self
 
     def cblas(self) -> CBlas:
         """Return C BLAS function table."""
@@ -46,6 +62,7 @@ class Ops:
         else:
             raise ValueError("Cannot convert non-numpy from base Ops class")
 
+    @contextmethod
     def minibatch(
         self,
         size: Union[int, Generator],
@@ -74,7 +91,7 @@ class Ops:
         sizes = self._get_batch_sizes(
             len(sequence), itertools.repeat(size) if isinstance(size, int) else size
         )
-        indices = numpy.arange(len(sequence))
+        indices = self.xp.arange(len(sequence))
 
         # This is a bit convoluted, but it's a time where convenience makes
         # trickery worthwhile: instead of being an actual generator, we
@@ -95,6 +112,7 @@ class Ops:
 
         return SizedGenerator(_iter_items, len(sizes))
 
+    @contextmethod
     def multibatch(
         self,
         size: Union[int, Generator],
@@ -116,7 +134,7 @@ class Ops:
         sizes = self._get_batch_sizes(
             len(sequence), itertools.repeat(size) if isinstance(size, int) else size
         )
-        indices = numpy.arange(len(sequence))
+        indices = self.xp.arange(len(sequence))
 
         def _iter_items():
             if shuffle:
@@ -137,6 +155,7 @@ class Ops:
 
         return SizedGenerator(_iter_items, len(sizes))
 
+    @contextmethod
     def _get_batch(self, sequence, indices):
         if isinstance(sequence, list):
             subseq = [sequence[i] for i in indices]
@@ -176,6 +195,7 @@ class Ops:
         cols[:-nW, nW + 1 :] = self.reshape3f(seq[nW:], -1, nW, I)
         return self.reshape2f(cols, B, I * (2 * nW + 1))
 
+    @contextmethod
     def backprop_seq2col(
         self, dY: Floats2d, nW: int, *, lengths: Optional[Ints1d] = None
     ) -> Floats2d:
@@ -197,6 +217,7 @@ class Ops:
         dX[nW:] += self.reshape2f(dY3d[:-nW, nW + 1 :], -1, I)
         return dX
 
+    @contextmethod
     def gemm(
         self,
         x: Floats2d,
@@ -218,9 +239,11 @@ class Ops:
             self.xp.dot(x, y, out=out)
             return out
 
+    @contextmethod
     def tile(self, X: Floats2d, reps: int) -> Floats2d:
         return self.xp.tile(X, reps)
 
+    @contextmethod
     def affine(self, X: Floats2d, W: Floats2d, b: Floats1d) -> Floats2d:
         """Apply a weights layer and a bias to some inputs, i.e.
         Y = X @ W.T + b
@@ -281,6 +304,7 @@ class Ops:
     ) -> ArrayXd:
         ...
 
+    @contextmethod
     def flatten(
         self,
         X: Sequence[ArrayXd],
@@ -326,6 +350,7 @@ class Ops:
     def unflatten(self, X: ArrayXd, lengths: Ints1d, pad: int = 0) -> ListXd:
         ...
 
+    @contextmethod
     def unflatten(self, X: ArrayXd, lengths: Ints1d, pad: int = 0) -> ListXd:
         """The reverse/backward operation of the `flatten` function: unflatten
         a large array into a list of arrays according to the given lengths.
@@ -442,6 +467,7 @@ class Ops:
             unpadded[indices[i]] = data[i, : int(lengths[i])]
         return cast(List2d, unpadded)
 
+    @contextmethod
     def get_dropout_mask(self, shape: Shape, drop: Optional[float]) -> FloatsXd:
         """Create a random mask for applying dropout, with a certain percent of
         the mask (defined by `drop`) will contain zeros. The neurons at those
@@ -558,6 +584,7 @@ class Ops:
     ) -> IntsXd:
         return self.alloc(shape, dtype=dtype, zeros=zeros)
 
+    @contextmethod
     def alloc(
         self,
         shape: Shape,
@@ -618,6 +645,7 @@ class Ops:
     def reshape_i(self, array: IntsXd, shape: Shape) -> IntsXd:
         return self.reshape(array, shape)
 
+    @contextmethod
     def reshape(self, array: ArrayT, shape: Shape) -> ArrayT:
         """Reshape an array."""
         if isinstance(shape, int):
@@ -689,6 +717,7 @@ class Ops:
     ) -> IntsXd:
         return cast(IntsXd, self.asarray(data, dtype=dtype))
 
+    @contextmethod
     def asarray(
         self,
         data: Union[ArrayXd, Sequence[ArrayXd], Sequence[float], Sequence[int]],
@@ -697,12 +726,7 @@ class Ops:
     ) -> ArrayXd:
         """Ensure a given array is of the correct type."""
         if isinstance(data, self.xp.ndarray):
-            if dtype is None:
-                return data
-            elif data.dtype == dtype:
-                return data
-            else:
-                return self.xp.asarray(data, dtype=dtype)
+            return self.xp.asarray(data, dtype=dtype)
         elif hasattr(data, "numpy"):
             # Handles PyTorch Tensor
             return data.numpy()  # type: ignore[union-attr]
@@ -711,6 +735,7 @@ class Ops:
         else:
             return self.xp.array(data)
 
+    @contextmethod
     def as_contig(self, data: ArrayT, dtype: Optional[DTypes] = None) -> ArrayT:
         """Allow the backend to make a contiguous copy of an array.
         Implementations of `Ops` do not have to make a copy or make it
@@ -721,6 +746,7 @@ class Ops:
         kwargs = {"dtype": dtype} if dtype is not None else {}
         return self.xp.ascontiguousarray(data, **kwargs)
 
+    @contextmethod
     def sigmoid(self, X: FloatsType, *, inplace: bool = False) -> FloatsType:
         if inplace:
             # To prevent overflows and help with regularization/numerical stability
@@ -733,6 +759,7 @@ class Ops:
             X = self.xp.clip(X, -20.0, 20.0)
             return cast(FloatsType, 1.0 / (1.0 + self.xp.exp(-X)))
 
+    @contextmethod
     def backprop_sigmoid(
         self, dY: FloatsType, Y: FloatsType, *, inplace: bool = False
     ) -> FloatsType:
@@ -743,6 +770,7 @@ class Ops:
         else:
             return dY * self.dsigmoid(Y, inplace=inplace)  # type: ignore
 
+    @contextmethod
     def dsigmoid(self, Y: FloatsType, *, inplace: bool = False) -> FloatsType:
         if inplace:
             Y *= 1 - Y
@@ -750,6 +778,7 @@ class Ops:
         else:
             return Y * (1.0 - Y)
 
+    @contextmethod
     def dtanh(self, Y: FloatsT, *, inplace: bool = False) -> FloatsT:
         if inplace:
             Y **= 2
@@ -759,6 +788,7 @@ class Ops:
         else:
             return 1 - Y**2
 
+    @contextmethod
     def softmax(
         self,
         x: FloatsT,
@@ -775,6 +805,7 @@ class Ops:
         new_x /= new_x.sum(axis=axis, keepdims=True)
         return new_x
 
+    @contextmethod
     def softmax_sequences(
         self, Xs: Floats2d, lengths: Ints1d, *, inplace: bool = False, axis: int = -1
     ) -> Floats2d:
@@ -788,6 +819,7 @@ class Ops:
         new_x /= summed
         return new_x
 
+    @contextmethod
     def backprop_softmax(
         self, Y: FloatsT, dY: FloatsT, *, axis: int = -1, temperature: float = 1.0
     ) -> FloatsT:
@@ -798,6 +830,7 @@ class Ops:
         dX -= Y * dX.sum(axis=axis, keepdims=True)
         return dX
 
+    @contextmethod
     def backprop_softmax_sequences(
         self, dY: Floats2d, Y: Floats2d, lengths: Ints1d
     ) -> Floats2d:
@@ -806,6 +839,7 @@ class Ops:
         dX -= Y * sum_dX
         return dX
 
+    @contextmethod
     def lstm_forward_training(
         self,
         params: Floats1d,
@@ -819,6 +853,7 @@ class Ops:
         Y, fwd_state = lstm_forward_training(params, H0, C0, X, size_at_t)
         return Y, fwd_state
 
+    @contextmethod
     def lstm_forward_inference(
         self,
         params: Floats1d,
@@ -830,16 +865,19 @@ class Ops:
         Y, _ = lstm_forward_training(params, H0, C0, X, size_at_t)
         return Y
 
+    @contextmethod
     def backprop_lstm(
         self, dY: Floats2d, lengths: Ints1d, params: Floats1d, fwd_state: Tuple
     ) -> Tuple[Floats2d, Floats1d]:
         dX, d_params = backprop_lstm(dY, lengths, params, fwd_state)
         return dX, d_params
 
+    @contextmethod
     def maxout(self, X: Floats3d) -> Tuple[Floats2d, Ints2d]:
         which = X.argmax(axis=-1)
         return X.max(axis=-1), which
 
+    @contextmethod
     def backprop_maxout(self, dY: Floats2d, which: Ints2d, P: int) -> Floats3d:
         dX = self.alloc3f(dY.shape[0], dY.shape[1], P, dtype=dY.dtype)
         for b in range(dY.shape[0]):
@@ -847,6 +885,7 @@ class Ops:
                 dX[b, o, which[b, o]] = dY[b, o]
         return dX
 
+    @contextmethod
     def relu(self, X: Floats2d, inplace: bool = False) -> Floats2d:
         if not inplace:
             return X * (X > 0)
@@ -854,6 +893,7 @@ class Ops:
             X *= X > 0
             return X
 
+    @contextmethod
     def backprop_relu(
         self, dY: Floats2d, Y: Floats2d, inplace: bool = False
     ) -> Floats2d:
@@ -862,6 +902,7 @@ class Ops:
         dY *= Y > 0
         return dY
 
+    @contextmethod
     def clipped_linear(
         self,
         X: FloatsType,
@@ -878,6 +919,7 @@ class Ops:
         out = X * slope + offset  # type: ignore[assignment]
         return cast(FloatsType, self.xp.clip(out, min_val, max_val))
 
+    @contextmethod
     def backprop_clipped_linear(
         self,
         dY: FloatsType,
@@ -898,32 +940,39 @@ class Ops:
             return dY
         return dY * dX
 
+    @contextmethod
     def relu_k(
         self, X: FloatsType, n: float = 6.0, inplace: bool = False
     ) -> FloatsType:
         return self.clipped_linear(X, max_val=n, inplace=inplace)
 
+    @contextmethod
     def backprop_relu_k(
         self, dY: FloatsType, X: FloatsType, n: float = 6.0, inplace: bool = False
     ) -> FloatsType:
         return self.backprop_clipped_linear(dY, X, max_val=n, inplace=inplace)
 
+    @contextmethod
     def hard_sigmoid(self, X: FloatsType, inplace: bool = False) -> FloatsType:
         return self.clipped_linear(X, slope=0.2, offset=0.5, inplace=inplace)
 
+    @contextmethod
     def backprop_hard_sigmoid(
         self, dY: FloatsType, X: FloatsType, inplace: bool = False
     ) -> FloatsType:
         return self.backprop_clipped_linear(dY, X, slope=0.2, offset=0.5)
 
+    @contextmethod
     def hard_tanh(self, X: FloatsType, inplace: bool = False) -> FloatsType:
         return self.clipped_linear(X, min_val=-1.0, max_val=1.0, inplace=inplace)
 
+    @contextmethod
     def backprop_hard_tanh(
         self, dY: FloatsType, X: FloatsType, inplace: bool = False
     ) -> FloatsType:
         return self.backprop_clipped_linear(dY, X, min_val=-1.0, max_val=1.0)
 
+    @contextmethod
     def swish(self, X: FloatsType, inplace: bool = False) -> FloatsType:
         if inplace:
             X *= self.sigmoid(X)  # type: ignore[operator, assignment]
@@ -931,6 +980,7 @@ class Ops:
         out = X * self.sigmoid(X)  # type: ignore[operator]
         return cast(FloatsType, out)
 
+    @contextmethod
     def backprop_swish(
         self, dY: FloatsType, X: FloatsType, Y: FloatsType, inplace: bool = False
     ) -> FloatsType:
@@ -942,6 +992,7 @@ class Ops:
         return cast(FloatsType, out)
 
     # Following https://www.scitepress.org/Papers/2019/74696/74696.pdf
+    @contextmethod
     def hard_swish(self, X: FloatsType, inplace: bool = False) -> FloatsType:
         if inplace:
             X *= self.hard_sigmoid(X)  # type: ignore[operator, assignment]
@@ -949,6 +1000,7 @@ class Ops:
         out = X * self.hard_sigmoid(X)  # type: ignore[operator]
         return cast(FloatsType, out)
 
+    @contextmethod
     def backprop_hard_swish(
         self, dY: FloatsType, X: FloatsType, inplace: bool = False
     ) -> FloatsType:
@@ -961,12 +1013,14 @@ class Ops:
         return dY * dX
 
     # From https://arxiv.org/pdf/1905.02244v5.pdf
+    @contextmethod
     def hard_swish_mobilenet(self, X: FloatsType, inplace: bool = False) -> FloatsType:
         if inplace:
             X *= self.relu_k(X + 3) / 6
             return X
         return X * (self.relu_k(X + 3) / 6)
 
+    @contextmethod
     def backprop_hard_swish_mobilenet(
         self, dY: FloatsType, X: FloatsType, inplace: bool = False
     ) -> FloatsType:
@@ -980,6 +1034,7 @@ class Ops:
 
     # Code snippet taken from:
     # https://www.johndcook.com/blog/2009/01/19/stand-alone-error-function-erf/
+    @contextmethod
     def erf(self, X: FloatsType) -> FloatsType:
         # save the sign of x
         sign = self.xp.sign(X)
@@ -1000,11 +1055,13 @@ class Ops:
         out = out.astype(X.dtype)
         return out
 
+    @contextmethod
     def sechsq(self, X: FloatsType) -> FloatsType:
         # Avoid overflow in cosh. Clipping at |20| has an error of 1.7e-17.
         X = self.xp.clip(X, -20.0, 20.0)
         return (1 / self.xp.cosh(X)) ** 2
 
+    @contextmethod
     def gelu_approx(self, X: FloatsType, inplace: bool = False) -> FloatsType:
         tmp = 1.0 + self.xp.tanh(SQRT2PI * (X + 0.044715 * self.xp.power(X, 3)))
         tmp *= 0.5
@@ -1017,6 +1074,7 @@ class Ops:
             Y *= tmp
             return Y
 
+    @contextmethod
     def backprop_gelu_approx(
         self, dY: FloatsType, X: FloatsType, inplace: bool = False
     ) -> FloatsType:
@@ -1033,6 +1091,7 @@ class Ops:
             return dY
         return dY * dX
 
+    @contextmethod
     def gelu(self, X: FloatsType, inplace: bool = False) -> FloatsType:
         # GELU(x) = x · Φ(x)
         cdf = gaussian_cdf(self, X)
@@ -1041,6 +1100,7 @@ class Ops:
             return X
         return X * cdf  # type: ignore[operator, return-value]
 
+    @contextmethod
     def backprop_gelu(
         self, dY: FloatsType, X: FloatsType, inplace: bool = False
     ) -> FloatsType:
@@ -1051,6 +1111,7 @@ class Ops:
             return dY
         return dY * dX
 
+    @contextmethod
     def mish(
         self, X: FloatsType, threshold: float = 20.0, inplace: bool = False
     ) -> FloatsType:
@@ -1062,6 +1123,7 @@ class Ops:
         else:
             return Y
 
+    @contextmethod
     def backprop_mish(
         self,
         dY: FloatsType,
@@ -1093,6 +1155,7 @@ class Ops:
         out[indices] = dXsub
         return out
 
+    @contextmethod
     def update_averages(
         self, ema: FloatsT, weights: FloatsT, t: int, max_decay: float = 0.9999
     ) -> None:
@@ -1102,6 +1165,7 @@ class Ops:
             decay = max_decay
         ema -= (1 - decay) * (ema - weights)
 
+    @contextmethod
     def adam(
         self,
         weights: Floats1d,
@@ -1128,6 +1192,7 @@ class Ops:
         weights -= learn_rate * (mom1 / (mod_rate * self.xp.sqrt(mom2) + eps))
         return weights, gradient, mom1, mom2
 
+    @contextmethod
     def clip_gradient(self, gradient: FloatsT, threshold: float) -> FloatsT:
         # Internals for optimizer
         xp = get_array_module(gradient)
@@ -1136,12 +1201,14 @@ class Ops:
             gradient *= threshold / grad_norm
         return gradient
 
+    @contextmethod
     def logloss(self, y_true: FloatsT, y_pred: FloatsT) -> float:
         # Currently not used
         log_yp = self.xp.log(y_pred + 1e-8)
         loss = (y_true * log_yp) + (1 - y_true) * self.xp.log((1 - y_pred) + 1e-8)
         return -loss
 
+    @contextmethod
     def reduce_sum(self, X: Floats2d, lengths: Ints1d) -> Floats2d:
         Y = self.alloc2f(lengths.shape[0], X.shape[1], zeros=False)
         start = 0
@@ -1157,6 +1224,7 @@ class Ops:
                 Y[i] = 0.0
         return Y
 
+    @contextmethod
     def reduce_first(self, X: Floats2d, lengths: Ints1d) -> Tuple[Floats2d, Ints1d]:
         if lengths.size == 0:
             return self.alloc2f(0, X.shape[1]), lengths
@@ -1170,6 +1238,7 @@ class Ops:
 
         return X[starts_ends[:-1]], starts_ends
 
+    @contextmethod
     def reduce_last(self, X: Floats2d, lengths: Ints1d) -> Tuple[Floats2d, Ints1d]:
         if lengths.size == 0:
             return self.alloc2f(0, X.shape[1]), lengths
@@ -1180,6 +1249,7 @@ class Ops:
             raise IndexError("lengths must sum up to the number of rows")
         return X[lasts], lasts
 
+    @contextmethod
     def reduce_mean(self, X: Floats2d, lengths: Ints1d) -> Floats2d:
         Y = self.alloc2f(lengths.shape[0], X.shape[1], zeros=False)
         start = 0
@@ -1195,6 +1265,7 @@ class Ops:
             start += length
         return Y
 
+    @contextmethod
     def reduce_max(self, X: Floats2d, lengths: Ints1d) -> Tuple[Floats2d, Ints2d]:
         Y = self.alloc2f(lengths.shape[0], X.shape[1], dtype=X.dtype, zeros=False)
         which = self.alloc2i(lengths.shape[0], X.shape[1], zeros=False)
@@ -1210,6 +1281,7 @@ class Ops:
             start += length
         return Y, which
 
+    @contextmethod
     def backprop_reduce_first(
         self, d_firsts: Floats2d, starts_ends: Ints1d
     ) -> Floats2d:
@@ -1221,6 +1293,7 @@ class Ops:
         dX[starts_ends[:-1]] = d_firsts
         return dX
 
+    @contextmethod
     def backprop_reduce_last(self, d_lasts: Floats2d, lasts: Ints1d) -> Floats2d:
         if lasts.size < 1:
             raise ValueError(f"lasts should least have size 2")
@@ -1230,6 +1303,7 @@ class Ops:
         dX[lasts] = d_lasts
         return dX
 
+    @contextmethod
     def backprop_reduce_sum(self, d_sums: Floats2d, lengths: Ints1d) -> Floats2d:
         dX = self.alloc2f(
             lengths.sum(), d_sums.shape[1], dtype=d_sums.dtype, zeros=False
@@ -1242,6 +1316,7 @@ class Ops:
             start += length
         return dX
 
+    @contextmethod
     def backprop_reduce_mean(self, d_means: Floats2d, lengths: Ints1d) -> Floats2d:
         dX = self.alloc2f(
             lengths.sum(), d_means.shape[1], dtype=d_means.dtype, zeros=False
@@ -1254,6 +1329,7 @@ class Ops:
             start += length
         return dX
 
+    @contextmethod
     def backprop_reduce_max(
         self, d_maxes: Floats2d, which: Ints2d, lengths: Ints1d
     ) -> Floats2d:
@@ -1297,14 +1373,17 @@ class Ops:
         numpy_ops = NumpyOps()
         return self.asarray2f(numpy_ops.position_encode(N, D, period, out))
 
+    @contextmethod
     def gather_add(self, table: Floats2d, indices: Ints2d) -> Floats2d:
         return table[indices].sum(axis=1)  # type: ignore[return-value]
 
+    @contextmethod
     def scatter_add(
         self, table: FloatsXd, indices: IntsXd, values: FloatsXd
     ) -> FloatsXd:
         return self.xp.add.at(table, indices, values)
 
+    @contextmethod
     def insert_into(self, shape, Xs):
         """Maybe don't need this? Just a quicky to get Jax working."""
         output = self.alloc(shape, dtype=Xs[0].dtype)
@@ -1600,6 +1679,8 @@ def backprop_lstm_gates(
 
 def sigmoid(X, out=None):
     xp = get_array_module(X)
+    if xp != numpy:
+        print("Warning: device context lost when calculating sigmoid.")
 
     # To prevent overflows and help with regularization/numerical stability
     X = xp.clip(X, -20.0, 20.0)
@@ -1607,21 +1688,27 @@ def sigmoid(X, out=None):
 
 
 def dsigmoid(Y: ArrayT) -> ArrayT:
+    if get_array_module(Y) != numpy:
+        print("Warning: device context lost when calculating dsigmoid.")
     return Y * (1.0 - Y)
 
 
 def dtanh(Y: ArrayT) -> ArrayT:
+    if get_array_module(Y) != numpy:
+        print("Warning: device context lost when calculating dtanh.")
     return 1 - Y**2
 
 
 def gaussian_cdf(ops: Ops, X: FloatsType) -> FloatsType:
     """Gaussian CDF for distribution with mean 0 and stdev 1."""
-    return 0.5 * (1.0 + ops.erf(INV_SQRT2 * X))
+    with ops.context():
+        return 0.5 * (1.0 + ops.erf(INV_SQRT2 * X))
 
 
 def gaussian_pdf(ops: Ops, X: FloatsType) -> FloatsType:
     """Gaussian PDF for distribution with mean 0 and stdev 1."""
-    return INV_SQRT_2PI * ops.xp.exp(-0.5 * X * X)
+    with ops.context():
+        return INV_SQRT_2PI * ops.xp.exp(-0.5 * X * X)
 
 
 def _check_compatible_shape(u: FloatsXd, v: FloatsXd):

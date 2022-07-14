@@ -1,6 +1,9 @@
+from contextlib import contextmanager
+from typing import Optional
+
 import numpy
 from .. import registry
-from .ops import Ops
+from .ops import Ops, contextmethod
 from .numpy_ops import NumpyOps
 from . import _custom_kernels
 from ..types import DeviceTypes
@@ -17,10 +20,27 @@ class CupyOps(Ops):
     _xp2 = cupyx
 
     def __init__(
-        self, device_type: DeviceTypes = "gpu", device_id: int = 0, **kwargs
+        self,
+        device_type: DeviceTypes = "gpu",
+        device_id: Optional[int] = None,
+        **kwargs
     ) -> None:
         self.device_type = device_type
+        if device_id is None:
+            device_id = self.xp.cuda.runtime.getDevice()
         self.device_id = device_id
+
+    @contextmanager
+    def context(self):
+        """Create a context placing Cupy operations on a specific GPU.
+        used as:
+
+        >>> ops = CupyOps(device_id=1)
+        >>> with ops.context():
+        >>>     x = ops.xp.zeros((4,10)) + ops.xp.arange(10)
+        """
+        with self.xp.cuda.Device(self.device_id) as ctxt:
+            yield ctxt
 
     def to_numpy(self, data, *, byte_order=None):
         if not isinstance(data, numpy.ndarray):
@@ -30,24 +50,28 @@ class CupyOps(Ops):
             data = numpy.asarray(data, dtype=dtype)
         return data
 
+    @contextmethod
     def gather_add(self, table, indices):
         if table.dtype in ("float32", "float64"):
             return _custom_kernels.gather_add(table, indices)
         else:
             return super().gather_add(table, indices)
 
+    @contextmethod
     def gelu(self, X, inplace=False):
         if X.dtype in ("float32", "float64"):
             return _custom_kernels.gelu(X, inplace=inplace, threshold=6.0)
         else:
             return super().gelu(X, inplace=inplace)
 
+    @contextmethod
     def backprop_gelu(self, dY, X, inplace=False):
         if X.dtype == dY.dtype and X.dtype in ("float32", "float64"):
             return _custom_kernels.backprop_gelu(dY, X, inplace=inplace, threshold=6.0)
         else:
             return super().backprop_gelu(dY, X, inplace=inplace)
 
+    @contextmethod
     def gemm(self, x, y, out=None, trans1=False, trans2=False):
         if isinstance(x, numpy.ndarray) or isinstance(y, numpy.ndarray):
             raise ValueError(
@@ -64,10 +88,11 @@ class CupyOps(Ops):
             self.xp.dot(x, y, out=out)
             return out
 
+    @contextmethod
     def asarray(self, data, dtype=None):
         # We'll try to perform a zero-copy conversion if possible.
         if is_cupy_array(data):
-            array = data
+            return self.xp.asarray(data, dtype)
         elif is_torch_cuda_array(data):
             array = torch2xp(data)
         elif is_tensorflow_gpu_array(data):
@@ -82,18 +107,21 @@ class CupyOps(Ops):
 
         return array
 
+    @contextmethod
     def maxout(self, X):
         if X.dtype in ("float32", "float64"):
             return _custom_kernels.maxout(X)
         else:
             return super().maxout(X)
 
+    @contextmethod
     def backprop_maxout(self, dY, which, P):
         if dY.dtype in ("float32", "float64") and which.dtype == "int32":
             return _custom_kernels.backprop_maxout(dY, which, P)
         else:
             return super().backprop_maxout(dY, which, P)
 
+    @contextmethod
     def relu(self, X, inplace=False):
         if not inplace:
             return X * (X > 0)
@@ -101,12 +129,14 @@ class CupyOps(Ops):
             X *= X > 0
             return X
 
+    @contextmethod
     def backprop_relu(self, dY, Y, inplace=False):
         if not inplace:
             return dY * (Y > 0)
         dY *= Y > 0
         return dY
 
+    @contextmethod
     def clipped_linear(
         self,
         X,
@@ -135,6 +165,7 @@ class CupyOps(Ops):
                 max_val=max_val,
             )
 
+    @contextmethod
     def backprop_clipped_linear(
         self,
         dY,
@@ -166,24 +197,28 @@ class CupyOps(Ops):
                 inplace=inplace,
             )
 
+    @contextmethod
     def backprop_hard_swish(self, dY, X, inplace: bool = False):
         if X.dtype == dY.dtype and X.dtype in ("float32", "float64"):
             return _custom_kernels.backprop_hard_swish(dY, X, inplace=inplace)
         else:
             return super().backprop_hard_swish(dY, X, inplace=inplace)
 
+    @contextmethod
     def backprop_hard_swish_mobilenet(self, dY, X, inplace: bool = False):
         if X.dtype == dY.dtype and X.dtype in ("float32", "float64"):
             return _custom_kernels.backprop_hard_swish_mobilenet(dY, X, inplace=inplace)
         else:
             return super().backprop_hard_swish_mobilenet(dY, X, inplace=inplace)
 
+    @contextmethod
     def mish(self, X, threshold=20.0, inplace=False):
         if X.dtype in ("float32", "float64"):
             return _custom_kernels.mish(X, inplace=inplace, threshold=threshold)
         else:
             return super().mish(X, threshold, inplace)
 
+    @contextmethod
     def backprop_mish(self, dY, X, threshold=20.0, inplace=False):
         if X.dtype == dY.dtype and X.dtype in ("float32", "float64"):
             return _custom_kernels.backprop_mish(
@@ -192,12 +227,14 @@ class CupyOps(Ops):
         else:
             return super().backprop_mish(dY, X, threshold, inplace)
 
+    @contextmethod
     def swish(self, X, inplace=False):
         if X.dtype in ("float32", "float64"):
             return _custom_kernels.swish(X, inplace=inplace, threshold=17.0)
         else:
             return super().swish(X, inplace=inplace)
 
+    @contextmethod
     def backprop_swish(self, dY, X, Y, inplace=False):
         if X.dtype == dY.dtype == Y.dtype and X.dtype in ("float32", "float64"):
             return _custom_kernels.backprop_swish(
@@ -206,6 +243,7 @@ class CupyOps(Ops):
         else:
             return super().backprop_swish(dY, X, Y, inplace=inplace)
 
+    @contextmethod
     def clip_gradient(self, gradient, threshold):
         # We do not use CuPy's linalg.norm, since it uses scalar reductions
         # using one CUDA block. This is a lot slower than the cuBLAS
@@ -218,6 +256,7 @@ class CupyOps(Ops):
         gradient *= cupy.minimum(threshold, grad_norm) / grad_norm
         return gradient
 
+    @contextmethod
     def seq2col(self, seq, nW, *, lengths=None):
         """Given an (M, N) sequence of vectors, return an (M, N*(nW*2+1)) sequence.
         The new sequence is constructed by concatenating nW preceding and succeeding
@@ -230,6 +269,7 @@ class CupyOps(Ops):
         else:
             return super().seq2col(seq, nW, lengths=lengths)
 
+    @contextmethod
     def backprop_seq2col(self, dY, nW, *, lengths=None):
         if dY.dtype in ("float32", "float64") and (
             lengths is None or lengths.dtype == "int32"
@@ -238,24 +278,28 @@ class CupyOps(Ops):
         else:
             return super().backprop_seq2col(dY, nW, lengths=lengths)
 
+    @contextmethod
     def reduce_mean(self, X, lengths):
         if X.dtype in ("float32", "float64") and lengths.dtype == "int32":
             return _custom_kernels.reduce_mean(X, lengths=lengths)
         else:
             super().reduce_mean(X, lengths)
 
+    @contextmethod
     def backprop_reduce_mean(self, d_means, lengths):
         if d_means.dtype in ("float32", "float64") and lengths.dtype == "int32":
             return _custom_kernels.backprop_reduce_mean(d_means, lengths)
         else:
             super().backprop_reduce_mean(d_means, lengths)
 
+    @contextmethod
     def reduce_max(self, X, lengths):
         if X.dtype in ("float32", "float64") and lengths.dtype == "int32":
             return _custom_kernels.reduce_max(X, lengths)
         else:
             super().reduce_max(X, lengths)
 
+    @contextmethod
     def backprop_reduce_max(self, d_maxes, which, lengths):
         if (
             d_maxes.dtype in ("float32", "float64")
@@ -266,24 +310,29 @@ class CupyOps(Ops):
         else:
             super().backprop_reduce_max(d_maxes, which, lengths)
 
+    @contextmethod
     def reduce_sum(self, X, lengths):
         if X.dtype in ("float32", "float64") and lengths.dtype == "int32":
             return _custom_kernels.reduce_sum(X, lengths)
         else:
             return super().reduce_sum(X, lengths)
 
+    @contextmethod
     def backprop_reduce_sum(self, d_sums, lengths):
         if d_sums.dtype in ("float32", "float64") and lengths.dtype == "int32":
             return _custom_kernels.backprop_reduce_sum(d_sums, lengths)
         else:
             return super().backprop_reduce_sum(d_sums, lengths)
 
+    @contextmethod
     def hash(self, ids, seed):
         return _custom_kernels.hash(ids, seed)
 
+    @contextmethod
     def scatter_add(self, table, indices, values):
         self._xp2.scatter_add(table, indices, values)
 
+    @contextmethod
     def adam(
         self, weights, gradient, mom1, mom2, beta1, beta2, eps, learn_rate, mod_rate=1.0
     ):

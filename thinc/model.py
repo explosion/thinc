@@ -35,7 +35,7 @@ class Model(Generic[InT, OutT]):
     _context_operators = context_operators
 
     name: str
-    ops: Ops
+    ops: NumpyOps
     id: int
     _func: Callable
     init: Callable

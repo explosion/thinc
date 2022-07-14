@@ -1,6 +1,7 @@
 # cython: cdivision=True
 # cython: infer_types=True
 # cython: profile=True
+from contextlib import contextmanager
 from typing import Optional
 from collections.abc import Sized
 import numpy
@@ -60,6 +61,11 @@ class NumpyOps(Ops):
         self.use_blis = use_blis
         if self.use_blis and not has_blis:
             raise ValueError("BLIS support requires blis: pip install blis")
+
+    @contextmanager
+    def context(self):
+        # Dummy context for compatibility with CupyOps.context()
+        yield self
 
     def asarray(self, data, dtype=None):
         if isinstance(data, self.xp.ndarray):

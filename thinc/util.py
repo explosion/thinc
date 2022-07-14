@@ -38,7 +38,7 @@ def get_torch_default_device() -> "torch.device":
 
     ops = get_current_ops()
     if isinstance(ops, CupyOps):
-        device_id = torch.cuda.current_device()
+        device_id = ops.device_id
         return torch.device(f"cuda:{device_id}")
     elif isinstance(ops, MPSOps):
         return torch.device("mps")
