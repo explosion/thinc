@@ -166,7 +166,7 @@ def test_tensorflow_wrapper_serialize_model_subclass(
     )
     class CustomKerasModel(tf.keras.Model):
         def __init__(self, **kwargs):
-            super(CustomKerasModel, self).__init__(**kwargs)
+            super().__init__(**kwargs)
             self.in_dense = tf.keras.layers.Dense(
                 12, name="in_dense", input_shape=input_shape
             )

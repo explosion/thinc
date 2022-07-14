@@ -263,7 +263,7 @@ def test_concatenate():
     model = concatenate(Linear(), Linear())
     model.initialize(data, data)
     Y, backprop = model(data, is_train=True)
-    assert Y.shape[1] == sum([layer.predict(data).shape[1] for layer in model.layers])
+    assert Y.shape[1] == sum(layer.predict(data).shape[1] for layer in model.layers)
     dX = backprop(Y)
     assert dX.shape == data.shape
 

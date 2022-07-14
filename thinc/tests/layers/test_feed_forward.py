@@ -126,7 +126,7 @@ def test_init_functions_are_called():
     assert init_was_called["three"]
 
 
-class GradientSpy(object):
+class GradientSpy:
     def __init__(self):
         self.weights = None
         self.d_weights = None

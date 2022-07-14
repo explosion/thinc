@@ -12,8 +12,7 @@ def constant_then(
     """Yield a constant rate for N steps, before starting a schedule."""
     for i in range(steps):
         yield rate
-    for value in schedule:
-        yield value
+    yield from schedule
 
 
 @registry.schedules("constant.v1")

@@ -34,7 +34,7 @@ class ParamServer:
 
     @property
     def grad_keys(self) -> Tuple[KeyT, ...]:
-        return tuple([key for key in self.param_keys if self.has_grad(*key)])
+        return tuple(key for key in self.param_keys if self.has_grad(*key))
 
     def has_param(self, model_id: int, name: str) -> bool:
         return (model_id, name) in self._params

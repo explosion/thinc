@@ -24,7 +24,7 @@ except ImportError:
         (numpy.zeros((1, 2, 3, 4)), 4),
         (numpy.array(1), 0),
         (numpy.array([1, 2]), 3),
-        ([numpy.zeros((1, 2)), numpy.zeros((1))], 2),
+        ([numpy.zeros((1, 2)), numpy.zeros(1)], 2),
         (Ragged(numpy.zeros((1, 2)), numpy.zeros(1)), 2),  # type:ignore
         (
             Padded(

@@ -801,7 +801,7 @@ def test_is_in_config(prop, expected):
 
 
 def test_resolve_prefilled_values():
-    class Language(object):
+    class Language:
         def __init__(self):
             ...
 
@@ -1307,7 +1307,7 @@ def test_config_validation_error_custom():
     assert e1.errors[0]["loc"] == ("world",)
     assert e1.errors[0]["msg"] == "value is not a valid integer"
     assert e1.errors[0]["type"] == "type_error.integer"
-    assert e1.error_types == set(["type_error.integer"])
+    assert e1.error_types == {"type_error.integer"}
     # Create a new error with overrides
     title = "Custom error"
     desc = "Some error description here"

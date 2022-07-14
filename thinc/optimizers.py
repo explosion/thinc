@@ -100,7 +100,7 @@ def SGD(
     )
 
 
-class Optimizer(object):
+class Optimizer:
     """Do various flavours of stochastic gradient descent, with first and
     second order momentum. Currently support 'vanilla' SGD, Adam, and RAdam.
     """

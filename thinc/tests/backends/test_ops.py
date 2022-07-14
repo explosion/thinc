@@ -1204,7 +1204,7 @@ def get_lstm_args(depth, dirs, nO, batch_size, nI, draw=None):
     else:
         params = numpy.ones((n_params,), dtype="f")
         size_at_t = numpy.ones(shape=(batch_size,), dtype="int32")
-        X = numpy.zeros(((int(size_at_t.sum()), nI)))
+        X = numpy.zeros((int(size_at_t.sum()), nI))
     H0 = numpy.zeros((depth, dirs, nO // dirs))
     C0 = numpy.zeros((depth, dirs, nO // dirs))
     return (params, H0, C0, X, size_at_t)

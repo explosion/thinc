@@ -695,7 +695,7 @@ class Promise:
     kwargs: Dict[str, Any]
 
 
-class registry(object):
+class registry:
     # fmt: off
     optimizers: Decorator = catalogue.create("thinc", "optimizers", entry_points=True)
     schedules: Decorator = catalogue.create("thinc", "schedules", entry_points=True)
@@ -925,7 +925,7 @@ class registry(object):
             if schema.Config.extra in (Extra.forbid, Extra.ignore):
                 fields = schema.__fields__.keys()
                 exclude = [k for k in result.__fields_set__ if k not in fields]
-        exclude_validation = set([ARGS_FIELD_ALIAS, *RESERVED_FIELDS.keys()])
+        exclude_validation = {ARGS_FIELD_ALIAS, *RESERVED_FIELDS.keys()}
         validation.update(result.dict(exclude=exclude_validation))
         filled, final = cls._update_from_parsed(validation, filled, final)
         if exclude:

@@ -361,11 +361,11 @@ class Ops:
         # TODO: This should be generalized to handle different ranks
         if not seqs:
             raise ValueError("Cannot pad empty sequence")
-        if len(set(seq.ndim for seq in seqs)) != 1:
+        if len({seq.ndim for seq in seqs}) != 1:
             raise ValueError("Cannot pad sequences with different ndims")
-        if len(set(seq.dtype for seq in seqs)) != 1:
+        if len({seq.dtype for seq in seqs}) != 1:
             raise ValueError("Cannot pad sequences with different dtypes")
-        if len(set(seq.shape[1:] for seq in seqs)) != 1:
+        if len({seq.shape[1:] for seq in seqs}) != 1:
             raise ValueError("Cannot pad sequences that differ on other dimensions")
         # Find the maximum dimension along each axis. That's what we'll pad to.
         length = max(len(seq) for seq in seqs)
@@ -404,7 +404,7 @@ class Ops:
         lengths_indices.sort(reverse=True)
         indices_ = [i for length, i in lengths_indices]
         lengths_ = [length for length, i in lengths_indices]
-        nS = max([seq.shape[0] for seq in seqs])
+        nS = max(seq.shape[0] for seq in seqs)
         nB = len(seqs)
         nO = seqs[0].shape[1]
         # Reorder the sequences, by length. This looks the same in either

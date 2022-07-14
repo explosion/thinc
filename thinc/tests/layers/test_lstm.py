@@ -51,7 +51,7 @@ def test_LSTM_init_with_sizes(ops, nO, nI):
         if node.has_param("LSTM"):
             params = node.get_param("LSTM")
             assert params.shape == (
-                ((nO * 4 * nI)) + (nO * 4) + (nO * 4 * nO + nO * 4),
+                (nO * 4 * nI) + (nO * 4) + (nO * 4 * nO + nO * 4),
             )
         if node.has_param("HC0"):
             params = node.get_param("HC0")
@@ -112,7 +112,7 @@ def test_LSTM_learns():
     Y = [model.ops.asarray(y, dtype="f").reshape((1, -1)) for y in Y]
     model = model.initialize(X, Y)
     Yhs, bp_Yhs = model.begin_update(X)
-    loss1 = sum([((yh - y) ** 2).sum() for yh, y in zip(Yhs, Y)])
+    loss1 = sum(((yh - y) ** 2).sum() for yh, y in zip(Yhs, Y))
     Yhs, bp_Yhs = model.begin_update(X)
     dYhs = [yh - y for yh, y in zip(Yhs, Y)]
     dXs = bp_Yhs(dYhs)
@@ -120,7 +120,7 @@ def test_LSTM_learns():
     Yhs, bp_Yhs = model.begin_update(X)
     dYhs = [yh - y for yh, y in zip(Yhs, Y)]
     dXs = bp_Yhs(dYhs)  # noqa: F841
-    loss2 = sum([((yh - y) ** 2).sum() for yh, y in zip(Yhs, Y)])
+    loss2 = sum(((yh - y) ** 2).sum() for yh, y in zip(Yhs, Y))
     assert loss1 > loss2, (loss1, loss2)
 
 

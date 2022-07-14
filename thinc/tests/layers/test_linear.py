@@ -1,5 +1,5 @@
 import pytest
-from mock import MagicMock
+from unittest.mock import MagicMock
 from hypothesis import given, settings
 import numpy
 from numpy.testing import assert_allclose

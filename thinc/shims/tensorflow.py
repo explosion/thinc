@@ -225,7 +225,7 @@ class TensorFlowShim(Shim):
             with tf.device("/CPU"):  # pragma: no cover
                 self._clone_model()
         elif device_type == "gpu":
-            with tf.device("/GPU:{}".format(device_id)):
+            with tf.device(f"/GPU:{device_id}"):
                 self._clone_model()
 
     def to_bytes(self):

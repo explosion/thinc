@@ -25,7 +25,7 @@ def create_wrapped_pytorch(width, dropout, nI, nO):
 
     class PyTorchModel(torch.nn.Module):
         def __init__(self, width, nO, nI, dropout):
-            super(PyTorchModel, self).__init__()
+            super().__init__()
             self.dropout1 = torch.nn.Dropout2d(dropout)
             self.dropout2 = torch.nn.Dropout2d(dropout)
             self.fc1 = torch.nn.Linear(nI, width)

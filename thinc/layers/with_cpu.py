@@ -39,7 +39,7 @@ def _to_cpu(X):
     if isinstance(X, numpy.ndarray):
         return X
     elif isinstance(X, tuple):
-        return tuple([_to_cpu(x) for x in X])
+        return tuple(_to_cpu(x) for x in X)
     elif isinstance(X, list):
         return [_to_cpu(x) for x in X]
     elif hasattr(X, "get"):
@@ -50,7 +50,7 @@ def _to_cpu(X):
 
 def _to_device(ops, X):
     if isinstance(X, tuple):
-        return tuple([_to_device(ops, x) for x in X])
+        return tuple(_to_device(ops, x) for x in X)
     elif isinstance(X, list):
         return [_to_device(ops, x) for x in X]
     else:

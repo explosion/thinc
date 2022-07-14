@@ -128,7 +128,7 @@ class Model(Generic[InT, OutT]):
     @property
     def grad_names(self) -> Tuple[str, ...]:
         """Get the names of parameters with registered gradients (including unset)."""
-        return tuple([name for name in self.param_names if self.has_grad(name)])
+        return tuple(name for name in self.param_names if self.has_grad(name))
 
     @property
     def dim_names(self) -> Tuple[str, ...]:
