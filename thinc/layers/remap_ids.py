@@ -55,7 +55,7 @@ def forward(
 
     def backprop(dY: OutT) -> InT:
         if is_xp_array(inputs):
-            return model.ops.asarray([])  # type: ignore
+            return model.ops.xp.empty(dY.shape)  # type: ignore
         else:
             return []
 
