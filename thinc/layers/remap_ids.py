@@ -1,18 +1,18 @@
 from typing import Tuple, Callable, Sequence, cast
-from typing import Dict, Any, Union, Optional
+from typing import Dict, Hashable, Union, Optional
 
 from ..model import Model
 from ..config import registry
-from ..types import Ints2d, DTypes, Array2d, Array1d
-from ..util import is_cupy_array, is_xp_array
+from ..types import Ints2d, DTypes
+from ..util import is_cupy_array, is_xp_array, to_numpy
 
-InT = Union[Sequence[Any], Array2d]
+InT = Union[Sequence[Hashable], Ints2d]
 OutT = Ints2d
 
 
 @registry.layers("remap_ids.v1")
 def remap_ids(
-    mapping_table: Dict[Any, int] = {},
+    mapping_table: Dict[Hashable, int] = {},
     default: int = 0,
     dtype: DTypes = "i",
     *,
@@ -43,13 +43,12 @@ def forward(
     dtype = model.attrs["dtype"]
     column = model.attrs["column"]
     if column is not None:
-        inputs = cast(Array2d, inputs)
+        inputs = cast(Ints2d, inputs)
         inputs = inputs[:, column]
     # elements of cupy arrays are 0-dimensional arrays
     # not the integers stored in the original mapper.
     if is_cupy_array(inputs):  # type: ignore
-        if inputs.dtype.kind == 'i':  # type: ignore
-            inputs = map(int, inputs)  # type: ignore
+        inputs = to_numpy(inputs)  # type: ignore
     values = [table.get(x, default) for x in inputs]
     arr = model.ops.asarray2i(values, dtype=dtype)
     output = model.ops.reshape2i(arr, -1, 1)
