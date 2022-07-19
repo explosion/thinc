@@ -35,54 +35,9 @@ class Loss(Generic[GuessT, TruthT, GradT, LossT]):  # pragma: no cover
         ...
 
 
-class CategoricalCrossentropy(Loss):
-    missing_value: Optional[Union[str, int]]
+class CategoricalCrossentropyBase(Loss):
+    normalize: bool
 
-    def __init__(
-        self,
-        *,
-        normalize: bool = True,
-        missing_value: Optional[int] = None,
-        label_smoothing: float = 0.0,
-    ):
-        self.normalize = normalize
-        self.missing_value = missing_value
-        self.label_smoothing = label_smoothing
-
-    def convert_truths(
-        self, truths: Floats2d, guesses: Floats2d
-    ) -> Tuple[Floats2d, Floats2d]:
-        if truths.ndim != 2:
-            raise ValueError(
-                f"'truths' have to have 2 axes, but found {truths.ndim}"
-            )
-        missing_value = self.missing_value
-        xp = get_array_module(guesses)
-        mask = _make_mask_by_value(truths, guesses, missing_value)
-        if not xp.allclose(truths.sum(axis=1), 1.0):
-            raise ValueError(
-                "Cannot calculate CategoricalCrossentropy. "
-                "All rows of 'truths' have to be a "
-                "valid categorical distribution (sum to 1)."
-            )
-        if self.label_smoothing:
-            # Validate that array is binary, ergo one-hot at this point
-            if ((truths == 0) | (truths == 1)).all():
-                truths = smooth_one_hot(truths, self.label_smoothing)
-            else:
-                raise ValueError(
-                    "Can only apply label-smoothing to one-hot target."
-                )
-        return truths, mask
-
-    def __call__(
-        self, guesses: Floats2d, truths: Floats2d
-    ) -> Tuple[Floats2d, float]:
-        target, mask = self.convert_truths(truths, guesses)
-        self._validate_input(guesses, target)
-        d_truth = self._get_grad(guesses, target, mask)
-        loss = self._get_loss(guesses, target, mask)
-        return (d_truth, loss)
 
     def _validate_input(self, guesses: Floats2d, target: Floats2d) -> None:
         xp = get_array_module(target)
@@ -126,18 +81,70 @@ class CategoricalCrossentropy(Loss):
         else:
             return -(target * logprobs).sum()
 
-    def get_grad(self, guesses: Floats2d, truths: IntsOrFloatsOrStrs) -> Floats2d:
+
+
+
+class CategoricalCrossentropy(CategoricalCrossentropyBase):
+    missing_value: Optional[Union[str, int]]
+
+    def __init__(
+        self,
+        *,
+        normalize: bool = True,
+        missing_value: Optional[int] = None,
+        label_smoothing: float = 0.0,
+    ):
+        self.normalize = normalize
+        self.missing_value = missing_value
+        self.label_smoothing = label_smoothing
+
+    def __call__(
+        self, guesses: Floats2d, truths: Floats2d
+    ) -> Tuple[Floats2d, float]:
+        target, mask = self.convert_truths(truths, guesses)
+        self._validate_input(guesses, target)
+        d_truth = self._get_grad(guesses, target, mask)
+        loss = self._get_loss(guesses, target, mask)
+        return (d_truth, loss)
+
+    def convert_truths(
+        self, truths: Floats2d, guesses: Floats2d
+    ) -> Tuple[Floats2d, Floats2d]:
+        if truths.ndim != 2:
+            raise ValueError(
+                f"'truths' have to have 2 axes, but found {truths.ndim}"
+            )
+        missing_value = self.missing_value
+        xp = get_array_module(guesses)
+        mask = _make_mask_by_value(truths, guesses, missing_value)
+        if not xp.allclose(truths.sum(axis=1), 1.0):
+            raise ValueError(
+                "Cannot calculate CategoricalCrossentropy. "
+                "All rows of 'truths' have to be a "
+                "valid categorical distribution (sum to 1)."
+            )
+        if self.label_smoothing:
+            # Validate that array is binary, ergo one-hot at this point
+            if ((truths == 0) | (truths == 1)).all():
+                truths = smooth_one_hot(truths, self.label_smoothing)
+            else:
+                raise ValueError(
+                    "Can only apply label-smoothing to one-hot target."
+                )
+        return truths, mask
+
+    def get_grad(self, guesses: Floats2d, truths: Floats2d) -> Floats2d:
         target, mask = self.convert_truths(truths, guesses)
         self._validate_input(guesses, target)
         return self._get_grad(guesses, target, mask)
 
-    def get_loss(self, guesses: Floats2d, truths: IntsOrFloatsOrStrs) -> float:
+    def get_loss(self, guesses: Floats2d, truths: Floats2d) -> float:
         target, mask = self.convert_truths(truths, guesses)
         self._validate_input(guesses, target)
         return self._get_loss(guesses, target, mask)
 
 
-class SparseCE(CategoricalCrossentropy):
+class SparseCE(CategoricalCrossentropyBase):
     names: Optional[Sequence[str]]
     missing_value: Optional[Union[str, int]]
     _name_to_i: Dict[str, int]
@@ -161,6 +168,16 @@ class SparseCE(CategoricalCrossentropy):
         else:
             self._name_to_i = {}
 
+
+    def __call__(
+        self, guesses: Floats2d, truths: Union[Sequence[int], Sequence[str]]
+    ) -> Tuple[Floats2d, float]:
+        target, mask = self.convert_truths(truths, guesses)
+        self._validate_input(guesses, target)
+        d_truth = self._get_grad(guesses, target, mask)
+        loss = self._get_loss(guesses, target, mask)
+        return (d_truth, loss)
+
     def _check_ints1d(self, arr):
         """
         Check whether array is 1D and has type integer.
@@ -178,7 +195,7 @@ class SparseCE(CategoricalCrossentropy):
 
     def _convert_ints(
         self, guesses: Floats2d, truths: Sequence[int]
-    ) -> List[int]:
+    ) -> Tuple[Floats2d, Floats2d]:
         """
         Convert Sequence[int] into a Floats2d one-hot array.
         """
@@ -199,16 +216,17 @@ class SparseCE(CategoricalCrossentropy):
             if value == missing_value:
                 missing.append(i)
         xp = get_array_module(guesses)
-        truths = xp.asarray(truths, dtype="i")
-        truths = to_categorical(
-            truths, n_classes=guesses.shape[-1], label_smoothing=self.label_smoothing
+        # FIXME: convert using ops?
+        xp_truths = cast(Ints1d, xp.asarray(truths, dtype="i"))
+        truths_2d = to_categorical(
+            xp_truths, n_classes=guesses.shape[-1], label_smoothing=self.label_smoothing
         )
         mask = _make_mask(guesses, missing)
-        return truths, mask
+        return cast(Floats2d, truths_2d), mask
 
     def _convert_strs(
         self, guesses: Floats2d, truths: Sequence[str]
-    ):
+    ) -> Tuple[Floats2d, Floats2d]:
         """
         Convert Sequence[int] into a Floats2d one-hot array.
         """
@@ -253,16 +271,16 @@ class SparseCE(CategoricalCrossentropy):
             else:
                 label_i = self._name_to_i[value]
             truths_int.append(label_i)
-        truths = xp.asarray(truths_int, dtype="i")
-        truths = to_categorical(
-            truths, n_classes=guesses.shape[-1], label_smoothing=self.label_smoothing
+        xp_truths = cast(Ints1d, xp.asarray(truths_int, dtype="i"))
+        truths_2d = to_categorical(
+            xp_truths, n_classes=guesses.shape[-1], label_smoothing=self.label_smoothing
         )
         mask = _make_mask(guesses, missing)
-        truths *= negatives_mask
-        truths[truths == -1] = 0
+        truths_2d *= negatives_mask
+        truths_2d[truths_2d == -1] = 0
         negatives_mask[negatives_mask == -1] = 1
         mask *= negatives_mask
-        return truths, mask
+        return cast(Floats2d, truths_2d), mask
 
     def convert_truths(
         self, truths: Categories1d, guesses: Floats2d
@@ -270,15 +288,16 @@ class SparseCE(CategoricalCrossentropy):
 
         if is_xp_array(truths):
             self._check_ints1d(truths)
-            truths = to_categorical(
-                truths, label_smoothing=self.label_smoothing, n_classes=guesses.shape[1]
+            xp_truths = cast(Ints1d, truths)
+            truths_2d = to_categorical(
+                xp_truths, label_smoothing=self.label_smoothing, n_classes=guesses.shape[1]
             )
-            mask = _make_mask_by_value(truths, guesses, self.missing_value)
+            mask = _make_mask_by_value(truths_2d, guesses, self.missing_value)
         elif isinstance(truths, Sequence):
             if isinstance(truths[0], int):
-                truths, mask = self._convert_ints(guesses, truths)
+                truths_2d, mask = self._convert_ints(guesses, cast(Sequence[int], truths))
             elif isinstance(truths[0], str):
-                truths, mask = self._convert_strs(guesses, truths)
+                truths_2d, mask = self._convert_strs(guesses, cast(Sequence[str], truths))
             else:
                 raise ValueError(
                     "When truths to SparseCE is provided "
@@ -293,45 +312,58 @@ class SparseCE(CategoricalCrossentropy):
                 "Sequence[str], but truths has different type."
             )
 
-        return truths, mask
+        return cast(Floats2d, truths_2d), mask
+
+    def get_grad(self, guesses: Floats2d, truths: Categories1d) -> Floats2d:
+        target, mask = self.convert_truths(truths, guesses)
+        self._validate_input(guesses, target)
+        return self._get_grad(guesses, target, mask)
+
+    def get_loss(self, guesses: Floats2d, truths: Categories1d) -> float:
+        target, mask = self.convert_truths(truths, guesses)
+        self._validate_input(guesses, target)
+        return self._get_loss(guesses, target, mask)
+
 
 
 @registry.losses("CategoricalCrossentropy.v4")
 def configure_CategoricalCrossentropy_v4(
     *,
     normalize: bool = True,
-    sparse: bool = True,
+    missing_value: Optional[int] = None,
+    label_smoothing: float = 0.0,
+) -> CategoricalCrossentropy:
+    return CategoricalCrossentropy(
+        normalize=normalize,
+        missing_value=missing_value,
+        label_smoothing=label_smoothing,
+    )
+
+
+@registry.losses("SparseCategoricalCrossentropy.v4")
+def configure_SparseCategoricalCrossentropy_v4(
+    *,
+    normalize: bool = True,
     names: Optional[Sequence[str]] = None,
     missing_value: Optional[Union[str, int]] = None,
     neg_prefix: Optional[str] = None,
     label_smoothing: float = 0.0,
-) -> CategoricalCrossentropy:
-    if names is None and neg_prefix is None and not sparse:
-        return CategoricalCrossentropy(
-            normalize=normalize,
-            missing_value=missing_value,
-            label_smoothing=label_smoothing,
-        )
-    else:
-        return SparseCE(
-            normalize=normalize,
-            names=names,
-            missing_value=missing_value,
-            neg_prefix=neg_prefix,
-            label_smoothing=label_smoothing
-        )
+) -> SparseCE:
+    return SparseCE(
+        normalize=normalize,
+        names=names,
+        missing_value=missing_value,
+        neg_prefix=neg_prefix,
+        label_smoothing=label_smoothing
+    )
 
 
 class SequenceCategoricalCrossentropy(Loss):
     def __init__(
         self,
         *,
-        cross_entropy: CategoricalCrossentropy,
+        cross_entropy: Union[CategoricalCrossentropy, SparseCE],
         normalize: bool = True,
-        names: Optional[Sequence[str]] = None,
-        missing_value: Optional[Union[str, int]] = None,
-        neg_prefix: Optional[str] = None,
-        label_smoothing: float = 0.0,
     ):
         self.cc = cross_entropy
         self.normalize = normalize
@@ -344,7 +376,7 @@ class SequenceCategoricalCrossentropy(Loss):
         d_scores = []
         loss = 0.0
         for yh, y in zip(guesses, truths):
-            d_yh, l = self.cc(yh, y)
+            d_yh, l = self.cc(yh, y) # type: ignore
             if self.normalize:
                 d_yh /= n
             d_scores.append(d_yh)
@@ -367,7 +399,7 @@ class SequenceCategoricalCrossentropy(Loss):
         n = len(guesses)
         d_scores = []
         for yh, y in zip(guesses, truths):
-            d_yh = self.cc.get_grad(yh, y)
+            d_yh = self.cc.get_grad(yh, y)  # type: ignore
             if self.normalize:
                 d_yh /= n
             d_scores.append(d_yh)
@@ -379,7 +411,7 @@ class SequenceCategoricalCrossentropy(Loss):
         self._validate_input(guesses, truths)
         loss = 0.0
         for guess, truth in zip(guesses, truths):
-            loss += self.cc.get_loss(guess, truth)
+            loss += self.cc.get_loss(guess, truth)  # type: ignore
         return loss
 
 
@@ -394,26 +426,22 @@ def configure_SequenceCategoricalCrossentropy_v4(
     label_smoothing: float = 0.0,
 ) -> SequenceCategoricalCrossentropy:
     if names is None and neg_prefix is None and not sparse:
-        cross_entropy = CategoricalCrossentropy(
+        cross_entropy: Union[CategoricalCrossentropy, SparseCE] = CategoricalCrossentropy(
             normalize=False,
-            missing_value=missing_value,
+            missing_value=cast(Optional[int], missing_value),
             label_smoothing=label_smoothing,
         )
     else:
         cross_entropy = SparseCE(
             normalize=False,
             names=names,
-            missing_value=missing_value,
+            missing_value=cast(Optional[Union[str, int]], missing_value),
             neg_prefix=neg_prefix,
             label_smoothing=label_smoothing
         )
     return SequenceCategoricalCrossentropy(
         cross_entropy=cross_entropy,
         normalize=normalize,
-        names=names,
-        missing_value=missing_value,
-        neg_prefix=neg_prefix,
-        label_smoothing=label_smoothing
     )
 
 

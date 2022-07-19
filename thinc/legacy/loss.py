@@ -3,7 +3,7 @@ from typing import cast, List
 from ..types import Floats2d, Ints1d
 from ..config import registry
 from ..util import to_categorical, get_array_module
-from ..loss import CategoricalCrossentropy, IntsOrFloatsOrStrs
+from ..loss import CategoricalCrossentropy, IntsOrFloatsOrStrs, Loss
 from ..loss import _make_mask, _make_mask_by_value
 from ..loss import SequenceCategoricalCrossentropy
 
@@ -130,7 +130,7 @@ class LegacyCategoricalCrossentropy(CategoricalCrossentropy):
         return (d_truth**2).sum()  # type: ignore
 
 
-class LegacySequenceCategoricalCrossentropy(SequenceCategoricalCrossentropy):
+class LegacySequenceCategoricalCrossentropy(Loss):
     def __init__(
         self,
         *,
@@ -232,7 +232,7 @@ def configure_CategoricalCrossentropy_v3(
 @registry.losses("SequenceCategoricalCrossentropy.v1")
 def configure_SequenceCategoricalCrossentropy_v1(
     *, normalize: bool = True, names: Optional[Sequence[str]] = None
-) -> SequenceCategoricalCrossentropy:
+) -> LegacySequenceCategoricalCrossentropy:
     return LegacySequenceCategoricalCrossentropy(
         normalize=normalize, names=names
     )
@@ -244,7 +244,7 @@ def configure_SequenceCategoricalCrossentropy_v2(
     normalize: bool = True,
     names: Optional[Sequence[str]] = None,
     neg_prefix: Optional[str] = None,
-) -> SequenceCategoricalCrossentropy:
+) -> LegacySequenceCategoricalCrossentropy:
     return LegacySequenceCategoricalCrossentropy(
         normalize=normalize, names=names, neg_prefix=neg_prefix
     )
@@ -258,7 +258,7 @@ def configure_SequenceCategoricalCrossentropy_v3(
     missing_value: Optional[Union[str, int]] = None,
     neg_prefix: Optional[str] = None,
     label_smoothing: float = 0.0,
-) -> SequenceCategoricalCrossentropy:
+) -> LegacySequenceCategoricalCrossentropy:
     return LegacySequenceCategoricalCrossentropy(
         normalize=normalize,
         names=names,

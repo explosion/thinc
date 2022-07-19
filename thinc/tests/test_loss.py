@@ -73,6 +73,10 @@ ce_factory = registry.get(
     "losses", "CategoricalCrossentropy.v4"
 )
 
+sparse_ce_factory = registry.get(
+    "losses", "SparseCategoricalCrossentropy.v4"
+)
+
 seq_ce_factory = registry.get(
     "losses", "SequenceCategoricalCrossentropy.v4"
 )
@@ -92,10 +96,10 @@ def _get_legacy_seq_cross_entropy(version: int, **kwargs):
 
 def test_cross_entropy_types_shapes():
     sparse_cross_entropy = ce_factory()
-    cross_entropy = ce_factory(sparse=False)
+    cross_entropy = ce_factory()
     sparse_seq_cross_entropy = seq_ce_factory()
     seq_cross_entropy = seq_ce_factory(sparse=False)
-    d_scores_sparse = sparse_cross_entropy.get_grad(guesses1, labels1)
+    d_scores_sparse = sparse_cross_entropy.get_grad(guesses1, labels1_full)
     d_scores = cross_entropy.get_grad(guesses1, labels1_full)
     assert d_scores_sparse.dtype == "float32"
     assert d_scores.dtype == "float32"
@@ -191,7 +195,7 @@ def test_equal_legacy_cross_entropy(vect, version):
     ],
 )
 def test_categorical_crossentropy(guesses, labels, grad, loss):
-    cross_entropy = ce_factory(sparse=False)
+    cross_entropy = ce_factory()
     d_scores = cross_entropy.get_grad(guesses, labels)
     loss_val = cross_entropy.get_loss(guesses, labels)
     assert d_scores.shape == guesses.shape
@@ -206,7 +210,7 @@ def test_categorical_crossentropy(guesses, labels, grad, loss):
     ],
 )
 def test_sparse_categorical_crossentropy(guesses, labels, grad, loss):
-    cross_entropy = ce_factory()
+    cross_entropy = sparse_ce_factory()
     d_scores = cross_entropy.get_grad(guesses, labels)
     loss_val = cross_entropy.get_loss(guesses, labels)
     assert d_scores.shape == guesses.shape
@@ -244,8 +248,8 @@ def test_legacy_categorical_crossentropy(guesses, labels, version):
 def test_crossentropy_incorrect_scores_targets():
     labels = numpy.asarray([2])
     labels_full = numpy.asarray([[0., 0., 1.]])
-    cross_entropy = ce_factory(sparse=False)
-    sparse_cross_entropy = ce_factory()
+    cross_entropy = ce_factory()
+    sparse_cross_entropy = sparse_ce_factory()
 
     guesses_neg = numpy.asarray([[-0.1, 0.5, 0.6]])
     with pytest.raises(ValueError, match=r"Cannot calculate.*guesses"):
@@ -316,7 +320,7 @@ def test_sparse_crossentropy_missing(guesses, labels, grad, missing_value):
         names = ['A', 'B', 'C']
     else:
         names = None
-    sparse_cross_entropy = ce_factory(
+    sparse_cross_entropy = sparse_ce_factory(
         missing_value=missing_value, names=names
     )
     d_scores = sparse_cross_entropy.get_grad(guesses, labels)
@@ -363,7 +367,7 @@ def test_legacy_categorical_crossentropy_int_list_missing(guesses, labels, versi
     ],
 )
 def test_categorical_crossentropy_missing(guesses, labels, grad):
-    cross_entropy = ce_factory(sparse=False, missing_value=0)
+    cross_entropy = ce_factory(missing_value=0)
     d_scores = cross_entropy.get_grad(guesses, labels)
     assert d_scores.shape == guesses.shape
     assert numpy.allclose(d_scores, grad)
@@ -638,7 +642,8 @@ def test_cosine_unmatched():
         ("SequenceCategoricalCrossentropy.v1", {}, ([guesses1], [labels1])),
         ("CategoricalCrossentropy.v2", {"neg_prefix": "!"}, (guesses1, labels1)),
         ("CategoricalCrossentropy.v3", {"neg_prefix": "!"}, (guesses1, labels1)),
-        ("CategoricalCrossentropy.v4", {"neg_prefix": "!"}, (guesses1, labels1)),
+        ("SparseCategoricalCrossentropy.v4", {"neg_prefix": "!"}, (guesses1, labels1)),
+        ("CategoricalCrossentropy.v4", {}, (guesses1, labels1_full)),
         (
             "SequenceCategoricalCrossentropy.v2",
             {"neg_prefix": "!"},
