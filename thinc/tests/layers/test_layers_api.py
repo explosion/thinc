@@ -8,7 +8,7 @@ from thinc.types import Ragged, Padded, Array2d, Floats2d, FloatsXd, Shape
 from thinc.compat import has_torch
 import numpy
 import pytest
-import cupy
+
 OPS = NumpyOps()
 
 
