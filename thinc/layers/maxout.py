@@ -46,6 +46,7 @@ def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Call
     b = model.get_param("b")
     W = model.get_param("W")
     W = model.ops.reshape2f(W, nO * nP, nI)
+    print(f"X={X.shape} | W={W.shape}")
     Y = model.ops.gemm(X, W, trans2=True)
     Y += model.ops.reshape1f(b, nO * nP)
     Z = model.ops.reshape3f(Y, Y.shape[0], nO, nP)
