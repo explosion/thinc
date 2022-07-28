@@ -47,8 +47,8 @@ def forward(
         inputs = inputs[:, column]
     # elements of cupy arrays are 0-dimensional arrays
     # not the integers stored in the original mapper.
-    inputs = to_numpy(inputs)  # type: ignore
-    values = [table.get(x, default) for x in inputs]
+    idx = to_numpy(inputs)  # type: ignore
+    values = [table.get(x, default) for x in idx]
     arr = model.ops.asarray2i(values, dtype=dtype)
     output = model.ops.reshape2i(arr, -1, 1)
 
