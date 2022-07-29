@@ -31,8 +31,8 @@ def forward(model: Model, X: Any, is_train: bool) -> Tuple[Any, Callable]:
     return gpu_outputs, with_cpu_backprop
 
 
-def init(model: Model, X: Any, Y: Any) -> Model:
-    return model.layers[0].initialize(X, Y)
+def init(model: Model, X: Any, Y: Any) -> None:
+    model.layers[0].initialize(X, Y)
 
 
 def _to_cpu(X):

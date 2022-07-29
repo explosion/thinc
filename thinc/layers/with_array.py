@@ -2,20 +2,19 @@ from typing import Tuple, Callable, Optional, TypeVar, Union, cast
 
 from ..model import Model
 from ..config import registry
-from ..types import Array2d, Floats2d, Padded, Ragged, ArrayXd, Floats3d
-from ..types import List2d
+from ..types import Padded, Ragged, ArrayXd, Array3d, ListXd
 
-
-SeqT = TypeVar("SeqT", bound=Union[Padded, Ragged, List2d, ArrayXd])
+ArrayTXd = TypeVar("ArrayTXd", bound=ArrayXd)
+SeqT = TypeVar("SeqT", bound=Union[Padded, Ragged, ListXd, ArrayXd])
 
 
 @registry.layers("with_array.v1")
-def with_array(layer: Model[ArrayXd, ArrayXd], pad: int = 0) -> Model[SeqT, SeqT]:
-    """Transform sequence data into a contiguous 2d array on the way into and
+def with_array(layer: Model[ArrayTXd, ArrayTXd], pad: int = 0) -> Model[SeqT, SeqT]:
+    """Transform sequence data into a contiguous array on the way into and
     out of a model. Handles a variety of sequence types: lists, padded and ragged.
-    If the input is a 2d array, it is passed through unchanged.
+    If the input is an array, it is passed through unchanged.
     """
-    return Model(
+    model: Model[SeqT, SeqT] = Model(
         f"with_array({layer.name})",
         forward,
         init=init,
@@ -23,26 +22,25 @@ def with_array(layer: Model[ArrayXd, ArrayXd], pad: int = 0) -> Model[SeqT, SeqT
         attrs={"pad": pad},
         dims={name: layer.maybe_get_dim(name) for name in layer.dim_names},
     )
+    return model
 
 
-def forward(model: Model[SeqT, SeqT], Xseq: SeqT, is_train: bool):
+def forward(
+    model: Model[SeqT, SeqT], Xseq: SeqT, is_train: bool
+) -> Tuple[SeqT, Callable]:
     if isinstance(Xseq, Ragged):
-        return _ragged_forward(
-            cast(Model[Ragged, Ragged], model), cast(Ragged, Xseq), is_train
-        )
+        return cast(Tuple[SeqT, Callable], _ragged_forward(model, Xseq, is_train))
     elif isinstance(Xseq, Padded):
-        return _padded_forward(
-            cast(Model[Padded, Padded], model), cast(Padded, Xseq), is_train
-        )
+        return cast(Tuple[SeqT, Callable], _padded_forward(model, Xseq, is_train))
     elif not isinstance(Xseq, (list, tuple)):
         return model.layers[0](Xseq, is_train)
     else:
-        return _list_forward(cast(Model[List2d, List2d], model), Xseq, is_train)
+        return cast(Tuple[SeqT, Callable], _list_forward(model, Xseq, is_train))
 
 
 def init(
     model: Model[SeqT, SeqT], X: Optional[SeqT] = None, Y: Optional[SeqT] = None
-) -> Model[SeqT, SeqT]:
+) -> None:
     layer: Model[ArrayXd, ArrayXd] = model.layers[0]
     layer.initialize(
         X=_get_array(model, X) if X is not None else X,
@@ -52,7 +50,6 @@ def init(
         value = layer.maybe_get_dim(dim_name)
         if value is not None:
             model.set_dim(dim_name, value)
-    return model
 
 
 def _get_array(model, X: SeqT) -> ArrayXd:
@@ -67,16 +64,16 @@ def _get_array(model, X: SeqT) -> ArrayXd:
 
 
 def _list_forward(
-    model: Model[List2d, List2d], Xs: List2d, is_train: bool
-) -> Tuple[List2d, Callable]:
-    layer = model.layers[0]
+    model: Model[SeqT, SeqT], Xs: ListXd, is_train: bool
+) -> Tuple[ListXd, Callable]:
+    layer: Model[ArrayXd, ArrayXd] = model.layers[0]
     pad = model.attrs["pad"]
     lengths = layer.ops.asarray1i([len(seq) for seq in Xs])
-    Xf = layer.ops.flatten(Xs, pad=pad)  # type: ignore
+    Xf = layer.ops.flatten(Xs, pad=pad)
     Yf, get_dXf = layer(Xf, is_train)
 
-    def backprop(dYs: List2d) -> List2d:
-        dYf = layer.ops.flatten(dYs, pad=pad)  # type: ignore
+    def backprop(dYs: ListXd) -> ListXd:
+        dYf = layer.ops.flatten(dYs, pad=pad)
         dXf = get_dXf(dYf)
         return layer.ops.unflatten(dXf, lengths, pad=pad)
 
@@ -84,7 +81,7 @@ def _list_forward(
 
 
 def _ragged_forward(
-    model: Model[Ragged, Ragged], Xr: Ragged, is_train: bool
+    model: Model[SeqT, SeqT], Xr: Ragged, is_train: bool
 ) -> Tuple[Ragged, Callable]:
     layer: Model[ArrayXd, ArrayXd] = model.layers[0]
     Y, get_dX = layer(Xr.dataXd, is_train)
@@ -96,9 +93,9 @@ def _ragged_forward(
 
 
 def _padded_forward(
-    model: Model[Padded, Padded], Xp: Padded, is_train: bool
+    model: Model[SeqT, SeqT], Xp: Padded, is_train: bool
 ) -> Tuple[Padded, Callable]:
-    layer: Model[Floats3d, Floats3d] = model.layers[0]
+    layer: Model[Array3d, Array3d] = model.layers[0]
     Y, get_dX = layer(Xp.data, is_train)
 
     def backprop(dYp: Padded) -> Padded:

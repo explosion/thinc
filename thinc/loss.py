@@ -1,4 +1,4 @@
-from typing import Tuple, List, cast, TypeVar, Generic, Any, Union, Optional
+from typing import Tuple, Sequence, cast, TypeVar, Generic, Any, Union, Optional, List
 from typing import Dict
 
 from .types import Floats2d, Ints1d
@@ -11,7 +11,7 @@ GradT = TypeVar("GradT")
 GuessT = TypeVar("GuessT")
 TruthT = TypeVar("TruthT")
 IntsOrFloats = Union[Ints1d, Floats2d]
-IntsOrFloatsOrStrs = Union[Ints1d, Floats2d, List[int], List[str]]
+IntsOrFloatsOrStrs = Union[Ints1d, Floats2d, Sequence[int], Sequence[str]]
 
 
 class Loss(Generic[GuessT, TruthT, GradT, LossT]):  # pragma: no cover
@@ -35,7 +35,7 @@ class Loss(Generic[GuessT, TruthT, GradT, LossT]):  # pragma: no cover
 
 
 class CategoricalCrossentropy(Loss):
-    names: Optional[List[str]]
+    names: Optional[Sequence[str]]
     missing_value: Optional[Union[str, int]]
     _name_to_i: Dict[str, int]
 
@@ -43,7 +43,7 @@ class CategoricalCrossentropy(Loss):
         self,
         *,
         normalize: bool = True,
-        names: Optional[List[str]] = None,
+        names: Optional[Sequence[str]] = None,
         missing_value: Optional[Union[str, int]] = None,
         neg_prefix: Optional[str] = None,
         label_smoothing: float = 0.0,
@@ -160,7 +160,7 @@ class CategoricalCrossentropy(Loss):
 def configure_CategoricalCrossentropy_v1(
     *,
     normalize: bool = True,
-    names: Optional[List[str]] = None,
+    names: Optional[Sequence[str]] = None,
     missing_value: Optional[Union[str, int]] = None,
 ) -> CategoricalCrossentropy:
     return CategoricalCrossentropy(
@@ -172,7 +172,7 @@ def configure_CategoricalCrossentropy_v1(
 def configure_CategoricalCrossentropy_v2(
     *,
     normalize: bool = True,
-    names: Optional[List[str]] = None,
+    names: Optional[Sequence[str]] = None,
     missing_value: Optional[Union[str, int]] = None,
     neg_prefix: Optional[str] = None,
 ) -> CategoricalCrossentropy:
@@ -188,7 +188,7 @@ def configure_CategoricalCrossentropy_v2(
 def configure_CategoricalCrossentropy_v3(
     *,
     normalize: bool = True,
-    names: Optional[List[str]] = None,
+    names: Optional[Sequence[str]] = None,
     missing_value: Optional[Union[str, int]] = None,
     neg_prefix: Optional[str] = None,
     label_smoothing: float = 0.0,
@@ -207,7 +207,7 @@ class SequenceCategoricalCrossentropy(Loss):
         self,
         *,
         normalize: bool = True,
-        names: Optional[List[str]] = None,
+        names: Optional[Sequence[str]] = None,
         missing_value: Optional[Union[str, int]] = None,
         neg_prefix: Optional[str] = None,
         label_smoothing: float = 0.0,
@@ -222,14 +222,14 @@ class SequenceCategoricalCrossentropy(Loss):
         self.normalize = normalize
 
     def __call__(
-        self, guesses: List[Floats2d], truths: List[IntsOrFloatsOrStrs]
+        self, guesses: Sequence[Floats2d], truths: Sequence[IntsOrFloatsOrStrs]
     ) -> Tuple[List[Floats2d], float]:
         grads = self.get_grad(guesses, truths)
         loss = self._get_loss_from_grad(grads)
         return grads, loss
 
     def get_grad(
-        self, guesses: List[Floats2d], truths: List[IntsOrFloatsOrStrs]
+        self, guesses: Sequence[Floats2d], truths: Sequence[IntsOrFloatsOrStrs]
     ) -> List[Floats2d]:
         err = "Cannot calculate SequenceCategoricalCrossentropy loss: guesses and truths must be same length"
         if len(guesses) != len(truths):  # pragma: no cover
@@ -244,11 +244,11 @@ class SequenceCategoricalCrossentropy(Loss):
         return d_scores
 
     def get_loss(
-        self, guesses: List[Floats2d], truths: List[IntsOrFloatsOrStrs]
+        self, guesses: Sequence[Floats2d], truths: Sequence[IntsOrFloatsOrStrs]
     ) -> float:
         return self._get_loss_from_grad(self.get_grad(guesses, truths))
 
-    def _get_loss_from_grad(self, grads: List[Floats2d]) -> float:
+    def _get_loss_from_grad(self, grads: Sequence[Floats2d]) -> float:
         loss = 0.0
         for grad in grads:
             loss += self.cc._get_loss_from_grad(grad)
@@ -257,7 +257,7 @@ class SequenceCategoricalCrossentropy(Loss):
 
 @registry.losses("SequenceCategoricalCrossentropy.v1")
 def configure_SequenceCategoricalCrossentropy_v1(
-    *, normalize: bool = True, names: Optional[List[str]] = None
+    *, normalize: bool = True, names: Optional[Sequence[str]] = None
 ) -> SequenceCategoricalCrossentropy:
     return SequenceCategoricalCrossentropy(normalize=normalize, names=names)
 
@@ -266,7 +266,7 @@ def configure_SequenceCategoricalCrossentropy_v1(
 def configure_SequenceCategoricalCrossentropy_v2(
     *,
     normalize: bool = True,
-    names: Optional[List[str]] = None,
+    names: Optional[Sequence[str]] = None,
     neg_prefix: Optional[str] = None,
 ) -> SequenceCategoricalCrossentropy:
     return SequenceCategoricalCrossentropy(
@@ -278,7 +278,7 @@ def configure_SequenceCategoricalCrossentropy_v2(
 def configure_SequenceCategoricalCrossentropy_v3(
     *,
     normalize: bool = True,
-    names: Optional[List[str]] = None,
+    names: Optional[Sequence[str]] = None,
     missing_value: Optional[Union[str, int]] = None,
     neg_prefix: Optional[str] = None,
     label_smoothing: float = 0.0,

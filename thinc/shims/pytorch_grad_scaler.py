@@ -1,11 +1,7 @@
 from typing import Dict, Iterable, List, Union, cast
 
+from ..compat import has_torch_amp, torch
 from ..util import is_torch_array
-
-try:
-    import torch
-except ImportError:  # pragma: no cover
-    pass
 
 
 class PyTorchGradScaler:
@@ -23,7 +19,7 @@ class PyTorchGradScaler:
     def __init__(
         self,
         enabled: bool = False,
-        init_scale: float = 2.0 ** 16,
+        init_scale: float = 2.0**16,
         backoff_factor: float = 0.5,
         growth_factor: float = 2.0,
         growth_interval: int = 2000,
@@ -102,7 +98,18 @@ class PyTorchGradScaler:
         scale_per_device: Dict["torch.device", "torch.Tensor"],
         inplace: bool,
     ):
-        assert tensor.is_cuda, "Gradient scaling is only supported for CUDA tensors"
+        if not has_torch_amp:
+            raise ValueError(
+                "Gradient scaling is not supported, requires capable GPU and torch>=1.9.0"
+            )
+
+        if not tensor.is_cuda:
+            msg = (
+                "Gradient scaling is only supported for CUDA tensors. "
+                "If you are using PyTorch models, you can avoid this "
+                "error by disabling mixed-precision support."
+            )
+            raise ValueError(msg)
 
         device = tensor.device
 

@@ -54,7 +54,7 @@ def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Call
     def backprop(d_best: OutT) -> InT:
         dZ = model.ops.backprop_maxout(d_best, which, nP)
         # TODO: Add sum methods for Floats3d
-        model.inc_grad("b", dZ.sum(axis=0))  # type: ignore
+        model.inc_grad("b", dZ.sum(axis=0))  # type: ignore[call-overload]
         dY = model.ops.reshape2f(dZ, dZ.shape[0], nO * nP)
         dW = model.ops.reshape3f(model.ops.gemm(dY, X, trans1=True), nO, nP, nI)
         model.inc_grad("W", dW)
@@ -69,7 +69,7 @@ def init(
     model: Model[InT, OutT],
     X: Optional[InT] = None,
     Y: Optional[OutT] = None,
-) -> Model[InT, OutT]:
+) -> None:
     if X is not None:
         model.set_dim("nI", get_width(X))
     if Y is not None:
@@ -77,4 +77,3 @@ def init(
     W_shape = (model.get_dim("nO"), model.get_dim("nP"), model.get_dim("nI"))
     model.set_param("W", init_W(model.ops, W_shape))
     model.set_param("b", init_b(model.ops, (model.get_dim("nO"), model.get_dim("nP"))))
-    return model

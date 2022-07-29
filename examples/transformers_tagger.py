@@ -132,7 +132,9 @@ def TransformersTokenizer(name: str) -> Model[List[List[str]], TokensPlus]:
         return TokensPlus(**token_data), lambda d_tokens: []
 
     return Model(
-        "tokenizer", forward, attrs={"tokenizer": AutoTokenizer.from_pretrained(name)},
+        "tokenizer",
+        forward,
+        attrs={"tokenizer": AutoTokenizer.from_pretrained(name)},
     )
 
 
@@ -166,11 +168,14 @@ def convert_transformer_outputs(model, inputs_outputs, is_train):
 
     def backprop(d_tokvecs: List[Floats2d]) -> ArgsKwargs:
         # Restore entries for bos and eos markers.
+        shim = model.shims[0]
         row = model.ops.alloc2f(1, d_tokvecs[0].shape[1])
         d_tokvecs = [model.ops.xp.vstack((row, arr, row)) for arr in d_tokvecs]
         return ArgsKwargs(
             args=(torch_tokvecs,),
-            kwargs={"grad_tensors": xp2torch(model.ops.pad(d_tokvecs))},
+            kwargs={
+                "grad_tensors": xp2torch(model.ops.pad(d_tokvecs, device=shim.device))
+            },
         )
 
     return tokvecs, backprop

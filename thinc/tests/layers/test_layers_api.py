@@ -5,7 +5,7 @@ from thinc.api import registry, with_padded, Dropout, NumpyOps, Model
 from thinc.backends import NumpyOps
 from thinc.util import data_validation, get_width
 from thinc.types import Ragged, Padded, Array2d, Floats2d, FloatsXd, Shape
-from thinc.util import has_torch
+from thinc.compat import has_torch
 import numpy
 import pytest
 

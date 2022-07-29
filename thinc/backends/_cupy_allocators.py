@@ -1,23 +1,8 @@
 from typing import cast
 
 from ..types import ArrayXd
-from ..util import tensorflow2xp
-
-try:
-    import tensorflow
-except ImportError:
-    pass
-
-try:
-    import torch
-except ImportError:
-    pass
-
-try:
-    from cupy.cuda.memory import MemoryPointer
-    from cupy.cuda.memory import UnownedMemory
-except ImportError:
-    pass
+from ..util import get_torch_default_device, tensorflow2xp
+from ..compat import torch, cupy, tensorflow
 
 
 def cupy_tensorflow_allocator(size_in_bytes: int):
@@ -32,12 +17,13 @@ def cupy_tensorflow_allocator(size_in_bytes: int):
     cupy_array = cast(ArrayXd, tensorflow2xp(tensor))
     address = int(cupy_array.data)
     # cupy has a neat class to help us here. Otherwise it will try to free.
-    memory = UnownedMemory(address, size_in_bytes, cupy_array)
+    memory = cupy.cuda.memory.UnownedMemory(address, size_in_bytes, cupy_array)
     # Now return a new memory pointer.
-    return MemoryPointer(memory, 0)
+    return cupy.cuda.memory.MemoryPointer(memory, 0)
 
 
 def cupy_pytorch_allocator(size_in_bytes: int):
+    device = get_torch_default_device()
     """Function that can be passed into cupy.cuda.set_allocator, to have cupy
     allocate memory via PyTorch. This is important when using the two libraries
     together, as otherwise OOM errors can occur when there's available memory
@@ -49,10 +35,12 @@ def cupy_pytorch_allocator(size_in_bytes: int):
     # creating a whole Tensor.
     # This turns out to be way faster than making FloatStorage? Maybe
     # a Python vs C++ thing I guess?
-    torch_tensor = torch.zeros((size_in_bytes // 4,), requires_grad=False)
+    torch_tensor = torch.zeros(
+        (size_in_bytes // 4,), requires_grad=False, device=device
+    )
     # cupy has a neat class to help us here. Otherwise it will try to free.
     # I think this is a private API? It's not in the types.
     address = torch_tensor.data_ptr()  # type: ignore
-    memory = UnownedMemory(address, size_in_bytes, torch_tensor)
+    memory = cupy.cuda.memory.UnownedMemory(address, size_in_bytes, torch_tensor)
     # Now return a new memory pointer.
-    return MemoryPointer(memory, 0)
+    return cupy.cuda.memory.MemoryPointer(memory, 0)
