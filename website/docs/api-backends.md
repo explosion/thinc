@@ -927,7 +927,7 @@ Backpropagate the Swish activation
 | `inplace`   | <tt>bool</tt>     | If `True`, the `dY` array is modified in place. |
 | **RETURNS** | <tt>FloatsXd</tt> | The gradient of the input.                      |
 
-### Ops.dish {#dish tag="method"}
+### Ops.dish {#dish tag="method" new="8.1.1"}
 
 <inline-list>
 
@@ -949,7 +949,7 @@ cases.
 | `inplace`   | <tt>bool</tt>     | If `True`, the array is modified in place. |
 | **RETURNS** | <tt>FloatsXd</tt> | The outputs.                               |
 
-### Ops.backprop_dish {#backprop_dish tag="method"}
+### Ops.backprop_dish {#backprop_dish tag="method" new="8.1.1"}
 
 <inline-list>
 
