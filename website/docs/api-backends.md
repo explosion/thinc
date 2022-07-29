@@ -374,12 +374,33 @@ Allocate an array of a certain shape. If possible, you should always use the
 allow more sophisticated static [type checking](/docs/usage-type-checking) of
 the inputs and outputs.
 
-| Argument       | Type             | Description                                                     |
-| -------------- | ---------------- | --------------------------------------------------------------- |
-| `shape`        | <tt>Shape</tt>   | The shape.                                                      |
-| _keyword-only_ |                  |                                                                 |
-| `dtype`        | <tt>DTypes</tt>  | The data type (default: `float32`).                             |
-| **RETURNS**    | <tt>ArrayXd</tt> | An array of the correct shape and data type, filled with zeros. |
+| Argument       | Type             | Description                                  |
+| -------------- | ---------------- | -------------------------------------------- |
+| `shape`        | <tt>Shape</tt>   | The shape.                                   |
+| _keyword-only_ |                  |                                              |
+| `dtype`        | <tt>DTypes</tt>  | The data type (default: `float32`).          |
+| `zeros`        | <tt>bool</tt>    | Fill the array with zeros (default: `True`). |
+| **RETURNS**    | <tt>ArrayXd</tt> | An array of the correct shape and data type. |
+
+### Ops.cblas {#cblas tag="method"}
+
+<inline-list>
+
+- **default:** <i name="no"></i>
+- **numpy:** <i name="yes"></i>
+- **cupy:** <i name="no"></i>
+
+</inline-list>
+
+Get a table of C BLAS functions usable in Cython `cdef nogil` functions. This
+method does not take any arguments.
+
+<infobox variant="warning">
+
+This method is only supported by `NumpyOps`. A `NotImplementedError` exception
+is raised when calling this method on `Ops` or `CupyOps`.
+
+</infobox>
 
 ### Ops.to_numpy {#to_numpy tag="method"}
 
@@ -426,7 +447,8 @@ Y = model.ops.alloc1i(4)  # Ints1d
 | `*shape`       | <tt>int</tt>                              | The shape, one positional argument per dimension.                          |
 | _keyword-only_ |                                           |                                                                            |
 | `dtype`        | <tt>DTypesInt</tt> / <tt>DTypesFloat</tt> | The data type (float type for float methods and int type for int methods). |
-| **RETURNS**    | <tt>ArrayXd</tt>                          | An array of the correct shape and data type, filled with zeros.            |
+| `zeros`        | <tt>bool</tt>                             | Fill the array with zeros (default: `True`).                               |
+| **RETURNS**    | <tt>ArrayXd</tt>                          | An array of the correct shape and data type.                               |
 
 ### Ops.reshape {#reshape tag="method"}
 
@@ -1191,6 +1213,82 @@ Backpropagate the hard Swish MobileNet activation.
 | `inplace`   | <tt>bool</tt>     | If `True`, the `dY` array is modified in place. |
 | **RETURNS** | <tt>FloatsXd</tt> | The gradient of the input.                      |
 
+### Ops.reduce_first {#reduce_first tag="method"}
+
+<inline-list>
+
+- **default:** <i name="yes"></i>
+- **numpy:** default
+- **cupy:** default
+
+</inline-list>
+
+Perform sequence-wise first pooling for data in the ragged format. Zero-length
+sequences are not allowed. A `ValueError` is raised if any element in `lengths`
+is zero.
+
+| Argument    | Type                            | Description                                                           |
+| ----------- | ------------------------------- | --------------------------------------------------------------------- |
+| `X`         | <tt>Floats2d</tt>               | The concatenated sequences.                                           |
+| `lengths`   | <tt>Ints1d</tt>                 | The sequence lengths.                                                 |
+| **RETURNS** | <tt>Tuple[Floats2d,Ints1d]</tt> | The first vector of each sequence and the sequence start/end indices. |
+
+### Ops.backprop_reduce_first {#backprop_reduce_first tag="method"}
+
+<inline-list>
+
+- **default:** <i name="yes"></i>
+- **numpy:** default
+- **cupy:** default
+
+</inline-list>
+
+Backpropagate the `reduce_first` operation.
+
+| Argument      | Type              | Description                                 |
+| ------------- | ----------------- | ------------------------------------------- |
+| `d_firsts`    | <tt>Floats2d</tt> | The gradient of the outputs.                |
+| `starts_ends` | <tt>Ints1d</tt>   | The sequence start/end indices.             |
+| **RETURNS**   | <tt>Floats2d</tt> | The gradient of the concatenated sequences. |
+
+### Ops.reduce_last {#reduce_last tag="method"}
+
+<inline-list>
+
+- **default:** <i name="yes"></i>
+- **numpy:** default
+- **cupy:** default
+
+</inline-list>
+
+Perform sequence-wise last pooling for data in the ragged format. Zero-length
+sequences are not allowed. A `ValueError` is raised if any element in `lengths`
+is zero.
+
+| Argument    | Type                            | Description                                                                     |
+| ----------- | ------------------------------- | ------------------------------------------------------------------------------- |
+| `X`         | <tt>Floats2d</tt>               | The concatenated sequences.                                                     |
+| `lengths`   | <tt>Ints1d</tt>                 | The sequence lengths.                                                           |
+| **RETURNS** | <tt>Tuple[Floats2d,Ints1d]</tt> | The last vector of each sequence and the indices of the last sequence elements. |
+
+### Ops.backprop_reduce_last {#backprop_reduce_last tag="method"}
+
+<inline-list>
+
+- **default:** <i name="yes"></i>
+- **numpy:** default
+- **cupy:** default
+
+</inline-list>
+
+Backpropagate the `reduce_last` operation.
+
+| Argument    | Type              | Description                                 |
+| ----------- | ----------------- | ------------------------------------------- |
+| `d_lasts`   | <tt>Floats2d</tt> | The gradient of the outputs.                |
+| `lasts`     | <tt>Ints1d</tt>   | Indices of the last sequence elements.      |
+| **RETURNS** | <tt>Floats2d</tt> | The gradient of the concatenated sequences. |
+
 ### Ops.reduce_sum {#reduce_sum tag="method"}
 
 <inline-list>
@@ -1201,7 +1299,8 @@ Backpropagate the hard Swish MobileNet activation.
 
 </inline-list>
 
-Perform sequence-wise summation for data in the ragged format.
+Perform sequence-wise summation for data in the ragged format. Zero-length
+sequences are reduced to the zero vector.
 
 | Argument    | Type              | Description                   |
 | ----------- | ----------------- | ----------------------------- |
@@ -1237,7 +1336,8 @@ Backpropagate the `reduce_sum` operation.
 
 </inline-list>
 
-Perform sequence-wise averaging for data in the ragged format.
+Perform sequence-wise averaging for data in the ragged format. Zero-length
+sequences are reduced to the zero vector.
 
 | Argument    | Type              | Description                 |
 | ----------- | ----------------- | --------------------------- |
@@ -1273,7 +1373,9 @@ Backpropagate the `reduce_mean` operation.
 
 </inline-list>
 
-Perform sequence-wise max pooling for data in the ragged format.
+Perform sequence-wise max pooling for data in the ragged format. Zero-length
+sequences are not allowed. A `ValueError` is raised if any element in `lengths`
+is zero.
 
 | Argument    | Type                             | Description                 |
 | ----------- | -------------------------------- | --------------------------- |
@@ -1291,7 +1393,8 @@ Perform sequence-wise max pooling for data in the ragged format.
 
 </inline-list>
 
-Backpropagate the `reduce_max` operation.
+Backpropagate the `reduce_max` operation. A `ValueError` is raised if any
+element in `lengths` is zero.
 
 | Argument    | Type              | Description                                 |
 | ----------- | ----------------- | ------------------------------------------- |
@@ -1336,6 +1439,25 @@ Create hashed ngram features.
 | `n`         | <tt>int</tt>    | The window to calculate each feature over. |
 | `keys`      | <tt>Ints1d</tt> | The input sequence.                        |
 | **RETURNS** | <tt>Ints1d</tt> | The hashed ngrams.                         |
+
+### Ops.gather_add {#gather_add tag="method" new="8.1"}
+
+<inline-list>
+
+- **default:** <i name="yes"></i>
+- **numpy:** <i name="yes"></i>
+- **cupy:** <i name="yes"></i>
+
+</inline-list>
+
+Gather rows from `table` with shape `(T, O)` using array `indices` with shape
+`(B, K)`, then sum the resulting array with shape `(B, K, O)` over the `K` axis.
+
+| Argument    | Type              | Description             |
+| ----------- | ----------------- | ----------------------- |
+| `table`     | <tt>Floats2d</tt> | The array to increment. |
+| `indices`   | <tt>Ints2d</tt>   | The indices to use.     |
+| **RETURNS** | <tt>Floats2d</tt> | The summed rows.        |
 
 ### Ops.scatter_add {#scatter_add tag="method"}
 

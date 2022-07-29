@@ -1,12 +1,12 @@
-from typing import Tuple, Callable
+from typing import Tuple, Callable, TypeVar, cast
 
 from ..model import Model
 from ..config import registry
-from ..types import Ragged, List2d
+from ..types import Ragged, ListXd
 
 
 InT = Ragged
-OutT = List2d
+OutT = TypeVar("OutT", bound=ListXd)
 
 
 @registry.layers("ragged2list.v1")
@@ -19,7 +19,8 @@ def forward(model: Model[InT, OutT], Xr: InT, is_train: bool) -> Tuple[OutT, Cal
     lengths = Xr.lengths
 
     def backprop(dXs: OutT) -> InT:
-        return Ragged(model.ops.flatten(dXs, pad=0), lengths)  # type: ignore
+        return Ragged(model.ops.flatten(dXs, pad=0), lengths)  # type:ignore[arg-type]
+        # type ignore necessary for older versions of Mypy/Pydantic
 
-    data = model.ops.unflatten(Xr.dataXd, Xr.lengths) # type: ignore
+    data = cast(OutT, model.ops.unflatten(Xr.dataXd, Xr.lengths))
     return data, backprop

@@ -1,4 +1,4 @@
-from typing import Dict, Callable, Tuple, Optional, Union, cast
+from typing import Dict, Callable, Tuple, Optional, Union, cast, TypeVar
 
 from .chain import chain
 from .array_getitem import ints_getitem
@@ -9,7 +9,7 @@ from ..initializers import uniform_init
 from ..util import get_width, partial
 
 
-InT = Union[Ints1d, Ints2d]
+InT = TypeVar("InT", bound=Union[Ints1d, Ints2d])
 OutT = Floats2d
 
 
@@ -26,7 +26,7 @@ def Embed(
     attrs: Dict[str, Union[None, int, float]] = {}
     if dropout is not None:
         attrs["dropout_rate"] = dropout
-    model = Model(  # type: ignore
+    model: Model = Model(
         "embed",
         forward,
         init=partial(init, initializer),
@@ -45,7 +45,7 @@ def Embed(
 
 
 def forward(
-    model: Model[InT, OutT], ids: Ints1d, is_train: bool
+    model: Model[Ints1d, OutT], ids: Ints1d, is_train: bool
 ) -> Tuple[OutT, Callable]:
     vectors = cast(Floats2d, model.get_param("E"))
     nO = vectors.shape[1]
@@ -72,12 +72,11 @@ def forward(
 
 def init(
     initializer: Callable,
-    model: Model[InT, OutT],
+    model: Model[Ints1d, OutT],
     X: Optional[Ints1d] = None,
     Y: Optional[OutT] = None,
-) -> Model[InT, OutT]:
+) -> None:
     if Y is not None:
         model.set_dim("nO", get_width(Y))
     shape = (model.get_dim("nV"), model.get_dim("nO"))
     model.set_param("E", initializer(model.ops, shape))
-    return model

@@ -1,4 +1,4 @@
-from typing import Callable, Dict, Tuple, Optional, Any, Union, cast
+from typing import Callable, Dict, Tuple, Optional, Any, Union, cast, TypeVar
 
 from .chain import chain
 from .array_getitem import ints_getitem
@@ -9,7 +9,7 @@ from ..initializers import uniform_init
 from ..util import partial
 
 
-InT = Union[Ints2d, Ints1d]
+InT = TypeVar("InT", bound=Union[Ints1d, Ints2d])
 OutT = Floats2d
 
 
@@ -35,7 +35,7 @@ def HashEmbed(
     attrs: Dict[str, Any] = {"column": column, "seed": seed}
     if dropout is not None:
         attrs["dropout_rate"] = dropout
-    model = Model(  # type: ignore
+    model: Model = Model(
         "hashembed",
         forward,
         init=partial(init, initializer),
@@ -56,7 +56,7 @@ def HashEmbed(
 
 
 def forward(
-    model: Model[InT, OutT], ids: Ints1d, is_train: bool
+    model: Model[Ints1d, OutT], ids: Ints1d, is_train: bool
 ) -> Tuple[OutT, Callable]:
     vectors = cast(Floats2d, model.get_param("E"))
     nV = vectors.shape[0]
@@ -64,11 +64,11 @@ def forward(
     if len(ids) == 0:
         output: Floats2d = model.ops.alloc((0, nO), dtype=vectors.dtype)
     else:
-        ids = model.ops.as_contig(ids, dtype="uint64")  # type: ignore
+        ids = model.ops.as_contig(ids, dtype="uint64")
         nN = ids.shape[0]
         seed: int = model.attrs["seed"]
         keys = model.ops.hash(ids, seed) % nV
-        output = vectors[keys].sum(axis=1)
+        output = model.ops.gather_add(vectors, keys)
         drop_mask = None
         if is_train:
             dropout: Optional[float] = model.attrs.get("dropout_rate")
@@ -92,10 +92,9 @@ def forward(
 
 def init(
     initializer: Callable,
-    model: Model[InT, OutT],
+    model: Model[Ints1d, OutT],
     X: Optional[Ints1d] = None,
     Y: Optional[OutT] = None,
-) -> Model[InT, OutT]:
+) -> None:
     E = initializer(model.ops, (model.get_dim("nV"), model.get_dim("nO")))
     model.set_param("E", E)
-    return model

@@ -45,13 +45,13 @@ def PyTorchLSTM(
     from .pytorchwrapper import PyTorchRNNWrapper
 
     if depth == 0:
-        return noop()  # type: ignore
+        return noop()  # type: ignore[misc]
     nH = nO
     if bi:
         nH = nO // 2
     pytorch_rnn = PyTorchRNNWrapper(
-            torch.nn.LSTM(nI, nH, depth, bidirectional=bi, dropout=dropout)
-        )
+        torch.nn.LSTM(nI, nH, depth, bidirectional=bi, dropout=dropout)
+    )
     pytorch_rnn.set_dim("nO", nO)
     pytorch_rnn.set_dim("nI", nI)
     return with_padded(pytorch_rnn)
@@ -161,7 +161,7 @@ def _padded_to_packed(ops: Ops, Xp: Padded) -> Ragged:
     start = 0
     for t in range(Xp.size_at_t.shape[0]):
         batch_size = Xp.size_at_t[t]
-        Y[start : start + batch_size] = Xp.data[t, :batch_size]
+        Y[start : start + batch_size] = Xp.data[t, :batch_size]  # type: ignore[assignment]
         start += batch_size
     return Ragged(Y, Xp.size_at_t)
 

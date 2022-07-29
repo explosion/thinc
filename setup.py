@@ -17,6 +17,7 @@ Options.docstrings = True
 
 PACKAGES = find_packages()
 MOD_NAMES = [
+    "thinc.backends.cblas",
     "thinc.backends.linalg",
     "thinc.backends.numpy_ops",
     "thinc.extra.search",
@@ -113,7 +114,7 @@ def setup_package():
         version=about["__version__"],
         ext_modules=ext_modules,
         cmdclass={"build_ext": build_ext_subclass},
-        package_data={"": ["*.pyx", "*.pxd", "*.pxi", "*.cu"]},
+        package_data={"": ["*.pyx", "*.pxd", "*.pxi", "*.cu", "*.hh"]},
     )
 
 

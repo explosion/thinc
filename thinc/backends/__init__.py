@@ -5,13 +5,15 @@ from contextvars import ContextVar
 import threading
 
 from .ops import Ops
-from .cupy_ops import CupyOps, has_cupy
+from .cupy_ops import CupyOps
 from .numpy_ops import NumpyOps
+from .mps_ops import MPSOps
 from ._cupy_allocators import cupy_tensorflow_allocator, cupy_pytorch_allocator
 from ._param_server import ParamServer
 from ..util import assert_tensorflow_installed, assert_pytorch_installed
-from ..util import is_cupy_array, set_torch_tensor_type_for_ops, require_cpu
+from ..util import get_torch_default_device, is_cupy_array, require_cpu
 from .. import registry
+from ..compat import cupy, has_cupy
 
 
 context_ops: ContextVar[Optional[Ops]] = ContextVar("context_ops", default=None)
@@ -46,9 +48,11 @@ def use_pytorch_for_gpu_memory() -> None:  # pragma: no cover
     We'd like to support routing Tensorflow memory allocation via PyTorch as well
     (or vice versa), but do not currently have an implementation for it.
     """
-    import cupy.cuda
-
     assert_pytorch_installed()
+
+    if get_torch_default_device().type != "cuda":
+        return
+
     pools = context_pools.get()
     if "pytorch" not in pools:
         pools["pytorch"] = cupy.cuda.MemoryPool(allocator=cupy_pytorch_allocator)
@@ -65,8 +69,6 @@ def use_tensorflow_for_gpu_memory() -> None:  # pragma: no cover
     We'd like to support routing PyTorch memory allocation via Tensorflow as
     well (or vice versa), but do not currently have an implementation for it.
     """
-    import cupy.cuda
-
     assert_tensorflow_installed()
     pools = context_pools.get()
     if "tensorflow" not in pools:
@@ -94,7 +96,7 @@ def get_ops(name: str, **kwargs) -> Ops:
 
     cls: Optional[Callable[..., Ops]] = None
     if name == "cpu":
-        _import_extra_cpu_backends()        
+        _import_extra_cpu_backends()
         cls = ops_by_name.get("numpy")
         cls = ops_by_name.get("apple", cls)
         cls = ops_by_name.get("bigendian", cls)
@@ -137,7 +139,6 @@ def set_current_ops(ops: Ops) -> None:
     """Change the current backend object."""
     context_ops.set(ops)
     _get_thread_state().ops = ops
-    set_torch_tensor_type_for_ops(ops)
 
 
 def contextvars_eq_thread_ops() -> bool:
@@ -173,6 +174,7 @@ __all__ = [
     "ParamServer",
     "Ops",
     "CupyOps",
+    "MPSOps",
     "NumpyOps",
     "has_cupy",
 ]

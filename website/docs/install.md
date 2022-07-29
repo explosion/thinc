@@ -47,8 +47,9 @@ is_gpu = prefer_gpu()
 ### Using build constraints when compiling from source
 
 If you install Thinc from source or with `pip` for platforms where there are not
-binary wheels on PyPI, you may need to use build constraints if any package
-in your environment requires an older version of `numpy`.
+binary wheels on PyPI (currently any non-`x86_64` platforms, so commonly Linux
+`aarch64` or OS X M1/`arm64`), you may need to use build constraints if any
+package in your environment requires an older version of `numpy`.
 
 If `numpy` gets downgraded from the most recent release at any point after
 you've compiled `thinc`, you might see an error that looks like this:
@@ -71,9 +72,9 @@ pip install thinc --no-cache-dir
 ```
 
 Our build constraints currently specify the oldest supported `numpy` available
-on PyPI for `x86_64` and `aarch64`. Depending on your platform and environment,
-you may want to customize the specific versions of `numpy`. For other
-platforms, you can have a look at SciPy's
+on PyPI for `x86_64`. Depending on your platform and environment, you may want
+to customize the specific versions of `numpy`. For other platforms, you can have
+a look at SciPy's
 [`oldest-supported-numpy`](https://github.com/scipy/oldest-supported-numpy/blob/main/setup.cfg)
 package to see what the oldest recommended versions of `numpy` are.
 

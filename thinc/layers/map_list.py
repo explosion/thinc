@@ -32,5 +32,5 @@ def init(
     model: Model[List[InT], List[OutT]],
     X: Optional[List[InT]] = None,
     Y: Optional[List[OutT]] = None,
-):
+) -> None:
     model.layers[0].initialize(X=X[0] if X else None, Y=Y[0] if Y else None)

@@ -23,6 +23,7 @@ def test_mypy_results(
 ):
     pytest.importorskip("mypy")
     from mypy import api as mypy_api
+
     os.chdir(tmpdir)
     root_dir = Path(__file__).parent
     thinc_root_dir = Path(__file__).parent.parent.parent.parent
