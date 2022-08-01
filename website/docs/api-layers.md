@@ -1531,7 +1531,7 @@ model.initialize()
 https://github.com/explosion/thinc/blob/master/thinc/layers/with_nvtx_range.py
 ```
 
-### with_signpost_interval {#with_signpost_interval tag="function"}
+### with_signpost_interval {#with_signpost_interval tag="function" new="8.1.1"}
 
 <inline-list>
 
@@ -1542,8 +1542,10 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/with_nvtx_range.py
 
 Layer that wraps any layer and marks the init, forward and backprop passes as a
 (macOS) signpost interval. This can be helpful when profiling the performance of
-a layer using macOS Instruments.app. Use of this layer requies that the
-`os-signpost` package is installed.
+a layer using macOS
+[Instruments.app](https://help.apple.com/instruments/mac/current/). Use of this
+layer requires that the
+[`os-signpost`](https://github.com/explosion/os-signpost) package is installed.
 
 ```python
 ### Example
