@@ -27,7 +27,7 @@ from .layers import Maxout, Mish, MultiSoftmax, Relu, softmax_activation, Softma
 from .layers import CauchySimilarity, ParametricAttention, Logistic
 from .layers import resizable, sigmoid_activation, Sigmoid, SparseLinear
 from .layers import ClippedLinear, ReluK, HardTanh, HardSigmoid
-from .layers import HardSwish, HardSwishMobilenet, Swish, Gelu
+from .layers import Dish, HardSwish, HardSwishMobilenet, Swish, Gelu
 from .layers import PyTorchWrapper, PyTorchRNNWrapper, PyTorchLSTM
 from .layers import TensorFlowWrapper, keras_subclass, MXNetWrapper
 from .layers import PyTorchWrapper_v2, Softmax_v2
