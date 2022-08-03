@@ -62,7 +62,7 @@ def forward(
         xp_inputs = cast(Ints1dOr2d, inputs)
         xp_input = True
         _check_1d_or_2d(xp_inputs)
-        if xp_inputs.ndim == 2:
+        if column is not None:
             idx = to_numpy(xp_inputs[:, column])
         else:
             idx = to_numpy(xp_inputs)
