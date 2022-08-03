@@ -3,7 +3,7 @@ from typing import Dict, Union, Optional, Hashable
 
 from ..model import Model
 from ..config import registry
-from ..types import Ints1d, Ints2d, ArrayXd
+from ..types import Ints1d, Ints2d
 from ..util import is_xp_array, to_numpy
 
 
@@ -12,12 +12,9 @@ OutT = Ints2d
 Ints1dOr2d = Union[Ints1d, Ints2d]
 
 
-
 @registry.layers("remap_ids.v1")
 def remap_ids(
-    mapping_table: Optional[
-        Union[Dict[int, int], Dict[str, int]]
-    ] = None,
+    mapping_table: Optional[Union[Dict[int, int], Dict[str, int]]] = None,
     default: int = 0,
     *,
     column: Optional[int] = None
@@ -34,11 +31,7 @@ def remap_ids(
     return Model(
         "remap_ids",
         forward,
-        attrs={
-            "mapping_table": mapping_table,
-            "default": default,
-            "column": column
-        },
+        attrs={"mapping_table": mapping_table, "default": default, "column": column},
     )
 
 
@@ -47,24 +40,21 @@ def forward(
 ) -> Tuple[OutT, Callable]:
     table = model.attrs["mapping_table"]
     if table is None:
-        raise ValueError(
-            "'mapping table' not set"
-        )
+        raise ValueError("'mapping table' not set")
     default = model.attrs["default"]
     column = model.attrs["column"]
     if is_xp_array(inputs):
         xp_input = True
         if column is not None:
-            xp_inputs = cast(Ints2d, xp_inputs)
+            xp_inputs = cast(Ints2d, inputs)
             idx = to_numpy(xp_inputs[:, column])
         else:
-            xp_inputs = cast(Ints1d, xp_inputs)
-            idx = to_numpy(xp_inputs)
+            idx = to_numpy(inputs)
     else:
         xp_input = False
         idx = inputs
     values = [table.get(x, default) for x in idx]
-    arr = model.ops.asarray2i(values, dtype='i')
+    arr = model.ops.asarray2i(values, dtype="i")
     output = model.ops.reshape2i(arr, -1, 1)
 
     def backprop(dY: OutT) -> InT:
