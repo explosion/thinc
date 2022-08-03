@@ -12,26 +12,10 @@ OutT = Ints2d
 Ints1dOr2d = Union[Ints1d, Ints2d]
 
 
-def _check_1d_or_2d_str_or_int(arr: IntVecOrMat) -> None:
+def _check_1d_or_2d(arr: Ints1dOr2d) -> None:
     if arr.ndim > 2:
         raise ValueError(
             "Inputs array can be only one or two dimensional."
-        )
-    if arr.dtype.kind not in {"U", "i"}:  # type: ignore
-        raise ValueError(
-            "Input array has to contain strings or integers"
-        )
-
-
-def _check_column(arr: Ints2d, column: int) -> None:
-    if column is None:
-        raise ValueError(
-            "For two dimensional input 'column' attribute has to be set"
-        )
-    if column > arr.shape[1] - 1:
-        raise ValueError(
-            f"Column index {column} is greater than input "
-            f"dimension {arr.shape}."
         )
 
 
@@ -75,11 +59,10 @@ def forward(
     default = model.attrs["default"]
     column = model.attrs["column"]
     if is_xp_array(inputs):
-        xp_inputs = cast(IntVecOrMat, inputs)
+        xp_inputs = cast(Ints1dOr2d, inputs)
         xp_input = True
-        _check_1d_or_2d_str_or_int(xp_inputs)
+        _check_1d_or_2d(xp_inputs)
         if xp_inputs.ndim == 2:
-            _check_column(xp_inputs, column)
             idx = to_numpy(xp_inputs[:, column])
         else:
             idx = to_numpy(xp_inputs)
