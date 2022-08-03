@@ -1,5 +1,5 @@
 from typing import Tuple, Callable, Sequence, cast
-from typing import Dict, Union, Optional
+from typing import Dict, Union, Optional, Hashable
 
 from ..model import Model
 from ..config import registry
@@ -7,16 +7,10 @@ from ..types import Ints1d, Ints2d, ArrayXd
 from ..util import is_xp_array, to_numpy
 
 
-InT = Union[Sequence[str], Sequence[int], Ints1d, Ints2d]
+InT = Union[Sequence[Hashable], Ints1d, Ints2d]
 OutT = Ints2d
 Ints1dOr2d = Union[Ints1d, Ints2d]
 
-
-def _check_1d_or_2d(arr: Ints1dOr2d) -> None:
-    if arr.ndim > 2:
-        raise ValueError(
-            "Inputs array can be only one or two dimensional."
-        )
 
 
 @registry.layers("remap_ids.v1")
@@ -61,8 +55,8 @@ def forward(
     if is_xp_array(inputs):
         xp_inputs = cast(Ints1dOr2d, inputs)
         xp_input = True
-        _check_1d_or_2d(xp_inputs)
         if column is not None:
+            xp_inputs = cast(Ints2d, xp_inputs)
             idx = to_numpy(xp_inputs[:, column])
         else:
             idx = to_numpy(xp_inputs)
