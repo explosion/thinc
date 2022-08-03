@@ -78,4 +78,13 @@ except ImportError:  # pragma: no cover
     h5py = None
 
 
+try:  # pragma: no cover
+    import os_signpost
+
+    has_os_signpost = True
+except ImportError:
+    os_signpost = None
+    has_os_signpost = False
+
+
 has_gpu = has_cupy_gpu or has_torch_mps_gpu

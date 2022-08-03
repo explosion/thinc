@@ -71,6 +71,7 @@ from .with_reshape import with_reshape
 from .with_getitem import with_getitem
 from .with_debug import with_debug
 from .with_nvtx_range import with_nvtx_range
+from .with_signpost_interval import with_signpost_interval
 
 
 __all__ = [
@@ -128,5 +129,6 @@ __all__ = [
     "with_flatten",
     "with_debug",
     "with_nvtx_range",
+    "with_signpost_interval",
     "remap_ids",
 ]
