@@ -9,7 +9,7 @@ from ..util import is_xp_array, to_numpy
 
 InT = Union[Sequence[str], Sequence[int], Ints1d, Ints2d]
 OutT = Ints2d
-IntVecOrMat = Union[Ints1d, Ints2d]
+Ints1dOr2d = Union[Ints1d, Ints2d]
 
 
 def _check_1d_or_2d_str_or_int(arr: IntVecOrMat) -> None:
