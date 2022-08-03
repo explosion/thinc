@@ -53,12 +53,12 @@ def forward(
     default = model.attrs["default"]
     column = model.attrs["column"]
     if is_xp_array(inputs):
-        xp_inputs = cast(Ints1dOr2d, inputs)
         xp_input = True
         if column is not None:
             xp_inputs = cast(Ints2d, xp_inputs)
             idx = to_numpy(xp_inputs[:, column])
         else:
+            xp_inputs = cast(Ints1d, xp_inputs)
             idx = to_numpy(xp_inputs)
     else:
         xp_input = False
