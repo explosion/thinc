@@ -45,8 +45,7 @@ def forward(
     if is_xp_array(inputs):
         xp_input = True
         if column is not None:
-            xp_inputs = cast(Ints2d, inputs)
-            idx = to_numpy(xp_inputs[:, column])
+            idx = to_numpy(cast(Ints2d, inputs)[:, column])
         else:
             idx = to_numpy(inputs)
     else:
