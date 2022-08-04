@@ -44,6 +44,39 @@ Primarily used within [`siamese`](#siamese) neural networks.
 https://github.com/explosion/thinc/blob/master/thinc/layers/cauchysimilarity.py
 ```
 
+### Dish {#dish tag="function"}
+
+<inline-list>
+
+- **Input:** <ndarray shape="batch_size, nI">Floats2d</ndarray>
+- **Output:** <ndarray shape="batch_size, nO">Floats2d</ndarray>
+- **Parameters:** <ndarray shape="nO, nI">W</ndarray>,
+  <ndarray shape="nO,">b</ndarray>
+
+</inline-list>
+
+A dense layer with the Dish activation function. Dish or "Daniël's Swish-like
+activation" is an activation function with a non-monotinic shape similar to
+[GELU](#gelu), [Swish](#swish) and [Mish](#mish). However, Dish does not rely on
+elementary functions like `exp` or `erf`, making it much
+[faster to compute](https://twitter.com/danieldekok/status/1484898130441166853)
+in most cases.
+
+| Argument       | Type                               | Description                                                                                                        |
+| -------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `nO`           | <tt>Optional[int]</tt>             | The size of the output vectors.                                                                                    |
+| `nI`           | <tt>Optional[int]</tt>             | The size of the input vectors.                                                                                     |
+| _keyword-only_ |                                    |                                                                                                                    |
+| `init_W`       | <tt>Callable</tt>                  | A function to initialize the weights matrix. Defaults to [`he_normal_init`](/docs/api-initializers#he_normal_init) |
+| `init_b`       | <tt>Callable</tt>                  | A function to initialize the bias vector. Defaults to [`zero_init`](/docs/api-initializers#zero_init).             |
+| `dropout`      | <tt>Optional[float]</tt>           | Dropout rate to avoid overfitting.                                                                                 |
+| `normalize`    | <tt>bool</tt>                      | Whether or not to apply [layer normalization](#layernorm). Defaults to `False`.                                    |
+| **RETURNS**    | <tt>Model[Floats2d, Floats2d]</tt> | The created dense layer.                                                                                           |
+
+```python
+https://github.com/explosion/thinc/blob/master/thinc/layers/dish.py
+```
+
 ### Dropout {#dropout tag="function"}
 
 <inline-list>
