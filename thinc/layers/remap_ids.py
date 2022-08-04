@@ -9,7 +9,6 @@ from ..util import is_xp_array, to_numpy
 
 InT = Union[Sequence[Hashable], Ints1d, Ints2d]
 OutT = Ints2d
-Ints1dOr2d = Union[Ints1d, Ints2d]
 
 
 @registry.layers("remap_ids.v1")
