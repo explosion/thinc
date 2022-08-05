@@ -1,9 +1,9 @@
 from typing import Tuple, Callable, Sequence, cast
-from typing import Dict, Union, Optional, Hashable, DTypes, Any
+from typing import Dict, Union, Optional, Hashable, Any
 
 from ..model import Model
 from ..config import registry
-from ..types import Ints1d, Ints2d
+from ..types import Ints1d, Ints2d, DTypes
 from ..util import is_xp_array, to_numpy
 
 
