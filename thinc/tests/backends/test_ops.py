@@ -1365,7 +1365,10 @@ def test_ngrams():
 @pytest.mark.parametrize("dtype", ["float32", "float64"])
 @pytest.mark.parametrize("torch_func", TORCH_FUNCS)
 @settings(max_examples=MAX_EXAMPLES, deadline=None)
-@given(x=strategies.floats(min_value=-30, max_value=30), dY=strategies.floats(min_value=-1, max_value=1))
+@given(
+    x=strategies.floats(min_value=-30, max_value=30),
+    dY=strategies.floats(min_value=-1, max_value=1),
+)
 def test_compare_activations_to_torch(ops, dtype, x, dY, torch_func):
     import torch
 
