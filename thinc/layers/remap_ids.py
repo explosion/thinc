@@ -9,7 +9,6 @@ from ..util import is_xp_array, to_numpy
 
 InT = Union[Sequence[Hashable], Ints1d, Ints2d]
 OutT = Ints2d
-Ints1dOr2d = Union[Ints1d, Ints2d]
 
 InT_legacy = Sequence[Any]
 OutT_legacy = Ints2d
@@ -81,8 +80,7 @@ def forward(
     if is_xp_array(inputs):
         xp_input = True
         if column is not None:
-            xp_inputs = cast(Ints2d, inputs)
-            idx = to_numpy(xp_inputs[:, column])
+            idx = to_numpy(cast(Ints2d, inputs)[:, column])
         else:
             idx = to_numpy(inputs)
     else:
