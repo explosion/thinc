@@ -626,7 +626,7 @@ class Ops:
 
     def asarray4f(
         self,
-        data: Union[Floats4d, Sequence[int]],
+        data: Union[Floats4d, Sequence[float]],
         *,
         dtype: Optional[DTypes] = "float32",
     ) -> Floats4d:
@@ -634,7 +634,7 @@ class Ops:
 
     def asarray3f(
         self,
-        data: Union[Floats3d, Sequence[int]],
+        data: Union[Floats3d, Sequence[float]],
         *,
         dtype: Optional[DTypes] = "float32",
     ) -> Floats3d:
@@ -642,7 +642,7 @@ class Ops:
 
     def asarray2f(
         self,
-        data: Union[Floats2d, Sequence[int]],
+        data: Union[Floats2d, Sequence[float]],
         *,
         dtype: Optional[DTypes] = "float32",
     ) -> Floats2d:
@@ -650,7 +650,7 @@ class Ops:
 
     def asarray1f(
         self,
-        data: Union[Floats1d, Sequence[int]],
+        data: Union[Floats1d, Sequence[float]],
         *,
         dtype: Optional[DTypes] = "float32",
     ) -> Floats1d:
