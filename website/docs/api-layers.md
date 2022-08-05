@@ -44,6 +44,39 @@ Primarily used within [`siamese`](#siamese) neural networks.
 https://github.com/explosion/thinc/blob/master/thinc/layers/cauchysimilarity.py
 ```
 
+### Dish {#dish tag="function"}
+
+<inline-list>
+
+- **Input:** <ndarray shape="batch_size, nI">Floats2d</ndarray>
+- **Output:** <ndarray shape="batch_size, nO">Floats2d</ndarray>
+- **Parameters:** <ndarray shape="nO, nI">W</ndarray>,
+  <ndarray shape="nO,">b</ndarray>
+
+</inline-list>
+
+A dense layer with the Dish activation function. Dish or "Daniël's Swish-like
+activation" is an activation function with a non-monotinic shape similar to
+[GELU](#gelu), [Swish](#swish) and [Mish](#mish). However, Dish does not rely on
+elementary functions like `exp` or `erf`, making it much
+[faster to compute](https://twitter.com/danieldekok/status/1484898130441166853)
+in most cases.
+
+| Argument       | Type                               | Description                                                                                                        |
+| -------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `nO`           | <tt>Optional[int]</tt>             | The size of the output vectors.                                                                                    |
+| `nI`           | <tt>Optional[int]</tt>             | The size of the input vectors.                                                                                     |
+| _keyword-only_ |                                    |                                                                                                                    |
+| `init_W`       | <tt>Callable</tt>                  | A function to initialize the weights matrix. Defaults to [`he_normal_init`](/docs/api-initializers#he_normal_init) |
+| `init_b`       | <tt>Callable</tt>                  | A function to initialize the bias vector. Defaults to [`zero_init`](/docs/api-initializers#zero_init).             |
+| `dropout`      | <tt>Optional[float]</tt>           | Dropout rate to avoid overfitting.                                                                                 |
+| `normalize`    | <tt>bool</tt>                      | Whether or not to apply [layer normalization](#layernorm). Defaults to `False`.                                    |
+| **RETURNS**    | <tt>Model[Floats2d, Floats2d]</tt> | The created dense layer.                                                                                           |
+
+```python
+https://github.com/explosion/thinc/blob/master/thinc/layers/dish.py
+```
+
 ### Dropout {#dropout tag="function"}
 
 <inline-list>
@@ -835,8 +868,8 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/reduce_last.py
 </inline-list>
 
 Pooling layer that reduces the dimensions of the data by selecting the maximum
-value for each feature. A `ValueError` is raised if any element in `lengths`
-is zero.
+value for each feature. A `ValueError` is raised if any element in `lengths` is
+zero.
 
 | Argument    | Type                             | Description                |
 | ----------- | -------------------------------- | -------------------------- |
@@ -1529,6 +1562,45 @@ model.initialize()
 
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/with_nvtx_range.py
+```
+
+### with_signpost_interval {#with_signpost_interval tag="function" new="8.1.1"}
+
+<inline-list>
+
+- **Input:** <tt>Any</tt>
+- **Output:** <tt>Any</tt>
+
+</inline-list>
+
+Layer that wraps any layer and marks the init, forward and backprop passes as a
+(macOS) signpost interval. This can be helpful when profiling the performance of
+a layer using macOS
+[Instruments.app](https://help.apple.com/instruments/mac/current/). Use of this
+layer requires that the
+[`os-signpost`](https://github.com/explosion/os-signpost) package is installed.
+
+```python
+### Example
+from os_signpost import Signposter
+from thinc.api import Linear, with_signpost_interval
+
+signposter = Signposter("com.example.my_subsystem",
+    Signposter.Category.DynamicTracing)
+
+model = with_signpost_interval(Linear(2, 5), signposter)
+model.initialize()
+```
+
+| Argument     | Type                              | Description                                                                     |
+| ------------ | --------------------------------- | ------------------------------------------------------------------------------- |
+| `layer`      | <tt>Model</tt>                    | The layer to wrap.                                                              |
+| `signposter` | <tt>os_signposter.Signposter</tt> | `Signposter` object to log the interval with.                                   |
+| `name`       | <tt>Optional[str]</tt>            | Optional name for the wrapped layer. Defaults to the name of the wrapped layer. |
+| **RETURNS**  | <tt>Model</tt>                    | The wrapped layer.                                                              |
+
+```python
+https://github.com/explosion/thinc/blob/master/thinc/layers/with_signpost_interval.py
 ```
 
 ---

@@ -57,6 +57,8 @@ def assert_data_match(Y, out_data):
 
 TEST_CASES_SUMMABLE = [
     # Array to array
+    ("Dish.v1", {}, array2d, array2d),
+    ("Dish.v1", {"nO": 4, "nI": 4}, array2d, array2d),
     ("Dropout.v1", {}, array2d, array2d),
     ("LayerNorm.v1", {}, array2d, array2d),
     ("Linear.v1", {}, array2d, array2d),
