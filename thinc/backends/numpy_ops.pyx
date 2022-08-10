@@ -20,8 +20,7 @@ cimport blis.cy
 from .. import registry
 from ..util import copy_array, get_array_module
 from ..types import DeviceTypes, DTypes, Shape, ArrayXd
-from .cblas cimport CBlas, daxpy, saxpy
-from .linalg cimport VecVec, Vec
+from .cblas cimport CBlas, daxpy, saxpy, sscalv
 from .ops import Ops
 
 try:
@@ -466,7 +465,7 @@ class NumpyOps(Ops):
         and values.ndim == 2 \
         and values.shape[0] == indices.shape[0] \
         and values.shape[1] == table.shape[1]:
-            cpu_scatter_add(<float*>table.data,
+            cpu_scatter_add(self.cblas(), <float*>table.data,
                 <int*>indices.data, <float*>values.data,
                 indices.shape[0], table.shape[1])
         else:
@@ -482,10 +481,11 @@ class NumpyOps(Ops):
         _check_compatible_shape(weights, mom1)
         _check_compatible_shape(weights, mom2)
 
-        _adam_momentum(<float*>gradient.data, <float*>mom1.data, <float*>mom2.data,
+        cdef CBlas cblas = self.cblas()
+        _adam_momentum(cblas, <float*>gradient.data, <float*>mom1.data, <float*>mom2.data,
             weights.shape[0], beta1, beta2, eps, learn_rate)
-        VecVec.add_i(<float*>weights.data,
-            <float*>gradient.data, -learn_rate, weights.shape[0])
+        saxpy(cblas)(weights.shape[0], -learn_rate, <float*>gradient.data, 1, <float*>weights.data, 1)
+
         memset(<float*>gradient.data, 0, gradient.size * sizeof(float))
         return weights, gradient, mom1, mom2
 
@@ -523,9 +523,10 @@ def check_seq2col_lengths(ops, lengths, B):
 
 
 def cpu_clip_gradient(weight_t[::1] gradient, weight_t threshold):
-    grad_norm = Vec.norm(&gradient[0], gradient.shape[0])
+    arr_view = numpy.asarray(<np.float32_t[:gradient.shape[0]]> &gradient[0])
+    grad_norm = numpy.linalg.norm(arr_view)
     if grad_norm >= threshold:
-        Vec.mul_i(&gradient[0], threshold / grad_norm, gradient.shape[0])
+        arr_view *= threshold / grad_norm
 
 
 def add_gradient_noise(float[::1] gradient, weight_t noise_level,
@@ -555,19 +556,18 @@ cdef void cpu_position_encode(float* output, float period, int N, int D) nogil:
         output += D
 
 
-cdef void cpu_scatter_add(float* dest,
+cdef void cpu_scatter_add(CBlas cblas, float* dest,
         const int* indices, const float* src,
         int nr_id, int nr_col) nogil:
     cdef int i
     for i in range(nr_id):
         id_ = indices[i]
         if id_ >= 0:
-            VecVec.add_i(&dest[id_*nr_col],
-        	&src[i*nr_col], 1., nr_col)
+            saxpy(cblas)(nr_col, 1., &src[i*nr_col], 1, &dest[id_*nr_col], 1)
 
 
 @cython.cdivision(True)
-cdef void _adam_momentum(weight_t* gradient, weight_t* mom1, weight_t* mom2,
+cdef void _adam_momentum(CBlas cblas, weight_t* gradient, weight_t* mom1, weight_t* mom2,
         int nr_weight, weight_t beta1, weight_t beta2, weight_t eps,
         weight_t learn_rate) nogil:
     # Calculate Adam on CPU, fused.
@@ -585,9 +585,9 @@ cdef void _adam_momentum(weight_t* gradient, weight_t* mom1, weight_t* mom2,
     idx = 0
     for i in range(steps):
         step_size = min(64, nr_weight-idx)
-        Vec.mul_i(mom1, beta1, step_size)
-        VecVec.add_i(mom1, gradient, one_minus_beta1, step_size)
-        Vec.mul_i(mom2, beta2, step_size)
+        sscalv(cblas)(step_size, beta1, mom1, 1)
+        saxpy(cblas)(step_size, one_minus_beta1, gradient, 1, mom1, 1)
+        sscalv(cblas)(step_size, beta2, mom2, 1)
         for j in range(step_size):
             mom2[j] += one_minus_beta2 * gradient[j] ** 2
         for j in range(step_size):
