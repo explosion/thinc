@@ -13,6 +13,7 @@ ctypedef void (*saxpy_ptr)(int N, float alpha, const float* X, int incX,
 ctypedef void (*daxpy_ptr)(int N, double alpha, const double* X, int incX,
                            double *Y, int incY) nogil
 
+ctypedef void (*sscalv_ptr)(int N, float alpha, float* X, int incX) nogil
 
 # Forward-declaration of the BlasFuncs struct. This struct must be opaque, so
 # that consumers of the CBlas class cannot become dependent on its size or
@@ -33,6 +34,8 @@ cdef class CBlas:
 cdef daxpy_ptr daxpy(CBlas cblas) nogil
 cdef saxpy_ptr saxpy(CBlas cblas) nogil
 cdef sgemm_ptr sgemm(CBlas cblas) nogil
+cdef sscalv_ptr sscalv(CBlas cblas) nogil
 cdef void set_daxpy(CBlas cblas, daxpy_ptr daxpy) nogil
 cdef void set_saxpy(CBlas cblas, saxpy_ptr saxpy) nogil
 cdef void set_sgemm(CBlas cblas, sgemm_ptr sgemm) nogil
+cdef void set_sscalv(CBlas cblas, sscalv_ptr sscalv) nogil
