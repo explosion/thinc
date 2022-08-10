@@ -18,7 +18,6 @@ Options.docstrings = True
 PACKAGES = find_packages()
 MOD_NAMES = [
     "thinc.backends.cblas",
-    "thinc.backends.linalg",
     "thinc.backends.numpy_ops",
     "thinc.extra.search",
     "thinc.layers.sparselinear",
@@ -106,7 +105,9 @@ def setup_package():
         ext = Extension(name, [mod_path], language="c++", include_dirs=include_dirs)
         ext_modules.append(ext)
     print("Cythonizing sources")
-    ext_modules = cythonize(ext_modules, compiler_directives=COMPILER_DIRECTIVES, language_level=2)
+    ext_modules = cythonize(
+        ext_modules, compiler_directives=COMPILER_DIRECTIVES, language_level=2
+    )
 
     setup(
         name="thinc",
