@@ -1267,21 +1267,25 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/padded2list.py
 
 <inline-list>
 
-- **Input:** <tt>Sequence[Any]</tt>
+- **Input:** <tt>Union[Sequence[Hashable], Ints1d, Ints2d]</tt>
 - **Output:** <ndarray>Ints2d</ndarray>
 
 </inline-list>
 
-Remap string or integer inputs using a mapping table, usually as a preprocess
-before embeddings. The mapping table can be passed in on input, or updated after
-the layer has been created. The mapping table is stored in the `"mapping_table"`
-attribute.
+Remap a sequence of strings, integers or other Hashable inputs using a
+mapping table, usually as a preprocessing step before embeddings. The
+input can also be a two dimensional integer array in which case the
+`column: int` attribute tells the `remap_ids` layer which column of the
+array to map. For 2D inputs the `column` has to be set on initialization.
+The mapping table can be set at initialization, but can also be passed in on input, 
+When provided on initializtion the mapping table is stored in the `"mapping_table"`
+attribute. 
 
 | Argument        | Type                                  | Description                                                                                                  |
 | --------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
 | `mapping_table` | <tt>Dict[Any, int]</tt>               | The mapping table to use. Can also be set after initialization by writing to `model.attrs["mapping_table"]`. |
 | `default`       | <tt>int</tt>                          | The default value if the input does not have an entry in the mapping table.                                  |
-| `dtype`         | <tt>DTypes</tt>                       | The data type of the array.                                                                                  |
+| `column`         | <tt>int</tt>                       | The column to apply the mapper to in case of 2D input.                                                                                  |
 | **RETURNS**     | <tt>Model[Sequence[Any], Ints2d]</tt> | The layer to compute the transformation.                                                                     |
 
 ```python
