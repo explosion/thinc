@@ -1275,7 +1275,7 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/padded2list.py
 Remap a sequence of strings, integers or other Hashable inputs using a
 mapping table, usually as a preprocessing step before embeddings. The
 input can also be a two dimensional integer array in which case the
-`column: int` attribute tells the `remap_ids` layer which column of the
+`column` attribute tells the `remap_ids` layer which column of the
 array to map. For 2D inputs the `column` has to be set on initialization.
 The mapping table can be set at initialization, but can also be passed in on input, 
 When provided on initializtion the mapping table is stored in the `"mapping_table"`
