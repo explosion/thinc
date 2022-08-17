@@ -1272,7 +1272,7 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/padded2list.py
 
 </inline-list>
 
-Remap a sequence of strings, integers or other Hashable inputs using a
+Remap a sequence of strings, integers or other hashable inputs using a
 mapping table, usually as a preprocessing step before embeddings. The
 input can also be a two dimensional integer array in which case the
 `column: int` attribute tells the `remap_ids` layer which column of the
