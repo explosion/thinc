@@ -1276,10 +1276,13 @@ Remap a sequence of strings, integers or other Hashable inputs using a
 mapping table, usually as a preprocessing step before embeddings. The
 input can also be a two dimensional integer array in which case the
 `column: int` attribute tells the `remap_ids` layer which column of the
-array to map. For 2D inputs the `column` has to be set on initialization.
-The mapping table can be set at initialization, but can also be passed in on input, 
-When provided on initializtion the mapping table is stored in the `"mapping_table"`
-attribute. 
+array to map with the `mapping_table: Dict[Any, int]`.
+Both attributes can be passed during initialization, but since during
+`forward` they are retrieved from `model.attrs`, they can be set
+any time before calling `forward`. This means that they can also be
+changed between calls. Before calling `forward` the `mapping_table` 
+has to be set and for 2D inputs the `column` is also required.
+
 
 | Argument        | Type                                  | Description                                                                                                  |
 | --------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
