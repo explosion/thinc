@@ -86,6 +86,7 @@ jobs:
       pip install "mxnet; sys_platform != 'win32'"
       pip install "torch==1.9.0+cpu" -f https://download.pytorch.org/whl/torch_stable.html
       pip install ipykernel pydot graphviz
+      pip install typing-extensions==4.1.1
       python -m ipykernel install --name thinc-notebook-tests --user
     displayName: 'Install test dependencies'
 
