@@ -52,6 +52,8 @@ class PyTorchGradScaler:
         self._growth_interval = growth_interval
 
         self._found_inf = torch.full((1,), 0.0)
+        # Caches `self._found_inf` to minimize DTH transfers in hotloops.
+        self._found_inf_bool = False
         self._growth_tracker = torch.full((1,), 0, dtype=torch.int)
         self._scale = torch.full((1,), init_scale)
 
@@ -132,7 +134,7 @@ class PyTorchGradScaler:
 
     @property
     def found_inf(self):
-        return bool(self._found_inf) != 0
+        return self._found_inf_bool
 
     def unscale(self, tensors):
         """Unscale the given tensors. Returns True if any of the gradients were infinite."""
@@ -154,7 +156,8 @@ class PyTorchGradScaler:
 
             self._found_inf += found_inf_device.to(self._found_inf.device)
 
-        return bool(self._found_inf != 0)
+        self._found_inf_bool = bool(self._found_inf != 0)
+        return self._found_inf_bool
 
     def update(self):
         """
@@ -176,3 +179,4 @@ class PyTorchGradScaler:
 
         # Clear infinity found status
         self._found_inf = torch.zeros_like(self._found_inf)
+        self._found_inf_bool = False
