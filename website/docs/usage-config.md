@@ -22,6 +22,12 @@ also allows you to link the configuration system to functions in your code using
 a decorator. Thinc's config system is simpler and emphasizes a different
 workflow via a subset of Gin's functionality.
 
+<infobox variant="warning">
+Thinc's config system is wrapping and leveraging
+[confection](https://github.com/explosion/confection), which provides this
+functionality independently from on Thinc.
+</infobox>
+
 <grid>
 
 ```ini
@@ -654,11 +660,11 @@ resolved = registry.resolve(
 The main motivation for Thinc's configuration system was to eliminate hidden
 defaults and ensure that config settings are passed around consistently. This
 also means that config files should always define **all available settings**.
-The [`registry.fill`](/docs/api-config#registry-fill) method also
-resolves the config, but it leaves references to registered functions intact and
-doesn't replace them with their return values. If type annotations and/or a base
-schema are available, they will be used to parse the config and fill in any
-missing values and defaults to create an up-to-date "master config".
+The [`registry.fill`](/docs/api-config#registry-fill) method also resolves the
+config, but it leaves references to registered functions intact and doesn't
+replace them with their return values. If type annotations and/or a base schema
+are available, they will be used to parse the config and fill in any missing
+values and defaults to create an up-to-date "master config".
 
 Let's say you've updated your schema and scripts to use two additional optional
 settings. These settings should also be reflected in your config files so they
@@ -677,9 +683,9 @@ class TrainingSchema(BaseModel):
     max_epochs: StrictInt = 100
 ```
 
-Calling [`registry.fill`](/docs/api-config#registry-fill) with your
-existing config will produce an updated version of it including the new settings
-and their defaults:
+Calling [`registry.fill`](/docs/api-config#registry-fill) with your existing
+config will produce an updated version of it including the new settings and
+their defaults:
 
 <grid>
 
