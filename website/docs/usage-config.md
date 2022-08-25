@@ -12,21 +12,16 @@ And then once those settings are added, they become hard to remove later.
 Default values also become hard to change without breaking backwards
 compatibility.
 
-To solve this problem, Thinc provides a config system that lets you easily
-describe **arbitrary trees of objects**. The objects can be created via
-**function calls you register** using a simple decorator syntax. You can even
-version the functions you create, allowing you to make improvements without
-breaking backwards compatibility. The most similar config system we're aware of
-is [Gin](https://github.com/google/gin-config), which uses a similar syntax, and
-also allows you to link the configuration system to functions in your code using
-a decorator. Thinc's config system is simpler and emphasizes a different
-workflow via a subset of Gin's functionality.
-
-<infobox variant="warning">
-Thinc's config system is wrapping and leveraging
-[confection](https://github.com/explosion/confection), which provides this
-functionality independently from on Thinc.
-</infobox>
+To solve this problem, Thinc leverages
+[confection](https://github.com/explosion/confection) - a config system that
+lets you easily describe **arbitrary trees of objects**. The objects can be
+created via **function calls you register** using a simple decorator syntax. You
+can even version the functions you create, allowing you to make improvements
+without breaking backwards compatibility. The most similar config system we're
+aware of is [Gin](https://github.com/google/gin-config), which uses a similar
+syntax, and also allows you to link the configuration system to functions in
+your code using a decorator. Thinc's config system is simpler and emphasizes a
+different workflow via a subset of Gin's functionality.
 
 <grid>
 
