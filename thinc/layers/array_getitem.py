@@ -1,9 +1,9 @@
-from typing import Union, Sequence, Tuple, TypeVar
+from typing import Union, Sequence, SupportsIndex, Tuple, TypeVar
 from ..types import ArrayXd, FloatsXd, IntsXd
 from ..model import Model
 
 
-AxisIndex = Union[int, slice, Sequence[int]]
+AxisIndex = Union[SupportsIndex, slice, Sequence[SupportsIndex]]
 Index = Union[AxisIndex, Tuple[AxisIndex, ...]]
 ArrayTXd = TypeVar("ArrayTXd", bound=ArrayXd)
 
