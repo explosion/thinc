@@ -3,12 +3,12 @@ from typing import cast, List
 from ..types import Floats2d, Ints1d
 from ..config import registry
 from ..util import to_categorical, get_array_module
-from ..loss import CategoricalCrossentropy, IntsOrFloatsOrStrs
+from ..loss import CategoricalCrossentropy, IntsOrFloatsOrStrs, Loss
 from ..loss import _make_mask, _make_mask_by_value
 from ..loss import SequenceCategoricalCrossentropy
 
 
-class LegacyCategoricalCrossentropy(CategoricalCrossentropy):
+class LegacyCategoricalCrossentropy(Loss):
     names: Optional[Sequence[str]]
     missing_value: Optional[Union[str, int]]
     _name_to_i: Dict[str, int]
@@ -130,7 +130,7 @@ class LegacyCategoricalCrossentropy(CategoricalCrossentropy):
         return (d_truth**2).sum()  # type: ignore
 
 
-class LegacySequenceCategoricalCrossentropy(SequenceCategoricalCrossentropy):
+class LegacySequenceCategoricalCrossentropy(Loss):
     def __init__(
         self,
         *,
@@ -145,7 +145,7 @@ class LegacySequenceCategoricalCrossentropy(SequenceCategoricalCrossentropy):
             names=names,
             missing_value=missing_value,
             neg_prefix=neg_prefix,
-            label_smoothing=label_smoothing
+            label_smoothing=label_smoothing,
         )
         self.normalize = normalize
 
@@ -189,7 +189,7 @@ def configure_CategoricalCrossentropy_v1(
     normalize: bool = True,
     names: Optional[Sequence[str]] = None,
     missing_value: Optional[Union[str, int]] = None,
-) -> CategoricalCrossentropy:
+) -> LegacyCategoricalCrossentropy:
     return LegacyCategoricalCrossentropy(
         normalize=normalize, names=names, missing_value=missing_value
     )
@@ -202,7 +202,7 @@ def configure_CategoricalCrossentropy_v2(
     names: Optional[Sequence[str]] = None,
     missing_value: Optional[Union[str, int]] = None,
     neg_prefix: Optional[str] = None,
-) -> CategoricalCrossentropy:
+) -> LegacyCategoricalCrossentropy:
     return LegacyCategoricalCrossentropy(
         normalize=normalize,
         names=names,
@@ -219,7 +219,7 @@ def configure_CategoricalCrossentropy_v3(
     missing_value: Optional[Union[str, int]] = None,
     neg_prefix: Optional[str] = None,
     label_smoothing: float = 0.0,
-) -> CategoricalCrossentropy:
+) -> LegacyCategoricalCrossentropy:
     return LegacyCategoricalCrossentropy(
         normalize=normalize,
         names=names,
@@ -232,10 +232,8 @@ def configure_CategoricalCrossentropy_v3(
 @registry.losses("SequenceCategoricalCrossentropy.v1")
 def configure_SequenceCategoricalCrossentropy_v1(
     *, normalize: bool = True, names: Optional[Sequence[str]] = None
-) -> SequenceCategoricalCrossentropy:
-    return LegacySequenceCategoricalCrossentropy(
-        normalize=normalize, names=names
-    )
+) -> LegacySequenceCategoricalCrossentropy:
+    return LegacySequenceCategoricalCrossentropy(normalize=normalize, names=names)
 
 
 @registry.losses("SequenceCategoricalCrossentropy.v2")
@@ -244,7 +242,7 @@ def configure_SequenceCategoricalCrossentropy_v2(
     normalize: bool = True,
     names: Optional[Sequence[str]] = None,
     neg_prefix: Optional[str] = None,
-) -> SequenceCategoricalCrossentropy:
+) -> LegacySequenceCategoricalCrossentropy:
     return LegacySequenceCategoricalCrossentropy(
         normalize=normalize, names=names, neg_prefix=neg_prefix
     )
@@ -258,11 +256,11 @@ def configure_SequenceCategoricalCrossentropy_v3(
     missing_value: Optional[Union[str, int]] = None,
     neg_prefix: Optional[str] = None,
     label_smoothing: float = 0.0,
-) -> SequenceCategoricalCrossentropy:
+) -> LegacySequenceCategoricalCrossentropy:
     return LegacySequenceCategoricalCrossentropy(
         normalize=normalize,
         names=names,
         neg_prefix=neg_prefix,
         missing_value=missing_value,
-        label_smoothing=label_smoothing
+        label_smoothing=label_smoothing,
     )
