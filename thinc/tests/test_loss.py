@@ -153,10 +153,10 @@ def test_legacy_cross_entropy_types_shapes(version):
 def test_compare_cross_entropy_to_torch(xp, n_samples, n_classes, low, offset):
     import torch
 
-    sparse_loss_sum = ce_factory(normalize=False)
-    sparse_loss_mean = ce_factory()
-    loss_sum = ce_factory(sparse=False, normalize=False)
-    loss_mean = ce_factory(sparse=False)
+    sparse_loss_sum = sparse_ce_factory(normalize=False)
+    sparse_loss_mean = sparse_ce_factory()
+    loss_sum = ce_factory(normalize=False)
+    loss_mean = ce_factory()
     torch_loss_sum = torch.nn.CrossEntropyLoss(reduction="sum")
     torch_loss_mean = torch.nn.CrossEntropyLoss()
     logits = xp.random.uniform(low, low + offset, (n_samples, n_classes))
