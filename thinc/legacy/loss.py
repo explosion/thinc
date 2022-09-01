@@ -3,7 +3,7 @@ from typing import cast, List
 from ..types import Floats2d, Ints1d
 from ..config import registry
 from ..util import to_categorical, get_array_module
-from ..loss import CategoricalCrossentropy, IntsOrFloatsOrStrs, Loss
+    from ..loss import IntsOrFloatsOrStrs, Loss
 from ..loss import _make_mask, _make_mask_by_value
 from ..loss import SequenceCategoricalCrossentropy
 
