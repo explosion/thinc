@@ -20,16 +20,16 @@ Rather than installing NPM locally, you can also build a Docker container with
 the prerequisite dependencies:
 
 ```bash
-docker build -t thinc-io .
+docker build -t thinc-ai .
 ```
 
 Afterwards, the website can be built and run in the container:
 
 ```bash
 docker run --rm -it \
-  -v $PWD:/thinc-io/website \
+  -v $PWD:/thinc-ai/website \
   -p 8000:8000 \
-  thinc-io \
+  thinc-ai \
   gatsby develop -H 0.0.0.0
 ```
 

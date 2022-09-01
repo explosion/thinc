@@ -1,6 +1,6 @@
 FROM node:11.15.0
 
-WORKDIR /thinc-io
+WORKDIR /thinc-ai
 
 RUN npm install -g gatsby-cli@2.7.4
 
@@ -13,4 +13,4 @@ RUN npm install
 # from where a user mounts files, so that they don't accidentally mount
 # their own node_modules from a different build
 # https://nodejs.org/api/modules.html#modules_loading_from_node_modules_folders
-WORKDIR /thinc-io/website/
+WORKDIR /thinc-ai/website/

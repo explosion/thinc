@@ -10,6 +10,8 @@ KERNELS_SRC = (PWD / "_custom_kernels.cu").read_text(encoding="utf8")
 KERNELS_LIST = [
     "backprop_clipped_linear<double>",
     "backprop_clipped_linear<float>",
+    "backprop_dish<double>",
+    "backprop_dish<float>",
     "backprop_gelu<double>",
     "backprop_gelu<float>",
     "backprop_hard_swish<double>",
@@ -32,6 +34,8 @@ KERNELS_LIST = [
     "backprop_swish<float>",
     "clipped_linear<double>",
     "clipped_linear<float>",
+    "dish<double>",
+    "dish<float>",
     "gather_add<double>",
     "gather_add<float>",
     "gelu<double>",
@@ -78,6 +82,8 @@ MMH_SRC = (PWD / "_murmur3.cu").read_text(encoding="utf8")
 
 clipped_linear_kernel_float = _get_kernel("clipped_linear<float>")
 clipped_linear_kernel_double = _get_kernel("clipped_linear<double>")
+dish_kernel_float = _get_kernel("dish<float>")
+dish_kernel_double = _get_kernel("dish<double>")
 gather_add_kernel_float = _get_kernel("gather_add<float>")
 gather_add_kernel_double = _get_kernel("gather_add<double>")
 gelu_kernel_float = _get_kernel("gelu<float>")
@@ -98,6 +104,8 @@ swish_kernel_double = _get_kernel("swish<double>")
 
 backprop_clipped_linear_kernel_double = _get_kernel("backprop_clipped_linear<double>")
 backprop_clipped_linear_kernel_float = _get_kernel("backprop_clipped_linear<float>")
+backprop_dish_kernel_double = _get_kernel("backprop_dish<double>")
+backprop_dish_kernel_float = _get_kernel("backprop_dish<float>")
 backprop_gelu_kernel_double = _get_kernel("backprop_gelu<double>")
 backprop_gelu_kernel_float = _get_kernel("backprop_gelu<float>")
 backprop_hard_swish_kernel_double = _get_kernel("backprop_hard_swish<double>")
@@ -196,6 +204,19 @@ def gather_add(table, indices, *, threads_per_block=128, num_blocks=128):
         gather_add_kernel_double(
             (num_blocks,), (threads_per_block,), (out, table, indices, T, O, B, K)
         )
+    return out
+
+
+def dish(X, *, inplace=False, threads_per_block=128, num_blocks=128):
+    _is_float_array(X)
+
+    out = X
+    if not inplace:
+        out = _alloc_like(X, zeros=False)
+    if X.dtype == "float32":
+        dish_kernel_float((num_blocks,), (threads_per_block,), (out, X, X.size))
+    else:
+        dish_kernel_double((num_blocks,), (threads_per_block,), (out, X, X.size))
     return out
 
 
@@ -477,6 +498,33 @@ def backprop_hard_swish_mobilenet(
         )
     else:
         backprop_hard_swish_mobilenet_kernel_double(
+            (num_blocks,), (threads_per_block,), (out, dY, X, out.size)
+        )
+
+    return out
+
+
+def backprop_dish(
+    dY,
+    X,
+    *,
+    inplace: bool = False,
+    threads_per_block=128,
+    num_blocks=128,
+):
+    _is_float_array(dY)
+    _is_float_array(X, shape=dY.shape)
+
+    out = dY
+    if not inplace:
+        out = _alloc_like(dY, zeros=False)
+
+    if dY.dtype == "float32":
+        backprop_dish_kernel_float(
+            (num_blocks,), (threads_per_block,), (out, dY, X, out.size)
+        )
+    else:
+        backprop_dish_kernel_double(
             (num_blocks,), (threads_per_block,), (out, dY, X, out.size)
         )
 

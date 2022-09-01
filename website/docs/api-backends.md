@@ -927,6 +927,47 @@ Backpropagate the Swish activation
 | `inplace`   | <tt>bool</tt>     | If `True`, the `dY` array is modified in place. |
 | **RETURNS** | <tt>FloatsXd</tt> | The gradient of the input.                      |
 
+### Ops.dish {#dish tag="method" new="8.1.1"}
+
+<inline-list>
+
+- **default:** <i name="yes"></i>
+- **numpy:** <i name="no"></i>
+- **cupy:** <i name="yes"></i>
+
+</inline-list>
+
+Dish or "Daniël's Swish-like activation" is an activation function with a non-monotinic shape similar to
+[GELU](#gelu), [Swish](#swish) and [Mish](#mish). However, Dish does not rely on
+elementary functions like `exp` or `erf`, making it much
+[faster to compute](https://twitter.com/danieldekok/status/1484898130441166853)
+in most cases.
+
+| Argument    | Type              | Description                                |
+| ----------- | ----------------- | ------------------------------------------ |
+| `X`         | <tt>FloatsXd</tt> | The inputs.                                |
+| `inplace`   | <tt>bool</tt>     | If `True`, the array is modified in place. |
+| **RETURNS** | <tt>FloatsXd</tt> | The outputs.                               |
+
+### Ops.backprop_dish {#backprop_dish tag="method" new="8.1.1"}
+
+<inline-list>
+
+- **default:** <i name="yes"></i>
+- **numpy:** <i name="no"></i>
+- **cupy:** <i name="yes"></i>
+
+</inline-list>
+
+Backpropagate the Dish activation.
+
+| Argument    | Type              | Description                                     |
+| ----------- | ----------------- | ----------------------------------------------- |
+| `dY`        | <tt>FloatsXd</tt> | Gradients of the output array.                  |
+| `X`         | <tt>FloatsXd</tt> | The inputs to the forward pass.                 |
+| `inplace`   | <tt>bool</tt>     | If `True`, the `dY` array is modified in place. |
+| **RETURNS** | <tt>FloatsXd</tt> | The gradient of the input.                      |
+
 ### Ops.gelu {#gelu tag="method"}
 
 <inline-list>
@@ -1212,6 +1253,82 @@ Backpropagate the hard Swish MobileNet activation.
 | `X`         | <tt>FloatsXd</tt> | The inputs to the forward pass.                 |
 | `inplace`   | <tt>bool</tt>     | If `True`, the `dY` array is modified in place. |
 | **RETURNS** | <tt>FloatsXd</tt> | The gradient of the input.                      |
+
+### Ops.reduce_first {#reduce_first tag="method"}
+
+<inline-list>
+
+- **default:** <i name="yes"></i>
+- **numpy:** default
+- **cupy:** default
+
+</inline-list>
+
+Perform sequence-wise first pooling for data in the ragged format. Zero-length
+sequences are not allowed. A `ValueError` is raised if any element in `lengths`
+is zero.
+
+| Argument    | Type                            | Description                                                           |
+| ----------- | ------------------------------- | --------------------------------------------------------------------- |
+| `X`         | <tt>Floats2d</tt>               | The concatenated sequences.                                           |
+| `lengths`   | <tt>Ints1d</tt>                 | The sequence lengths.                                                 |
+| **RETURNS** | <tt>Tuple[Floats2d,Ints1d]</tt> | The first vector of each sequence and the sequence start/end indices. |
+
+### Ops.backprop_reduce_first {#backprop_reduce_first tag="method"}
+
+<inline-list>
+
+- **default:** <i name="yes"></i>
+- **numpy:** default
+- **cupy:** default
+
+</inline-list>
+
+Backpropagate the `reduce_first` operation.
+
+| Argument      | Type              | Description                                 |
+| ------------- | ----------------- | ------------------------------------------- |
+| `d_firsts`    | <tt>Floats2d</tt> | The gradient of the outputs.                |
+| `starts_ends` | <tt>Ints1d</tt>   | The sequence start/end indices.             |
+| **RETURNS**   | <tt>Floats2d</tt> | The gradient of the concatenated sequences. |
+
+### Ops.reduce_last {#reduce_last tag="method"}
+
+<inline-list>
+
+- **default:** <i name="yes"></i>
+- **numpy:** default
+- **cupy:** default
+
+</inline-list>
+
+Perform sequence-wise last pooling for data in the ragged format. Zero-length
+sequences are not allowed. A `ValueError` is raised if any element in `lengths`
+is zero.
+
+| Argument    | Type                            | Description                                                                     |
+| ----------- | ------------------------------- | ------------------------------------------------------------------------------- |
+| `X`         | <tt>Floats2d</tt>               | The concatenated sequences.                                                     |
+| `lengths`   | <tt>Ints1d</tt>                 | The sequence lengths.                                                           |
+| **RETURNS** | <tt>Tuple[Floats2d,Ints1d]</tt> | The last vector of each sequence and the indices of the last sequence elements. |
+
+### Ops.backprop_reduce_last {#backprop_reduce_last tag="method"}
+
+<inline-list>
+
+- **default:** <i name="yes"></i>
+- **numpy:** default
+- **cupy:** default
+
+</inline-list>
+
+Backpropagate the `reduce_last` operation.
+
+| Argument    | Type              | Description                                 |
+| ----------- | ----------------- | ------------------------------------------- |
+| `d_lasts`   | <tt>Floats2d</tt> | The gradient of the outputs.                |
+| `lasts`     | <tt>Ints1d</tt>   | Indices of the last sequence elements.      |
+| **RETURNS** | <tt>Floats2d</tt> | The gradient of the concatenated sequences. |
 
 ### Ops.reduce_sum {#reduce_sum tag="method"}
 

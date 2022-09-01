@@ -2,7 +2,7 @@
 murmurhash>=1.0.2,<1.1.0
 cymem>=2.0.2,<2.1.0
 preshed>=3.0.2,<3.1.0
-blis>=0.7.8,<0.8.0
+blis>=0.7.8,<0.10.0
 srsly>=2.4.0,<3.0.0
 wasabi>=0.8.1,<1.1.0
 catalogue>=2.0.4,<2.1.0
@@ -22,7 +22,7 @@ pytest-cov>=2.7.0,<2.8.0
 coverage>=5.0.0,<6.0.0
 mock>=2.0.0,<3.0.0
 flake8>=3.5.0,<3.6.0
-mypy>=0.901,<0.960
+mypy>=0.901,<0.970; platform_machine!='aarch64'
 types-mock>=0.1.1
 types-contextvars>=0.1.2; python_version < "3.7"
 types-dataclasses>=0.1.3; python_version < "3.7"
@@ -34,3 +34,4 @@ nbformat>=5.0.4,<5.2.0
 # Test to_disk/from_disk against pathlib.Path subclasses
 pathy>=0.3.5
 black>=22.0,<23.0
+confection>=0.0.1,<1.0.0

@@ -27,7 +27,7 @@ from .layers import Maxout, Mish, MultiSoftmax, Relu, softmax_activation, Softma
 from .layers import CauchySimilarity, ParametricAttention, Logistic
 from .layers import resizable, sigmoid_activation, Sigmoid, SparseLinear
 from .layers import ClippedLinear, ReluK, HardTanh, HardSigmoid
-from .layers import HardSwish, HardSwishMobilenet, Swish, Gelu
+from .layers import Dish, HardSwish, HardSwishMobilenet, Swish, Gelu
 from .layers import PyTorchWrapper, PyTorchRNNWrapper, PyTorchLSTM
 from .layers import TensorFlowWrapper, keras_subclass, MXNetWrapper
 from .layers import PyTorchWrapper_v2, Softmax_v2
@@ -40,6 +40,7 @@ from .layers import with_padded, with_list, with_ragged, with_flatten
 from .layers import with_reshape, with_getitem, strings2arrays, list2array
 from .layers import list2ragged, ragged2list, list2padded, padded2list, remap_ids
 from .layers import array_getitem, with_cpu, with_debug, with_nvtx_range
+from .layers import with_signpost_interval
 from .layers import tuplify
 
 from .layers import reduce_first, reduce_last, reduce_max, reduce_mean, reduce_sum
