@@ -254,7 +254,7 @@ def to_categorical(
     return label_distr[Y]
 
 
-def smooth_one_hot(X: Floats2d, label_smoothing: float):
+def smooth_one_hot(X: Floats2d, label_smoothing: float) -> Floats2d:
     """
     Apply label-smoothing to one-hot array.
     """
