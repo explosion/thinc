@@ -254,7 +254,7 @@ class SparseCE(CategoricalCrossentropyBase):
         for i, value in enumerate(truths):
             if not isinstance(value, str):
                 raise ValueError(
-                    "The first value of the truths was of type "
+                    "The first value of the 'truths' was of type "
                     f"string, but found {type(value)} during iteration."
                 )
             # missing value
