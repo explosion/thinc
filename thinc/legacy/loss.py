@@ -40,7 +40,6 @@ class LegacyCategoricalCrossentropy(Loss):
         missing_value = self.missing_value
         # Convert list of ints or list of strings
         if isinstance(truths, list):
-            truths = list(truths)
             if len(truths):
                 if isinstance(truths[0], int):
                     for i, value in enumerate(truths):
