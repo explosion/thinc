@@ -1282,11 +1282,11 @@ before calling `forward`. This means that they can also be changed between
 calls. Before calling `forward` the `mapping_table` has to be set and for 2D
 inputs the `column` is also required.
 
-| Argument        | Type                                  | Description                                                                                                  |
-| --------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `mapping_table` | <tt>Dict[Any, int]</tt>               | The mapping table to use. Can also be set after initialization by writing to `model.attrs["mapping_table"]`. |
-| `default`       | <tt>int</tt>                          | The default value if the input does not have an entry in the mapping table.                                  |
-| `column`        | <tt>int</tt>                          | The column to apply the mapper to in case of 2D input.                                                       |
+| Argument        | Type                                                              | Description                                                                                                  |
+| --------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `mapping_table` | <tt>Dict[Any, int]</tt>                                           | The mapping table to use. Can also be set after initialization by writing to `model.attrs["mapping_table"]`. |
+| `default`       | <tt>int</tt>                                                      | The default value if the input does not have an entry in the mapping table.                                  |
+| `column`        | <tt>int</tt>                                                      | The column to apply the mapper to in case of 2D input.                                                       |
 | **RETURNS**     | <tt>Model[Union[Sequence[Hashable], Ints1d, Ints2d], Ints2d]</tt> | The layer to compute the transformation.                                                                     |
 
 ```python
