@@ -238,8 +238,7 @@ class SparseCE(CategoricalCrossentropyBase):
             raise ValueError(
                 "Cannot calculate loss from Sequence[str] without names. "
                 "You can pass the names as a keyword argument when you "
-                "create the loss object, "
-                "e.g. CategoricalCrossentropy(names=['dog', 'cat'])"
+                "create the loss object"
             )
         if missing_value is not None and not isinstance(missing_value, str):
             raise ValueError(
