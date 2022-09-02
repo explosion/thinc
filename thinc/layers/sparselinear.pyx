@@ -125,6 +125,8 @@ class _finish_linear_update:
         return (self.keys, self.values, self.lengths)
 
 
+# v1_indexing is invalid and only uses a subset of the weight matrix, v1
+# indexing is provided here for compatibility. See #752 for more information.
 cdef void set_scoresC(float* scores,
         const uint64_t* keys, const float* values, const int32_t* lengths,
         int batch_size, int nr_out, const float* weights, int nr_weight,
@@ -154,6 +156,8 @@ cdef void set_scoresC(float* scores,
         values += length
 
 
+# v1_indexing is invalid and only uses a subset of the weight matrix, v1
+# indexing is provided here for compatibility. See #752 for more information.
 cdef void set_gradientC(float* d_weights,
         const uint64_t* keys, const float* values, const int32_t* lengths,
         int batch_size, int nr_out, const float* d_scores, int nr_weight,
