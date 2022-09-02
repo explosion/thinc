@@ -59,7 +59,7 @@ from .list2ragged import list2ragged
 from .list2padded import list2padded
 from .ragged2list import ragged2list
 from .padded2list import padded2list
-from .remap_ids import remap_ids
+from .remap_ids import remap_ids, remap_ids_v2
 from .strings2arrays import strings2arrays
 from .with_array import with_array
 from .with_array2d import with_array2d
