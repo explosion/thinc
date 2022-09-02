@@ -135,8 +135,12 @@ cdef void set_scoresC(float* scores,
         for i in range(length):
             hash1 = MurmurHash3_x86_32_uint64(keys[i], 0)
             hash2 = MurmurHash3_x86_32_uint64(keys[i], 1)
-            idx1 = hash1 & (nr_weight-1)
-            idx2 = hash2 & (nr_weight-1)
+            if invalid_indexing:
+                idx1 = hash1 & (nr_weight-1)
+                idx2 = hash2 & (nr_weight-1)
+            else:
+                idx1 = hash1 % nr_weight
+                idx2 = hash2 % nr_weight
             value = values[i]
             for clas in range(nr_out):
                 if invalid_indexing:
@@ -160,8 +164,12 @@ cdef void set_gradientC(float* d_weights,
         for i in range(length):
             hash1 = MurmurHash3_x86_32_uint64(keys[i], 0)
             hash2 = MurmurHash3_x86_32_uint64(keys[i], 1)
-            idx1 = hash1 & (nr_weight-1)
-            idx2 = hash2 & (nr_weight-1)
+            if invalid_indexing:
+                idx1 = hash1 & (nr_weight-1)
+                idx2 = hash2 & (nr_weight-1)
+            else:
+                idx1 = hash1 % nr_weight
+                idx2 = hash2 % nr_weight
             value = values[i]
             for clas in range(nr_out):
                 if invalid_indexing:
