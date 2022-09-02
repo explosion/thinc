@@ -135,7 +135,6 @@ bad_catsie = {"@cats": "catsie.v1", "evil": True, "cute": True}
 worst_catsie = {"@cats": "catsie.v1", "evil": True, "cute": False}
 
 
-
 def test_make_config_positional_args_dicts():
     cfg = {
         "hyper_params": {"n_hidden": 512, "dropout": 0.2, "learn_rate": 0.001},
