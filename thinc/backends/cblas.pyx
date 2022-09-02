@@ -3,8 +3,11 @@ from cython.operator cimport dereference as deref
 from libcpp.memory cimport make_shared
 
 
-# Single-precision wrapper for `blis.cy.scalv`
-cdef void blis_sscalv(int N, float alpha, float* X, int incX) nogil:
+# Single- and double-precision wrappers for `blis.cy.scalv`
+cdef void blis_sscal(int N, float alpha, float* X, int incX) nogil:
+    blis.cy.scalv(blis.cy.NO_CONJUGATE, N, alpha, X, incX)
+
+cdef void blis_dscal(int N, double alpha, double* X, int incX) nogil:
     blis.cy.scalv(blis.cy.NO_CONJUGATE, N, alpha, X, incX)
 
 
@@ -12,7 +15,8 @@ cdef struct BlasFuncs:
     daxpy_ptr daxpy
     saxpy_ptr saxpy
     sgemm_ptr sgemm
-    sscalv_ptr sscalv
+    sscal_ptr sscal
+    dscal_ptr dscal
 
 
 cdef class CBlas:
@@ -25,7 +29,8 @@ cdef class CBlas:
         funcs.daxpy = blis.cy.daxpy
         funcs.saxpy = blis.cy.saxpy
         funcs.sgemm = blis.cy.sgemm
-        funcs.sscalv = blis_sscalv
+        funcs.sscal = blis_sscal
+        funcs.dscal = blis_dscal
         self.ptr = make_shared[BlasFuncs](funcs)
 
 cdef daxpy_ptr daxpy(CBlas cblas) nogil:
@@ -37,8 +42,11 @@ cdef saxpy_ptr saxpy(CBlas cblas) nogil:
 cdef sgemm_ptr sgemm(CBlas cblas) nogil:
     return deref(cblas.ptr).sgemm
 
-cdef sscalv_ptr sscalv(CBlas cblas) nogil:
-    return deref(cblas.ptr).sscalv
+cdef sscal_ptr sscal(CBlas cblas) nogil:
+    return deref(cblas.ptr).sscal
+
+cdef dscal_ptr dscal(CBlas cblas) nogil:
+    return deref(cblas.ptr).dscal
 
 cdef void set_daxpy(CBlas cblas, daxpy_ptr daxpy) nogil:
     deref(cblas.ptr).daxpy = daxpy
@@ -49,5 +57,8 @@ cdef void set_saxpy(CBlas cblas, saxpy_ptr saxpy) nogil:
 cdef void set_sgemm(CBlas cblas, sgemm_ptr sgemm) nogil:
     deref(cblas.ptr).sgemm = sgemm
 
-cdef void set_sscalv(CBlas cblas, sscalv_ptr sscalv) nogil:
-    deref(cblas.ptr).sscalv = sscalv
+cdef void set_sscal(CBlas cblas, sscal_ptr sscal) nogil:
+    deref(cblas.ptr).sscal = sscal
+
+cdef void set_dscal(CBlas cblas, dscal_ptr dscal) nogil:
+    deref(cblas.ptr).dscal = dscal

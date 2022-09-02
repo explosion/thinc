@@ -20,7 +20,7 @@ cimport blis.cy
 from .. import registry
 from ..util import copy_array, get_array_module
 from ..types import DeviceTypes, DTypes, Shape, ArrayXd
-from .cblas cimport CBlas, daxpy, saxpy, sscalv
+from .cblas cimport CBlas, daxpy, saxpy, sscal
 from .ops import Ops
 
 try:
@@ -585,9 +585,9 @@ cdef void _adam_momentum(CBlas cblas, weight_t* gradient, weight_t* mom1, weight
     idx = 0
     for i in range(steps):
         step_size = min(64, nr_weight-idx)
-        sscalv(cblas)(step_size, beta1, mom1, 1)
+        sscal(cblas)(step_size, beta1, mom1, 1)
         saxpy(cblas)(step_size, one_minus_beta1, gradient, 1, mom1, 1)
-        sscalv(cblas)(step_size, beta2, mom2, 1)
+        sscal(cblas)(step_size, beta2, mom2, 1)
         for j in range(step_size):
             mom2[j] += one_minus_beta2 * gradient[j] ** 2
         for j in range(step_size):
