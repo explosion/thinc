@@ -242,8 +242,8 @@ class SparseCE(CategoricalCrossentropyBase):
             )
         if missing_value is not None and not isinstance(missing_value, str):
             raise ValueError(
-                "truths provided in Sequence[str] format, but "
-                f"missing_value was set to be {self.missing_value} "
+                "'truths' provided in Sequence[str] format, but "
+                f"'missing_value' was set to be {self.missing_value} "
                 f", which has type {type(self.missing_value)}."
             )
         xp = get_array_module(guesses)
