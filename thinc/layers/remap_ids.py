@@ -15,7 +15,7 @@ OutT_v1 = Ints2d
 
 
 @registry.layers("remap_ids.v1")
-def remap_ids_v1(
+def remap_ids(
     mapping_table: Dict[Any, int] = {}, default: int = 0, dtype: DTypes = "i"
 ) -> Model[InT_v1, OutT_v1]:
     """Remap string or integer inputs using a mapping table, usually as a
@@ -25,12 +25,12 @@ def remap_ids_v1(
     """
     return Model(
         "remap_ids",
-        forward_v1,
+        forward,
         attrs={"mapping_table": mapping_table, "dtype": dtype, "default": default},
     )
 
 
-def forward_v1(
+def forward(
     model: Model[InT_v1, OutT_v1], inputs: InT_v1, is_train: bool
 ) -> Tuple[OutT, Callable]:
     table = model.attrs["mapping_table"]
@@ -47,7 +47,7 @@ def forward_v1(
 
 
 @registry.layers("remap_ids.v2")
-def remap_ids(
+def remap_ids_v2(
     mapping_table: Optional[Union[Dict[int, int], Dict[str, int]]] = None,
     default: int = 0,
     *,
@@ -64,12 +64,12 @@ def remap_ids(
     """
     return Model(
         "remap_ids",
-        forward,
+        forward_v2,
         attrs={"mapping_table": mapping_table, "default": default, "column": column},
     )
 
 
-def forward(
+def forward_v2(
     model: Model[InT, OutT], inputs: InT, is_train: bool
 ) -> Tuple[OutT, Callable]:
     table = model.attrs["mapping_table"]
