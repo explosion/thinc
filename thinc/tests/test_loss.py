@@ -1,7 +1,7 @@
 import pytest
 import numpy
 from functools import partial
-from thinc.api import CategoricalCrossentropy, SequenceCategoricalCrossentropy
+from thinc.api import CategoricalCrossentropy
 from thinc.api import L2Distance, CosineDistance, softmax_activation
 from thinc.api import Ragged
 from thinc import registry
