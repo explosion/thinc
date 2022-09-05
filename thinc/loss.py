@@ -53,7 +53,7 @@ class CategoricalCrossentropyBase(Loss):
                 "Cannot calculate CategoricalCrossentropy loss: "
                 f"mismatched shapes: {guesses_f2d.shape} vs {target.shape}."
             )
-        if xp.any(guesses_f2d > 1) or xp.any(guesses_f2d < 0):  # pragma: no cover
+        elif xp.any(guesses_f2d > 1) or xp.any(guesses_f2d < 0):  # pragma: no cover
             raise ValueError(
                 "Cannot calculate CategoricalCrossentropy loss "
                 "with guesses outside the [0,1] interval."
