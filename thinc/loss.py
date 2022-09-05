@@ -272,7 +272,7 @@ class SparseCE(CategoricalCrossentropyBase):
         guesses_f2d = _to_array(guesses)
 
         if is_xp_array(truths):
-            _check_ints1d(truths)
+            _check_ints1d(cast(ArrayXd, truths))
             xp_truths = cast(Ints1d, truths)
             truths_2d = to_categorical(
                 xp_truths,
@@ -594,7 +594,7 @@ def _check_ints1d(arr: ArrayXd):
             "SparseCE only accepts 1D arrays, but "
             f"array with shape {arr.shape} was given."
         )
-    if arr.dtype.kind != "i":
+    if arr.dtype.kind != "i":  # type: ignore
         raise ValueError(
             "SparseCE only accepts integer arrays, but "
             f"array with {arr.dtype} was given."
