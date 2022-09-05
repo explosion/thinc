@@ -16,7 +16,6 @@ from contextvars import ContextVar
 from dataclasses import dataclass
 from .compat import has_cupy, has_mxnet, has_torch, has_tensorflow
 from .compat import has_cupy_gpu, has_torch_cuda_gpu, has_gpu
-from .compat import has_torch_mps_gpu
 from .compat import torch, cupy, tensorflow as tf, mxnet as mx, cupy_from_dlpack
 
 from .types import ArrayXd, ArgsKwargs, Ragged, Padded, FloatsXd, IntsXd, Floats2d  # noqa: E402
