@@ -69,7 +69,7 @@ class LegacyCategoricalCrossentropy(Loss):
                             raise ValueError(
                                 "All values in the truths list have to "
                                 "have the same time. The first value was "
-                                f"detected to be integer, but found {type(value)}."
+                                f"detected to be string, but found {type(value)}."
                             )
                         if value == missing_value:
                             truths[i] = self.names[0]
