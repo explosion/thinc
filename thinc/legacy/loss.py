@@ -96,12 +96,13 @@ class LegacyCategoricalCrossentropy(Loss):
                 n_classes=guesses.shape[-1],
                 label_smoothing=self.label_smoothing,
             )
-        elif self.label_smoothing:
-            raise ValueError(
-                "Label smoothing is only applied, when truths have type "
-                "List[str], List[int] or Ints1d, but it seems like Floats2d "
-                "was provided."
-            )
+        else:
+            if self.label_smoothing:
+                raise ValueError(
+                    "Label smoothing is only applied, when truths have type "
+                    "List[str], List[int] or Ints1d, but it seems like Floats2d "
+                    "was provided."
+                )
             truths_2d = cast(Floats2d, truths)
         # Transform negative annotations to a 0 for the negated value
         # + mask all other values for that row
