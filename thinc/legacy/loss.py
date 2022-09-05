@@ -128,7 +128,7 @@ class LegacyCategoricalCrossentropy(Loss):
         elif xp.any(guesses > 1) or xp.any(guesses < 0):  # pragma: no cover
             err = f"Cannot calculate CategoricalCrossentropy loss with guesses outside the [0,1] interval."
             raise ValueError(err)
-        if xp.any(target > 1) or xp.any(target < 0):  # pragma: no cover
+        elif xp.any(target > 1) or xp.any(target < 0):  # pragma: no cover
             err = f"Cannot calculate CategoricalCrossentropy loss with truth values outside the [0,1] interval."
             raise ValueError(err)
         difference = guesses - target
