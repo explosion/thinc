@@ -103,6 +103,7 @@ class LegacyCategoricalCrossentropy(Loss):
                     "List[str], List[int] or Ints1d, but it seems like Floats2d "
                     "was provided."
                 )
+            truths_2d = cast(Floats2d, truths)
         # Transform negative annotations to a 0 for the negated value
         # + mask all other values for that row
         if negatives_mask is not None:
