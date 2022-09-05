@@ -48,7 +48,7 @@ class CategoricalCrossentropyBase(Loss):
                 "some rows of 'guesses' are not "
                 "valid categorical distributions (do not sum to 1)."
             )
-        if guesses_f2d.shape != target.shape:  # pragma: no cover
+        elif guesses_f2d.shape != target.shape:  # pragma: no cover
             raise ValueError(
                 "Cannot calculate CategoricalCrossentropy loss: "
                 f"mismatched shapes: {guesses_f2d.shape} vs {target.shape}."
