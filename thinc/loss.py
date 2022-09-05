@@ -1,7 +1,7 @@
 from typing import Tuple, Sequence, cast, TypeVar, Generic, Any, Union, Optional, List
 from typing import Dict
 
-from .types import Floats2d, Ints1d, Ragged
+from .types import Floats2d, Ints1d, Ragged, ArrayXd
 from .util import get_array_module, to_categorical, smooth_one_hot
 from .util import is_xp_array
 from .config import registry
@@ -180,20 +180,6 @@ class SparseCE(CategoricalCrossentropyBase):
         loss = self._get_loss(guesses, target, mask)
         return (d_truth, loss)
 
-    def _check_ints1d(self, arr):
-        """
-        Check whether array is 1D and has type integer.
-        """
-        if arr.ndim != 1:
-            raise ValueError(
-                "SparseCE only accepts 1D arrays, but "
-                f"array with shape {arr.shape} was given."
-            )
-        if arr.dtype.kind != "i":
-            raise ValueError(
-                "SparseCE only accepts integer arrays, but "
-                f"array with {arr.dtype} was given."
-            )
 
     def _convert_ints(
         self, guesses: Floats2d, truths: Sequence[int]
@@ -286,7 +272,7 @@ class SparseCE(CategoricalCrossentropyBase):
         guesses_f2d = _to_array(guesses)
 
         if is_xp_array(truths):
-            self._check_ints1d(truths)
+            _check_ints1d(truths)
             xp_truths = cast(Ints1d, truths)
             truths_2d = to_categorical(
                 xp_truths,
@@ -597,6 +583,22 @@ def _normalization_length(guesses: FloatsOrRaggedT) -> int:
         return len(guesses.lengths)
     else:
         return guesses.shape[0]
+
+
+def _check_ints1d(arr: ArrayXd):
+    """
+    Check whether array is 1D and has type integer.
+    """
+    if arr.ndim != 1:
+        raise ValueError(
+            "SparseCE only accepts 1D arrays, but "
+            f"array with shape {arr.shape} was given."
+        )
+    if arr.dtype.kind != "i":
+        raise ValueError(
+            "SparseCE only accepts integer arrays, but "
+            f"array with {arr.dtype} was given."
+        )
 
 
 __all__ = [
