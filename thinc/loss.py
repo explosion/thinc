@@ -204,8 +204,8 @@ class SparseCE(CategoricalCrossentropyBase):
         missing_value = self.missing_value
         if missing_value is not None and not isinstance(missing_value, int):
             raise ValueError(
-                "truths provided in Sequence[int] format, but "
-                f"missing_value was set to be {self.missing_value} "
+                "'truths' provided in Sequence[int] format, but "
+                f"'missing_value' was set to be {self.missing_value} "
                 f", which has type {type(self.missing_value)}."
             )
         missing = []
