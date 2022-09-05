@@ -58,7 +58,7 @@ class CategoricalCrossentropyBase(Loss):
                 "Cannot calculate CategoricalCrossentropy loss "
                 "with guesses outside the [0,1] interval."
             )
-        if xp.any(target > 1) or xp.any(target < 0):  # pragma: no cover
+        elif xp.any(target > 1) or xp.any(target < 0):  # pragma: no cover
             raise ValueError(
                 "Cannot calculate CategoricalCrossentropy loss "
                 "with truth values outside the [0,1] interval."
