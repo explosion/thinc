@@ -175,8 +175,8 @@ class LegacySequenceCategoricalCrossentropy(Loss):
     def get_grad(
         self, guesses: Sequence[Floats2d], truths: Sequence[TruthsT]
     ) -> List[Floats2d]:
-        err = "Cannot calculate SequenceCategoricalCrossentropy loss: guesses and truths must be same length"
         if len(guesses) != len(truths):  # pragma: no cover
+            err = "Cannot calculate SequenceCategoricalCrossentropy loss: guesses and truths must be same length"
             raise ValueError(err)
         n = len(guesses)
         d_scores = []
