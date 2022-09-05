@@ -240,7 +240,7 @@ class SparseCE(CategoricalCrossentropyBase):
                 "You can pass the names as a keyword argument when you "
                 "create the loss object"
             )
-        if missing_value is not None and not isinstance(missing_value, str):
+        elif missing_value is not None and not isinstance(missing_value, str):
             raise ValueError(
                 "'truths' provided in Sequence[str] format, but "
                 f"'missing_value' was set to be {self.missing_value} "
