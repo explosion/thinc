@@ -146,9 +146,9 @@ of your network.
 
 ```python
 ### Example
-from thinc.api import Ragged
-
-from thinc.api import get_current_ops, Ragged, Linear
+from thinc.backends import get_current_ops
+from thinc.layers import list2ragged, Linear
+from thinc.types import Ragged
 
 ops = get_current_ops()
 sequences = [
@@ -156,14 +156,15 @@ sequences = [
     ops.alloc2f(2, 5) + 2,
     ops.alloc2f(4, 5) + 3,
 ]
-ragged = ops.list2ragged(sequences)
+list2ragged_model = list2ragged()
+ragged = list2ragged_model.predict(sequences)
 assert ragged.data.shape == (13, 5)
 # This will always be true:
 assert ragged.data.shape[0] == ragged.lengths.sum()
 # Data from sequence 0 is in the first 7 rows, followed by seqs 1 and 2
-assert ragged.data[:7] == 1
-assert ragged.data[7:2] == 2
-assert ragged.data[9:] == 3
+assert (ragged.data[:7] == 1).all()
+assert (ragged.data[7:2] == 2).all()
+assert (ragged.data[9:] == 3).all()
 # Indexing gets the batch item, and returns a Ragged object
 ragged[0].data.shape == (7, 5)
 # You can pass the data straight into dense layers
@@ -173,7 +174,7 @@ ragged_out = Ragged(output, ragged.lengths)
 # Internally, data is reshaped to 2d. The original shape is accessible at the
 # the dataXd property.
 sequences3d = [ops.alloc3f(5, 6, 7), ops.alloc3f(10, 6, 7)]
-ragged3d = ops.list2ragged(sequences3d)
+ragged3d = list2ragged_model.predict(sequences3d)
 ragged3d.data.shape == (15, 13)
 ragged3d.dataXd.shape == (15, 6, 7)
 ```
