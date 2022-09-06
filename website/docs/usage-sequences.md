@@ -146,9 +146,7 @@ of your network.
 
 ```python
 ### Example
-from thinc.backends import get_current_ops
-from thinc.layers import list2ragged, Linear
-from thinc.types import Ragged
+from thinc.api import get_current_ops, Ragged, Linear, list2ragged
 
 ops = get_current_ops()
 sequences = [
