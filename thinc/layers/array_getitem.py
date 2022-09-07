@@ -1,12 +1,7 @@
-import sys
 from typing import Union, Sequence, Tuple, TypeVar
-from ..types import ArrayXd, FloatsXd, IntsXd
+from ..types import ArrayXd, FloatsXd, IntsXd, SupportsIndex
 from ..model import Model
 
-if sys.version_info < (3, 8):
-    from typing_extensions import SupportsIndex
-else:
-    from typing import SupportsIndex
 
 AxisIndex = Union[SupportsIndex, slice, Sequence[SupportsIndex]]
 Index = Union[AxisIndex, Tuple[AxisIndex, ...]]
