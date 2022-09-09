@@ -87,4 +87,15 @@ except ImportError:
     has_os_signpost = False
 
 
+try:  # pragma: no cover
+    import blis
+    import blis.py as blis_py
+
+    has_blis = True
+except ImportError:
+    blis = None
+    blis_py = None
+    has_blis = False
+
+
 has_gpu = has_cupy_gpu or has_torch_mps_gpu
