@@ -1,7 +1,7 @@
-from typing import Protocol, Union, get_args
+from typing import, get_args
 
 import numpy
-from hypothesis.strategies import just, tuples, integers, floats, SearchStrategy
+from hypothesis.strategies import just, tuples, integers, floats
 from hypothesis.extra.numpy import arrays
 from thinc.api import NumpyOps, Linear
 from thinc.types import DTypes, DTypesFloat
