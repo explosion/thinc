@@ -2,7 +2,7 @@
 
 # Thinc: A refreshing functional take on deep learning, compatible with your favorite libraries
 
-### From the makers of [spaCy](https://spacy.io) and [Prodigy](https://prodi.gy).
+### From the makers of [spaCy](https://spacy.io) and [Prodigy](https://prodi.gy)
 
 [Thinc](https://thinc.ai) is a **lightweight deep learning library** that offers an elegant,
 type-checked, functional-programming API for **composing models**, with support
