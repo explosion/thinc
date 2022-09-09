@@ -15,8 +15,8 @@ from thinc.api import LSTM
 from thinc.types import Floats2d
 import inspect
 
-from thinc.tests import strategies
-from thinc.tests.strategies import ndarrays_of_shape
+from .. import strategies
+from ..strategies import ndarrays_of_shape
 
 MAX_EXAMPLES = 10
 
