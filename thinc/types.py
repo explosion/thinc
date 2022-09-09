@@ -46,6 +46,7 @@ ListXd = Union[List1d, List2d, List3d, List4d]
 ArrayT = TypeVar("ArrayT")
 SelfT = TypeVar("SelfT")
 Array1dT = TypeVar("Array1dT", bound="Array1d")
+FloatsXdT = TypeVar("FloatsXdT", "Floats1d", "Floats2d", "Floats3d", "Floats4d")
 
 # These all behave the same as far as indexing is concerned
 Slicish = Union[slice, List[int], "ArrayXd"]
@@ -316,7 +317,7 @@ class Floats1d(_Array1d, _Floats):
 
     @classmethod
     def __get_validators__(cls):
-        """Runtine validation for pydantic."""
+        """Runtime validation for pydantic."""
         yield lambda v: validate_array(v, ndim=1, dtype="f")
 
     def __iter__(self) -> Iterator[float]: ...

@@ -162,6 +162,20 @@ __global__ void clipped_linear(T* Y, const T* X, double slope, double offset, do
 
 
 template <typename T>
+__global__ void dish(T* Y, const T* X, int N)
+{
+    int _loop_start = blockIdx.x * blockDim.x + threadIdx.x;
+    int _loop_stride = blockDim.x * gridDim.x;
+
+    for (int i = _loop_start; i < N; i += _loop_stride)
+    {
+        T x = X[i];
+        Y[i] = 0.5 * x * (x / sqrt(1 + x * x) + 1);
+    }
+}
+
+
+template <typename T>
 __global__ void gelu(T* Y, const T* X, double threshold, int N)
 {
     int _loop_start = blockIdx.x * blockDim.x + threadIdx.x;
@@ -413,6 +427,23 @@ __global__ void backprop_hard_swish_mobilenet(T* dX, const T* dY, const T* X, in
     }
 }
 
+
+template <typename T>
+__global__ void backprop_dish(T* dX, const T* dY, const T* X, int N)
+{
+
+    int _loop_start = blockIdx.x * blockDim.x + threadIdx.x;
+    int _loop_stride = blockDim.x * gridDim.x;
+
+    for (int i = _loop_start; i < N; i += _loop_stride)
+    {
+        T x = X[i];
+        T x_sq = x * x;
+        T x_sq_plus_one = x_sq + 1.0;
+        dX[i] = dY[i] * (x/sqrt(x_sq_plus_one) - (0.5 * x * x_sq)
+            / pow(x_sq_plus_one, static_cast<T>(1.5)) + 0.5);
+    }
+}
 
 
 template <typename T>

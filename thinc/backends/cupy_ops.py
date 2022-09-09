@@ -36,6 +36,18 @@ class CupyOps(Ops):
         else:
             return super().gather_add(table, indices)
 
+    def dish(self, X, inplace=False):
+        if X.dtype in ("float32", "float64"):
+            return _custom_kernels.dish(X, inplace=inplace)
+        else:
+            return super().dish(X, inplace=inplace)
+
+    def backprop_dish(self, dY, X, inplace=False):
+        if X.dtype == dY.dtype and X.dtype in ("float32", "float64"):
+            return _custom_kernels.backprop_dish(dY, X, inplace=inplace)
+        else:
+            return super().backprop_dish(dY, X, inplace=inplace)
+
     def gelu(self, X, inplace=False):
         if X.dtype in ("float32", "float64"):
             return _custom_kernels.gelu(X, inplace=inplace, threshold=6.0)

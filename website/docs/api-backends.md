@@ -927,6 +927,47 @@ Backpropagate the Swish activation
 | `inplace`   | <tt>bool</tt>     | If `True`, the `dY` array is modified in place. |
 | **RETURNS** | <tt>FloatsXd</tt> | The gradient of the input.                      |
 
+### Ops.dish {#dish tag="method" new="8.1.1"}
+
+<inline-list>
+
+- **default:** <i name="yes"></i>
+- **numpy:** <i name="no"></i>
+- **cupy:** <i name="yes"></i>
+
+</inline-list>
+
+Dish or "Daniël's Swish-like activation" is an activation function with a non-monotinic shape similar to
+[GELU](#gelu), [Swish](#swish) and [Mish](#mish). However, Dish does not rely on
+elementary functions like `exp` or `erf`, making it much
+[faster to compute](https://twitter.com/danieldekok/status/1484898130441166853)
+in most cases.
+
+| Argument    | Type              | Description                                |
+| ----------- | ----------------- | ------------------------------------------ |
+| `X`         | <tt>FloatsXd</tt> | The inputs.                                |
+| `inplace`   | <tt>bool</tt>     | If `True`, the array is modified in place. |
+| **RETURNS** | <tt>FloatsXd</tt> | The outputs.                               |
+
+### Ops.backprop_dish {#backprop_dish tag="method" new="8.1.1"}
+
+<inline-list>
+
+- **default:** <i name="yes"></i>
+- **numpy:** <i name="no"></i>
+- **cupy:** <i name="yes"></i>
+
+</inline-list>
+
+Backpropagate the Dish activation.
+
+| Argument    | Type              | Description                                     |
+| ----------- | ----------------- | ----------------------------------------------- |
+| `dY`        | <tt>FloatsXd</tt> | Gradients of the output array.                  |
+| `X`         | <tt>FloatsXd</tt> | The inputs to the forward pass.                 |
+| `inplace`   | <tt>bool</tt>     | If `True`, the `dY` array is modified in place. |
+| **RETURNS** | <tt>FloatsXd</tt> | The gradient of the input.                      |
+
 ### Ops.gelu {#gelu tag="method"}
 
 <inline-list>

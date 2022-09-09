@@ -133,11 +133,13 @@ element).
 Converts a class vector (integers) to binary class matrix. Based on
 [`keras.utils.to_categorical`](https://keras.io/utils/).
 
-| Argument    | Type                   | Description                                                                                    |
-| ----------- | ---------------------- | ---------------------------------------------------------------------------------------------- |
-| `Y`         | <tt>IntsXd</tt>        | Class vector to be converted into a matrix (integers from `0` to `n_classes`).                 |
-| `n_classes` | <tt>Optional[int]</tt> | Total number of classes.                                                                       |
-| **RETURNS** |  <tt>Floats2d</tt>     | A binary matrix representation of the input. The axis representing the classes is placed last. |
+| Argument          | Type                   | Description                                                                                    |
+| ----------------- | ---------------------- | ---------------------------------------------------------------------------------------------- |
+| `Y`               | <tt>IntsXd</tt>        | Class vector to be converted into a matrix (integers from `0` to `n_classes`).                 |
+| `n_classes`       | <tt>Optional[int]</tt> | Total number of classes.                                                                       |
+| _keyword-only_    |                        |                                                                                                |
+| `label_smoothing` | <tt>float</tt>         | Smoothing-coefficient for label-smoothing.                                                     |
+| **RETURNS**       | <tt>Floats2d</tt>      | A binary matrix representation of the input. The axis representing the classes is placed last. |
 
 ### xp2torch {#xp2torch tag="function"}
 
