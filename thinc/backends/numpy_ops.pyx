@@ -22,7 +22,7 @@ from ..util import copy_array, get_array_module
 from ..types import DeviceTypes, DTypes, Shape, ArrayXd
 from .cblas cimport CBlas, daxpy, saxpy
 from .linalg cimport VecVec, Vec
-from .ops import Ops
+from .ops import Ops, _split_weights, _transpose_weights, _untranspose_unsplit_weights
 
 try:
     import blis.py
@@ -522,21 +522,6 @@ def check_seq2col_lengths(ops, lengths, B):
     return lengths
 
 
-def cpu_clip_gradient(weight_t[::1] gradient, weight_t threshold):
-    grad_norm = Vec.norm(&gradient[0], gradient.shape[0])
-    if grad_norm >= threshold:
-        Vec.mul_i(&gradient[0], threshold / grad_norm, gradient.shape[0])
-
-
-def add_gradient_noise(float[::1] gradient, weight_t noise_level,
-        weight_t timestep):
-    cdef weight_t variance = noise_level / ((1 + timestep) ** 0.55)
-    if variance >= 0.000001:
-        gradient += numpy.asarray(
-                       numpy.random.normal(scale=variance, loc=0., size=len(gradient)),
-                       dtype='float32')
-
-
 cdef void cpu_position_encode(float* output, float period, int N, int D) nogil:
     cdef float pos, d
     cdef int j
@@ -602,18 +587,6 @@ cdef void _adam_momentum(weight_t* gradient, weight_t* mom1, weight_t* mom2,
         mom2 += step_size
         gradient += step_size
         idx += step_size
-
-
-@cython.cdivision(True)
-cdef void cpu_update_averages(weight_t* ema,
-        const weight_t* weights, int nr_weight, weight_t t, weight_t max_decay) nogil:
-    cdef weight_t decay = (1.0 + t) / (10.0 + t)
-    if decay > max_decay:
-        decay = max_decay
-    cdef weight_t one_minus_decay = 1-decay
-    cdef int i
-    for i in range(nr_weight): # num_threads=4, schedule='static'):
-        ema[i] -= one_minus_decay * (ema[i] - weights[i])
 
 
 def lstm_forward_training(
@@ -847,17 +820,6 @@ def backprop_lstm(np.ndarray dY, np.ndarray lengths, np.ndarray params, fwd_stat
     return dX, numpy.concatenate(grad_parts)
 
 
-def _split_directions(X, dirs):
-    if dirs == 1:
-        return [X]
-    else:
-        X_ = X.reshape((X.shape[0], -1, dirs))
-        Xs = []
-        for d in range(dirs):
-            Xs.append(numpy.ascontiguousarray(X_[:, d]))
-        return Xs
-
-
 cdef int _lstm_backward_training(
     int d, int N, int nO, int nI, int nT,
     float* dX,
@@ -948,54 +910,6 @@ cdef int _lstm_backward_training(
         one,
         dX, nI, 1
     )
-
-
-def _split_weights(np.ndarray params, int i, int nO, int nI, int params_i):
-    Wx_size = 4 * nO * nI
-    bx_size = 4 * nO
-    Wh_size = 4 * nO * nO
-    bh_size = 4 * nO
-    Wx = params[params_i : params_i + Wx_size].reshape((4 * nO, nI))
-    params_i += Wx_size
-    bx = params[params_i : params_i + bx_size].reshape((4 * nO,))
-    params_i += bx_size
-    Wh = params[params_i : params_i + Wh_size].reshape((4 * nO, nO))
-    params_i += Wh_size
-    bh = params[params_i : params_i + bh_size].reshape((4 * nO,))
-    params_i += bh_size
-    return ((Wx, bx), (Wh, bh)), params_i
-
-
-def _transpose_weights(params):
-    # Transpose the parameters so that the gates are the last dimension. This
-    # makes it easier to fuse.
-    (Wx, bx), (Wh, bh) = params
-    Wx = Wx.reshape((4, -1, Wx.shape[-1]))
-    Wx = Wx.transpose((1, 0, 2)).reshape((-1, Wx.shape[-1]))
-    bx = bx.reshape((4, -1)).transpose((1, 0)).reshape((-1,))
-    Wh = Wh.reshape((4, -1, Wh.shape[-1]))
-    Wh = Wh.transpose((1, 0, 2)).reshape((-1, Wh.shape[-1]))
-    bh = bh.reshape((4, -1)).transpose((1, 0)).reshape((-1,))
-    ascontig = numpy.ascontiguousarray
-    Wx = ascontig(Wx)
-    Wh = ascontig(Wh)
-    bias = ascontig(bx) + bh
-    return Wx, Wh, bias
-
-
-def _untranspose_unsplit_weights(params):
-    Wx, Wh, bias = params
-    nO = Wh.shape[1]
-    nI = Wx.shape[1]
-    Wx = Wx.reshape((-1, 4, nI)).transpose((1, 0, 2)).reshape((-1, nI))
-    Wh = Wh.reshape((-1, 4, nO)).transpose((1, 0, 2)).reshape((-1, nO))
-    bias = bias.reshape((-1, 4)).transpose((1, 0)).reshape((-1,))
-    zeros = numpy.zeros(bias.shape, dtype="f")
-    return numpy.concatenate((Wx.ravel(), bias, Wh.ravel(), zeros))
-
-
-cdef inline float sigmoid(float X) nogil:
-    return 1./(1. + expf(-X))
 
 
 cdef inline float dsigmoid(float y) nogil:
