@@ -1,10 +1,8 @@
-from typing import get_args
-
 import numpy
 from hypothesis.strategies import just, tuples, integers, floats
 from hypothesis.extra.numpy import arrays
 from thinc.api import NumpyOps, Linear
-from thinc.types import DTypes, DTypesFloat
+from thinc.types import DTypes
 
 
 def get_ops():
@@ -37,7 +35,7 @@ def shapes(min_rows=1, max_rows=100, min_cols=1, max_cols=100):
 
 
 def ndarrays_of_shape(shape, lo=-10.0, hi=10.0, dtype: DTypes = "float32", width=32):
-    if dtype in get_args(DTypesFloat):
+    if dtype.startswith("f"):
         return arrays(
             dtype, shape=shape, elements=floats(min_value=lo, max_value=hi, width=width)
         )
