@@ -20,14 +20,10 @@ export default () => (
                     from the makers of <br className={classes.smOnly} />
                     <Link to="https://spacy.io" hidden>
                         spaCy
-                    </Link>
-                    ,{' '}
-                    <Link to="https://prodi.gy" hidden>
-                        Prodigy
                     </Link>{' '}
                     &amp;{' '}
-                    <Link to="https://fastapi.tiangolo.com" hidden>
-                        FastAPI
+                    <Link to="https://prodi.gy" hidden>
+                        Prodigy
                     </Link>
                 </span>
             </H2>

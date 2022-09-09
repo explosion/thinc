@@ -19,7 +19,6 @@ PACKAGES = find_packages()
 MOD_NAMES = [
     "thinc.backends.cblas",
     "thinc.backends.numpy_ops",
-    "thinc.extra.search",
     "thinc.layers.sparselinear",
 ]
 COMPILE_OPTIONS = {

@@ -12,15 +12,16 @@ And then once those settings are added, they become hard to remove later.
 Default values also become hard to change without breaking backwards
 compatibility.
 
-To solve this problem, Thinc provides a config system that lets you easily
-describe **arbitrary trees of objects**. The objects can be created via
-**function calls you register** using a simple decorator syntax. You can even
-version the functions you create, allowing you to make improvements without
-breaking backwards compatibility. The most similar config system we're aware of
-is [Gin](https://github.com/google/gin-config), which uses a similar syntax, and
-also allows you to link the configuration system to functions in your code using
-a decorator. Thinc's config system is simpler and emphasizes a different
-workflow via a subset of Gin's functionality.
+To solve this problem, Thinc leverages
+[confection](https://github.com/explosion/confection) - a config system that
+lets you easily describe **arbitrary trees of objects**. The objects can be
+created via **function calls you register** using a simple decorator syntax. You
+can even version the functions you create, allowing you to make improvements
+without breaking backwards compatibility. The most similar config system we're
+aware of is [Gin](https://github.com/google/gin-config), which uses a similar
+syntax, and also allows you to link the configuration system to functions in
+your code using a decorator. Thinc's config system is simpler and emphasizes a
+different workflow via a subset of Gin's functionality.
 
 <grid>
 
@@ -654,11 +655,11 @@ resolved = registry.resolve(
 The main motivation for Thinc's configuration system was to eliminate hidden
 defaults and ensure that config settings are passed around consistently. This
 also means that config files should always define **all available settings**.
-The [`registry.fill`](/docs/api-config#registry-fill) method also
-resolves the config, but it leaves references to registered functions intact and
-doesn't replace them with their return values. If type annotations and/or a base
-schema are available, they will be used to parse the config and fill in any
-missing values and defaults to create an up-to-date "master config".
+The [`registry.fill`](/docs/api-config#registry-fill) method also resolves the
+config, but it leaves references to registered functions intact and doesn't
+replace them with their return values. If type annotations and/or a base schema
+are available, they will be used to parse the config and fill in any missing
+values and defaults to create an up-to-date "master config".
 
 Let's say you've updated your schema and scripts to use two additional optional
 settings. These settings should also be reflected in your config files so they
@@ -677,9 +678,9 @@ class TrainingSchema(BaseModel):
     max_epochs: StrictInt = 100
 ```
 
-Calling [`registry.fill`](/docs/api-config#registry-fill) with your
-existing config will produce an updated version of it including the new settings
-and their defaults:
+Calling [`registry.fill`](/docs/api-config#registry-fill) with your existing
+config will produce an updated version of it including the new settings and
+their defaults:
 
 <grid>
 
