@@ -1267,22 +1267,27 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/padded2list.py
 
 <inline-list>
 
-- **Input:** <tt>Sequence[Any]</tt>
+- **Input:** <tt>Union[Sequence[Hashable], Ints1d, Ints2d]</tt>
 - **Output:** <ndarray>Ints2d</ndarray>
 
 </inline-list>
 
-Remap string or integer inputs using a mapping table, usually as a preprocess
-before embeddings. The mapping table can be passed in on input, or updated after
-the layer has been created. The mapping table is stored in the `"mapping_table"`
-attribute.
+Remap a sequence of strings, integers or other hashable inputs using a mapping
+table, usually as a preprocessing step before embeddings. The input can also be
+a two dimensional integer array in which case the `column` attribute tells the
+`remap_ids` layer which column of the array to map with the `mapping_table`.
+Both attributes can be passed on initialization, but since the layer is designed
+to retrieve them from `model.attrs` during `forward`, they can be set any time
+before calling `forward`. This means that they can also be changed between
+calls. Before calling `forward` the `mapping_table` has to be set and for 2D
+inputs the `column` is also required.
 
-| Argument        | Type                                  | Description                                                                                                  |
-| --------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `mapping_table` | <tt>Dict[Any, int]</tt>               | The mapping table to use. Can also be set after initialization by writing to `model.attrs["mapping_table"]`. |
-| `default`       | <tt>int</tt>                          | The default value if the input does not have an entry in the mapping table.                                  |
-| `dtype`         | <tt>DTypes</tt>                       | The data type of the array.                                                                                  |
-| **RETURNS**     | <tt>Model[Sequence[Any], Ints2d]</tt> | The layer to compute the transformation.                                                                     |
+| Argument        | Type                                                              | Description                                                                                                  |
+| --------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `mapping_table` | <tt>Dict[Any, int]</tt>                                           | The mapping table to use. Can also be set after initialization by writing to `model.attrs["mapping_table"]`. |
+| `default`       | <tt>int</tt>                                                      | The default value if the input does not have an entry in the mapping table.                                  |
+| `column`        | <tt>int</tt>                                                      | The column to apply the mapper to in case of 2D input.                                                       |
+| **RETURNS**     | <tt>Model[Union[Sequence[Hashable], Ints1d, Ints2d], Ints2d]</tt> | The layer to compute the transformation.                                                                     |
 
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/remap_ids.py
