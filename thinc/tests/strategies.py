@@ -28,12 +28,6 @@ def get_input(nr_batch, nr_in):
     return ops.alloc2f(nr_batch, nr_in)
 
 
-class StrategyCallable(Protocol):
-    """For proper typing in .lengths()."""
-    def __call__(self, min_value: Union[int, float], max_value: Union[int, float]) -> SearchStrategy:
-        ...
-
-
 def lengths(lo=1, hi=10):
     return integers(min_value=lo, max_value=hi)
 
