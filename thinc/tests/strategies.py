@@ -1,7 +1,10 @@
+from typing import Protocol, Union, get_args
+
 import numpy
-from hypothesis.strategies import just, tuples, integers, floats
+from hypothesis.strategies import just, tuples, integers, floats, SearchStrategy
 from hypothesis.extra.numpy import arrays
 from thinc.api import NumpyOps, Linear
+from thinc.types import DTypes, DTypesFloat
 
 
 def get_ops():
@@ -25,6 +28,12 @@ def get_input(nr_batch, nr_in):
     return ops.alloc2f(nr_batch, nr_in)
 
 
+class StrategyCallable(Protocol):
+    """For proper typing in .lengths()."""
+    def __call__(self, min_value: Union[int, float], max_value: Union[int, float]) -> SearchStrategy:
+        ...
+
+
 def lengths(lo=1, hi=10):
     return integers(min_value=lo, max_value=hi)
 
@@ -33,8 +42,8 @@ def shapes(min_rows=1, max_rows=100, min_cols=1, max_cols=100):
     return tuples(lengths(lo=min_rows, hi=max_rows), lengths(lo=min_cols, hi=max_cols))
 
 
-def ndarrays_of_shape(shape, lo=-10.0, hi=10.0, dtype="float32", width=32):
-    if dtype.startswith("float"):
+def ndarrays_of_shape(shape, lo=-10.0, hi=10.0, dtype: DTypes = "float32", width=32):
+    if dtype in get_args(DTypesFloat):
         return arrays(
             dtype, shape=shape, elements=floats(min_value=lo, max_value=hi, width=width)
         )
@@ -48,18 +57,18 @@ def ndarrays(min_len=0, max_len=10, min_val=-10.0, max_val=10.0):
     )
 
 
-def arrays_BI(min_B=1, max_B=10, min_I=1, max_I=100):
+def arrays_BI(min_B=1, max_B=10, min_I=1, max_I=100, dtype: DTypes = "float32"):
     shapes = tuples(lengths(lo=min_B, hi=max_B), lengths(lo=min_I, hi=max_I))
-    return shapes.flatmap(ndarrays_of_shape)
+    return shapes.flatmap(lambda shape: ndarrays_of_shape(shape, dtype=dtype))
 
 
-def arrays_BOP(min_B=1, max_B=10, min_O=1, max_O=100, min_P=1, max_P=5):
+def arrays_BOP(min_B=1, max_B=10, min_O=1, max_O=100, min_P=1, max_P=5, dtype: DTypes = "float32"):
     shapes = tuples(
         lengths(lo=min_B, hi=max_B),
         lengths(lo=min_O, hi=max_O),
         lengths(lo=min_P, hi=max_P),
     )
-    return shapes.flatmap(ndarrays_of_shape)
+    return shapes.flatmap(lambda shape: ndarrays_of_shape(shape, dtype=dtype))
 
 
 def arrays_BOP_BO(min_B=1, max_B=10, min_O=1, max_O=100, min_P=1, max_P=5):
