@@ -31,9 +31,6 @@ except ImportError:
     has_blis = False
 
 
-ctypedef float weight_t
-
-
 cdef extern from "math.h":
     float logf(float x) nogil
     float sqrtf(float x) nogil
@@ -118,12 +115,12 @@ class NumpyOps(Ops):
         _check_compatible_shape(dY, Y)
 
         cdef size_t size = Y.size
-        cdef weight_t* dX_ptr
-        cdef const weight_t* Y_ptr = <const weight_t*>Y.data
+        cdef float* dX_ptr
+        cdef const float* Y_ptr = <const float*>Y.data
         cdef np.ndarray dX
         if dY.dtype == "float32" and Y.dtype == "float32":
             dX = _inplace_or_copy(dY, inplace)
-            dX_ptr = <weight_t*>dX.data
+            dX_ptr = <float*>dX.data
             for i in range(size):
                 if Y_ptr[i] <= 0:
                     dX_ptr[i] = 0.
@@ -552,18 +549,18 @@ cdef void cpu_scatter_add(float* dest,
 
 
 @cython.cdivision(True)
-cdef void _adam_momentum(weight_t* gradient, weight_t* mom1, weight_t* mom2,
-        int nr_weight, weight_t beta1, weight_t beta2, weight_t eps,
-        weight_t learn_rate) nogil:
+cdef void _adam_momentum(float* gradient, float* mom1, float* mom2,
+        int nr_weight, float beta1, float beta2, float eps,
+        float learn_rate) nogil:
     # Calculate Adam on CPU, fused.
     # Assumes the learning rate adjustment is calculated by the caller;
     # a_t = learn_rate * sqrt(1-beta2**timestep) / (1-beta1**timestep)
-    cdef weight_t one_minus_beta1 = 1-beta1
-    cdef weight_t one_minus_beta2 = 1-beta2
-    cdef weight_t m1, m2, g
+    cdef float one_minus_beta1 = 1-beta1
+    cdef float one_minus_beta2 = 1-beta2
+    cdef float m1, m2, g
     cdef int i
     # Blockwise implementation is a bit faster. Adam is slooow :(
-    cdef weight_t[64] buff
+    cdef float[64] buff
     cdef int steps = nr_weight // 64
     if steps * 64 < nr_weight:
         steps += 1
