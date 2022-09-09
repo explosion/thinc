@@ -1,4 +1,4 @@
-from typing import, get_args
+from typing import get_args
 
 import numpy
 from hypothesis.strategies import just, tuples, integers, floats
