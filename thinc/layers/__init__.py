@@ -1,5 +1,6 @@
 # Weights layers
 from .cauchysimilarity import CauchySimilarity
+from .dish import Dish
 from .dropout import Dropout
 from .embed import Embed
 from .expand_window import expand_window
@@ -58,7 +59,7 @@ from .list2ragged import list2ragged
 from .list2padded import list2padded
 from .ragged2list import ragged2list
 from .padded2list import padded2list
-from .remap_ids import remap_ids
+from .remap_ids import remap_ids, remap_ids_v2
 from .strings2arrays import strings2arrays
 from .with_array import with_array
 from .with_array2d import with_array2d
@@ -71,6 +72,7 @@ from .with_reshape import with_reshape
 from .with_getitem import with_getitem
 from .with_debug import with_debug
 from .with_nvtx_range import with_nvtx_range
+from .with_signpost_interval import with_signpost_interval
 
 
 __all__ = [
@@ -128,5 +130,6 @@ __all__ = [
     "with_flatten",
     "with_debug",
     "with_nvtx_range",
+    "with_signpost_interval",
     "remap_ids",
 ]

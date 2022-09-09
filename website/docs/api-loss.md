@@ -70,9 +70,8 @@ are expected to be in the range of `[0, 1]`. They can both represent exclusive
 classes from multi-class cross-entropy (generally coming from a `softmax` layer)
 or could be classwise binary decisions for multi-label cross-entropy (`sigmoid`
 layer). The `truths` are most commonly provided as labels in `Ints1d`,
-`List[int]` or `List[str]` format. 
-Alternatively, users can provide `truths` as a `Floats2d` for
-example to encode label-confidences.
+`List[int]` or `List[str]` format. Alternatively, users can provide `truths` as
+a `Floats2d` for example to encode label-confidences.
 
 <grid>
 
@@ -98,7 +97,7 @@ normalize = true
 | `normalize`       | <tt>bool</tt>            | Normalize and divide by number of examples given.                                                                                                |
 | `neg_prefix`      | <tt>str</tt>             | Prefix used to indicate that a label is negative e.g. "!sci-fi".                                                                                 |
 | `missing_value`   | <tt>Union[str, int]</tt> | Specific label that indicates the value is missing and should not be considered for training/evaluation purposes, e.g. empty string `""` or `0`. |
-| `label_smoothing` | <tt>float</tt>           | Smoothing-coefficient for label-smoothing in range of [0, 0.5[.                                                                                  |
+| `label_smoothing` | <tt>float</tt>           | Smoothing-coefficient for label-smoothing.                                                                                                       |
 
 ### SequenceCategoricalCrossentropy {#sequence_categorical_crossentropy tag="class"}
 
@@ -138,7 +137,7 @@ normalize = true
 | `normalize`       | <tt>bool</tt>            | Normalize and divide by number of examples given.                   |
 | `neg_prefix`      | <tt>str</tt>             | Symbol that indicates that a label is negative e.g. "!sci-fi".      |
 | `missing_value`   | <tt>Union[str, int]</tt> | Symbol for "missing value" among the labels.                        |
-| `label_smoothing` | <tt>float</tt>           | Smoothing-coefficient for label-smoothing in range of [0, 0.5].     |
+| `label_smoothing` | <tt>float</tt>           | Smoothing-coefficient for label-smoothing.                          |
 
 ### L2Distance {#l2distance tag="class"}
 
