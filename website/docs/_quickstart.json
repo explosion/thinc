@@ -12,7 +12,7 @@
                 { "label": "9.2", "value": "cuda92" },
                 { "label": "10.0", "value": "cuda100" },
                 { "label": "10.1", "value": "cuda101" },
-                { "label": "10.2, 11.0+", "value": "cuda-wheel" }
+                { "label": "10.2, 11.0+", "value": "cuda-autodetect" }
             ]
         },
         {
