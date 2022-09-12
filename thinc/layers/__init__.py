@@ -51,7 +51,7 @@ from .reduce_mean import reduce_mean
 from .reduce_sum import reduce_sum
 
 # Array manipulation
-from .array_getitem import array_getitem
+from .array_getitem import array_getitem, floats_getitem, ints_getitem
 
 # Data-type transfers
 from .list2array import list2array
@@ -132,4 +132,7 @@ __all__ = [
     "with_nvtx_range",
     "with_signpost_interval",
     "remap_ids",
+    "array_getitem",
+    "floats_getitem",
+    "ints_getitem",
 ]
