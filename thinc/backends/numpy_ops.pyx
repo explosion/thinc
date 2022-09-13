@@ -136,7 +136,7 @@ class NumpyOps(Ops):
     ):
         assert H0.shape[0] == C0.shape[0]
         assert H0.shape[1] == C0.shape[1]
-        Y, fwd_state = lstm_forward_training(CBlas(), params, H0, C0, X, size_at_t)
+        Y, fwd_state = lstm_forward_training(self.cblas(), params, H0, C0, X, size_at_t)
         return Y, fwd_state
 
     def lstm_forward_inference(
@@ -147,13 +147,13 @@ class NumpyOps(Ops):
         np.ndarray X,
         np.ndarray size_at_t
     ):
-        Y, _ = lstm_forward_training(CBlas(), params, H0, C0, X, size_at_t)
+        Y, _ = lstm_forward_training(self.cblas(), params, H0, C0, X, size_at_t)
         return Y
 
     def backprop_lstm(
             self, np.ndarray dY, np.ndarray lengths, np.ndarray params, fwd_state
     ):
-        dX, d_params = backprop_lstm(CBlas(), dY, lengths, params, fwd_state)
+        dX, d_params = backprop_lstm(self.cblas(), dY, lengths, params, fwd_state)
         return dX, d_params
 
     def maxout(self, reals3d_ft X):
