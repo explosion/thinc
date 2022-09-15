@@ -147,7 +147,7 @@ class CategoricalCrossentropy(CategoricalCrossentropyBase):
         return self._get_loss(guesses, target, mask)
 
 
-class SparseCE(CategoricalCrossentropyBase):
+class SparseCategoricalCrossentropy(CategoricalCrossentropyBase):
     names: Optional[Sequence[str]]
     missing_value: Optional[Union[str, int]]
     _name_to_i: Dict[str, int]
@@ -179,7 +179,6 @@ class SparseCE(CategoricalCrossentropyBase):
         d_truth = self._get_grad(guesses, target, mask)
         loss = self._get_loss(guesses, target, mask)
         return (d_truth, loss)
-
 
     def _convert_ints(
         self, guesses: Floats2d, truths: Sequence[int]
@@ -291,7 +290,7 @@ class SparseCE(CategoricalCrossentropyBase):
                 )
             else:
                 raise ValueError(
-                    "When truths to SparseCE is provided "
+                    "When truths to SparseCategoricalCrossentropy is provided "
                     "in Sequence format, elements need to be "
                     "of type str or int, but first element "
                     f"was found to be {type(truths[0])}."
@@ -338,8 +337,8 @@ def configure_SparseCategoricalCrossentropy_v4(
     missing_value: Optional[Union[str, int]] = None,
     neg_prefix: Optional[str] = None,
     label_smoothing: float = 0.0,
-) -> SparseCE:
-    return SparseCE(
+) -> SparseCategoricalCrossentropy:
+    return SparseCategoricalCrossentropy(
         normalize=normalize,
         names=names,
         missing_value=missing_value,
@@ -352,7 +351,7 @@ class SequenceCategoricalCrossentropy(Loss):
     def __init__(
         self,
         *,
-        cross_entropy: Union[CategoricalCrossentropy, SparseCE],
+        cross_entropy: Union[CategoricalCrossentropy, SparseCategoricalCrossentropy],
         normalize: bool = True,
     ):
         self.cc = cross_entropy
@@ -417,14 +416,14 @@ def configure_SequenceCategoricalCrossentropy_v4(
 ) -> SequenceCategoricalCrossentropy:
     if names is None and neg_prefix is None and not sparse:
         cross_entropy: Union[
-            CategoricalCrossentropy, SparseCE
+            CategoricalCrossentropy, SparseCategoricalCrossentropy
         ] = CategoricalCrossentropy(
             normalize=False,
             missing_value=cast(Optional[int], missing_value),
             label_smoothing=label_smoothing,
         )
     else:
-        cross_entropy = SparseCE(
+        cross_entropy = SparseCategoricalCrossentropy(
             normalize=False,
             names=names,
             missing_value=cast(Optional[Union[str, int]], missing_value),
@@ -591,12 +590,12 @@ def _check_ints1d(arr: ArrayXd):
     """
     if arr.ndim != 1:
         raise ValueError(
-            "SparseCE only accepts 1D arrays, but "
+            "SparseCategoricalCrossentropy only accepts 1D arrays, but "
             f"array with shape {arr.shape} was given."
         )
     if arr.dtype.kind != "i":  # type: ignore
         raise ValueError(
-            "SparseCE only accepts integer arrays, but "
+            "SparseCategoricalCrossentropy only accepts integer arrays, but "
             f"array with {arr.dtype} was given."
         )
 
