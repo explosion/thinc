@@ -2,8 +2,11 @@ from libcpp.memory cimport shared_ptr
 
 
 ctypedef void (*sgemm_ptr)(bint transA, bint transB, int M, int N, int K,
-                           float alpha, const float* A, int lda, const float *B,
+                           float alpha, const float* A, int lda, const float* B,
                            int ldb, float beta, float* C, int ldc) nogil
+ctypedef void (*dgemm_ptr)(bint transA, bint transB, int M, int N, int K,
+                           double alpha, const double* A, int lda, const double* B,
+                           int ldb, double beta, double* C, int ldc) nogil
 
 
 ctypedef void (*saxpy_ptr)(int N, float alpha, const float* X, int incX,
@@ -33,6 +36,8 @@ cdef class CBlas:
 cdef daxpy_ptr daxpy(CBlas cblas) nogil
 cdef saxpy_ptr saxpy(CBlas cblas) nogil
 cdef sgemm_ptr sgemm(CBlas cblas) nogil
+cdef dgemm_ptr dgemm(CBlas cblas) nogil
 cdef void set_daxpy(CBlas cblas, daxpy_ptr daxpy) nogil
 cdef void set_saxpy(CBlas cblas, saxpy_ptr saxpy) nogil
 cdef void set_sgemm(CBlas cblas, sgemm_ptr sgemm) nogil
+cdef void set_dgemm(CBlas cblas, dgemm_ptr dgemm) nogil
