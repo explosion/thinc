@@ -19,11 +19,10 @@ cimport numpy as np
 from .. import registry
 from ..util import copy_array, get_array_module
 from ..types import DeviceTypes, DTypes, Shape, ArrayXd
-from .cblas cimport CBlas, daxpy, saxpy, sgemm
+from .cblas cimport CBlas, daxpy, saxpy, sgemm, dgemm
 from .linalg cimport VecVec, Vec
 from .ops import Ops, _split_weights, _transpose_weights, _untranspose_unsplit_weights
-from ..compat import has_blis, blis_py
-
+from ..compat import has_blis
 
 
 cdef extern from "math.h":
@@ -86,11 +85,45 @@ class NumpyOps(Ops):
             raise ValueError(f"Provided 'y' array should be 2-dimensional, but found {y.ndim} dimension(s).")
         if not self.use_blis:  # delegate to base Ops
             return super().gemm(x, y, out=out, trans1=trans1, trans2=trans2)
+
         x = self.as_contig(x)
         y = self.as_contig(y)
+
+        cdef int nM = x.shape[0] if not trans1 else x.shape[1]
+        cdef int nK = x.shape[1] if not trans1 else x.shape[0]
+        cdef int nK_b = y.shape[0] if not trans2 else y.shape[1]
+        cdef int nN = y.shape[1] if not trans2 else y.shape[0]
+        if nK != nK_b:
+            msg = "Shape mismatch for blis.gemm: (%d, %d), (%d, %d)"
+            raise ValueError(msg % (nM, nK, nK_b, nN))
+
         if out is not None:
             out = self.as_contig(out)
-        return blis_py.gemm(x, y, out=out, trans1=trans1, trans2=trans2, beta=0.)
+        else:
+            # Can be uninitialized as 'beta' is zero.
+            out = numpy.empty((nM, nN), dtype=x.dtype)
+
+        cblas = self.cblas()
+        if x.dtype == "float32" and y.dtype == "float32" and out.dtype == "float32":
+            sgemm(cblas)(trans1, trans2,
+                nM, nN, nK,
+                1.0,
+                <float*>(x.data), x.shape[1],
+                <float*>(y.data), y.shape[1],
+                0.0,
+                <float*>(out.data), out.shape[1])
+        elif x.dtype == "float64" and y.dtype == "float64" and out.dtype == "float64":
+            dgemm(cblas)(trans1, trans2,
+                nM, nN, nK,
+                1.0,
+                <double*>(x.data), x.shape[1],
+                <double*>(y.data), y.shape[1],
+                0.0,
+                <double*>(out.data), out.shape[1])
+        else:
+            raise ValueError(f"unsupported or mismatching array data types; got '{x.dtype}', '{y.dtype}', '{out.dtype}'")
+
+        return out
 
     def relu(self, np.ndarray X, inplace=False):
         cdef np.ndarray Y

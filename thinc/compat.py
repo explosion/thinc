@@ -89,12 +89,10 @@ except ImportError:
 
 try:  # pragma: no cover
     import blis
-    import blis.py as blis_py
 
     has_blis = True
 except ImportError:
     blis = None
-    blis_py = None
     has_blis = False
 
 
