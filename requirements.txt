@@ -6,6 +6,7 @@ blis>=0.7.8,<0.10.0
 srsly>=2.4.0,<3.0.0
 wasabi>=0.8.1,<1.1.0
 catalogue>=2.0.4,<2.1.0
+confection>=0.0.1,<1.0.0
 ml_datasets>=0.2.0,<0.3.0
 # Third-party dependencies
 pydantic>=1.7.4,!=1.8,!=1.8.1,<1.10.0
@@ -34,4 +35,3 @@ nbformat>=5.0.4,<5.2.0
 # Test to_disk/from_disk against pathlib.Path subclasses
 pathy>=0.3.5
 black>=22.0,<23.0
-confection>=0.0.1,<1.0.0
