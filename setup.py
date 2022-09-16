@@ -18,7 +18,6 @@ Options.docstrings = True
 PACKAGES = find_packages()
 MOD_NAMES = [
     "thinc.backends.cblas",
-    "thinc.backends.linalg",
     "thinc.backends.numpy_ops",
     "thinc.layers.sparselinear",
 ]
