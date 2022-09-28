@@ -373,7 +373,7 @@ class Ops:
         # array sizes.
         length = (length + (round_to - 1)) // round_to * round_to
         final_shape = (len(seqs), length) + seqs[0].shape[1:]
-        output: Array3d = self.alloc(final_shape, dtype=seqs[0].dtype)
+        output: Array3d = cast(Array3d, self.alloc(final_shape, dtype=seqs[0].dtype))
         for i, arr in enumerate(seqs):
             # It's difficult to convince this that the dtypes will match.
             output[i, : arr.shape[0]] = arr  # type: ignore[assignment, call-overload]
@@ -451,7 +451,7 @@ class Ops:
         if drop is None or drop <= 0:
             return self.xp.ones(shape, dtype="f")
         elif drop >= 1.0:
-            return self.alloc(shape)
+            return self.alloc_f(shape)
         coinflips = self.xp.random.uniform(0.0, 1.0, shape)
         mask = (coinflips >= drop) / (1.0 - drop)
         return cast(FloatsXd, self.asarray(mask, dtype="float32"))
@@ -463,7 +463,7 @@ class Ops:
         dtype: Optional[DTypesFloat] = "float32",
         zeros: bool = True,
     ) -> Floats1d:
-        return self.alloc((d0,), dtype=dtype, zeros=zeros)
+        return cast(Floats1d, self.alloc((d0,), dtype=dtype, zeros=zeros))
 
     def alloc2f(
         self,
@@ -473,7 +473,7 @@ class Ops:
         dtype: Optional[DTypesFloat] = "float32",
         zeros: bool = True,
     ) -> Floats2d:
-        return self.alloc((d0, d1), dtype=dtype, zeros=zeros)
+        return cast(Floats2d, self.alloc((d0, d1), dtype=dtype, zeros=zeros))
 
     def alloc3f(
         self,
@@ -484,7 +484,7 @@ class Ops:
         dtype: Optional[DTypesFloat] = "float32",
         zeros: bool = True,
     ) -> Floats3d:
-        return self.alloc((d0, d1, d2), dtype=dtype, zeros=zeros)
+        return cast(Floats3d, self.alloc((d0, d1, d2), dtype=dtype, zeros=zeros))
 
     def alloc4f(
         self,
@@ -496,7 +496,7 @@ class Ops:
         dtype: Optional[DTypesFloat] = "float32",
         zeros: bool = True,
     ) -> Floats4d:
-        return self.alloc((d0, d1, d2, d3), dtype=dtype, zeros=zeros)
+        return cast(Floats4d, self.alloc((d0, d1, d2, d3), dtype=dtype, zeros=zeros))
 
     def alloc_f(
         self,
@@ -505,7 +505,7 @@ class Ops:
         dtype: Optional[DTypesFloat] = "float32",
         zeros: bool = True,
     ) -> FloatsXd:
-        return self.alloc(shape, dtype=dtype, zeros=zeros)
+        return cast(FloatsXd, self.alloc(shape, dtype=dtype, zeros=zeros))
 
     def alloc1i(
         self,
@@ -514,7 +514,7 @@ class Ops:
         dtype: Optional[DTypesInt] = "int32",
         zeros: bool = True,
     ) -> Ints1d:
-        return self.alloc((d0,), dtype=dtype, zeros=zeros)
+        return cast(Ints1d, self.alloc((d0,), dtype=dtype, zeros=zeros))
 
     def alloc2i(
         self,
@@ -524,7 +524,7 @@ class Ops:
         dtype: Optional[DTypesInt] = "int32",
         zeros: bool = True,
     ) -> Ints2d:
-        return self.alloc((d0, d1), dtype=dtype, zeros=zeros)
+        return cast(Ints2d, self.alloc((d0, d1), dtype=dtype, zeros=zeros))
 
     def alloc3i(
         self,
@@ -535,7 +535,7 @@ class Ops:
         dtype: Optional[DTypesInt] = "int32",
         zeros: bool = True,
     ) -> Ints3d:
-        return self.alloc((d0, d1, d2), dtype=dtype, zeros=zeros)
+        return cast(Ints3d, self.alloc((d0, d1, d2), dtype=dtype, zeros=zeros))
 
     def alloc4i(
         self,
@@ -547,7 +547,7 @@ class Ops:
         dtype: Optional[DTypesInt] = "int32",
         zeros: bool = True,
     ) -> Ints4d:
-        return self.alloc((d0, d1, d2, d3), dtype=dtype, zeros=zeros)
+        return cast(Ints4d, self.alloc((d0, d1, d2, d3), dtype=dtype, zeros=zeros))
 
     def alloc_i(
         self,
@@ -556,7 +556,7 @@ class Ops:
         dtype: Optional[DTypesInt] = "int32",
         zeros: bool = True,
     ) -> IntsXd:
-        return self.alloc(shape, dtype=dtype, zeros=zeros)
+        return cast(IntsXd, self.alloc(shape, dtype=dtype, zeros=zeros))
 
     def alloc(
         self,
@@ -564,7 +564,7 @@ class Ops:
         *,
         dtype: Optional[DTypes] = "float32",
         zeros: bool = True,
-    ) -> ArrayT:
+    ) -> ArrayXd:
         """Allocate an array of a certain shape."""
         if isinstance(shape, int):
             shape = (shape,)
