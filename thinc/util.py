@@ -626,4 +626,6 @@ __all__ = [
     "make_tempfile",
     "use_nvtx_range",
     "ArrayInfo",
+    "has_cupy",
+    "has_torch"
 ]
