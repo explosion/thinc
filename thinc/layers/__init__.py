@@ -75,6 +75,7 @@ from .with_nvtx_range import with_nvtx_range
 from .with_signpost_interval import with_signpost_interval
 
 
+# fmt: off
 __all__ = [
     "CauchySimilarity",
     "Linear",
@@ -153,3 +154,4 @@ __all__ = [
     "array_getitem",
     "tuplify"
 ]
+# fmt: on

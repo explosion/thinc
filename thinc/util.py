@@ -605,6 +605,7 @@ class ArrayInfo:
             )
 
 
+# fmt: off
 __all__ = [
     "get_array_module",
     "get_torch_default_device",
@@ -629,3 +630,4 @@ __all__ = [
     "has_cupy",
     "has_torch"
 ]
+# fmt: on

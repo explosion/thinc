@@ -46,6 +46,7 @@ from .layers import tuplify
 from .layers import reduce_first, reduce_last, reduce_max, reduce_mean, reduce_sum
 
 
+# fmt: off
 __all__ = [
     # .config
     "Config", "registry", "ConfigValidationError",
@@ -105,3 +106,4 @@ __all__ = [
 
     "reduce_first", "reduce_last", "reduce_max", "reduce_mean", "reduce_sum",
 ]
+# fmt: on
