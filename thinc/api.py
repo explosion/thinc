@@ -46,7 +46,6 @@ from .layers import tuplify
 from .layers import reduce_first, reduce_last, reduce_max, reduce_mean, reduce_sum
 
 
-# __all__ = list(locals().keys())
 __all__ = [
     # .config
     "Config", "registry", "ConfigValidationError",

@@ -5,5 +5,7 @@ from .about import __version__
 from .config import registry
 
 __all__ = [
-    "registry"
+    "registry",
+    "__version__",
+    "numpy"
 ]

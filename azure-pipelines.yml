@@ -61,7 +61,7 @@ jobs:
     displayName: 'Build sdist'
 
   - script: |
-      python -m mypy thinc
+      python -m mypy thinc --no-implicit-reexport
     displayName: 'Run mypy'
     condition: ne(variables['python.version'], '3.10')
 
