@@ -93,6 +93,7 @@ jobs:
       pip install "mxnet; sys_platform != 'win32'"
       pip install torch --extra-index-url https://download.pytorch.org/whl/cpu
       pip install -r requirements.txt
+      pip uninstall -y mypy
     displayName: 'Install extras for testing'
 
   - script: |
