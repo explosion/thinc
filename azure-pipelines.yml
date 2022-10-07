@@ -19,27 +19,27 @@ jobs:
     NOTEBOOK_KERNEL: "thinc-notebook-tests"
   strategy:
     matrix:
-      Python36Windows:
-        imageName: 'windows-2019'
-        python.version: '3.6'
-      Python37Mac:
-        imageName: 'macos-latest'
-        python.version: '3.7'
-      Python38Linux:
-        imageName: 'ubuntu-latest'
-        python.version: '3.8'
-      Python39Windows:
-        imageName: 'windows-latest'
-        python.version: '3.9'
-      Python310Linux:
-        imageName: 'ubuntu-latest'
-        python.version: '3.10'
+#      Python36Windows:
+#        imageName: 'windows-2019'
+#        python.version: '3.6'
+#      Python37Mac:
+#        imageName: 'macos-latest'
+#        python.version: '3.7'
+#      Python38Linux:
+#        imageName: 'ubuntu-latest'
+#        python.version: '3.8'
+#      Python39Windows:
+#        imageName: 'windows-latest'
+#        python.version: '3.9'
+#      Python310Linux:
+#        imageName: 'ubuntu-latest'
+#        python.version: '3.10'
       Python310Windows:
         imageName: 'windows-latest'
         python.version: '3.10'
-      Python310Mac:
-        imageName: 'macos-latest'
-        python.version: '3.10'
+#      Python310Mac:
+#        imageName: 'macos-latest'
+#        python.version: '3.10'
     maxParallel: 4
   pool:
     vmImage: $(imageName)
@@ -94,6 +94,7 @@ jobs:
       pip install "torch<1.12.0" --extra-index-url https://download.pytorch.org/whl/cpu
       pip install -r requirements.txt
       pip uninstall -y mypy
+      pip install -U numpy
     displayName: 'Install extras for testing'
 
   - script: |
