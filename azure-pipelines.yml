@@ -82,11 +82,12 @@ jobs:
     displayName: 'Install from sdist'
 
   - script: |
-      pip install -r requirements.txt
       pip install "protobuf~=3.20.0" "tensorflow~=2.5.0"
       pip install "mxnet; sys_platform != 'win32'"
       pip install "torch==1.9.0+cpu" -f https://download.pytorch.org/whl/torch_stable.html
       pip install ipykernel pydot graphviz
+      pip install -r requirements.txt
+      pip install confection==0.0.3
       python -m ipykernel install --name thinc-notebook-tests --user
     displayName: 'Install test dependencies'
 
