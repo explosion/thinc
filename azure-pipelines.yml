@@ -87,7 +87,7 @@ jobs:
       pip install torch --extra-index-url https://download.pytorch.org/whl/cpu
       pip install ipykernel pydot graphviz
       python -m ipykernel install --name thinc-notebook-tests --user
-      pip install -U -r requirements.txt
+      pip install -r requirements.txt
     displayName: 'Install test dependencies'
 
   - script: |
