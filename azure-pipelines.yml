@@ -82,17 +82,21 @@ jobs:
     displayName: 'Install from sdist'
 
   - script: |
+      pip install -r requirements.txt
+      python -m pytest --pyargs thinc --cov=thinc --cov-report=term
+    displayName: 'Run tests without extras'
+
+  - script: |
       pip install "protobuf~=3.20.0" "tensorflow~=2.5.0"
       pip install "mxnet; sys_platform != 'win32'"
       pip install torch --extra-index-url https://download.pytorch.org/whl/cpu
       pip install ipykernel pydot graphviz
       python -m ipykernel install --name thinc-notebook-tests --user
-      pip install -r requirements.txt
-    displayName: 'Install test dependencies'
+    displayName: 'Install extras for testing'
 
   - script: |
       python -m pytest --pyargs thinc --cov=thinc --cov-report=term
-    displayName: 'Run tests'
+    displayName: 'Run tests with extras'
 
   - script: |
       pip uninstall -y tensorflow
