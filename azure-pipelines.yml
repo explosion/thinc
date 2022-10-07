@@ -104,9 +104,9 @@ jobs:
       pip install thinc-apple-ops
       python -m pytest --pyargs thinc_apple_ops
     displayName: 'Run tests for thinc-apple-ops'
-    condition: and(startsWith(variables['imageName'], 'macos'), eq(variables['python.version'], '3.9'))
+    condition: and(startsWith(variables['imageName'], 'macos'), eq(variables['python.version'], '3.10'))
 
   - script: |
       python -m pytest --pyargs thinc
     displayName: 'Run tests with thinc-apple-ops'
-    condition: and(startsWith(variables['imageName'], 'macos'), eq(variables['python.version'], '3.9'))
+    condition: and(startsWith(variables['imageName'], 'macos'), eq(variables['python.version'], '3.10'))
