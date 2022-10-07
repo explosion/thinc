@@ -8,7 +8,6 @@ from .config import registry
 # fmt: off
 __all__ = [
     "registry",
-    "__version__",
-    # "numpy"
+    "__version__"
 ]
 # fmt: on

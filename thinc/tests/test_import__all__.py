@@ -39,13 +39,14 @@ def test_import_reexport_equivalency(module_name: str):
     module_name (str): Module to load.
     """
     mod = importlib.import_module(module_name)
-    imports = set(n for i in get_imports(str(mod.__file__)) for n in i.name)   # | set(i.alias for i in imports)
 
-    expected__all__ = {
-        k for k in imports
-        # Ignore all values prefixed with _, as we expect those not to be re-exported.
-        # However, __version__ should be re-exported in thinc's init.py.
-        if not k.startswith("_") or module_name == "thinc" and k == "__version__"
+    assert set(mod.__all__) == {
+        k for k in set(n for i in get_imports(str(mod.__file__)) for n in i.name)
+        if (
+            # Ignore all values prefixed with _, as we expect those not to be re-exported.
+            # However, __version__ should be reexported in thinc/__init__.py.
+            (not k.startswith("_") or module_name == "thinc" and k == "__version__") and
+            # Exception: thinc/__init__.py should not reexport numpy.
+            not (module_name == "thinc" and k == "numpy")
+        )
     }
-
-    assert set(mod.__all__) == expected__all__
