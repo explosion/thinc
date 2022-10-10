@@ -34,7 +34,7 @@ def answer() -> int:
 @pytest.fixture
 def X(input_size: int) -> Array2d:
     ops: Ops = get_current_ops()
-    return ops.alloc(shape=(1, input_size))
+    return cast(Array2d, ops.alloc(shape=(1, input_size)))
 
 
 @pytest.fixture
