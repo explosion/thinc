@@ -83,25 +83,37 @@ jobs:
 
   - script: |
       pip install -r requirements.txt
-      pip install "protobuf~=3.20.0" "tensorflow~=2.5.0"
-      pip install "mxnet; sys_platform != 'win32'"
-      pip install "torch==1.9.0+cpu" -f https://download.pytorch.org/whl/torch_stable.html
       pip install ipykernel pydot graphviz
       python -m ipykernel install --name thinc-notebook-tests --user
-    displayName: 'Install test dependencies'
+      python -m pytest --pyargs thinc --cov=thinc --cov-report=term
+    displayName: 'Run tests without extras'
+
+  - script: |
+      pip install "protobuf~=3.20.0" "tensorflow~=2.5.0"
+      pip install "mxnet; sys_platform != 'win32'"
+      pip install torch --extra-index-url https://download.pytorch.org/whl/cpu
+      # torch does not have a direct numpy requirement but is compiled against
+      # a newer version than the oldest supported numpy for windows and
+      # python 3.10; this version of numpy would not work with
+      # tensorflow~=2.5.0 as specified above, but there is no release for
+      # python 3.10 anyway
+      pip install "numpy~=1.23.0; python_version=='3.10' and sys_platform=='win32'"
+      pip install -r requirements.txt
+      pip uninstall -y mypy
+    displayName: 'Install extras for testing'
 
   - script: |
       python -m pytest --pyargs thinc --cov=thinc --cov-report=term
-    displayName: 'Run tests'
+    displayName: 'Run tests with extras'
 
   - script: |
       pip uninstall -y tensorflow
       pip install thinc-apple-ops
       python -m pytest --pyargs thinc_apple_ops
     displayName: 'Run tests for thinc-apple-ops'
-    condition: and(startsWith(variables['imageName'], 'macos'), eq(variables['python.version'], '3.9'))
+    condition: and(startsWith(variables['imageName'], 'macos'), eq(variables['python.version'], '3.10'))
 
   - script: |
       python -m pytest --pyargs thinc
     displayName: 'Run tests with thinc-apple-ops'
-    condition: and(startsWith(variables['imageName'], 'macos'), eq(variables['python.version'], '3.9'))
+    condition: and(startsWith(variables['imageName'], 'macos'), eq(variables['python.version'], '3.10'))
