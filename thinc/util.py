@@ -628,6 +628,6 @@ __all__ = [
     "use_nvtx_range",
     "ArrayInfo",
     "has_cupy",
-    "has_torch"
+    "has_torch",
 ]
 # fmt: on

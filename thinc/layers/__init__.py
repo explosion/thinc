@@ -152,6 +152,6 @@ __all__ = [
     "map_list",
     "strings2arrays",
     "array_getitem",
-    "tuplify"
+    "tuplify",
 ]
 # fmt: on

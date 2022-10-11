@@ -32,7 +32,7 @@ def get_imports(path: str) -> Tuple[_Import, ...]:
     return tuple(imports)
 
 
-@pytest.mark.parametrize("module_name", ["thinc", "thinc.api", "thinc.shims", "thinc.layers"])
+@pytest.mark.parametrize("module_name", ["thinc.api", "thinc.shims", "thinc.layers"])
 def test_import_reexport_equivalency(module_name: str):
     """Tests whether a module's __all__ is equivalent to its imports. This assumes that this module is supposed to
     re-export all imported values.
@@ -45,8 +45,6 @@ def test_import_reexport_equivalency(module_name: str):
         if (
             # Ignore all values prefixed with _, as we expect those not to be re-exported.
             # However, __version__ should be reexported in thinc/__init__.py.
-            (not k.startswith("_") or module_name == "thinc" and k == "__version__") and
-            # Exception: thinc/__init__.py should not reexport numpy.
-            not (module_name == "thinc" and k == "numpy")
+            (not k.startswith("_") or module_name == "thinc" and k == "__version__")
         )
     }

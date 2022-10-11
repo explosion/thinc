@@ -11,6 +11,6 @@ __all__ = [
     "PyTorchShim",
     "PyTorchGradScaler",
     "keras_model_fns", "TensorFlowShim", "maybe_handshake_model",
-    "MXNetShim"
+    "MXNetShim",
 ]
 # fmt: on
