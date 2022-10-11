@@ -96,5 +96,5 @@ __all__ = [
     "tensorflow",
     "mxnet",
     "h5py",
-    "os_signpost"
+    "os_signpost",
 ]
