@@ -22,12 +22,14 @@ def get_imports(path: str) -> Tuple[_Import, ...]:
         if isinstance(node, ast.Import):
             module: List[str] = []
         elif isinstance(node, ast.ImportFrom) and node.module:
-            module = node.module.split('.')
+            module = node.module.split(".")
         else:
             continue
 
         assert isinstance(node, (ast.Import, ast.ImportFrom))
-        imports.extend([_Import(module, n.name.split('.'), n.asname) for n in node.names])
+        imports.extend(
+            [_Import(module, n.name.split("."), n.asname) for n in node.names]
+        )
 
     return tuple(imports)
 
@@ -41,7 +43,8 @@ def test_import_reexport_equivalency(module_name: str):
     mod = importlib.import_module(module_name)
 
     assert set(mod.__all__) == {
-        k for k in set(n for i in get_imports(str(mod.__file__)) for n in i.name)
+        k
+        for k in set(n for i in get_imports(str(mod.__file__)) for n in i.name)
         if (
             # Ignore all values prefixed with _, as we expect those not to be re-exported.
             # However, __version__ should be reexported in thinc/__init__.py.
