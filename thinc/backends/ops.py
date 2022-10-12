@@ -564,7 +564,7 @@ class Ops:
         *,
         dtype: Optional[DTypes] = "float32",
         zeros: bool = True,
-    ) -> ArrayXd:
+    ) -> Any:
         """Allocate an array of a certain shape."""
         if isinstance(shape, int):
             shape = (shape,)
