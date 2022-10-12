@@ -1,7 +1,7 @@
 import math
 
 from typing import Optional, List, Tuple, Sequence, Type, Union, cast, TypeVar
-from typing import Iterator, overload
+from typing import Iterator, overload, Any
 import numpy
 import itertools
 
@@ -564,7 +564,7 @@ class Ops:
         *,
         dtype: Optional[DTypes] = "float32",
         zeros: bool = True,
-    ) -> ArrayXd:
+    ) -> Any:
         """Allocate an array of a certain shape."""
         if isinstance(shape, int):
             shape = (shape,)
