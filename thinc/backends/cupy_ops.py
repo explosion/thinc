@@ -1,19 +1,4 @@
 import numpy
-
-try:
-    import cupy
-    import cupyx
-    import cupy.cuda
-    from cupy.cuda.compiler import compile_with_cache  # noqa: F401
-
-    has_cupy = True
-
-    # We no longer have to set up the memory pool, fortunately.
-except ImportError:
-    cupy = None
-    cupyx = None
-    has_cupy = False
-
 from .. import registry
 from .ops import Ops
 from .numpy_ops import NumpyOps
@@ -21,7 +6,8 @@ from . import _custom_kernels
 from ..types import DeviceTypes
 from ..util import torch2xp, tensorflow2xp, mxnet2xp
 from ..util import is_cupy_array
-from ..util import is_torch_gpu_array, is_tensorflow_gpu_array, is_mxnet_gpu_array
+from ..util import is_torch_cuda_array, is_tensorflow_gpu_array, is_mxnet_gpu_array
+from ..compat import cupy, cupyx
 
 
 @registry.ops("CupyOps")
@@ -43,6 +29,24 @@ class CupyOps(Ops):
             dtype = data.dtype.newbyteorder(byte_order)
             data = numpy.asarray(data, dtype=dtype)
         return data
+
+    def gather_add(self, table, indices):
+        if table.dtype in ("float32", "float64"):
+            return _custom_kernels.gather_add(table, indices)
+        else:
+            return super().gather_add(table, indices)
+
+    def dish(self, X, inplace=False):
+        if X.dtype in ("float32", "float64"):
+            return _custom_kernels.dish(X, inplace=inplace)
+        else:
+            return super().dish(X, inplace=inplace)
+
+    def backprop_dish(self, dY, X, inplace=False):
+        if X.dtype == dY.dtype and X.dtype in ("float32", "float64"):
+            return _custom_kernels.backprop_dish(dY, X, inplace=inplace)
+        else:
+            return super().backprop_dish(dY, X, inplace=inplace)
 
     def gelu(self, X, inplace=False):
         if X.dtype in ("float32", "float64"):
@@ -73,29 +77,20 @@ class CupyOps(Ops):
             return out
 
     def asarray(self, data, dtype=None):
-        # This is sort of frustrating, but we can't easily otherwise pass
-        # forward "unset".
-        dtype = {"dtype": dtype} if dtype is not None else {}
-
         # We'll try to perform a zero-copy conversion if possible.
-        array = None
-        cast_array = False
         if is_cupy_array(data):
-            array = self.xp.asarray(data, **dtype)
-        elif is_torch_gpu_array(data):
+            array = data
+        elif is_torch_cuda_array(data):
             array = torch2xp(data)
-            cast_array = True
         elif is_tensorflow_gpu_array(data):
             array = tensorflow2xp(data)
-            cast_array = True
         elif is_mxnet_gpu_array(data):
             array = mxnet2xp(data)
-            cast_array = True
         else:
-            array = self.xp.array(data, **dtype)
+            array = self.xp.array(data)
 
-        if cast_array and dtype != {}:
-            array = array.astype(dtype["dtype"])
+        if dtype is not None:
+            array = array.astype(dtype=dtype, copy=False)
 
         return array
 
@@ -304,6 +299,10 @@ class CupyOps(Ops):
     def adam(
         self, weights, gradient, mom1, mom2, beta1, beta2, eps, learn_rate, mod_rate=1.0
     ):
+        _check_compatible_shape(weights, gradient)
+        _check_compatible_shape(weights, mom1)
+        _check_compatible_shape(weights, mom2)
+
         adam_kernel(
             gradient, learn_rate, 1 - beta1, 1 - beta2, eps, weights, mom1, mom2
         )
@@ -326,3 +325,9 @@ if cupy is not None:
     )
 else:
     adam_kernel = None
+
+
+def _check_compatible_shape(u, v):
+    if u.shape != v.shape:
+        msg = f"arrays have incompatible shapes: {u.shape} and {v.shape}"
+        raise ValueError(msg)

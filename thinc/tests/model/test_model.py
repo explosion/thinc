@@ -4,9 +4,9 @@ import threading
 import time
 from thinc.api import Adam, CupyOps, Dropout, Linear, Model, Relu
 from thinc.api import Shim, Softmax, chain, change_attr_values
-from thinc.api import concatenate, has_cupy, set_dropout_rate
+from thinc.api import concatenate, set_dropout_rate
 from thinc.api import use_ops, with_debug, wrap_model_recursive
-from thinc.util import gpu_is_available
+from thinc.compat import has_cupy_gpu
 import numpy
 
 from ..util import make_tempdir
@@ -349,10 +349,10 @@ def test_all_operators(op):
             with pytest.raises(TypeError):
                 value = m1 % m2
         if op == "**":
-            value = m1 ** m2
+            value = m1**m2
         else:
             with pytest.raises(TypeError):
-                value = m1 ** m2
+                value = m1**m2
         if op == "<<":
             value = m1 << m2
         else:
@@ -404,15 +404,12 @@ def test_unique_id_multithreading():
     assert len(list_of_ids) == len(list(set(list_of_ids)))
 
 
+@pytest.mark.skipif(not has_cupy_gpu, reason="needs CuPy GPU")
 def test_model_gpu():
     pytest.importorskip("ml_datasets")
     import ml_datasets
 
-    ops = "cpu"
-    if has_cupy and gpu_is_available():
-        ops = "cupy"
-
-    with use_ops(ops):
+    with use_ops("cupy"):
         n_hidden = 32
         dropout = 0.2
         (train_X, train_Y), (dev_X, dev_Y) = ml_datasets.mnist()
@@ -614,3 +611,44 @@ def test_walk_bfs_post_order_fails():
     relu = Relu(5)
     with pytest.raises(ValueError, match="Invalid order"):
         relu.walk(order="dfs_post_order")
+
+
+def test_model_copy_with_loop():
+    class MyShim(Shim):
+        name = "testshim"
+
+        def to_bytes(self):
+            return test_replace_node_with_indirect_node_ref
+
+        def from_bytes(self, bytes):
+            pass
+
+    model_a = create_model("a")
+    working_shim = MyShim(None)
+    layer = Model(
+        "test",
+        lambda X: (X, lambda dY: dY),
+        dims={"nI": 5, "nO": 5},
+        params={"W": numpy.zeros((10,)), "b": None},
+        refs={"a": model_a, "b": None},
+        attrs={"foo": "bar"},
+        shims=[working_shim],
+        layers=[model_a, model_a],
+    )
+    layer2 = Model(
+        "test2",
+        lambda X: (X, lambda dY: dY),
+        dims={"nI": 5, "nO": 5},
+        params={"W": numpy.zeros((10,)), "b": None},
+        refs={"a": model_a, "b": None},
+        attrs={"foo": "bar"},
+        shims=[working_shim],
+        layers=[model_a, model_a],
+    )
+    relu = Relu(5)
+    model = chain(layer, relu, layer, layer2)
+    model2 = model.copy()
+    model.from_dict(model2.to_dict())
+    assert model2.name == "test>>relu>>test>>test2"
+    assert model2.layers[0] == model2.layers[2]
+    assert id(model2.layers[0].shims[0]) == id(model2.layers[3].shims[0])

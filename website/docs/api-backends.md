@@ -382,6 +382,26 @@ the inputs and outputs.
 | `zeros`        | <tt>bool</tt>    | Fill the array with zeros (default: `True`). |
 | **RETURNS**    | <tt>ArrayXd</tt> | An array of the correct shape and data type. |
 
+### Ops.cblas {#cblas tag="method"}
+
+<inline-list>
+
+- **default:** <i name="no"></i>
+- **numpy:** <i name="yes"></i>
+- **cupy:** <i name="no"></i>
+
+</inline-list>
+
+Get a table of C BLAS functions usable in Cython `cdef nogil` functions. This
+method does not take any arguments.
+
+<infobox variant="warning">
+
+This method is only supported by `NumpyOps`. A `NotImplementedError` exception
+is raised when calling this method on `Ops` or `CupyOps`.
+
+</infobox>
+
 ### Ops.to_numpy {#to_numpy tag="method"}
 
 <inline-list>
@@ -907,6 +927,47 @@ Backpropagate the Swish activation
 | `inplace`   | <tt>bool</tt>     | If `True`, the `dY` array is modified in place. |
 | **RETURNS** | <tt>FloatsXd</tt> | The gradient of the input.                      |
 
+### Ops.dish {#dish tag="method" new="8.1.1"}
+
+<inline-list>
+
+- **default:** <i name="yes"></i>
+- **numpy:** <i name="no"></i>
+- **cupy:** <i name="yes"></i>
+
+</inline-list>
+
+Dish or "Daniël's Swish-like activation" is an activation function with a non-monotinic shape similar to
+[GELU](#gelu), [Swish](#swish) and [Mish](#mish). However, Dish does not rely on
+elementary functions like `exp` or `erf`, making it much
+[faster to compute](https://twitter.com/danieldekok/status/1484898130441166853)
+in most cases.
+
+| Argument    | Type              | Description                                |
+| ----------- | ----------------- | ------------------------------------------ |
+| `X`         | <tt>FloatsXd</tt> | The inputs.                                |
+| `inplace`   | <tt>bool</tt>     | If `True`, the array is modified in place. |
+| **RETURNS** | <tt>FloatsXd</tt> | The outputs.                               |
+
+### Ops.backprop_dish {#backprop_dish tag="method" new="8.1.1"}
+
+<inline-list>
+
+- **default:** <i name="yes"></i>
+- **numpy:** <i name="no"></i>
+- **cupy:** <i name="yes"></i>
+
+</inline-list>
+
+Backpropagate the Dish activation.
+
+| Argument    | Type              | Description                                     |
+| ----------- | ----------------- | ----------------------------------------------- |
+| `dY`        | <tt>FloatsXd</tt> | Gradients of the output array.                  |
+| `X`         | <tt>FloatsXd</tt> | The inputs to the forward pass.                 |
+| `inplace`   | <tt>bool</tt>     | If `True`, the `dY` array is modified in place. |
+| **RETURNS** | <tt>FloatsXd</tt> | The gradient of the input.                      |
+
 ### Ops.gelu {#gelu tag="method"}
 
 <inline-list>
@@ -1193,6 +1254,82 @@ Backpropagate the hard Swish MobileNet activation.
 | `inplace`   | <tt>bool</tt>     | If `True`, the `dY` array is modified in place. |
 | **RETURNS** | <tt>FloatsXd</tt> | The gradient of the input.                      |
 
+### Ops.reduce_first {#reduce_first tag="method"}
+
+<inline-list>
+
+- **default:** <i name="yes"></i>
+- **numpy:** default
+- **cupy:** default
+
+</inline-list>
+
+Perform sequence-wise first pooling for data in the ragged format. Zero-length
+sequences are not allowed. A `ValueError` is raised if any element in `lengths`
+is zero.
+
+| Argument    | Type                            | Description                                                           |
+| ----------- | ------------------------------- | --------------------------------------------------------------------- |
+| `X`         | <tt>Floats2d</tt>               | The concatenated sequences.                                           |
+| `lengths`   | <tt>Ints1d</tt>                 | The sequence lengths.                                                 |
+| **RETURNS** | <tt>Tuple[Floats2d,Ints1d]</tt> | The first vector of each sequence and the sequence start/end indices. |
+
+### Ops.backprop_reduce_first {#backprop_reduce_first tag="method"}
+
+<inline-list>
+
+- **default:** <i name="yes"></i>
+- **numpy:** default
+- **cupy:** default
+
+</inline-list>
+
+Backpropagate the `reduce_first` operation.
+
+| Argument      | Type              | Description                                 |
+| ------------- | ----------------- | ------------------------------------------- |
+| `d_firsts`    | <tt>Floats2d</tt> | The gradient of the outputs.                |
+| `starts_ends` | <tt>Ints1d</tt>   | The sequence start/end indices.             |
+| **RETURNS**   | <tt>Floats2d</tt> | The gradient of the concatenated sequences. |
+
+### Ops.reduce_last {#reduce_last tag="method"}
+
+<inline-list>
+
+- **default:** <i name="yes"></i>
+- **numpy:** default
+- **cupy:** default
+
+</inline-list>
+
+Perform sequence-wise last pooling for data in the ragged format. Zero-length
+sequences are not allowed. A `ValueError` is raised if any element in `lengths`
+is zero.
+
+| Argument    | Type                            | Description                                                                     |
+| ----------- | ------------------------------- | ------------------------------------------------------------------------------- |
+| `X`         | <tt>Floats2d</tt>               | The concatenated sequences.                                                     |
+| `lengths`   | <tt>Ints1d</tt>                 | The sequence lengths.                                                           |
+| **RETURNS** | <tt>Tuple[Floats2d,Ints1d]</tt> | The last vector of each sequence and the indices of the last sequence elements. |
+
+### Ops.backprop_reduce_last {#backprop_reduce_last tag="method"}
+
+<inline-list>
+
+- **default:** <i name="yes"></i>
+- **numpy:** default
+- **cupy:** default
+
+</inline-list>
+
+Backpropagate the `reduce_last` operation.
+
+| Argument    | Type              | Description                                 |
+| ----------- | ----------------- | ------------------------------------------- |
+| `d_lasts`   | <tt>Floats2d</tt> | The gradient of the outputs.                |
+| `lasts`     | <tt>Ints1d</tt>   | Indices of the last sequence elements.      |
+| **RETURNS** | <tt>Floats2d</tt> | The gradient of the concatenated sequences. |
+
 ### Ops.reduce_sum {#reduce_sum tag="method"}
 
 <inline-list>
@@ -1278,8 +1415,8 @@ Backpropagate the `reduce_mean` operation.
 </inline-list>
 
 Perform sequence-wise max pooling for data in the ragged format. Zero-length
-sequences are not allowed. A `ValueError` is raised if any element in
-`lengths` is zero.
+sequences are not allowed. A `ValueError` is raised if any element in `lengths`
+is zero.
 
 | Argument    | Type                             | Description                 |
 | ----------- | -------------------------------- | --------------------------- |
@@ -1343,6 +1480,25 @@ Create hashed ngram features.
 | `n`         | <tt>int</tt>    | The window to calculate each feature over. |
 | `keys`      | <tt>Ints1d</tt> | The input sequence.                        |
 | **RETURNS** | <tt>Ints1d</tt> | The hashed ngrams.                         |
+
+### Ops.gather_add {#gather_add tag="method" new="8.1"}
+
+<inline-list>
+
+- **default:** <i name="yes"></i>
+- **numpy:** <i name="yes"></i>
+- **cupy:** <i name="yes"></i>
+
+</inline-list>
+
+Gather rows from `table` with shape `(T, O)` using array `indices` with shape
+`(B, K)`, then sum the resulting array with shape `(B, K, O)` over the `K` axis.
+
+| Argument    | Type              | Description             |
+| ----------- | ----------------- | ----------------------- |
+| `table`     | <tt>Floats2d</tt> | The array to increment. |
+| `indices`   | <tt>Ints2d</tt>   | The indices to use.     |
+| **RETURNS** | <tt>Floats2d</tt> | The summed rows.        |
 
 ### Ops.scatter_add {#scatter_add tag="method"}
 

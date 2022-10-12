@@ -22,6 +22,26 @@ struct Constants<float> {
 };
 
 
+template <typename U>
+__global__ void gather_add(U* out_bo, const U* table_to, const int* indices_bk,
+        int T, int O, int B, int K)
+{
+    int _loop_start = blockIdx.x * blockDim.x + threadIdx.x;
+    int _loop_stride = blockDim.x * gridDim.x;
+
+    for (int b = _loop_start; b < B; b += _loop_stride) {
+        for (int k = 0; k < K; ++k) {
+            int idx = indices_bk[b * K + k];
+            const U* table = table_to + idx * O;
+            U* out = out_bo + b * O;
+            for (int o = 0; o < O; ++o) {
+                out[o] += table[o];
+            }
+        }
+    }
+}
+
+
 template <typename T>
 __global__ void seq2col(T* output, const T* X, const int* lengths,
         int nW, int B, int I, int nL)
@@ -137,6 +157,20 @@ __global__ void clipped_linear(T* Y, const T* X, double slope, double offset, do
     {
         T y = X[i] * slope + offset;
         Y[i] = min(max(y, min_val), max_val);
+    }
+}
+
+
+template <typename T>
+__global__ void dish(T* Y, const T* X, int N)
+{
+    int _loop_start = blockIdx.x * blockDim.x + threadIdx.x;
+    int _loop_stride = blockDim.x * gridDim.x;
+
+    for (int i = _loop_start; i < N; i += _loop_stride)
+    {
+        T x = X[i];
+        Y[i] = 0.5 * x * (x / sqrt(1 + x * x) + 1);
     }
 }
 
@@ -393,6 +427,23 @@ __global__ void backprop_hard_swish_mobilenet(T* dX, const T* dY, const T* X, in
     }
 }
 
+
+template <typename T>
+__global__ void backprop_dish(T* dX, const T* dY, const T* X, int N)
+{
+
+    int _loop_start = blockIdx.x * blockDim.x + threadIdx.x;
+    int _loop_stride = blockDim.x * gridDim.x;
+
+    for (int i = _loop_start; i < N; i += _loop_stride)
+    {
+        T x = X[i];
+        T x_sq = x * x;
+        T x_sq_plus_one = x_sq + 1.0;
+        dX[i] = dY[i] * (x/sqrt(x_sq_plus_one) - (0.5 * x * x_sq)
+            / pow(x_sq_plus_one, static_cast<T>(1.5)) + 0.5);
+    }
+}
 
 
 template <typename T>

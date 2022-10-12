@@ -8,25 +8,76 @@
 #include <string>
 #include <type_traits>
 
+// Ideally we'd use an alias declaration for a generic definition of
+// *axpy. But Cython doesn't support alias declarations yet:
+//
+// https://github.com/cython/cython/issues/3272
+//
+// template <typename T>
+// using axpy = void (*)(int N, T alpha, const T* X, int incX,
+//                       T *Y, int incY);
+//
+// So, instead we'll do this the pre-C++11 way:
+
+template <typename T>
+struct axpy {
+    typedef void (*ptr)(int N, T alpha, const T* X, int incX, T *Y, int incY);
+};
+
 
 // All elementwise functions, such as most activations, work in-place.
 
-template <typename A, typename L>
-L argmax(A* arr, L len)
+
+template <typename T, typename L>
+struct argmax_result {
+    T max;
+    L max_idx;
+};
+
+template <typename T, typename L>
+argmax_result<T, L> argmax(T const *arr, L len)
 {
-    static_assert(std::is_floating_point<A>::value,
+    static_assert(std::is_floating_point<T>::value,
         "Array should be floating point");
     static_assert(std::is_integral<L>::value, "Array length should be integral");
 
-    L max = 0;
+    argmax_result<T, L> r { arr[0],  0 };
+
     for (L i = 1; i < len; ++i) {
-        if (arr[i] > arr[max]) {
-            max = i;
+        if (arr[i] > r.max) {
+            r.max = arr[i];
+            r.max_idx = i;
         }
     }
 
-    return max;
+    return r;
 }
+
+// The next two templates define argmax for a fixed number of elements.
+
+template <typename T, typename L>
+argmax_result<T, L> argmax(T a) {
+    static_assert(std::is_floating_point<T>::value, "Argument should be floating point");
+    argmax_result<T, L> acc { a, 0 };
+    return acc;
+}
+
+template<typename T, typename L, typename... Args>
+argmax_result<T, L> argmax(T a, Args... args) {
+    static_assert(std::is_floating_point<T>::value, "Arguments should be floating point");
+
+    auto acc = argmax<T, L>(args...);
+
+    if (acc.max > a) {
+        acc.max_idx += 1;
+    } else {
+        acc.max_idx = 0;
+        acc.max = a;
+    }
+
+    return acc;
+}
+
 
 template <typename A, typename L>
 void vec_add(A* X, const A* Y, A scale, L N)
@@ -46,11 +97,30 @@ void cpu_maxout(A* best__bo, L* which__bo, const A* cands__bop, L B, L O, L P)
         "Array should be floating point");
     static_assert(std::is_integral<L>::value, "Array length should be integral");
 
-    for (int i = 0; i < B * O; ++i) {
-        which__bo[i] = argmax(cands__bop + i * P, P);
-        best__bo[i] = cands__bop[i * P + which__bo[i]];
+    // For small inputs, we use an unrolled argmax.
+    if (P == 2) {
+        for (int i = 0; i < B * O; ++i) {
+            A const *input = cands__bop + i * P;
+            auto r = argmax<A, L>(input[0], input[1]);
+            which__bo[i] = r.max_idx;
+            best__bo[i] = r.max;
+        }
+    } else if (P == 3) {
+        for (int i = 0; i < B * O; ++i) {
+            A const *input = cands__bop + i * P;
+            auto r = argmax<A, L>(input[0], input[1], input[2]);
+            which__bo[i] = r.max_idx;
+            best__bo[i] = r.max;
+        }
+    } else {
+        for (int i = 0; i < B * O; ++i) {
+            auto r = argmax<A, L>(cands__bop + i * P, P);
+            which__bo[i] = r.max_idx;
+            best__bo[i] = r.max;
+        }
     }
 }
+
 
 template <typename A, typename L>
 void cpu_backprop_maxout(A* dX__bop, const A* dX__bo, const L* which__bo,
@@ -394,5 +464,19 @@ void backprop_seq2col(A* d_seqs, const A* d_cols, const L* lengths, L B, L I, L 
         seq_start += lengths[i];
     }
 }
+
+template <typename F, typename I, typename L>
+void cpu_gather_add(typename axpy<F>::ptr axpy, F* out_bo, const F* table_to, const I* indices_bk, L T, L O, L B, L K) {
+     for (L b = 0; b < B; ++b) {
+        for (L k = 0; k < K; ++k) {
+            I idx = indices_bk[b * K + k];
+            if (idx > T) {
+                throw std::out_of_range("Embedding index out-of-bounds");
+            }
+            axpy(O, 1.0, table_to + idx * O, 1, out_bo + b * O, 1);
+        }
+    }
+}
+
 
 #endif // CPU_KERNELS_HH

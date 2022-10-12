@@ -20,6 +20,7 @@ cimport blis.cy
 from .. import registry
 from ..util import copy_array, get_array_module
 from ..types import DeviceTypes, DTypes, Shape, ArrayXd
+from .cblas cimport CBlas, daxpy, saxpy
 from .linalg cimport VecVec, Vec
 from .ops import Ops
 
@@ -62,25 +63,29 @@ class NumpyOps(Ops):
 
     def asarray(self, data, dtype=None):
         if isinstance(data, self.xp.ndarray):
-            if dtype is not None:
-                return self.xp.asarray(data, dtype=dtype)
-            else:
-                return self.xp.asarray(data)
+            array = data
         elif hasattr(data, 'numpy'):
             # Handles PyTorch Tensor
-            return data.numpy()
+            array = data.numpy()
         elif hasattr(data, "get"):
-            return data.get()
-        elif dtype is not None:
-            return self.xp.array(data, dtype=dtype)
+            array = data.get()
         else:
-            return self.xp.array(data)
+            array = self.xp.array(data)
+
+        if dtype is not None:
+            array = array.astype(dtype=dtype, copy=False)
+
+        return array
+
 
     def alloc(self, shape: Shape, *, dtype: Optional[DTypes] = "float32", zeros: bool = True) -> ArrayXd:
         if zeros:
             return self.xp.zeros(shape, dtype=dtype)
         else:
             return self.xp.empty(shape, dtype=dtype)
+
+    def cblas(self) -> CBlas:
+        return CBlas()
 
     def gemm(self, np.ndarray x, np.ndarray y, *, np.ndarray out=None, trans1=False, trans2=False):
         if x.ndim != 2:
@@ -432,6 +437,23 @@ class NumpyOps(Ops):
 
         return dX
 
+    def gather_add(self, reals2d_ft table, ints2d_ft indices):
+        cdef CBlas cblas = self.cblas()
+        rows = indices.shape[0]
+        dims = table.shape[1]
+
+        cdef np.ndarray output
+        if reals2d_ft is float2d_t:
+            output = self.xp.zeros((rows, dims), dtype="float32")
+            cpu_gather_add(saxpy(cblas), <float *>output.data, &table[0, 0], &indices[0, 0],
+                        table.shape[0], dims, rows, indices.shape[1])
+        else:
+            output = self.xp.zeros((rows, dims), dtype="float64")
+            cpu_gather_add(daxpy(cblas), <double *>output.data, &table[0, 0], &indices[0, 0],
+                        table.shape[0], dims, rows, indices.shape[1])
+
+        return output
+
     def scatter_add(self, np.ndarray table, np.ndarray indices, np.ndarray values):
         if table.dtype == 'float32' \
         and indices.dtype == 'int32' \
@@ -452,9 +474,14 @@ class NumpyOps(Ops):
 
     @cython.boundscheck(False)
     @cython.wraparound(False)
-    def adam(self, np.ndarray weights, np.ndarray gradient, np.ndarray mom1,
-             np.ndarray mom2, const float beta1, const float beta2, float eps,
+    def adam(self, np.ndarray[np.float32_t] weights, np.ndarray[np.float32_t] gradient,
+            np.ndarray[np.float32_t] mom1, np.ndarray[np.float32_t] mom2,
+            const float beta1, const float beta2, float eps,
             float learn_rate, float mod_rate=1.):
+        _check_compatible_shape(weights, gradient)
+        _check_compatible_shape(weights, mom1)
+        _check_compatible_shape(weights, mom2)
+
         _adam_momentum(<float*>gradient.data, <float*>mom1.data, <float*>mom2.data,
             weights.shape[0], beta1, beta2, eps, learn_rate)
         VecVec.add_i(<float*>weights.data,

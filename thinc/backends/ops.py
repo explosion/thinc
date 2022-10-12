@@ -1,6 +1,6 @@
 import math
 
-from typing import Optional, List, Tuple, Sequence, Union, cast, TypeVar
+from typing import Optional, List, Tuple, Sequence, Type, Union, cast, TypeVar
 from typing import Iterator, overload
 import numpy
 import itertools
@@ -9,13 +9,14 @@ from ..types import Xp, Shape, DTypes, DTypesInt, DTypesFloat, List2d, ArrayXd
 from ..types import Floats1d, Floats2d, Floats3d, Floats4d
 from ..types import Array1d, Array2d, Array3d, Array4d, ListXd
 from ..types import FloatsXd, Ints1d, Ints2d, Ints3d, Ints4d, IntsXd, _Floats
+from ..types import FloatsXdT
 from ..types import DeviceTypes, Generator, Padded, Batchable, SizedGenerator
 from ..util import get_array_module, is_xp_array, to_numpy
 
+from .cblas import CBlas
 
 ArrayT = TypeVar("ArrayT", bound=ArrayXd)
 FloatsT = TypeVar("FloatsT", bound=_Floats)
-FloatsType = TypeVar("FloatsType", bound=FloatsXd)
 SQRT2PI = math.sqrt(2.0 / math.pi)
 INV_SQRT2 = 1.0 / math.sqrt(2.0)
 INV_SQRT_2PI = 1.0 / math.sqrt(2.0 * math.pi)
@@ -30,6 +31,11 @@ class Ops:
     ) -> None:
         self.device_type = device_type
         self.device_id = device_id
+
+    def cblas(self) -> CBlas:
+        """Return C BLAS function table."""
+        err = f"{type(self).__name__} does not provide C BLAS functions"
+        raise NotImplementedError(err)
 
     def to_numpy(self, data, *, byte_order=None):  # pragma: no cover
         if isinstance(data, numpy.ndarray):
@@ -223,56 +229,56 @@ class Ops:
         Y += b
         return Y
 
-    @overload 
+    @overload
     def flatten(
         self,
         X: List[Floats2d],
         dtype: Optional[DTypes] = None,
         pad: int = 0,
         ndim_if_empty: int = 2,
-     ) -> Floats2d:
+    ) -> Floats2d:
         ...
 
-    @overload 
+    @overload
     def flatten(
         self,
         X: List[Ints1d],
         dtype: Optional[DTypes] = None,
         pad: int = 0,
         ndim_if_empty: int = 2,
-     ) -> Ints1d:
+    ) -> Ints1d:
         ...
 
-    @overload 
+    @overload
     def flatten(
         self,
         X: List2d,
         dtype: Optional[DTypes] = None,
         pad: int = 0,
         ndim_if_empty: int = 2,
-     ) -> Array2d:
+    ) -> Array2d:
         ...
 
     # further specific typed signatures can be added as necessary
 
-    @overload 
+    @overload
     def flatten(
         self,
         X: ListXd,
         dtype: Optional[DTypes] = None,
         pad: int = 0,
         ndim_if_empty: int = 2,
-     ) -> ArrayXd:
+    ) -> ArrayXd:
         ...
 
-    @overload 
+    @overload
     def flatten(
         self,
         X: Sequence[ArrayXd],
         dtype: Optional[DTypes] = None,
         pad: int = 0,
         ndim_if_empty: int = 2,
-     ) -> ArrayXd:
+    ) -> ArrayXd:
         ...
 
     def flatten(
@@ -367,7 +373,7 @@ class Ops:
         # array sizes.
         length = (length + (round_to - 1)) // round_to * round_to
         final_shape = (len(seqs), length) + seqs[0].shape[1:]
-        output: Array3d = self.alloc(final_shape, dtype=seqs[0].dtype)
+        output: Array3d = cast(Array3d, self.alloc(final_shape, dtype=seqs[0].dtype))
         for i, arr in enumerate(seqs):
             # It's difficult to convince this that the dtypes will match.
             output[i, : arr.shape[0]] = arr  # type: ignore[assignment, call-overload]
@@ -445,7 +451,7 @@ class Ops:
         if drop is None or drop <= 0:
             return self.xp.ones(shape, dtype="f")
         elif drop >= 1.0:
-            return self.alloc(shape)
+            return self.alloc_f(shape)
         coinflips = self.xp.random.uniform(0.0, 1.0, shape)
         mask = (coinflips >= drop) / (1.0 - drop)
         return cast(FloatsXd, self.asarray(mask, dtype="float32"))
@@ -457,7 +463,7 @@ class Ops:
         dtype: Optional[DTypesFloat] = "float32",
         zeros: bool = True,
     ) -> Floats1d:
-        return self.alloc((d0,), dtype=dtype, zeros=zeros)
+        return cast(Floats1d, self.alloc((d0,), dtype=dtype, zeros=zeros))
 
     def alloc2f(
         self,
@@ -467,7 +473,7 @@ class Ops:
         dtype: Optional[DTypesFloat] = "float32",
         zeros: bool = True,
     ) -> Floats2d:
-        return self.alloc((d0, d1), dtype=dtype, zeros=zeros)
+        return cast(Floats2d, self.alloc((d0, d1), dtype=dtype, zeros=zeros))
 
     def alloc3f(
         self,
@@ -478,7 +484,7 @@ class Ops:
         dtype: Optional[DTypesFloat] = "float32",
         zeros: bool = True,
     ) -> Floats3d:
-        return self.alloc((d0, d1, d2), dtype=dtype, zeros=zeros)
+        return cast(Floats3d, self.alloc((d0, d1, d2), dtype=dtype, zeros=zeros))
 
     def alloc4f(
         self,
@@ -490,7 +496,7 @@ class Ops:
         dtype: Optional[DTypesFloat] = "float32",
         zeros: bool = True,
     ) -> Floats4d:
-        return self.alloc((d0, d1, d2, d3), dtype=dtype, zeros=zeros)
+        return cast(Floats4d, self.alloc((d0, d1, d2, d3), dtype=dtype, zeros=zeros))
 
     def alloc_f(
         self,
@@ -499,7 +505,7 @@ class Ops:
         dtype: Optional[DTypesFloat] = "float32",
         zeros: bool = True,
     ) -> FloatsXd:
-        return self.alloc(shape, dtype=dtype, zeros=zeros)
+        return cast(FloatsXd, self.alloc(shape, dtype=dtype, zeros=zeros))
 
     def alloc1i(
         self,
@@ -508,7 +514,7 @@ class Ops:
         dtype: Optional[DTypesInt] = "int32",
         zeros: bool = True,
     ) -> Ints1d:
-        return self.alloc((d0,), dtype=dtype, zeros=zeros)
+        return cast(Ints1d, self.alloc((d0,), dtype=dtype, zeros=zeros))
 
     def alloc2i(
         self,
@@ -518,7 +524,7 @@ class Ops:
         dtype: Optional[DTypesInt] = "int32",
         zeros: bool = True,
     ) -> Ints2d:
-        return self.alloc((d0, d1), dtype=dtype, zeros=zeros)
+        return cast(Ints2d, self.alloc((d0, d1), dtype=dtype, zeros=zeros))
 
     def alloc3i(
         self,
@@ -529,7 +535,7 @@ class Ops:
         dtype: Optional[DTypesInt] = "int32",
         zeros: bool = True,
     ) -> Ints3d:
-        return self.alloc((d0, d1, d2), dtype=dtype, zeros=zeros)
+        return cast(Ints3d, self.alloc((d0, d1, d2), dtype=dtype, zeros=zeros))
 
     def alloc4i(
         self,
@@ -541,7 +547,7 @@ class Ops:
         dtype: Optional[DTypesInt] = "int32",
         zeros: bool = True,
     ) -> Ints4d:
-        return self.alloc((d0, d1, d2, d3), dtype=dtype, zeros=zeros)
+        return cast(Ints4d, self.alloc((d0, d1, d2, d3), dtype=dtype, zeros=zeros))
 
     def alloc_i(
         self,
@@ -550,7 +556,7 @@ class Ops:
         dtype: Optional[DTypesInt] = "int32",
         zeros: bool = True,
     ) -> IntsXd:
-        return self.alloc(shape, dtype=dtype, zeros=zeros)
+        return cast(IntsXd, self.alloc(shape, dtype=dtype, zeros=zeros))
 
     def alloc(
         self,
@@ -558,7 +564,7 @@ class Ops:
         *,
         dtype: Optional[DTypes] = "float32",
         zeros: bool = True,
-    ) -> ArrayT:
+    ) -> ArrayXd:
         """Allocate an array of a certain shape."""
         if isinstance(shape, int):
             shape = (shape,)
@@ -620,7 +626,7 @@ class Ops:
 
     def asarray4f(
         self,
-        data: Union[Floats4d, Sequence[int]],
+        data: Union[Floats4d, Sequence[float]],
         *,
         dtype: Optional[DTypes] = "float32",
     ) -> Floats4d:
@@ -628,7 +634,7 @@ class Ops:
 
     def asarray3f(
         self,
-        data: Union[Floats3d, Sequence[int]],
+        data: Union[Floats3d, Sequence[float]],
         *,
         dtype: Optional[DTypes] = "float32",
     ) -> Floats3d:
@@ -636,7 +642,7 @@ class Ops:
 
     def asarray2f(
         self,
-        data: Union[Floats2d, Sequence[int]],
+        data: Union[Floats2d, Sequence[float]],
         *,
         dtype: Optional[DTypes] = "float32",
     ) -> Floats2d:
@@ -644,7 +650,7 @@ class Ops:
 
     def asarray1f(
         self,
-        data: Union[Floats1d, Sequence[int]],
+        data: Union[Floats1d, Sequence[float]],
         *,
         dtype: Optional[DTypes] = "float32",
     ) -> Floats1d:
@@ -715,29 +721,29 @@ class Ops:
         kwargs = {"dtype": dtype} if dtype is not None else {}
         return self.xp.ascontiguousarray(data, **kwargs)
 
-    def sigmoid(self, X: FloatsType, *, inplace: bool = False) -> FloatsType:
-        # To prevent overflows and help with regularization/numerical stability
-        X = self.xp.clip(X, -20.0, 20.0)
-
+    def sigmoid(self, X: FloatsXdT, *, inplace: bool = False) -> FloatsXdT:
         if inplace:
+            # To prevent overflows and help with regularization/numerical stability
+            X = self.xp.clip(X, -20.0, 20.0, out=X)
             self.xp.exp(-X, out=X)
-            X += 1.0  # type: ignore[assignment]
-            X **= -1.0  # type: ignore[assignment]
-            return cast(FloatsType, X)
+            X += 1.0
+            X **= -1.0
+            return X
         else:
-            return cast(FloatsType, 1.0 / (1.0 + self.xp.exp(-X)))
+            X = self.xp.clip(X, -20.0, 20.0)
+            return 1.0 / (1.0 + self.xp.exp(-X))
 
     def backprop_sigmoid(
-        self, dY: FloatsType, Y: FloatsType, *, inplace: bool = False
-    ) -> FloatsType:
+        self, dY: FloatsXdT, Y: FloatsXdT, *, inplace: bool = False
+    ) -> FloatsXdT:
         if inplace:
             self.dsigmoid(Y, inplace=True)
-            Y *= dY  # type: ignore
+            Y *= dY
             return Y
         else:
-            return dY * self.dsigmoid(Y, inplace=inplace)  # type: ignore
+            return dY * self.dsigmoid(Y, inplace=inplace)
 
-    def dsigmoid(self, Y: FloatsType, *, inplace: bool = False) -> FloatsType:
+    def dsigmoid(self, Y: FloatsXdT, *, inplace: bool = False) -> FloatsXdT:
         if inplace:
             Y *= 1 - Y
             return Y
@@ -858,30 +864,30 @@ class Ops:
 
     def clipped_linear(
         self,
-        X: FloatsType,
+        X: FloatsXdT,
         slope: float = 1.0,
         offset: float = 0.0,
         min_val: float = 0.0,
         max_val: float = 1.0,
         inplace: bool = False,
-    ) -> FloatsType:
+    ) -> FloatsXdT:
         if inplace:
-            X *= slope  # type: ignore[assignment]
-            X += offset  # type: ignore[assignment]
-            return cast(FloatsType, self.xp.clip(X, min_val, max_val, out=X))
-        out = X * slope + offset  # type: ignore[assignment]
-        return cast(FloatsType, self.xp.clip(out, min_val, max_val))
+            X *= slope
+            X += offset
+            return self.xp.clip(X, min_val, max_val, out=X)
+        out = X * slope + offset
+        return self.xp.clip(out, min_val, max_val)
 
     def backprop_clipped_linear(
         self,
-        dY: FloatsType,
-        X: FloatsType,
+        dY: FloatsXdT,
+        X: FloatsXdT,
         slope: float = 1.0,
         offset: float = 0.0,
         min_val: float = 0.0,
         max_val: float = 1.0,
         inplace: bool = False,
-    ) -> FloatsType:
+    ) -> FloatsXdT:
         low = (min_val - offset) / slope
         high = (max_val - offset) / slope
         slope = self.xp.float64(slope).astype(X.dtype)
@@ -892,60 +898,58 @@ class Ops:
             return dY
         return dY * dX
 
-    def relu_k(
-        self, X: FloatsType, n: float = 6.0, inplace: bool = False
-    ) -> FloatsType:
+    def relu_k(self, X: FloatsXdT, n: float = 6.0, inplace: bool = False) -> FloatsXdT:
         return self.clipped_linear(X, max_val=n, inplace=inplace)
 
     def backprop_relu_k(
-        self, dY: FloatsType, X: FloatsType, n: float = 6.0, inplace: bool = False
-    ) -> FloatsType:
+        self, dY: FloatsXdT, X: FloatsXdT, n: float = 6.0, inplace: bool = False
+    ) -> FloatsXdT:
         return self.backprop_clipped_linear(dY, X, max_val=n, inplace=inplace)
 
-    def hard_sigmoid(self, X: FloatsType, inplace: bool = False) -> FloatsType:
-        return self.clipped_linear(X, slope=0.2, offset=0.5)
+    def hard_sigmoid(self, X: FloatsXdT, inplace: bool = False) -> FloatsXdT:
+        return self.clipped_linear(X, slope=0.2, offset=0.5, inplace=inplace)
 
     def backprop_hard_sigmoid(
-        self, dY: FloatsType, X: FloatsType, inplace: bool = False
-    ) -> FloatsType:
+        self, dY: FloatsXdT, X: FloatsXdT, inplace: bool = False
+    ) -> FloatsXdT:
         return self.backprop_clipped_linear(dY, X, slope=0.2, offset=0.5)
 
-    def hard_tanh(self, X: FloatsType, inplace: bool = False) -> FloatsType:
-        return self.clipped_linear(X, min_val=-1.0, max_val=1.0)
+    def hard_tanh(self, X: FloatsXdT, inplace: bool = False) -> FloatsXdT:
+        return self.clipped_linear(X, min_val=-1.0, max_val=1.0, inplace=inplace)
 
     def backprop_hard_tanh(
-        self, dY: FloatsType, X: FloatsType, inplace: bool = False
-    ) -> FloatsType:
+        self, dY: FloatsXdT, X: FloatsXdT, inplace: bool = False
+    ) -> FloatsXdT:
         return self.backprop_clipped_linear(dY, X, min_val=-1.0, max_val=1.0)
 
-    def swish(self, X: FloatsType, inplace: bool = False) -> FloatsType:
+    def swish(self, X: FloatsXdT, inplace: bool = False) -> FloatsXdT:
         if inplace:
-            X *= self.sigmoid(X)  # type: ignore[operator, assignment]
-            return cast(FloatsType, X)
-        out = X * self.sigmoid(X)  # type: ignore[operator]
-        return cast(FloatsType, out)
+            X *= self.sigmoid(X)
+            return X
+        out = X * self.sigmoid(X)
+        return out
 
     def backprop_swish(
-        self, dY: FloatsType, X: FloatsType, Y: FloatsType, inplace: bool = False
-    ) -> FloatsType:
-        Y = Y + self.sigmoid(X) * (1 - Y)  # type: ignore[operator]
+        self, dY: FloatsXdT, X: FloatsXdT, Y: FloatsXdT, inplace: bool = False
+    ) -> FloatsXdT:
+        Y = Y + self.sigmoid(X) * (1 - Y)
         if inplace:
-            dY *= Y  # type: ignore[operator, assignment]
-            return cast(FloatsType, dY)
-        out = dY * Y  # type: ignore[operator]
-        return cast(FloatsType, out)
+            dY *= Y
+            return dY
+        out = dY * Y
+        return out
 
     # Following https://www.scitepress.org/Papers/2019/74696/74696.pdf
-    def hard_swish(self, X: FloatsType, inplace: bool = False) -> FloatsType:
+    def hard_swish(self, X: FloatsXdT, inplace: bool = False) -> FloatsXdT:
         if inplace:
-            X *= self.hard_sigmoid(X)  # type: ignore[operator, assignment]
-            return cast(FloatsType, X)
-        out = X * self.hard_sigmoid(X)  # type: ignore[operator]
-        return cast(FloatsType, out)
+            X *= self.hard_sigmoid(X)
+            return X
+        out = X * self.hard_sigmoid(X)
+        return out
 
     def backprop_hard_swish(
-        self, dY: FloatsType, X: FloatsType, inplace: bool = False
-    ) -> FloatsType:
+        self, dY: FloatsXdT, X: FloatsXdT, inplace: bool = False
+    ) -> FloatsXdT:
         dX = X * 0.4 + 0.5
         dX[X > 2.5] = 1.0
         dX[X < -2.5] = 0
@@ -955,15 +959,15 @@ class Ops:
         return dY * dX
 
     # From https://arxiv.org/pdf/1905.02244v5.pdf
-    def hard_swish_mobilenet(self, X: FloatsType, inplace: bool = False) -> FloatsType:
+    def hard_swish_mobilenet(self, X: FloatsXdT, inplace: bool = False) -> FloatsXdT:
         if inplace:
             X *= self.relu_k(X + 3) / 6
             return X
         return X * (self.relu_k(X + 3) / 6)
 
     def backprop_hard_swish_mobilenet(
-        self, dY: FloatsType, X: FloatsType, inplace: bool = False
-    ) -> FloatsType:
+        self, dY: FloatsXdT, X: FloatsXdT, inplace: bool = False
+    ) -> FloatsXdT:
         dX = (1 / 6) * (X * 2.0 + 3.0)
         dX[X > 3.0] = 1.0
         dX[X < -3.0] = 0
@@ -972,9 +976,38 @@ class Ops:
             return dY
         return dX * dY
 
+    def dish(self, X: FloatsXdT, inplace: bool = False) -> FloatsXdT:
+        tmp = self.xp.square(X)
+        tmp += 1.0
+        self.xp.sqrt(tmp, out=tmp)
+        tmp = X / tmp
+        tmp += 1
+        tmp *= 0.5
+        if inplace:
+            X *= tmp
+            return X
+        else:
+            return X * tmp
+
+    def backprop_dish(
+        self, dY: FloatsXdT, X: FloatsXdT, inplace: bool = False
+    ) -> FloatsXdT:
+        x_sq = self.xp.square(X)
+        x_sq_plus_one = x_sq + 1.0
+        deriv = X / self.xp.sqrt(x_sq_plus_one)
+        second = 0.5 * X * x_sq
+        second /= x_sq_plus_one**1.5
+        deriv -= second
+        deriv += 0.5
+        if inplace:
+            dY *= deriv
+            return dY
+        else:
+            return dY * deriv
+
     # Code snippet taken from:
     # https://www.johndcook.com/blog/2009/01/19/stand-alone-error-function-erf/
-    def erf(self, X: FloatsType) -> FloatsType:
+    def erf(self, X: FloatsXdT) -> FloatsXdT:
         # save the sign of x
         sign = self.xp.sign(X)
         X = self.xp.abs(X)
@@ -994,10 +1027,12 @@ class Ops:
         out = out.astype(X.dtype)
         return out
 
-    def sechsq(self, X: FloatsType) -> FloatsType:
+    def sechsq(self, X: FloatsXdT) -> FloatsXdT:
+        # Avoid overflow in cosh. Clipping at |20| has an error of 1.7e-17.
+        X = self.xp.clip(X, -20.0, 20.0)
         return (1 / self.xp.cosh(X)) ** 2
 
-    def gelu_approx(self, X: FloatsType, inplace: bool = False) -> FloatsType:
+    def gelu_approx(self, X: FloatsXdT, inplace: bool = False) -> FloatsXdT:
         tmp = 1.0 + self.xp.tanh(SQRT2PI * (X + 0.044715 * self.xp.power(X, 3)))
         tmp *= 0.5
         tmp = tmp.astype(X.dtype)
@@ -1010,9 +1045,9 @@ class Ops:
             return Y
 
     def backprop_gelu_approx(
-        self, dY: FloatsType, X: FloatsType, inplace: bool = False
-    ) -> FloatsType:
-        dX = self.alloc_f(X.shape)
+        self, dY: FloatsXdT, X: FloatsXdT, inplace: bool = False
+    ) -> FloatsXdT:
+        dX = cast(FloatsXdT, self.alloc_f(X.shape))
         Xp3 = self.xp.power(X, 3)
         tmp = 0.5 * self.xp.tanh(0.0356774 * Xp3 + 0.797885 * X)
         tmp += (0.0535161 * Xp3 + 0.398942 * X) * self.sechsq(
@@ -1025,27 +1060,27 @@ class Ops:
             return dY
         return dY * dX
 
-    def gelu(self, X: FloatsType, inplace: bool = False) -> FloatsType:
+    def gelu(self, X: FloatsXdT, inplace: bool = False) -> FloatsXdT:
         # GELU(x) = x · Φ(x)
         cdf = gaussian_cdf(self, X)
         if inplace:
-            X *= cdf  # type: ignore[operator, assignment]
+            X *= cdf
             return X
-        return X * cdf  # type: ignore[operator, return-value]
+        return X * cdf
 
     def backprop_gelu(
-        self, dY: FloatsType, X: FloatsType, inplace: bool = False
-    ) -> FloatsType:
+        self, dY: FloatsXdT, X: FloatsXdT, inplace: bool = False
+    ) -> FloatsXdT:
         # GELU'(x) = Φ(x) + x · PDF(x)
-        dX = gaussian_cdf(self, X) + X * gaussian_pdf(self, X)  # type: ignore[operator]
+        dX = gaussian_cdf(self, X) + X * gaussian_pdf(self, X)
         if inplace:
             dY *= dX
             return dY
         return dY * dX
 
     def mish(
-        self, X: FloatsType, threshold: float = 20.0, inplace: bool = False
-    ) -> FloatsType:
+        self, X: FloatsXdT, threshold: float = 20.0, inplace: bool = False
+    ) -> FloatsXdT:
         tmp = X * self.xp.tanh(self.xp.log(1.0 + self.xp.exp(X)))
         Y = self.xp.where(X >= threshold, X, tmp)
         if inplace:
@@ -1056,11 +1091,11 @@ class Ops:
 
     def backprop_mish(
         self,
-        dY: FloatsType,
+        dY: FloatsXdT,
         X: Floats2d,
         threshold: float = 20.0,
         inplace: bool = False,
-    ) -> FloatsType:
+    ) -> FloatsXdT:
         if dY.shape != X.shape:
             msg = f"arrays have incompatible shapes: {dY.shape} and {X.shape}"
             raise ValueError(msg)
@@ -1106,6 +1141,10 @@ class Ops:
         learn_rate: float,
         mod_rate: float = 1.0,
     ) -> Tuple[Floats1d, Floats1d, Floats1d, Floats1d]:
+        _check_compatible_shape(weights, gradient)
+        _check_compatible_shape(weights, mom1)
+        _check_compatible_shape(weights, mom2)
+
         # Internals for optimizer
         mom1 *= beta1
         mom2 *= beta2
@@ -1145,6 +1184,29 @@ class Ops:
                 Y[i] = 0.0
         return Y
 
+    def reduce_first(self, X: Floats2d, lengths: Ints1d) -> Tuple[Floats2d, Ints1d]:
+        if lengths.size == 0:
+            return self.alloc2f(0, X.shape[1]), lengths
+        if not self.xp.all(lengths > 0):
+            raise ValueError(f"all sequence lengths must be >= 0")
+        starts_ends = self.alloc1i(lengths.shape[0] + 1, zeros=False)
+        starts_ends[0] = 0
+        starts_ends[1:] = lengths.cumsum()
+        if starts_ends[-1] != X.shape[0]:
+            raise IndexError("lengths must sum up to the number of rows")
+
+        return X[starts_ends[:-1]], starts_ends
+
+    def reduce_last(self, X: Floats2d, lengths: Ints1d) -> Tuple[Floats2d, Ints1d]:
+        if lengths.size == 0:
+            return self.alloc2f(0, X.shape[1]), lengths
+        if not self.xp.all(lengths > 0):
+            raise ValueError(f"all sequence lengths must be >= 0")
+        lasts = lengths.cumsum() - 1
+        if lasts[-1] + 1 != X.shape[0]:
+            raise IndexError("lengths must sum up to the number of rows")
+        return X[lasts], lasts
+
     def reduce_mean(self, X: Floats2d, lengths: Ints1d) -> Floats2d:
         Y = self.alloc2f(lengths.shape[0], X.shape[1], zeros=False)
         start = 0
@@ -1174,6 +1236,26 @@ class Ops:
                 Y[i] = X[start : start + length].max(axis=0)
             start += length
         return Y, which
+
+    def backprop_reduce_first(
+        self, d_firsts: Floats2d, starts_ends: Ints1d
+    ) -> Floats2d:
+        if starts_ends.size < 2:
+            raise ValueError(f"starts_ends should least have size 2")
+        dX = self.alloc2f(
+            int(starts_ends[-1]), d_firsts.shape[1], dtype=d_firsts.dtype, zeros=True
+        )
+        dX[starts_ends[:-1]] = d_firsts
+        return dX
+
+    def backprop_reduce_last(self, d_lasts: Floats2d, lasts: Ints1d) -> Floats2d:
+        if lasts.size < 1:
+            raise ValueError(f"lasts should least have size 2")
+        dX = self.alloc2f(
+            int(lasts[-1]) + 1, d_lasts.shape[1], dtype=d_lasts.dtype, zeros=True
+        )
+        dX[lasts] = d_lasts
+        return dX
 
     def backprop_reduce_sum(self, d_sums: Floats2d, lengths: Ints1d) -> Floats2d:
         dX = self.alloc2f(
@@ -1241,6 +1323,9 @@ class Ops:
 
         numpy_ops = NumpyOps()
         return self.asarray2f(numpy_ops.position_encode(N, D, period, out))
+
+    def gather_add(self, table: Floats2d, indices: Ints2d) -> Floats2d:
+        return table[indices].sum(axis=1)  # type: ignore[return-value]
 
     def scatter_add(
         self, table: FloatsXd, indices: IntsXd, values: FloatsXd
@@ -1556,11 +1641,17 @@ def dtanh(Y: ArrayT) -> ArrayT:
     return 1 - Y**2
 
 
-def gaussian_cdf(ops: Ops, X: FloatsType) -> FloatsType:
+def gaussian_cdf(ops: Ops, X: FloatsXdT) -> FloatsXdT:
     """Gaussian CDF for distribution with mean 0 and stdev 1."""
     return 0.5 * (1.0 + ops.erf(INV_SQRT2 * X))
 
 
-def gaussian_pdf(ops: Ops, X: FloatsType) -> FloatsType:
+def gaussian_pdf(ops: Ops, X: FloatsXdT) -> FloatsXdT:
     """Gaussian PDF for distribution with mean 0 and stdev 1."""
     return INV_SQRT_2PI * ops.xp.exp(-0.5 * X * X)
+
+
+def _check_compatible_shape(u: FloatsXd, v: FloatsXd):
+    if u.shape != v.shape:
+        msg = f"arrays have incompatible shapes: {u.shape} and {v.shape}"
+        raise ValueError(msg)

@@ -62,13 +62,13 @@ def forward(
     nV = vectors.shape[0]
     nO = vectors.shape[1]
     if len(ids) == 0:
-        output: Floats2d = model.ops.alloc((0, nO), dtype=vectors.dtype)
+        output: Floats2d = model.ops.alloc2f(0, nO, dtype=vectors.dtype)
     else:
         ids = model.ops.as_contig(ids, dtype="uint64")
         nN = ids.shape[0]
         seed: int = model.attrs["seed"]
         keys = model.ops.hash(ids, seed) % nV
-        output = vectors[keys].sum(axis=1)
+        output = model.ops.gather_add(vectors, keys)
         drop_mask = None
         if is_train:
             dropout: Optional[float] = model.attrs.get("dropout_rate")

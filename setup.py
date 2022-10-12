@@ -17,6 +17,7 @@ Options.docstrings = True
 
 PACKAGES = find_packages()
 MOD_NAMES = [
+    "thinc.backends.cblas",
     "thinc.backends.linalg",
     "thinc.backends.numpy_ops",
     "thinc.extra.search",
@@ -24,7 +25,7 @@ MOD_NAMES = [
 ]
 COMPILE_OPTIONS = {
     "msvc": ["/Ox", "/EHsc"],
-    "other": ["-O3", "-Wno-strict-prototypes", "-Wno-unused-function"],
+    "other": ["-O3", "-Wno-strict-prototypes", "-Wno-unused-function", "-std=c++11"],
 }
 COMPILER_DIRECTIVES = {
     "language_level": -3,

@@ -16,8 +16,10 @@ from .util import prefer_gpu, require_gpu, require_cpu
 from .util import DataValidationError, data_validation
 from .util import to_categorical, get_width, get_array_module, to_numpy
 from .util import torch2xp, xp2torch, tensorflow2xp, xp2tensorflow, mxnet2xp, xp2mxnet
+from .util import get_torch_default_device
+from .compat import has_cupy
 from .backends import get_ops, set_current_ops, get_current_ops, use_ops
-from .backends import Ops, CupyOps, NumpyOps, has_cupy, set_gpu_allocator
+from .backends import Ops, CupyOps, MPSOps, NumpyOps, set_gpu_allocator
 from .backends import use_pytorch_for_gpu_memory, use_tensorflow_for_gpu_memory
 
 from .layers import Dropout, Embed, expand_window, HashEmbed, LayerNorm, Linear
@@ -25,7 +27,7 @@ from .layers import Maxout, Mish, MultiSoftmax, Relu, softmax_activation, Softma
 from .layers import CauchySimilarity, ParametricAttention, Logistic
 from .layers import resizable, sigmoid_activation, Sigmoid, SparseLinear
 from .layers import ClippedLinear, ReluK, HardTanh, HardSigmoid
-from .layers import HardSwish, HardSwishMobilenet, Swish, Gelu
+from .layers import Dish, HardSwish, HardSwishMobilenet, Swish, Gelu
 from .layers import PyTorchWrapper, PyTorchRNNWrapper, PyTorchLSTM
 from .layers import TensorFlowWrapper, keras_subclass, MXNetWrapper
 from .layers import PyTorchWrapper_v2, Softmax_v2
@@ -38,6 +40,7 @@ from .layers import with_padded, with_list, with_ragged, with_flatten
 from .layers import with_reshape, with_getitem, strings2arrays, list2array
 from .layers import list2ragged, ragged2list, list2padded, padded2list, remap_ids
 from .layers import array_getitem, with_cpu, with_debug, with_nvtx_range
+from .layers import with_signpost_interval
 from .layers import tuplify
 
 from .layers import reduce_first, reduce_last, reduce_max, reduce_mean, reduce_sum

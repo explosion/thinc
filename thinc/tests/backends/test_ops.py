@@ -8,14 +8,15 @@ from numpy.testing import assert_allclose
 from packaging.version import Version
 from thinc.api import NumpyOps, CupyOps, Ops, get_ops
 from thinc.api import get_current_ops, use_ops
-from thinc.util import has_torch, torch2xp, xp2torch, torch_version, gpu_is_available
+from thinc.util import torch2xp, xp2torch
+from thinc.compat import has_cupy_gpu, has_torch, torch_version
 from thinc.api import fix_random_seed
 from thinc.api import LSTM
 from thinc.types import Floats2d
 import inspect
 
 from .. import strategies
-from ..strategies import ndarrays_of_shape
+from ..strategies import arrays_BI, ndarrays_of_shape
 
 
 MAX_EXAMPLES = 10
@@ -25,7 +26,7 @@ NUMPY_OPS = NumpyOps()
 BLIS_OPS = NumpyOps(use_blis=True)
 CPU_OPS = [NUMPY_OPS, VANILLA_OPS]
 XP_OPS = [NUMPY_OPS]
-if CupyOps.xp is not None and gpu_is_available():
+if has_cupy_gpu:
     XP_OPS.append(CupyOps())
 ALL_OPS = XP_OPS + [VANILLA_OPS]
 
@@ -61,7 +62,10 @@ def create_pytorch_funcs():
         return torch.nn.functional.hardswish(x)
 
     def torch_sigmoid(x):
-        return torch.nn.functional.sigmoid(x)
+        return torch.sigmoid(x)
+
+    def torch_dish(x):
+        return 0.5 * x * (x / (1 + x * x).sqrt() + 1)
 
     # https://github.com/huggingface/transformers/blob/master/src/transformers/activations.py#L37
     def torch_gelu_approx(x):
@@ -88,6 +92,7 @@ def create_pytorch_funcs():
         ("swish", torch_swish),
         ("hard_swish", torch_hard_swish),
         ("hard_swish_mobilenet", torch_hard_swish_mobilenet),
+        ("dish", torch_dish),
         ("gelu_approx", torch_gelu_approx),
         ("gelu", torch_gelu),
         ("sigmoid", torch_sigmoid),
@@ -124,6 +129,22 @@ def test_ops_consistency(op):
                 if p1 != inspect.Parameter.empty and p2 != inspect.Parameter.empty:
                     # Need to check string value to handle TypeVars etc.
                     assert str(p1) == str(p2), attr
+
+
+@pytest.mark.parametrize("ops", ALL_OPS)
+def test_adam_incorrect_inputs(ops):
+    one = ops.xp.zeros(1, dtype="f")
+    two = ops.xp.zeros(2, dtype="f")
+
+    ops.adam(one, one, one, one, 0.0, 0.0, 0.0, 0.0)
+    with pytest.raises(ValueError):
+        ops.adam(two, one, one, one, 0.0, 0.0, 0.0, 0.0)
+    with pytest.raises(ValueError):
+        ops.adam(one, two, one, one, 0.0, 0.0, 0.0, 0.0)
+    with pytest.raises(ValueError):
+        ops.adam(one, one, two, one, 0.0, 0.0, 0.0, 0.0)
+    with pytest.raises(ValueError):
+        ops.adam(one, one, one, two, 0.0, 0.0, 0.0, 0.0)
 
 
 @pytest.mark.parametrize("ops", ALL_OPS)
@@ -181,6 +202,38 @@ def test_get_dropout_not_empty(ops):
     assert mask.shape == shape
 
 
+@pytest.mark.parametrize("ops", ALL_OPS)
+@pytest.mark.parametrize("dtype", FLOAT_TYPES)
+@pytest.mark.parametrize("index_dtype", ["int32", "uint32"])
+def test_gather_add(ops, dtype, index_dtype):
+    table = ops.xp.arange(12, dtype=dtype).reshape(4, 3)
+    indices = ops.xp.array([[0, 2], [3, 1], [0, 1]], dtype=index_dtype)
+    gathered = ops.gather_add(table, indices)
+    ops.xp.testing.assert_allclose(
+        gathered, [[6.0, 8.0, 10.0], [12.0, 14.0, 16.0], [3.0, 5.0, 7.0]]
+    )
+
+
+@pytest.mark.parametrize("ops", XP_OPS)
+@given(table=strategies.arrays_BI())
+def test_gather_add_against_numpy(ops, table):
+    table = ops.asarray(table)
+    indices = ops.xp.arange(100, dtype="i").reshape(25, 4) % table.shape[0]
+    ops.xp.testing.assert_allclose(
+        ops.gather_add(table, indices),
+        table[indices].sum(1),
+        atol=1e-5,
+    )
+
+
+@pytest.mark.parametrize("ops", ALL_OPS)
+def test_gather_add_oob_raises(ops):
+    table = ops.xp.arange(12, dtype="f").reshape(4, 3)
+    indices = ops.xp.array([[0, 2], [3, 1], [5, 1]], dtype="i")
+    with pytest.raises(IndexError):
+        ops.gather_add(table, indices)
+
+
 @pytest.mark.parametrize("ops", CPU_OPS)
 def test_seq2col_window_one_small(ops):
     seq = ops.asarray([[1.0], [3.0], [4.0], [5]], dtype="float32")
@@ -199,7 +252,7 @@ def test_seq2col_window_one_small(ops):
 @given(X=strategies.arrays_BOP())
 def test_maxout(ops, dtype, X):
     X = ops.asarray(X, dtype=dtype)
-    expected_best = X.max(axis=-1)
+    expected_best = X.max(axis=-1).astype(dtype)
     predicted_best, which = ops.maxout(X)
     assert predicted_best.dtype == dtype
     ops.xp.testing.assert_allclose(
@@ -212,6 +265,7 @@ def test_maxout(ops, dtype, X):
     ops.xp.testing.assert_allclose(
         ops.xp.take_along_axis(X, ops.xp.expand_dims(which, -1), axis=-1),
         ops.xp.expand_dims(expected_best, -1),
+        atol=1e-10,
     )
 
 
@@ -574,9 +628,7 @@ def test_backprop_seq2col_window_two(ops, dtype):
     ops.xp.testing.assert_allclose(seq, expected, atol=0.001, rtol=0.001)
 
 
-@pytest.mark.skipif(
-    CupyOps.xp is None or not gpu_is_available(), reason="needs GPU/CuPy"
-)
+@pytest.mark.skipif(not has_cupy_gpu, reason="needs GPU/CuPy")
 @pytest.mark.parametrize("nW", [1, 2])
 def test_large_seq2col_gpu_against_cpu(nW):
     cupy_ops = CupyOps()
@@ -598,9 +650,7 @@ def test_large_seq2col_gpu_against_cpu(nW):
     assert_allclose(cols, cols_gpu.get())
 
 
-@pytest.mark.skipif(
-    CupyOps.xp is None or not gpu_is_available(), reason="needs GPU/CuPy"
-)
+@pytest.mark.skipif(not has_cupy_gpu, reason="needs GPU/CuPy")
 @pytest.mark.parametrize("nW", [1, 2])
 def test_large_backprop_seq2col_gpu_against_cpu(nW):
     cupy_ops = CupyOps()
@@ -773,6 +823,68 @@ def test_backprop_fails_with_incorrect_length(ops, dtype):
 
 @pytest.mark.parametrize("ops", ALL_OPS)
 @pytest.mark.parametrize("dtype", FLOAT_TYPES)
+def test_reduce_first(ops, dtype):
+    X = ops.asarray2f(
+        [[1.0, 6.0], [2.0, 7.0], [3.0, 8.0], [4.0, 9.0], [5.0, 10.0]], dtype=dtype
+    )
+    lengths = ops.asarray1i([3, 2])
+    Y, starts_ends = ops.reduce_first(X, lengths)
+    ops.xp.testing.assert_array_equal(starts_ends, ops.asarray1i([0, 3, 5]))
+    ops.xp.testing.assert_allclose(Y, [[1.0, 6.0], [4.0, 9.0]])
+
+    lengths = ops.asarray1i([3, 0, 2])
+    with pytest.raises(ValueError, match=r"all sequence lengths must be >= 0"):
+        ops.reduce_last(X, lengths)
+
+    lengths = ops.asarray1i([3, 2, 1])
+    with pytest.raises(IndexError, match=r"lengths must sum up to the number of rows"):
+        ops.reduce_last(X, lengths)
+
+
+@pytest.mark.parametrize("ops", ALL_OPS)
+@pytest.mark.parametrize("dtype", FLOAT_TYPES)
+def test_backprop_reduce_first(ops, dtype):
+    dY = ops.asarray2f([[1.0, 3.0], [2.0, 4.0]], dtype=dtype)
+    starts_ends = ops.asarray1i([0, 3, 5])
+    dX = ops.backprop_reduce_first(dY, starts_ends)
+    ops.xp.testing.assert_allclose(
+        dX, [[1.0, 3.0], [0.0, 0.0], [0.0, 0.0], [2.0, 4.0], [0.0, 0.0]]
+    )
+
+
+@pytest.mark.parametrize("ops", ALL_OPS)
+@pytest.mark.parametrize("dtype", FLOAT_TYPES)
+def test_reduce_last(ops, dtype):
+    X = ops.asarray2f(
+        [[1.0, 6.0], [2.0, 7.0], [3.0, 8.0], [4.0, 9.0], [5.0, 10.0]], dtype=dtype
+    )
+    lengths = ops.asarray1i([3, 2])
+    Y, lasts = ops.reduce_last(X, lengths)
+    ops.xp.testing.assert_array_equal(lasts, ops.asarray1i([2, 4]))
+    ops.xp.testing.assert_allclose(Y, [[3.0, 8.0], [5.0, 10.0]])
+
+    lengths = ops.asarray1i([3, 0, 2])
+    with pytest.raises(ValueError, match=r"all sequence lengths must be >= 0"):
+        ops.reduce_last(X, lengths)
+
+    lengths = ops.asarray1i([3, 2, 1])
+    with pytest.raises(IndexError, match=r"lengths must sum up to the number of rows"):
+        ops.reduce_last(X, lengths)
+
+
+@pytest.mark.parametrize("ops", ALL_OPS)
+@pytest.mark.parametrize("dtype", FLOAT_TYPES)
+def test_backprop_reduce_last(ops, dtype):
+    dY = ops.asarray2f([[1.0, 3.0], [2.0, 4.0]], dtype=dtype)
+    lasts = ops.asarray1i([2, 4])
+    dX = ops.backprop_reduce_last(dY, lasts)
+    ops.xp.testing.assert_allclose(
+        dX, [[0.0, 0.0], [0.0, 0.0], [1.0, 3.0], [0.0, 0.0], [2.0, 4.0]]
+    )
+
+
+@pytest.mark.parametrize("ops", ALL_OPS)
+@pytest.mark.parametrize("dtype", FLOAT_TYPES)
 def test_reduce_max_sm(ops, dtype):
     X = ops.xp.zeros((6, 3), dtype=dtype)
     X += ops.xp.random.uniform(-1, 1, X.shape)
@@ -935,6 +1047,7 @@ def test_mish(ops, X):
     "op",
     [
         "backprop_clipped_linear",
+        "backprop_dish",
         "backprop_gelu",
         "backprop_gelu_approx",
         "backprop_hard_sigmoid",
@@ -1048,6 +1161,16 @@ def test_hard_swish_mobilenet(ops, X):
 def test_gelu_approx(ops, X):
     X = ops.asarray(X)
     Y = ops.gelu_approx(X)
+    assert Y.shape == X.shape
+    assert not ops.xp.isnan(Y).any()
+
+
+@pytest.mark.parametrize("ops", ALL_OPS)
+@settings(max_examples=MAX_EXAMPLES, deadline=None)
+@given(X=strategies.arrays_BI())
+def test_dish(ops, X):
+    X = ops.asarray(X)
+    Y = ops.dish(X)
     assert Y.shape == X.shape
     assert not ops.xp.isnan(Y).any()
 
@@ -1242,12 +1365,12 @@ def test_ngrams():
 @pytest.mark.parametrize("dtype", ["float32", "float64"])
 @pytest.mark.parametrize("torch_func", TORCH_FUNCS)
 @settings(max_examples=MAX_EXAMPLES, deadline=None)
-@given(x=strategies.floats(min_value=-30, max_value=30))
-def test_compare_activations_to_torch(ops, dtype, x, torch_func):
+@given(
+    x=strategies.floats(min_value=-30, max_value=30),
+    dY=strategies.floats(min_value=-1, max_value=1),
+)
+def test_compare_activations_to_torch(ops, dtype, x, dY, torch_func):
     import torch
-
-    def cast_torch(scalar: float):
-        return torch.tensor([scalar], requires_grad=True)
 
     func_name, pytorch_func = torch_func
     forward = getattr(ops, func_name)
@@ -1255,15 +1378,18 @@ def test_compare_activations_to_torch(ops, dtype, x, torch_func):
     # The tolerance of isclose is set to 1e-06 instead of
     # the default 1e-08 due to the GELU
     x_thinc = ops.asarray([x], dtype=dtype)
-    x_torch = cast_torch(x)
+    x_torch = xp2torch(x_thinc, requires_grad=True)
     y = pytorch_func(x_torch)
     y_thinc = forward(x_thinc)
     y.backward()
     assert x_thinc.dtype == y_thinc.dtype
-    assert ops.xp.isclose(y_thinc, forward(x_thinc, inplace=True), atol=1e-06)
-    assert ops.xp.isclose(y_thinc, y.detach().numpy(), atol=1e-06)
+    assert y_thinc is not x_thinc
+    y_think_inplace = forward(x_thinc, inplace=True)
+    assert y_think_inplace is x_thinc
+    assert ops.xp.isclose(y_thinc, y_think_inplace, atol=1e-06)
+    assert ops.xp.isclose(y_thinc, y.detach(), atol=1e-05)
     x_thinc = ops.asarray([x], dtype=dtype)
-    dY_thinc = ops.asarray([1.0], dtype=dtype)
+    dY_thinc = ops.asarray([dY], dtype=dtype)
     dY_thinc_inplace = dY_thinc.copy()
 
     s = inspect.signature(backward)
@@ -1272,11 +1398,13 @@ def test_compare_activations_to_torch(ops, dtype, x, torch_func):
     if params == {"dY", "X", "Y"}:
         dx_thinc = backward(dY_thinc, Y=y_thinc, X=x_thinc)
         assert dx_thinc.dtype == x_thinc.dtype
-        assert ops.xp.isclose(
-            dx_thinc,
-            backward(dY=dY_thinc_inplace, Y=y_thinc, X=x_thinc, inplace=True),
+        assert dx_thinc is not dY_thinc
+        dx_thinc_inplace = backward(
+            dY=dY_thinc_inplace, Y=y_thinc, X=x_thinc, inplace=True
         )
-        assert ops.xp.isclose(x_torch.grad.item(), float(dx_thinc), atol=1e-06)
+        assert dx_thinc_inplace is dY_thinc_inplace
+        assert ops.xp.isclose(dx_thinc, dx_thinc_inplace)
+        assert ops.xp.isclose(x_torch.grad.item() * dY, float(dx_thinc), atol=1e-06)
     elif params == {"Y", "dY"}:
         dx_thinc = backward(dY_thinc, Y=y_thinc)
         assert dx_thinc.dtype == x_thinc.dtype
@@ -1284,7 +1412,7 @@ def test_compare_activations_to_torch(ops, dtype, x, torch_func):
             dx_thinc,
             backward(dY=dY_thinc_inplace, Y=y_thinc, inplace=True),
         )
-        assert ops.xp.isclose(x_torch.grad.item(), float(dx_thinc), atol=1e-06)
+        assert ops.xp.isclose(x_torch.grad.item() * dY, float(dx_thinc), atol=1e-06)
     elif params == {"dY", "X"}:
         dx_thinc = backward(dY_thinc, X=x_thinc)
         assert dx_thinc.dtype == x_thinc.dtype
@@ -1292,7 +1420,7 @@ def test_compare_activations_to_torch(ops, dtype, x, torch_func):
             dx_thinc, backward(dY=dY_thinc_inplace, X=x_thinc, inplace=True)
         )
         assert ops.xp.isclose(
-            x_torch.grad.item(), float(backward(dY_thinc, X=x_thinc)), atol=1e-06
+            x_torch.grad.item() * dY, float(backward(dY_thinc, X=x_thinc)), atol=1e-06
         )
     else:
         raise NotImplementedError(

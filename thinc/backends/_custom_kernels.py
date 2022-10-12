@@ -2,11 +2,7 @@ from typing import Optional, Tuple
 import re
 from pathlib import Path
 from collections import defaultdict
-
-try:
-    import cupy
-except ImportError:
-    cupy = None
+from ..compat import cupy, has_cupy_gpu
 
 
 PWD = Path(__file__).parent
@@ -14,6 +10,8 @@ KERNELS_SRC = (PWD / "_custom_kernels.cu").read_text(encoding="utf8")
 KERNELS_LIST = [
     "backprop_clipped_linear<double>",
     "backprop_clipped_linear<float>",
+    "backprop_dish<double>",
+    "backprop_dish<float>",
     "backprop_gelu<double>",
     "backprop_gelu<float>",
     "backprop_hard_swish<double>",
@@ -36,6 +34,10 @@ KERNELS_LIST = [
     "backprop_swish<float>",
     "clipped_linear<double>",
     "clipped_linear<float>",
+    "dish<double>",
+    "dish<float>",
+    "gather_add<double>",
+    "gather_add<float>",
     "gelu<double>",
     "gelu<float>",
     "maxout<double>",
@@ -55,7 +57,7 @@ KERNELS = (
     cupy.RawModule(
         code=KERNELS_SRC, options=("--std=c++11",), name_expressions=KERNELS_LIST
     )
-    if cupy is not None
+    if has_cupy_gpu
     else None
 )
 
@@ -70,7 +72,7 @@ def _get_kernel(name):
 
 
 def compile_mmh(src):
-    if cupy is None:
+    if not has_cupy_gpu:
         return None
     return cupy.RawKernel(src, "hash_data")
 
@@ -80,6 +82,10 @@ MMH_SRC = (PWD / "_murmur3.cu").read_text(encoding="utf8")
 
 clipped_linear_kernel_float = _get_kernel("clipped_linear<float>")
 clipped_linear_kernel_double = _get_kernel("clipped_linear<double>")
+dish_kernel_float = _get_kernel("dish<float>")
+dish_kernel_double = _get_kernel("dish<double>")
+gather_add_kernel_float = _get_kernel("gather_add<float>")
+gather_add_kernel_double = _get_kernel("gather_add<double>")
 gelu_kernel_float = _get_kernel("gelu<float>")
 gelu_kernel_double = _get_kernel("gelu<double>")
 hash_data_kernel = compile_mmh(MMH_SRC)
@@ -98,6 +104,8 @@ swish_kernel_double = _get_kernel("swish<double>")
 
 backprop_clipped_linear_kernel_double = _get_kernel("backprop_clipped_linear<double>")
 backprop_clipped_linear_kernel_float = _get_kernel("backprop_clipped_linear<float>")
+backprop_dish_kernel_double = _get_kernel("backprop_dish<double>")
+backprop_dish_kernel_float = _get_kernel("backprop_dish<float>")
 backprop_gelu_kernel_double = _get_kernel("backprop_gelu<double>")
 backprop_gelu_kernel_float = _get_kernel("backprop_gelu<float>")
 backprop_hard_swish_kernel_double = _get_kernel("backprop_hard_swish<double>")
@@ -166,6 +174,49 @@ def clipped_linear(
             (threads_per_block,),
             (out, X, slope, offset, min_val, max_val, X.size),
         )
+    return out
+
+
+def gather_add(table, indices, *, threads_per_block=128, num_blocks=128):
+    if table.ndim != 2:
+        raise ValueError(
+            f"gather_add expects table with dimensionality 2, was: {table.ndim}"
+        )
+    if indices.ndim != 2:
+        raise ValueError(
+            f"gather_add expects indices with dimensionality 2, was: {indices.ndim}"
+        )
+    _is_float_array(table)
+    indices = indices.astype("int32")
+    _check_indices(indices, table.shape[0])
+
+    B = indices.shape[0]
+    K = indices.shape[1]
+    T = table.shape[0]
+    O = table.shape[1]
+
+    out = _alloc((B, O), dtype=table.dtype, zeros=True)
+    if table.dtype == "float32":
+        gather_add_kernel_float(
+            (num_blocks,), (threads_per_block,), (out, table, indices, T, O, B, K)
+        )
+    else:
+        gather_add_kernel_double(
+            (num_blocks,), (threads_per_block,), (out, table, indices, T, O, B, K)
+        )
+    return out
+
+
+def dish(X, *, inplace=False, threads_per_block=128, num_blocks=128):
+    _is_float_array(X)
+
+    out = X
+    if not inplace:
+        out = _alloc_like(X, zeros=False)
+    if X.dtype == "float32":
+        dish_kernel_float((num_blocks,), (threads_per_block,), (out, X, X.size))
+    else:
+        dish_kernel_double((num_blocks,), (threads_per_block,), (out, X, X.size))
     return out
 
 
@@ -453,6 +504,33 @@ def backprop_hard_swish_mobilenet(
     return out
 
 
+def backprop_dish(
+    dY,
+    X,
+    *,
+    inplace: bool = False,
+    threads_per_block=128,
+    num_blocks=128,
+):
+    _is_float_array(dY)
+    _is_float_array(X, shape=dY.shape)
+
+    out = dY
+    if not inplace:
+        out = _alloc_like(dY, zeros=False)
+
+    if dY.dtype == "float32":
+        backprop_dish_kernel_float(
+            (num_blocks,), (threads_per_block,), (out, dY, X, out.size)
+        )
+    else:
+        backprop_dish_kernel_double(
+            (num_blocks,), (threads_per_block,), (out, dY, X, out.size)
+        )
+
+    return out
+
+
 def backprop_gelu(
     dY,
     X,
@@ -651,6 +729,13 @@ def _check_lengths(lengths, n_elems: int, *, min_length=0):
         raise IndexError("lengths must sum up to the batch size")
 
 
+def _check_indices(indices, n: int):
+    assert indices.dtype == "int32", "indices should be encoded as 32-bit integers"
+
+    if not _values_within_range(indices, 0, n):
+        raise IndexError(f"index out of bounds, must be >= 0 && < {n}")
+
+
 def _check_which_maxout(which, B: int, I: int, P: int):
     shape = (B, I)
     msg = "maximum index (which) should be encoded as 32-bit integers"
@@ -672,7 +757,7 @@ _values_within_range = (
         "true",
         "within_range",
     )
-    if cupy is not None
+    if has_cupy_gpu
     else None
 )
 

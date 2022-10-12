@@ -1,9 +1,10 @@
 from typing import Callable, Tuple, Optional, Any, cast
 
+from ..compat import torch
 from ..model import Model
 from ..shims import PyTorchGradScaler, PyTorchShim
 from ..config import registry
-from ..util import is_xp_array, is_torch_array
+from ..util import is_xp_array, is_torch_array, partial
 from ..util import xp2torch, torch2xp, convert_recursive
 from ..types import Floats3d, ArgsKwargs, Padded
 
@@ -76,6 +77,7 @@ def PyTorchWrapper_v2(
     convert_outputs: Optional[Callable] = None,
     mixed_precision: bool = False,
     grad_scaler: Optional[PyTorchGradScaler] = None,
+    device: Optional["torch.device"] = None,
 ) -> Model[Any, Any]:
     """Wrap a PyTorch model, so that it has the same API as Thinc models.
     To optimize the model, you'll need to create a PyTorch optimizer and call
@@ -105,6 +107,10 @@ def PyTorchWrapper_v2(
         The gradient scaler to use for mixed-precision training. If this
         argument is set to "None" and mixed precision is enabled, a gradient
         scaler with the default configuration is used.
+    device:
+        The PyTorch device to run the model on. When this argument is
+        set to "None", the default device for the currently active Thinc
+        ops is used.
     """
     if convert_inputs is None:
         convert_inputs = convert_pytorch_default_inputs
@@ -116,7 +122,10 @@ def PyTorchWrapper_v2(
         attrs={"convert_inputs": convert_inputs, "convert_outputs": convert_outputs},
         shims=[
             PyTorchShim(
-                pytorch_model, mixed_precision=mixed_precision, grad_scaler=grad_scaler
+                pytorch_model,
+                mixed_precision=mixed_precision,
+                grad_scaler=grad_scaler,
+                device=device,
             )
         ],
         dims={"nI": None, "nO": None},
@@ -149,7 +158,8 @@ def forward(model: Model, X: Any, is_train: bool) -> Tuple[Any, Callable]:
 def convert_pytorch_default_inputs(
     model: Model, X: Any, is_train: bool
 ) -> Tuple[ArgsKwargs, Callable[[ArgsKwargs], Any]]:
-    xp2torch_ = lambda x: xp2torch(x, requires_grad=is_train)
+    shim = cast(PyTorchShim, model.shims[0])
+    xp2torch_ = lambda x: xp2torch(x, requires_grad=is_train, device=shim.device)
     converted = convert_recursive(is_xp_array, xp2torch_, X)
     if isinstance(converted, ArgsKwargs):
 
@@ -181,11 +191,14 @@ def convert_pytorch_default_inputs(
 
 
 def convert_pytorch_default_outputs(model: Model, X_Ytorch: Any, is_train: bool):
+    shim = cast(PyTorchShim, model.shims[0])
     X, Ytorch = X_Ytorch
     Y = convert_recursive(is_torch_array, torch2xp, Ytorch)
 
     def reverse_conversion(dY: Any) -> ArgsKwargs:
-        dYtorch = convert_recursive(is_xp_array, xp2torch, dY)
+        dYtorch = convert_recursive(
+            is_xp_array, partial(xp2torch, device=shim.device), dY
+        )
         return ArgsKwargs(args=((Ytorch,),), kwargs={"grad_tensors": dYtorch})
 
     return Y, reverse_conversion
@@ -195,6 +208,7 @@ def convert_pytorch_default_outputs(model: Model, X_Ytorch: Any, is_train: bool)
 
 
 def convert_rnn_inputs(model: Model, Xp: Padded, is_train: bool):
+    shim = cast(PyTorchShim, model.shims[0])
     size_at_t = Xp.size_at_t
     lengths = Xp.lengths
     indices = Xp.indices
@@ -203,15 +217,19 @@ def convert_rnn_inputs(model: Model, Xp: Padded, is_train: bool):
         dX = torch2xp(d_inputs.args[0])
         return Padded(dX, size_at_t, lengths, indices)  # type: ignore
 
-    output = ArgsKwargs(args=(xp2torch(Xp.data, requires_grad=True), None), kwargs={})
+    output = ArgsKwargs(
+        args=(xp2torch(Xp.data, requires_grad=True, device=shim.device), None),
+        kwargs={},
+    )
     return output, convert_from_torch_backward
 
 
 def convert_rnn_outputs(model: Model, inputs_outputs: Tuple, is_train):
+    shim = cast(PyTorchShim, model.shims[0])
     Xp, (Ytorch, _) = inputs_outputs
 
     def convert_for_torch_backward(dYp: Padded) -> ArgsKwargs:
-        dYtorch = xp2torch(dYp.data, requires_grad=True)
+        dYtorch = xp2torch(dYp.data, requires_grad=True, device=shim.device)
         return ArgsKwargs(args=(Ytorch,), kwargs={"grad_tensors": dYtorch})
 
     Y = cast(Floats3d, torch2xp(Ytorch))

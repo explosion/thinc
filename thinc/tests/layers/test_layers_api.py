@@ -5,7 +5,7 @@ from thinc.api import registry, with_padded, Dropout, NumpyOps, Model
 from thinc.backends import NumpyOps
 from thinc.util import data_validation, get_width
 from thinc.types import Ragged, Padded, Array2d, Floats2d, FloatsXd, Shape
-from thinc.util import has_torch
+from thinc.compat import has_torch
 import numpy
 import pytest
 
@@ -57,6 +57,8 @@ def assert_data_match(Y, out_data):
 
 TEST_CASES_SUMMABLE = [
     # Array to array
+    ("Dish.v1", {}, array2d, array2d),
+    ("Dish.v1", {"nO": 4, "nI": 4}, array2d, array2d),
     ("Dropout.v1", {}, array2d, array2d),
     ("LayerNorm.v1", {}, array2d, array2d),
     ("Linear.v1", {}, array2d, array2d),
@@ -126,7 +128,8 @@ TEST_CASES = [
     # ("CauchySimilarity.v1", {}, (array2d, array2d), array1d),
     ("ParametricAttention.v1", {}, ragged, ragged),
     ("SparseLinear.v1", {}, (numpy.asarray([1, 2, 3], dtype="uint64"), array1d, numpy.asarray([1, 1], dtype="i")), array2d),
-    ("remap_ids.v1", {"dtype": "f"}, ["a", 1, 5.0], array2dint)
+    ("remap_ids.v1", {"dtype": "f"}, ["a", 1, 5.0], array2dint),
+    ("remap_ids.v2", {"mapping_table": {}, "column": 1}, numpy.array([[1, 2, 3], [4, 5, 6]]).T, array2dint)
     # fmt: on
 ]
 
