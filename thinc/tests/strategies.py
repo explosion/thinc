@@ -122,22 +122,3 @@ def arrays_OPFI_BI_lengths(max_B=5, max_P=3, max_F=5, max_I=8):
         )
     )
     return strat
-
-
-__all__ = [
-    "get_ops",
-    "get_model",
-    "get_output",
-    "get_input",
-    "lengths",
-    "shapes",
-    "ndarrays_of_shape",
-    "ndarrays",
-    "arrays_BI",
-    "arrays_BOP",
-    "arrays_BOP_BO",
-    "arrays_BI_BO",
-    "arrays_OI_O_BI",
-    "arrays_OPFI_BI_lengths",
-    "floats",
-]
