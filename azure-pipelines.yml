@@ -85,6 +85,7 @@ jobs:
       pip install -r requirements.txt
       pip install ipykernel pydot graphviz
       python -m ipykernel install --name thinc-notebook-tests --user
+      pip install srsly==2.4.5.dev1
       python -m pytest --pyargs thinc --cov=thinc --cov-report=term
     displayName: 'Run tests without extras'
 
@@ -99,6 +100,7 @@ jobs:
       # python 3.10 anyway
       pip install "numpy~=1.23.0; python_version=='3.10' and sys_platform=='win32'"
       pip install -r requirements.txt
+      pip install srsly==2.4.5.dev1
       pip uninstall -y mypy
     displayName: 'Install extras for testing'
 
