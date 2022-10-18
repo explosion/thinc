@@ -195,7 +195,7 @@ def setup_package():
             ext_modules=cythonize(ext_modules, language_level=2),
             setup_requires=[
                 "numpy>=1.15.0",
-                "cython>=0.25",
+                "cython>=0.25,<3.0",
                 "murmurhash>=0.28.0,<1.1.0",
                 "cymem>=2.0.2,<2.1.0",
                 "preshed>=1.0.1,<3.1.0",
@@ -247,6 +247,8 @@ def setup_package():
                 "Programming Language :: Python :: 3.7",
                 "Programming Language :: Python :: 3.8",
                 "Programming Language :: Python :: 3.9",
+                "Programming Language :: Python :: 3.10",
+                "Programming Language :: Python :: 3.11",
                 "Topic :: Scientific/Engineering",
             ],
             cmdclass={"build_ext": build_ext_subclass},
