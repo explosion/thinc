@@ -7,21 +7,20 @@ import sys
 import threading
 
 PY2 = sys.version_info[0] == 2
-PY3 = sys.version_info[0] == 3
 
-if PY3:
-    import importlib
-
-    string_types = (str,)
+if PY2:
+    string_types = basestring,
+    find_spec = None
 else:
-    string_types = (basestring,)
+    string_types = str,
+    from importlib.util import find_spec
 
 from .decorators import synchronized
 
 # The dictionary registering any post import hooks to be triggered once
 # the target module has been imported. Once a module has been imported
 # and the hooks fired, the list of hooks recorded against the target
-# module will be truncacted but the list left in the dictionary. This
+# module will be truncated but the list left in the dictionary. This
 # acts as a flag to indicate that the module had already been imported.
 
 _post_import_hooks = {}
@@ -35,19 +34,16 @@ _post_import_hooks_lock = threading.RLock()
 # proxy callback being registered which will defer loading of the
 # specified module containing the callback function until required.
 
-
 def _create_import_hook_from_string(name):
     def import_hook(module):
-        module_name, function = name.split(":")
-        attrs = function.split(".")
+        module_name, function = name.split(':')
+        attrs = function.split('.')
         __import__(module_name)
         callback = sys.modules[module_name]
         for attr in attrs:
             callback = getattr(callback, attr)
         return callback(module)
-
     return import_hook
-
 
 @synchronized(_post_import_hooks_lock)
 def register_post_import_hook(hook, name):
@@ -102,9 +98,7 @@ def register_post_import_hook(hook, name):
 
         _post_import_hooks[name].append(hook)
 
-
 # Register post import hooks defined as package entry points.
-
 
 def _create_import_hook_from_entrypoint(entrypoint):
     def import_hook(module):
@@ -113,9 +107,7 @@ def _create_import_hook_from_entrypoint(entrypoint):
         for attr in entrypoint.attrs:
             callback = getattr(callback, attr)
         return callback(module)
-
     return import_hook
-
 
 def discover_post_import_hooks(group):
     try:
@@ -127,16 +119,14 @@ def discover_post_import_hooks(group):
         callback = _create_import_hook_from_entrypoint(entrypoint)
         register_post_import_hook(callback, entrypoint.name)
 
-
 # Indicate that a module has been loaded. Any post import hooks which
 # were registered against the target module will be invoked. If an
 # exception is raised in any of the post import hooks, that will cause
 # the import of the target module to fail.
 
-
 @synchronized(_post_import_hooks_lock)
 def notify_module_loaded(module):
-    name = getattr(module, "__name__", None)
+    name = getattr(module, '__name__', None)
     hooks = _post_import_hooks.get(name, None)
 
     if hooks:
@@ -145,33 +135,49 @@ def notify_module_loaded(module):
         for hook in hooks:
             hook(module)
 
-
 # A custom module import finder. This intercepts attempts to import
 # modules and watches out for attempts to import target modules of
 # interest. When a module of interest is imported, then any post import
 # hooks which are registered will be invoked.
 
-
 class _ImportHookLoader:
+
     def load_module(self, fullname):
         module = sys.modules[fullname]
         notify_module_loaded(module)
 
         return module
 
-
 class _ImportHookChainedLoader:
+
     def __init__(self, loader):
         self.loader = loader
 
-    def load_module(self, fullname):
+        if hasattr(loader, "load_module"):
+          self.load_module = self._load_module
+        if hasattr(loader, "create_module"):
+          self.create_module = self._create_module
+        if hasattr(loader, "exec_module"):
+          self.exec_module = self._exec_module
+
+    def _load_module(self, fullname):
         module = self.loader.load_module(fullname)
         notify_module_loaded(module)
 
         return module
 
+    # Python 3.4 introduced create_module() and exec_module() instead of
+    # load_module() alone. Splitting the two steps.
+
+    def _create_module(self, spec):
+        return self.loader.create_module(spec)
+
+    def _exec_module(self, module):
+        self.loader.exec_module(module)
+        notify_module_loaded(module)
 
 class ImportHookFinder:
+
     def __init__(self):
         self.in_progress = {}
 
@@ -199,24 +205,7 @@ class ImportHookFinder:
         # Now call back into the import system again.
 
         try:
-            if PY3:
-                # For Python 3 we need to use find_spec().loader
-                # from the importlib.util module. It doesn't actually
-                # import the target module and only finds the
-                # loader. If a loader is found, we need to return
-                # our own loader which will then in turn call the
-                # real loader to import the module and invoke the
-                # post import hooks.
-                try:
-                    import importlib.util
-
-                    loader = importlib.util.find_spec(fullname).loader
-                except (ImportError, AttributeError):
-                    loader = importlib.find_loader(fullname, path)
-                if loader:
-                    return _ImportHookChainedLoader(loader)
-
-            else:
+            if not find_spec:
                 # For Python 2 we don't have much choice but to
                 # call back in to __import__(). This will
                 # actually cause the module to be imported. If no
@@ -229,17 +218,69 @@ class ImportHookFinder:
 
                 return _ImportHookLoader()
 
+            else:
+                # For Python 3 we need to use find_spec().loader
+                # from the importlib.util module. It doesn't actually
+                # import the target module and only finds the
+                # loader. If a loader is found, we need to return
+                # our own loader which will then in turn call the
+                # real loader to import the module and invoke the
+                # post import hooks.
+
+                loader = getattr(find_spec(fullname), "loader", None)
+
+                if loader and not isinstance(loader, _ImportHookChainedLoader):
+                    return _ImportHookChainedLoader(loader)
+
         finally:
             del self.in_progress[fullname]
 
+    def find_spec(self, fullname, path=None, target=None):
+        # Since Python 3.4, you are meant to implement find_spec() method
+        # instead of find_module() and since Python 3.10 you get deprecation
+        # warnings if you don't define find_spec().
+
+        # If the module being imported is not one we have registered
+        # post import hooks for, we can return immediately. We will
+        # take no further part in the importing of this module.
+
+        if not fullname in _post_import_hooks:
+            return None
+
+        # When we are interested in a specific module, we will call back
+        # into the import system a second time to defer to the import
+        # finder that is supposed to handle the importing of the module.
+        # We set an in progress flag for the target module so that on
+        # the second time through we don't trigger another call back
+        # into the import system and cause a infinite loop.
+
+        if fullname in self.in_progress:
+            return None
+
+        self.in_progress[fullname] = True
+
+        # Now call back into the import system again.
+
+        try:
+            # This should only be Python 3 so find_spec() should always
+            # exist so don't need to check.
+
+            spec = find_spec(fullname)
+            loader = getattr(spec, "loader", None)
+
+            if loader and not isinstance(loader, _ImportHookChainedLoader):
+                spec.loader = _ImportHookChainedLoader(loader)
+
+            return spec
+
+        finally:
+            del self.in_progress[fullname]
 
 # Decorator for marking that a function should be called as a post
 # import hook when the target module is imported.
-
 
 def when_imported(name):
     def register(hook):
         register_post_import_hook(hook, name)
         return hook
-
     return register
