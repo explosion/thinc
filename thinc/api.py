@@ -30,7 +30,7 @@ from .layers import ClippedLinear, ReluK, HardTanh, HardSigmoid
 from .layers import Dish, HardSwish, HardSwishMobilenet, Swish, Gelu
 from .layers import PyTorchWrapper, PyTorchRNNWrapper, PyTorchLSTM
 from .layers import TensorFlowWrapper, keras_subclass, MXNetWrapper
-from .layers import PyTorchWrapper_v2, Softmax_v2
+from .layers import PyTorchWrapper_v2, Softmax_v2, PyTorchWrapper_v3
 
 from .layers import add, bidirectional, chain, clone, concatenate, noop
 from .layers import residual, uniqued, siamese, list2ragged, ragged2list
@@ -91,7 +91,7 @@ __all__ = [
     "Dish", "HardSwish", "HardSwishMobilenet", "Swish", "Gelu",
     "PyTorchWrapper", "PyTorchRNNWrapper", "PyTorchLSTM",
     "TensorFlowWrapper", "keras_subclass", "MXNetWrapper",
-    "PyTorchWrapper_v2", "Softmax_v2",
+    "PyTorchWrapper_v2", "Softmax_v2", "PyTorchWrapper_v3",
 
     "add", "bidirectional", "chain", "clone", "concatenate", "noop",
     "residual", "uniqued", "siamese", "list2ragged", "ragged2list",

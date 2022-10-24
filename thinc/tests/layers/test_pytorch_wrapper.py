@@ -1,8 +1,9 @@
-from thinc.api import Linear, SGD, PyTorchWrapper, PyTorchWrapper_v2
+from thinc.api import Linear, SGD, PyTorchWrapper, PyTorchWrapper_v2, PyTorchWrapper_v3
 from thinc.api import xp2torch, torch2xp, ArgsKwargs, use_ops
 from thinc.api import chain, get_current_ops, Relu
 from thinc.api import CupyOps, MPSOps, NumpyOps
 from thinc.backends import context_pools
+from thinc.layers.pytorchwrapper import PyTorchWrapper_v3
 from thinc.shims.pytorch_grad_scaler import PyTorchGradScaler
 from thinc.compat import has_torch, has_torch_amp
 from thinc.compat import has_cupy_gpu, has_torch_mps_gpu
@@ -169,3 +170,26 @@ def test_pytorch_convert_inputs(data, n_args, kwargs_keys):
     convert_inputs = model.attrs["convert_inputs"]
     Y, backprop = convert_inputs(model, data, is_train=True)
     check_input_converters(Y, backprop, data, n_args, kwargs_keys, torch.Tensor)
+
+
+@pytest.mark.skipif(not has_torch, reason="needs PyTorch")
+def test_pytorch_wrapper_custom_serde():
+    import torch.nn
+
+    def get_model():
+        return PyTorchWrapper_v3(
+            torch.nn.Linear(2, 3),
+            serialize_model_config=lambda _: {"nI": 2, "nO": 3},
+            deserialize_model_from_config=lambda config: torch.nn.Linear(
+                config["nI"], config["nO"]
+            ),
+        )
+
+    model = get_model()
+    model_bytes = model.to_bytes()
+    get_model().from_bytes(model_bytes)
+    with make_tempdir() as path:
+        model_path = path / "model"
+        model.to_disk(model_path)
+        new_model = get_model().from_bytes(model_bytes)
+        new_model.from_disk(model_path)

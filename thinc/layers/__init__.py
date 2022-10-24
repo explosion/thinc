@@ -13,7 +13,7 @@ from .maxout import Maxout
 from .mish import Mish
 from .multisoftmax import MultiSoftmax
 from .parametricattention import ParametricAttention
-from .pytorchwrapper import PyTorchWrapper, PyTorchWrapper_v2
+from .pytorchwrapper import PyTorchWrapper, PyTorchWrapper_v2, PyTorchWrapper_v3
 from .pytorchwrapper import PyTorchRNNWrapper
 from .relu import Relu
 from .clipped_linear import ClippedLinear, ReluK, HardSigmoid, HardTanh
@@ -92,6 +92,7 @@ __all__ = [
     "PyTorchLSTM",
     "PyTorchWrapper",
     "PyTorchWrapper_v2",
+    "PyTorchWrapper_v3",
     "PyTorchRNNWrapper",
     "Relu",
     "sigmoid_activation",

@@ -1,4 +1,4 @@
-from typing import Any, Optional, cast
+from typing import Any, Dict, Optional, cast, Callable
 import contextlib
 from io import BytesIO
 import itertools
@@ -30,6 +30,13 @@ class PyTorchShim(Shim):
         The PyTorch device to run the model on. When this argument is
         set to "None", the default device for the currently active Thinc
         ops is used.
+    serialize_model_config:
+        Callback that receives the wrapped PyTorch model as its argument and
+        returns a dict representing configuration values that are necessary for
+        deserializing the model.
+    deserialize_model_from_config:
+        Callback that receives the serialized configuration dict as its argument and
+        returns a PyTorch model instance into which the saved state can be deserialized.
     """
 
     def __init__(
@@ -40,6 +47,8 @@ class PyTorchShim(Shim):
         mixed_precision: bool = False,
         grad_scaler: Optional[PyTorchGradScaler] = None,
         device: Optional["torch.device"] = None,
+        serialize_model_config: Optional[Callable[[Any], Dict[str, Any]]] = None,
+        deserialize_model_from_config: Optional[Callable[[Dict[str, Any]], Any]] = None,
     ):
         super().__init__(model, config, optimizer)
 
@@ -56,6 +65,8 @@ class PyTorchShim(Shim):
         self._grad_scaler = grad_scaler
 
         self._mixed_precision = mixed_precision
+        self._serialize_model_config = serialize_model_config
+        self._deserialize_model_from_config = deserialize_model_from_config
 
         if CupyOps.xp is not None and isinstance(get_current_ops(), CupyOps):
             pools = context_pools.get()
@@ -183,12 +194,20 @@ class PyTorchShim(Shim):
         torch.save(self._model.state_dict(), filelike)
         filelike.seek(0)
         weights_bytes = filelike.getvalue()
-        msg = {"config": self.cfg, "state": weights_bytes}
+        if self._serialize_model_config is None:
+            model_config = dict()
+        else:
+            model_config = self._serialize_model_config(self._model)
+        msg = {"config": self.cfg, "model_config": model_config, "state": weights_bytes}
         return srsly.msgpack_dumps(msg)
 
     def from_bytes(self, bytes_data):
         device = get_torch_default_device()
         msg = srsly.msgpack_loads(bytes_data)
+
+        if self._deserialize_model_from_config is not None:
+            new_model = self._deserialize_model_from_config(msg["model_config"])
+            self._model = new_model
         self.cfg = msg["config"]
         filelike = BytesIO(msg["state"])
         filelike.seek(0)
