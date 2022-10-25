@@ -30,13 +30,14 @@ class PyTorchShim(Shim):
         The PyTorch device to run the model on. When this argument is
         set to "None", the default device for the currently active Thinc
         ops is used.
-    serialize_model_config:
+    serialize_model:
         Callback that receives the wrapped PyTorch model as its argument and
-        returns a dict representing configuration values that are necessary for
-        deserializing the model.
-    deserialize_model_from_config:
-        Callback that receives the serialized configuration dict as its argument and
-        returns a PyTorch model instance into which the saved state can be deserialized.
+        returns a "bytes" representation of the same. The representation should
+        contain all the necessary information to fully deserialize the model.
+    deserialize_model:
+        Callback that receives the default PyTorch model (passed to the constructor), the
+        serialized "bytes" representation and a PyTorch device. It should return a
+        fully deserialized model on the target device as its result.
     """
 
     def __init__(
@@ -47,8 +48,8 @@ class PyTorchShim(Shim):
         mixed_precision: bool = False,
         grad_scaler: Optional[PyTorchGradScaler] = None,
         device: Optional["torch.device"] = None,
-        serialize_model_config: Optional[Callable[[Any], Dict[str, Any]]] = None,
-        deserialize_model_from_config: Optional[Callable[[Dict[str, Any]], Any]] = None,
+        serialize_model: Optional[Callable[[Any], bytes]] = None,
+        deserialize_model: Optional[Callable[[Any, bytes, torch.device], Any]] = None,
     ):
         super().__init__(model, config, optimizer)
 
@@ -63,10 +64,14 @@ class PyTorchShim(Shim):
         grad_scaler.to_(device)
 
         self._grad_scaler = grad_scaler
-
         self._mixed_precision = mixed_precision
-        self._serialize_model_config = serialize_model_config
-        self._deserialize_model_from_config = deserialize_model_from_config
+
+        if serialize_model is None:
+            serialize_model = default_serialize_torch_model
+        if deserialize_model is None:
+            deserialize_model = default_deserialize_torch_model
+        self._serialize_model = serialize_model
+        self._deserialize_model = deserialize_model
 
         if CupyOps.xp is not None and isinstance(get_current_ops(), CupyOps):
             pools = context_pools.get()
@@ -190,28 +195,31 @@ class PyTorchShim(Shim):
             raise ValueError(msg)
 
     def to_bytes(self):
-        filelike = BytesIO()
-        torch.save(self._model.state_dict(), filelike)
-        filelike.seek(0)
-        weights_bytes = filelike.getvalue()
-        if self._serialize_model_config is None:
-            model_config = dict()
-        else:
-            model_config = self._serialize_model_config(self._model)
-        msg = {"config": self.cfg, "model_config": model_config, "state": weights_bytes}
+        model_bytes = self._serialize_model(self._model)
+        msg = {"config": self.cfg, "state": model_bytes}
         return srsly.msgpack_dumps(msg)
 
     def from_bytes(self, bytes_data):
         device = get_torch_default_device()
         msg = srsly.msgpack_loads(bytes_data)
-
-        if self._deserialize_model_from_config is not None:
-            new_model = self._deserialize_model_from_config(msg["model_config"])
-            self._model = new_model
         self.cfg = msg["config"]
-        filelike = BytesIO(msg["state"])
-        filelike.seek(0)
-        self._model.load_state_dict(torch.load(filelike, map_location=device))
-        self._model.to(device)
+        self._model = self._deserialize_model(self._model, msg["state"], device)
         self._grad_scaler.to_(device)
         return self
+
+
+def default_serialize_torch_model(model: Any) -> bytes:
+    filelike = BytesIO()
+    torch.save(model.state_dict(), filelike)
+    filelike.seek(0)
+    return filelike.getvalue()
+
+
+def default_deserialize_torch_model(
+    model: Any, state_bytes: bytes, device: torch.device
+) -> Any:
+    filelike = BytesIO(state_bytes)
+    filelike.seek(0)
+    model.load_state_dict(torch.load(filelike, map_location=device))
+    model.to(device)
+    return model

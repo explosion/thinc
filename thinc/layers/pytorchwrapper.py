@@ -140,8 +140,8 @@ def PyTorchWrapper_v3(
     mixed_precision: bool = False,
     grad_scaler: Optional[PyTorchGradScaler] = None,
     device: Optional["torch.device"] = None,
-    serialize_model_config: Optional[Callable[[Any], Dict[str, Any]]] = None,
-    deserialize_model_from_config: Optional[Callable[[Dict[str, Any]], Any]] = None,
+    serialize_model: Optional[Callable[[Any], bytes]] = None,
+    deserialize_model: Optional[Callable[[Any, bytes, torch.device], Any]] = None,
 ) -> Model[Any, Any]:
     """Wrap a PyTorch model, so that it has the same API as Thinc models.
     To optimize the model, you'll need to create a PyTorch optimizer and call
@@ -175,18 +175,18 @@ def PyTorchWrapper_v3(
         The PyTorch device to run the model on. When this argument is
         set to "None", the default device for the currently active Thinc
         ops is used.
-    serialize_model_config:
+    serialize_model:
         Callback that receives the wrapped PyTorch model as its argument and
-        returns a dict representing configuration values that are necessary for
-        deserializing the model.
+        returns a "bytes" representation of the same. The representation should
+        contain all the necessary information to fully deserialize the model.
 
-        When set to "None", no extra configuration is serialized to disk.
-    deserialize_model_from_config:
-        Callback that receives the serialized configuration dict as its argument and
-        returns a PyTorch model instance into which the saved state can be deserialized.
+        When set to "None", the default serializer serializes the model's parameters.
+    deserialize_model:
+        Callback that receives the default PyTorch model (passed to the constructor), the
+        serialized "bytes" representation and a PyTorch device. It should return a
+        fully deserialized model on the target device as its result.
 
-        When set to "None", the saved model state is deserialized into the PyTorch model
-        passed to the constructor.
+        When set to "None", the default dserializer deserializes the model's parameters.
     """
     if convert_inputs is None:
         convert_inputs = convert_pytorch_default_inputs
@@ -202,8 +202,8 @@ def PyTorchWrapper_v3(
                 mixed_precision=mixed_precision,
                 grad_scaler=grad_scaler,
                 device=device,
-                serialize_model_config=serialize_model_config,
-                deserialize_model_from_config=deserialize_model_from_config,
+                serialize_model=serialize_model,
+                deserialize_model=deserialize_model,
             )
         ],
         dims={"nI": None, "nO": None},

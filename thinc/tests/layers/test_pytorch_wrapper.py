@@ -5,6 +5,10 @@ from thinc.api import CupyOps, MPSOps, NumpyOps
 from thinc.backends import context_pools
 from thinc.layers.pytorchwrapper import PyTorchWrapper_v3
 from thinc.shims.pytorch_grad_scaler import PyTorchGradScaler
+from thinc.shims.pytorch import (
+    default_deserialize_torch_model,
+    default_serialize_torch_model,
+)
 from thinc.compat import has_torch, has_torch_amp
 from thinc.compat import has_cupy_gpu, has_torch_mps_gpu
 import numpy
@@ -176,13 +180,17 @@ def test_pytorch_convert_inputs(data, n_args, kwargs_keys):
 def test_pytorch_wrapper_custom_serde():
     import torch.nn
 
+    def serialize(model):
+        return default_serialize_torch_model(model)
+
+    def deserialize(model, state_bytes, device):
+        return default_deserialize_torch_model(model, state_bytes, device)
+
     def get_model():
         return PyTorchWrapper_v3(
             torch.nn.Linear(2, 3),
-            serialize_model_config=lambda _: {"nI": 2, "nO": 3},
-            deserialize_model_from_config=lambda config: torch.nn.Linear(
-                config["nI"], config["nO"]
-            ),
+            serialize_model=serialize,
+            deserialize_model=deserialize,
         )
 
     model = get_model()
