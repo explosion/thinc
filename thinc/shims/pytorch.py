@@ -49,7 +49,7 @@ class PyTorchShim(Shim):
         grad_scaler: Optional[PyTorchGradScaler] = None,
         device: Optional["torch.device"] = None,
         serialize_model: Optional[Callable[[Any], bytes]] = None,
-        deserialize_model: Optional[Callable[[Any, bytes, torch.device], Any]] = None,
+        deserialize_model: Optional[Callable[[Any, bytes, "torch.device"], Any]] = None,
     ):
         super().__init__(model, config, optimizer)
 
@@ -216,7 +216,7 @@ def default_serialize_torch_model(model: Any) -> bytes:
 
 
 def default_deserialize_torch_model(
-    model: Any, state_bytes: bytes, device: torch.device
+    model: Any, state_bytes: bytes, device: "torch.device"
 ) -> Any:
     filelike = BytesIO(state_bytes)
     filelike.seek(0)

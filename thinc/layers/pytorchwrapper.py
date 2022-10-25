@@ -141,7 +141,7 @@ def PyTorchWrapper_v3(
     grad_scaler: Optional[PyTorchGradScaler] = None,
     device: Optional["torch.device"] = None,
     serialize_model: Optional[Callable[[Any], bytes]] = None,
-    deserialize_model: Optional[Callable[[Any, bytes, torch.device], Any]] = None,
+    deserialize_model: Optional[Callable[[Any, bytes, "torch.device"], Any]] = None,
 ) -> Model[Any, Any]:
     """Wrap a PyTorch model, so that it has the same API as Thinc models.
     To optimize the model, you'll need to create a PyTorch optimizer and call
