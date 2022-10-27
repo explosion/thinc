@@ -11,6 +11,7 @@ ml_datasets>=0.2.0,<0.3.0; python_version < "3.11"
 # Third-party dependencies
 pydantic>=1.7.4,!=1.8,!=1.8.1,<1.11.0
 numpy>=1.15.0
+packaging>=20.0
 # Backports of modern Python features
 dataclasses>=0.6,<1.0; python_version < "3.7"
 typing_extensions>=3.7.4.1,<4.2.0; python_version < "3.8"

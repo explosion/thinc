@@ -91,6 +91,10 @@ jobs:
       PIP_CONSTRAINT="build-constraints.txt" pip install dist/$SDIST
     displayName: 'Install from sdist'
 
+  - bash: |
+      python -c "import thinc"
+    displayName: 'Test import'
+
   - script: |
       pip install -r requirements.txt
       pip install ipykernel pydot graphviz
