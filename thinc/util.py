@@ -418,7 +418,8 @@ def xp2tensorflow(
         dlpack_tensor = xp_tensor.toDlpack()  # type: ignore
         tf_tensor = tf.experimental.dlpack.from_dlpack(dlpack_tensor)
     elif hasattr(xp_tensor, "__dlpack__"):
-        tf_tensor = tf.experimental.dlpack.from_dlpack(xp_tensor)
+        dlpack_tensor = xp_tensor.__dlpack__()  # type: ignore
+        tf_tensor = tf.experimental.dlpack.from_dlpack(dlpack_tensor)
     else:
         tf_tensor = tf.convert_to_tensor(xp_tensor)
     if as_variable:
@@ -618,6 +619,7 @@ class ArrayInfo:
             )
 
 
+# fmt: off
 __all__ = [
     "get_array_module",
     "get_torch_default_device",
@@ -639,4 +641,7 @@ __all__ = [
     "make_tempfile",
     "use_nvtx_range",
     "ArrayInfo",
+    "has_cupy",
+    "has_torch",
 ]
+# fmt: on

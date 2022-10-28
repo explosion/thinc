@@ -87,4 +87,23 @@ except ImportError:
     has_os_signpost = False
 
 
+try:  # pragma: no cover
+    import blis
+
+    has_blis = True
+except ImportError:
+    blis = None
+    has_blis = False
+
+
 has_gpu = has_cupy_gpu or has_torch_mps_gpu
+
+__all__ = [
+    "cupy",
+    "cupyx",
+    "torch",
+    "tensorflow",
+    "mxnet",
+    "h5py",
+    "os_signpost",
+]

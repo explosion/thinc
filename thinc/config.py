@@ -26,4 +26,4 @@ class registry(confection.registry):
         setattr(cls, registry_name, reg)
 
 
-__all__ = ["Config", "registry", "ConfigValidationError"]
+__all__ = ["Config", "registry", "ConfigValidationError", "Promise", "VARIABLE_RE"]

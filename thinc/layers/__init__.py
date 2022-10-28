@@ -59,7 +59,7 @@ from .list2ragged import list2ragged
 from .list2padded import list2padded
 from .ragged2list import ragged2list
 from .padded2list import padded2list
-from .remap_ids import remap_ids
+from .remap_ids import remap_ids, remap_ids_v2
 from .strings2arrays import strings2arrays
 from .with_array import with_array
 from .with_array2d import with_array2d
@@ -75,6 +75,7 @@ from .with_nvtx_range import with_nvtx_range
 from .with_signpost_interval import with_signpost_interval
 
 
+# fmt: off
 __all__ = [
     "CauchySimilarity",
     "Linear",
@@ -94,7 +95,8 @@ __all__ = [
     "PyTorchRNNWrapper",
     "Relu",
     "sigmoid_activation",
-    "Sigmoid" "softmax_activation",
+    "Sigmoid",
+    "softmax_activation",
     "Softmax",
     "Softmax_v2",
     "SparseLinear",
@@ -132,4 +134,24 @@ __all__ = [
     "with_nvtx_range",
     "with_signpost_interval",
     "remap_ids",
+    "remap_ids_v2",
+    "softmax_activation",
+    "Logistic",
+    "Sigmoid",
+    "ClippedLinear",
+    "ReluK",
+    "HardTanh",
+    "HardSigmoid",
+    "Dish",
+    "HardSwish",
+    "HardSwishMobilenet",
+    "Swish",
+    "Gelu",
+    "keras_subclass",
+    "MXNetWrapper",
+    "map_list",
+    "strings2arrays",
+    "array_getitem",
+    "tuplify",
 ]
+# fmt: on
