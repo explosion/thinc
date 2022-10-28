@@ -1,7 +1,8 @@
 from typing import Any, Union, Sequence, cast, Dict, Optional, Callable, TypeVar
-from typing import List, Mapping, Tuple
+from typing import List, Mapping
+from typing import TYPE_CHECKING
+
 import numpy
-from packaging.version import Version
 import random
 import functools
 from wasabi import table
@@ -15,17 +16,15 @@ from contextvars import ContextVar
 from dataclasses import dataclass
 from .compat import has_cupy, has_mxnet, has_torch, has_tensorflow
 from .compat import has_cupy_gpu, has_torch_cuda_gpu, has_gpu
-from .compat import has_torch_mps_gpu
 from .compat import torch, cupy, tensorflow as tf, mxnet as mx, cupy_from_dlpack
 
-DATA_VALIDATION: ContextVar[bool] = ContextVar("DATA_VALIDATION", default=False)
-
-from .types import ArrayXd, ArgsKwargs, Ragged, Padded, FloatsXd, IntsXd  # noqa: E402
+from .types import ArrayXd, ArgsKwargs, Ragged, Padded, FloatsXd, IntsXd, Floats2d  # noqa: E402
 from . import types  # noqa: E402
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .api import Ops
+
+DATA_VALIDATION: ContextVar[bool] = ContextVar("DATA_VALIDATION", default=False)
 
 
 def get_torch_default_device() -> "torch.device":
@@ -252,6 +251,21 @@ def to_categorical(
     label_distr = xp.full((n_classes, n_classes), nongold_prob, dtype="float32")
     xp.fill_diagonal(label_distr, 1 - label_smoothing)
     return label_distr[Y]
+
+
+def smooth_one_hot(X: Floats2d, label_smoothing: float) -> Floats2d:
+    """
+    Apply label-smoothing to one-hot array.
+    """
+    if not 0.0 <= label_smoothing < 0.5:
+        raise ValueError(
+            "label_smoothing should be greater or "
+            "equal to 0.0 and less than 0.5, "
+            f"but {label_smoothing} was provided."
+        )
+    X[X == 1] = 1 - label_smoothing
+    X[X == 0] = label_smoothing / (X.shape[1] - 1)
+    return X
 
 
 def get_width(
