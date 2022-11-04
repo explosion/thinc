@@ -31,12 +31,6 @@ jobs:
       Python39Windows:
         imageName: 'windows-latest'
         python.version: '3.9'
-      Python310Linux:
-        imageName: 'ubuntu-latest'
-        python.version: '3.10'
-      Python310Windows:
-        imageName: 'windows-latest'
-        python.version: '3.10'
       Python310Mac:
         imageName: 'macos-latest'
         python.version: '3.10'
