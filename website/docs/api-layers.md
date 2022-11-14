@@ -820,7 +820,7 @@ bug. As a result, only a subset of the weights is used. Use
 https://github.com/explosion/thinc/blob/master/thinc/layers/sparselinear.pyx
 ```
 
-### SparseLinear_v2 {#sparselinear_v2 tag="function"}
+### SparseLinear_v2 {#sparselinear_v2 tag="function" new="8.1.6"}
 
 <inline-list>
 
