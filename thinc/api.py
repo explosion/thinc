@@ -91,7 +91,7 @@ __all__ = [
     "Dish", "HardSwish", "HardSwishMobilenet", "Swish", "Gelu",
     "PyTorchWrapper", "PyTorchRNNWrapper", "PyTorchLSTM",
     "TensorFlowWrapper", "keras_subclass", "MXNetWrapper",
-    "PyTorchWrapper_v2", "Softmax_v2",
+    "PyTorchWrapper_v2", "Softmax_v2", "SparseLinear_v2",
 
     "add", "bidirectional", "chain", "clone", "concatenate", "noop",
     "residual", "uniqued", "siamese", "list2ragged", "ragged2list",

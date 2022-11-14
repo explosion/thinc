@@ -100,6 +100,7 @@ __all__ = [
     "Softmax",
     "Softmax_v2",
     "SparseLinear",
+    "SparseLinear_v2",
     "TensorFlowWrapper",
     "add",
     "bidirectional",
