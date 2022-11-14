@@ -31,15 +31,18 @@ jobs:
       Python39Windows:
         imageName: 'windows-latest'
         python.version: '3.9'
-      Python310Linux:
-        imageName: 'ubuntu-latest'
-        python.version: '3.10'
-      Python310Windows:
-        imageName: 'windows-latest'
-        python.version: '3.10'
       Python310Mac:
         imageName: 'macos-latest'
         python.version: '3.10'
+      Python311Linux:
+        imageName: 'ubuntu-latest'
+        python.version: '3.11'
+      Python311Windows:
+        imageName: 'windows-latest'
+        python.version: '3.11'
+      Python311Mac:
+        imageName: 'macos-latest'
+        python.version: '3.11'
     maxParallel: 4
   pool:
     vmImage: $(imageName)
@@ -49,6 +52,7 @@ jobs:
     inputs:
       versionSpec: '$(python.version)'
       architecture: 'x64'
+      allowUnstable: true
 
   - script: |
       python -m pip install --upgrade pip setuptools wheel
@@ -61,8 +65,9 @@ jobs:
     displayName: 'Build sdist'
 
   - script: |
-      python -m mypy thinc
+      python -m mypy thinc --no-implicit-reexport
     displayName: 'Run mypy'
+    condition: ne(variables['python.version'], '3.6')
 
   - task: DeleteFiles@1
     inputs:
@@ -80,27 +85,43 @@ jobs:
       PIP_CONSTRAINT="build-constraints.txt" pip install dist/$SDIST
     displayName: 'Install from sdist'
 
+  - bash: |
+      python -c "import thinc"
+    displayName: 'Test import'
+
   - script: |
       pip install -r requirements.txt
-      pip install "protobuf~=3.20.0" "tensorflow~=2.5.0"
-      pip install "mxnet; sys_platform != 'win32'"
-      pip install "torch==1.9.0+cpu" -f https://download.pytorch.org/whl/torch_stable.html
       pip install ipykernel pydot graphviz
       python -m ipykernel install --name thinc-notebook-tests --user
-    displayName: 'Install test dependencies'
+      python -m pytest --pyargs thinc --cov=thinc --cov-report=term
+    displayName: 'Run tests without extras'
+
+  - script: |
+      pip install "protobuf~=3.20.0" "tensorflow~=2.5.0"
+      pip install "mxnet; sys_platform != 'win32'"
+      pip install "torch<1.13.0" --extra-index-url https://download.pytorch.org/whl/cpu
+      # torch does not have a direct numpy requirement but is compiled against
+      # a newer version than the oldest supported numpy for windows and
+      # python 3.10; this version of numpy would not work with
+      # tensorflow~=2.5.0 as specified above, but there is no release for
+      # python 3.10 anyway
+      pip install "numpy~=1.23.0; python_version=='3.10' and sys_platform=='win32'"
+      pip install -r requirements.txt
+      pip uninstall -y mypy
+    displayName: 'Install extras for testing'
 
   - script: |
       python -m pytest --pyargs thinc --cov=thinc --cov-report=term
-    displayName: 'Run tests'
+    displayName: 'Run tests with extras'
 
   - script: |
       pip uninstall -y tensorflow
       pip install thinc-apple-ops
       python -m pytest --pyargs thinc_apple_ops
     displayName: 'Run tests for thinc-apple-ops'
-    condition: and(startsWith(variables['imageName'], 'macos'), eq(variables['python.version'], '3.9'))
+    condition: and(startsWith(variables['imageName'], 'macos'), eq(variables['python.version'], '3.10'))
 
   - script: |
       python -m pytest --pyargs thinc
     displayName: 'Run tests with thinc-apple-ops'
-    condition: and(startsWith(variables['imageName'], 'macos'), eq(variables['python.version'], '3.9'))
+    condition: and(startsWith(variables['imageName'], 'macos'), eq(variables['python.version'], '3.10'))

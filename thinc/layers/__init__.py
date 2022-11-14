@@ -75,6 +75,7 @@ from .with_nvtx_range import with_nvtx_range
 from .with_signpost_interval import with_signpost_interval
 
 
+# fmt: off
 __all__ = [
     "CauchySimilarity",
     "Linear",
@@ -94,7 +95,8 @@ __all__ = [
     "PyTorchRNNWrapper",
     "Relu",
     "sigmoid_activation",
-    "Sigmoid" "softmax_activation",
+    "Sigmoid",
+    "softmax_activation",
     "Softmax",
     "Softmax_v2",
     "SparseLinear",
@@ -132,4 +134,24 @@ __all__ = [
     "with_nvtx_range",
     "with_signpost_interval",
     "remap_ids",
+    "remap_ids_v2",
+    "softmax_activation",
+    "Logistic",
+    "Sigmoid",
+    "ClippedLinear",
+    "ReluK",
+    "HardTanh",
+    "HardSigmoid",
+    "Dish",
+    "HardSwish",
+    "HardSwishMobilenet",
+    "Swish",
+    "Gelu",
+    "keras_subclass",
+    "MXNetWrapper",
+    "map_list",
+    "strings2arrays",
+    "array_getitem",
+    "tuplify",
 ]
+# fmt: on
