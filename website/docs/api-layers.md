@@ -1659,6 +1659,63 @@ the backward pass.
 https://github.com/explosion/thinc/blob/master/thinc/layers/pytorchwrapper.py
 ```
 
+### TorchScriptWrapper_v1 {#torchscriptwrapper tag="function" new="8.1.6"}
+
+<inline-list>
+
+- **Input:** <tt>Any</tt>
+- **Output:** <tt>Any</tt>
+
+</inline-list>
+
+Wrap a [TorchScript](https://pytorch.org/docs/stable/jit.html) model so that it
+has the same API as Thinc models. To optimize the model, you'll need to create a
+PyTorch optimizer and call `optimizer.step` after each batch.
+
+Your TorchScript model's forward method can take arbitrary positional arguments
+and keyword arguments, but must return either a **single tensor** as output or a
+**tuple**. The convert functions are used to map inputs and outputs to and from
+your TorchScript model. Each function should return the converted output, and a
+callback to use during the backward pass:
+
+```python
+Xtorch, get_dX = convert_inputs(X)
+Ytorch, torch_backprop = model.shims[0](Xtorch, is_train)
+Y, get_dYtorch = convert_outputs(Ytorch)
+```
+
+To allow maximum flexibility, the [`TorchScriptShim`](/docs/api-model#shims)
+expects [`ArgsKwargs`](/docs/api-types#argskwargs) objects on the way into the
+forward and backward passes. The `ArgsKwargs` objects will be passed straight
+into the model in the forward pass, and straight into `torch.autograd.backward`
+during the backward pass.
+
+Note that the `torchscript_model` argument can be `None`. This is useful for
+deserialization since serialized TorchScript contains both the model and its
+weights.
+
+A PyTorch wrapper can be converted to a TorchScript wrapper using the
+`pytorch_to_torchscript_wrapper` function:
+
+```python
+from thinc.api import PyTorchWrapper_v2, pytorch_to_torchscript_wrapper
+import torch
+
+model = PyTorchWrapper_v2(torch.nn.Linear(nI, nO)).initialize()
+script_model = pytorch_to_torchscript_wrapper(model)
+```
+
+| Argument            | Type                                      | Description                                                                              |
+| ------------------- | ----------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `torchscript_model` | <tt>Optional[torch.jit.ScriptModule]</tt> | The TorchScript model.                                                                   |
+| `convert_inputs`    | <tt>Callable</tt>                         | Function to convert inputs to PyTorch tensors (same signature as `forward` function).    |
+| `convert_outputs`   | <tt>Callable</tt>                         | Function to convert outputs from PyTorch tensors (same signature as `forward` function). |
+| **RETURNS**         | <tt>Model[Any, Any]</tt>                  | The Thinc model.                                                                         |
+
+```python
+https://github.com/explosion/thinc/blob/master/thinc/layers/torchscriptwrapper.py
+```
+
 ### TensorFlowWrapper {#tensorflowwrapper tag="function"}
 
 <inline-list>

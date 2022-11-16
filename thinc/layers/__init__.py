@@ -28,6 +28,7 @@ from .softmax_activation import softmax_activation
 from .softmax import Softmax, Softmax_v2
 from .sparselinear import SparseLinear
 from .tensorflowwrapper import TensorFlowWrapper, keras_subclass
+from .torchscriptwrapper import TorchScriptWrapper_v1, pytorch_to_torchscript_wrapper
 from .mxnetwrapper import MXNetWrapper
 
 # Combinators
@@ -101,6 +102,7 @@ __all__ = [
     "Softmax_v2",
     "SparseLinear",
     "TensorFlowWrapper",
+    "TorchScriptWrapper_v1",
     "add",
     "bidirectional",
     "chain",
@@ -153,5 +155,6 @@ __all__ = [
     "strings2arrays",
     "array_getitem",
     "tuplify",
+    "pytorch_to_torchscript_wrapper",
 ]
 # fmt: on
