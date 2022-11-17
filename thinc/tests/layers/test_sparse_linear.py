@@ -1,6 +1,7 @@
+import math
 import numpy
 import pytest
-from thinc.api import SGD, to_categorical, SparseLinear
+from thinc.api import SGD, to_categorical, SparseLinear, SparseLinear_v2
 
 
 @pytest.fixture
@@ -42,3 +43,35 @@ def test_init():
     assert scores.shape == (2, 3)
     d_feats = backprop(scores)
     assert len(d_feats) == 3
+
+
+def test_distribution():
+    n_class = 10
+    length = 2**18
+    model = SparseLinear_v2(nO=n_class, length=length).initialize()
+
+    ii64 = numpy.iinfo(numpy.uint64)
+    lengths = numpy.zeros((2,), dtype="int32")
+
+    for p_nonzero in range(1, 12):
+        # Clear gradients from the previous iterarion.
+        model.set_grad("W", 0.0)
+
+        n = 2**p_nonzero
+        keys = numpy.random.randint(ii64.min, ii64.max, size=(n,), dtype=numpy.uint64)
+        values = numpy.ones((n,), dtype="f")
+        lengths[0] = n // 2
+        lengths[1] = n // 2
+
+        # Probability that a bit is set (2 because we use 2 hashes).
+        p_nonzero = 1 - math.exp(-2 * n / length)
+
+        Y, backprop = model.begin_update((keys, values, lengths))
+        backprop(numpy.ones_like(Y))
+
+        # Check that for each class we have the expected rate of non-zeros.
+        dW = model.get_grad("W").reshape(n_class, -1)
+        nonzero_empirical = numpy.count_nonzero(dW, axis=1) / dW.shape[1]
+        numpy.testing.assert_allclose(
+            nonzero_empirical, p_nonzero, rtol=1e-4, atol=1e-4
+        )
