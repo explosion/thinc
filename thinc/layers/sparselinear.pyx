@@ -27,6 +27,22 @@ def SparseLinear(nO: Optional[int] = None, length: int = 2 ** 18):
         init=init,
         params={"W": None, "b": None},
         dims={"nO": nO, "length": length},
+        attrs={"v1_indexing": True},
+    )
+
+
+@cython.binding(True)
+@registry.layers("SparseLinear.v2")
+def SparseLinear_v2(nO: Optional[int] = None, length: int = 2 ** 18):
+    # NB: We can't have generic return type annotation if we want function to
+    # be bound (and inspectable): https://github.com/cython/cython/issues/2753
+    return Model(
+        "sparse_linear",
+        forward,
+        init=init,
+        params={"W": None, "b": None},
+        dims={"nO": nO, "length": length},
+        attrs={"v1_indexing": False},
     )
 
 
@@ -70,11 +86,12 @@ def _begin_cpu_update(model, np.ndarray keys, np.ndarray values, np.ndarray leng
     cdef np.ndarray W = model.get_param("W")
     cdef np.ndarray b = model.get_param("b")
     cdef np.ndarray scores = model.ops.alloc((len(lengths), nO))
+    cdef bint v1_indexing = model.attrs["v1_indexing"]
     scores += b
     set_scoresC(<float*>scores.data,
         <uint64_t*>keys.data, <float*>values.data, <int32_t*>lengths.data,
         lengths.shape[0], nO,
-        <float*>W.data, length)
+        <float*>W.data, length, v1_indexing)
     return scores, _finish_linear_update(model, keys, values, lengths)
 
 
@@ -95,10 +112,10 @@ class _finish_linear_update:
         cdef np.ndarray keys = self.keys
         cdef np.ndarray values = self.values
         cdef np.ndarray lengths = self.lengths
+        cdef bint v1_indexing = self.model.attrs["v1_indexing"]
         set_gradientC(<float*>d_weights.data,
             <uint64_t*>keys.data, <float*>values.data, <int32_t*>lengths.data,
-            lengths.shape[0], nO,
-            &d_scores[0,0], length)
+            lengths.shape[0], nO, &d_scores[0,0], length, v1_indexing)
         cdef int i, j
         for i in range(d_scores.shape[0]):
             for j in range(d_scores.shape[1]):
@@ -108,43 +125,63 @@ class _finish_linear_update:
         return (self.keys, self.values, self.lengths)
 
 
+# v1_indexing is invalid and only uses a subset of the weight matrix, v1
+# indexing is provided here for compatibility. See #752 for more information.
 cdef void set_scoresC(float* scores,
         const uint64_t* keys, const float* values, const int32_t* lengths,
-        int batch_size, int nr_out,
-        const float* weights, int nr_weight) nogil:
+        int batch_size, int nr_out, const float* weights, int nr_weight,
+        bint v1_indexing) nogil:
     cdef uint32_t idx1, idx2
     cdef uint32_t hash1, hash2
     for length in lengths[:batch_size]:
         for i in range(length):
             hash1 = MurmurHash3_x86_32_uint64(keys[i], 0)
             hash2 = MurmurHash3_x86_32_uint64(keys[i], 1)
-            idx1 = hash1 & (nr_weight-1)
-            idx2 = hash2 & (nr_weight-1)
+            if v1_indexing:
+                idx1 = hash1 & (nr_weight-1)
+                idx2 = hash2 & (nr_weight-1)
+            else:
+                idx1 = hash1 % nr_weight
+                idx2 = hash2 % nr_weight
             value = values[i]
             for clas in range(nr_out):
-                scores[clas] += weights[idx1 + clas] * value
-                scores[clas] += weights[idx2 + clas] * value
+                if v1_indexing:
+                    scores[clas] += weights[idx1 + clas] * value
+                    scores[clas] += weights[idx2 + clas] * value
+                else:
+                    scores[clas] += weights[(clas * nr_weight) + idx1] * value
+                    scores[clas] += weights[(clas * nr_weight) + idx2] * value
         scores += nr_out
         keys += length
         values += length
 
 
+# v1_indexing is invalid and only uses a subset of the weight matrix, v1
+# indexing is provided here for compatibility. See #752 for more information.
 cdef void set_gradientC(float* d_weights,
         const uint64_t* keys, const float* values, const int32_t* lengths,
-        int batch_size, int nr_out,
-        const float* d_scores, int nr_weight) nogil:
+        int batch_size, int nr_out, const float* d_scores, int nr_weight,
+        bint v1_indexing) nogil:
     cdef uint32_t idx1, idx2
     cdef uint32_t hash1, hash2
     for length in lengths[:batch_size]:
         for i in range(length):
             hash1 = MurmurHash3_x86_32_uint64(keys[i], 0)
             hash2 = MurmurHash3_x86_32_uint64(keys[i], 1)
-            idx1 = hash1 & (nr_weight-1)
-            idx2 = hash2 & (nr_weight-1)
+            if v1_indexing:
+                idx1 = hash1 & (nr_weight-1)
+                idx2 = hash2 & (nr_weight-1)
+            else:
+                idx1 = hash1 % nr_weight
+                idx2 = hash2 % nr_weight
             value = values[i]
             for clas in range(nr_out):
-                d_weights[idx1 + clas] += d_scores[clas] * value
-                d_weights[idx2 + clas] += d_scores[clas] * value
+                if v1_indexing:
+                    d_weights[idx1 + clas] += d_scores[clas] * value
+                    d_weights[idx2 + clas] += d_scores[clas] * value
+                else:
+                    d_weights[(clas * nr_weight) + idx1] += d_scores[clas] * value
+                    d_weights[(clas * nr_weight) + idx2] += d_scores[clas] * value
         d_scores += nr_out
         keys += length
         values += length

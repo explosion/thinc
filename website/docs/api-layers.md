@@ -802,6 +802,42 @@ length, describing the concatenated batch of input features and their values.
 The `lengths` array should have one entry per sequence in the batch, and the sum
 of the lengths should equal the length of the keys and values array.
 
+<infobox variant="warning">
+
+`SparseLinear` should not be used for new models because it contains an indexing
+bug. As a result, only a subset of the weights is used. Use
+[`SparseLinear_v2`](#sparselinear_v2) instead.
+
+</infobox>
+
+| Argument    | Type                                                      | Description                                              |
+| ----------- | --------------------------------------------------------- | -------------------------------------------------------- |
+| `nO`        | <tt>Optional[int]</tt>                                    | The size of the output vectors.                          |
+| `length`    | <tt>int</tt>                                              | The size of the weights vector, to be tuned empirically. |
+| **RETURNS** | <tt>Model[Tuple[ArrayXd, ArrayXd, ArrayXd], ArrayXd]</tt> | The created layer.                                       |
+
+```python
+https://github.com/explosion/thinc/blob/master/thinc/layers/sparselinear.pyx
+```
+
+### SparseLinear_v2 {#sparselinear_v2 tag="function" new="8.1.6"}
+
+<inline-list>
+
+- **Input:** <ndarray>Tuple[ArrayXd, ArrayXd, ArrayXd]</ndarray>
+- **Output:** <ndarray>ArrayXd</ndarray>
+- **Parameters:** <ndarray shape="nO*length,">W</ndarray>,
+  <ndarray shape="nO,">b</ndarray>, `length` <tt>int</tt>
+
+</inline-list>
+
+A sparse linear layer using the "hashing trick". Useful for tasks such as text
+classification. Inputs to the layer should be a tuple of arrays
+`(keys, values, lengths)`, where the `keys` and `values` are arrays of the same
+length, describing the concatenated batch of input features and their values.
+The `lengths` array should have one entry per sequence in the batch, and the sum
+of the lengths should equal the length of the keys and values array.
+
 | Argument    | Type                                                      | Description                                              |
 | ----------- | --------------------------------------------------------- | -------------------------------------------------------- |
 | `nO`        | <tt>Optional[int]</tt>                                    | The size of the output vectors.                          |
