@@ -25,7 +25,13 @@ from .backends import use_pytorch_for_gpu_memory, use_tensorflow_for_gpu_memory
 from .layers import Dropout, Embed, expand_window, HashEmbed, LayerNorm, Linear
 from .layers import Maxout, Mish, MultiSoftmax, Relu, softmax_activation, Softmax, LSTM
 from .layers import CauchySimilarity, ParametricAttention, Logistic
-from .layers import resizable, sigmoid_activation, Sigmoid, SparseLinear, SparseLinear_v2
+from .layers import (
+    resizable,
+    sigmoid_activation,
+    Sigmoid,
+    SparseLinear,
+    SparseLinear_v2,
+)
 from .layers import ClippedLinear, ReluK, HardTanh, HardSigmoid
 from .layers import Dish, HardSwish, HardSwishMobilenet, Swish, Gelu
 from .layers import PyTorchWrapper, PyTorchRNNWrapper, PyTorchLSTM
