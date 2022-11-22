@@ -1,16 +1,17 @@
 import math
 
-from typing import Dict, Optional, Union, Tuple, List, cast
+from typing import Any, Dict, Optional, Union, Tuple, List, cast
 from collections import defaultdict
+from types import GeneratorType
 
 from .backends import get_array_ops
 from .types import Generator, FloatsXd
 from .config import registry
+from .schedules import constant, ScheduleCallable
 
 
 KeyT = Tuple[int, str]
-FloatOrSeq = Union[float, List[float], Generator]
-IntOrSeq = Union[int, List[int], Generator]
+ScheduleT = Union[float, List[float], Generator, ScheduleCallable]
 
 SGD_DEFAULTS: Dict[str, Union[float, bool, int]] = {
     "L2": 0.0,
@@ -32,14 +33,14 @@ ADAM_DEFAULTS: Dict[str, Union[float, bool, int]] = {
 
 @registry.optimizers("RAdam.v1")
 def RAdam(
-    learn_rate: FloatOrSeq = ADAM_DEFAULTS["learn_rate"],
+    learn_rate: ScheduleT = ADAM_DEFAULTS["learn_rate"],
     *,
-    beta1: FloatOrSeq = ADAM_DEFAULTS["beta1"],
-    beta2: FloatOrSeq = ADAM_DEFAULTS["beta2"],
-    eps: FloatOrSeq = ADAM_DEFAULTS["eps"],
-    L2: FloatOrSeq = ADAM_DEFAULTS["L2"],
+    beta1: ScheduleT = ADAM_DEFAULTS["beta1"],
+    beta2: ScheduleT = ADAM_DEFAULTS["beta2"],
+    eps: ScheduleT = ADAM_DEFAULTS["eps"],
+    L2: ScheduleT = ADAM_DEFAULTS["L2"],
     L2_is_weight_decay: bool = cast(bool, ADAM_DEFAULTS["L2_is_weight_decay"]),
-    grad_clip: FloatOrSeq = ADAM_DEFAULTS["grad_clip"],
+    grad_clip: ScheduleT = ADAM_DEFAULTS["grad_clip"],
     use_averages: bool = True,
 ):
     return Optimizer(
@@ -57,13 +58,13 @@ def RAdam(
 
 @registry.optimizers("Adam.v1")
 def Adam(
-    learn_rate: FloatOrSeq = ADAM_DEFAULTS["learn_rate"],
+    learn_rate: ScheduleT = ADAM_DEFAULTS["learn_rate"],
     *,
-    L2: FloatOrSeq = ADAM_DEFAULTS["L2"],
-    beta1: FloatOrSeq = ADAM_DEFAULTS["beta1"],
-    beta2: FloatOrSeq = ADAM_DEFAULTS["beta2"],
-    eps: FloatOrSeq = ADAM_DEFAULTS["eps"],
-    grad_clip: FloatOrSeq = ADAM_DEFAULTS["grad_clip"],
+    L2: ScheduleT = ADAM_DEFAULTS["L2"],
+    beta1: ScheduleT = ADAM_DEFAULTS["beta1"],
+    beta2: ScheduleT = ADAM_DEFAULTS["beta2"],
+    eps: ScheduleT = ADAM_DEFAULTS["eps"],
+    grad_clip: ScheduleT = ADAM_DEFAULTS["grad_clip"],
     L2_is_weight_decay: bool = cast(bool, ADAM_DEFAULTS["L2_is_weight_decay"]),
     use_averages: bool = True,
 ):
@@ -82,10 +83,10 @@ def Adam(
 
 @registry.optimizers("SGD.v1")
 def SGD(
-    learn_rate: FloatOrSeq,
+    learn_rate: ScheduleT,
     *,
-    L2: FloatOrSeq = SGD_DEFAULTS["L2"],
-    grad_clip: FloatOrSeq = SGD_DEFAULTS["grad_clip"],
+    L2: ScheduleT = SGD_DEFAULTS["L2"],
+    grad_clip: ScheduleT = SGD_DEFAULTS["grad_clip"],
     L2_is_weight_decay: bool = cast(bool, SGD_DEFAULTS["L2_is_weight_decay"]),
     use_averages: bool = True,
 ):
@@ -111,15 +112,17 @@ class Optimizer(object):
     schedules: Dict[str, Generator]
     nr_update: Dict[KeyT, int]
     last_seen: Dict[KeyT, int]
-    grad_clip: float
-    learn_rate: float
-    b1: float
-    b2: float
-    eps: float
-    L2: float
+    grad_clip: ScheduleCallable
+    learn_rate: ScheduleCallable
+    b1: ScheduleCallable
+    b2: ScheduleCallable
+    eps: ScheduleCallable
+    L2: ScheduleCallable
     use_radam: bool
     L2_is_weight_decay: bool
     _radam_buffer: List[List[Optional[FloatsXd]]]
+    step: int
+    _last_score: Optional[Tuple[int, float]]
 
     # This "locks" the class, so we get an error if you try to assign to
     # an unexpected variable.
@@ -139,17 +142,19 @@ class Optimizer(object):
         "use_radam",
         "L2_is_weight_decay",
         "_radam_buffer",
+        "step",
+        "_last_score",
     ]
 
     def __init__(
         self,
-        learn_rate: FloatOrSeq,
+        learn_rate: ScheduleT,
         *,
-        L2: FloatOrSeq = ADAM_DEFAULTS["L2"],
-        beta1: FloatOrSeq = ADAM_DEFAULTS["beta1"],
-        beta2: FloatOrSeq = ADAM_DEFAULTS["beta2"],
-        eps: FloatOrSeq = ADAM_DEFAULTS["eps"],
-        grad_clip: FloatOrSeq = ADAM_DEFAULTS["grad_clip"],
+        L2: ScheduleT = ADAM_DEFAULTS["L2"],
+        beta1: ScheduleT = ADAM_DEFAULTS["beta1"],
+        beta2: ScheduleT = ADAM_DEFAULTS["beta2"],
+        eps: ScheduleT = ADAM_DEFAULTS["eps"],
+        grad_clip: ScheduleT = ADAM_DEFAULTS["grad_clip"],
         use_averages: bool = True,
         use_radam: bool = False,
         L2_is_weight_decay: bool = True,
@@ -168,13 +173,14 @@ class Optimizer(object):
         L2_is_weight_decay (bool): Whether to interpret the L2 parameter as a
             weight decay term, in the style of the AdamW optimizer.
         """
+        self.step = 0
+        self._last_score = None
         self.mom1 = {}
         self.mom2 = {}
         if use_averages:
             self.averages = {}
         else:
             self.averages = None
-        self.schedules = {}
         self.nr_update = defaultdict(int)
         self.last_seen = defaultdict(int)
         self._set_attr_or_schedule("grad_clip", grad_clip)
@@ -189,24 +195,35 @@ class Optimizer(object):
 
     def _set_attr_or_schedule(self, name, value):
         if isinstance(value, (float, bool, int)):
+            setattr(self, name, constant(value))
+        elif isinstance(value, list):
+            value = iter(value)
+            setattr(self, name, _generator_schedule(name, value))
+        elif isinstance(value, GeneratorType):
+            setattr(self, name, _generator_schedule(name, value))
+        elif isinstance(value, ScheduleCallable):
             setattr(self, name, value)
         else:
-            if isinstance(value, list):
-                value = iter(value)
-            self.schedules[name] = value
-            try:
-                setattr(self, name, next(value))
-            except (StopIteration, TypeError) as e:
-                err = f"Invalid schedule for '{name}' ({type(value)})\n{e}"
-                raise ValueError(err)
+            err = f"Invalid schedule for '{name}' ({type(value)})"
+            raise ValueError(err)
 
     def step_schedules(self):
-        for key, schedule in self.schedules.items():
-            try:
-                value = next(schedule)
-            except StopIteration:  # schedule exhausted, use last value
-                value = getattr(self, key)
-            setattr(self, key, value)
+        self.step += 1
+
+    @property
+    def last_score(self) -> Optional[Tuple[int, float]]:
+        return self._last_score
+
+    @last_score.setter
+    def last_score(self, score: float):
+        self._last_score = (self.step, score)
+
+    def _schedule_args(self, key: KeyT) -> Dict[str, Any]:
+        return {
+            "key": key,
+            "last_score": self.last_score,
+            "step": self.step,
+        }
 
     def __call__(
         self,
@@ -221,28 +238,40 @@ class Optimizer(object):
         """
         if len(gradient) < 1:
             return weights, gradient
+
         ops = get_array_ops(weights)
         self.nr_update[key] += 1
         nr_upd = self.nr_update[key]
-        if self.L2 != 0 and not self.L2_is_weight_decay:
-            gradient += self.L2 * weights
-        if self.grad_clip:
-            gradient = ops.clip_gradient(gradient, self.grad_clip)
+        if self.L2(**self._schedule_args(key)) != 0 and not self.L2_is_weight_decay:
+            gradient += self.L2(**self._schedule_args(key)) * weights
+        if self.grad_clip(**self._schedule_args(key)):
+            gradient = ops.clip_gradient(
+                gradient,
+                self.grad_clip(**self._schedule_args(key)),
+            )
         if self.use_radam:
             weights, gradient = self._radam(
                 ops, weights, gradient, lr_scale, key, nr_upd
             )
-        elif self.b1 > 0.0 and self.b2 > 0.0:
+        elif (
+            self.b1(**self._schedule_args(key)) > 0.0
+            and self.b2(**self._schedule_args(key)) > 0.0
+        ):
             weights, gradient = self._adam(
                 ops, weights, gradient, lr_scale, key, nr_upd
             )
-        elif self.b2 > 0.0:  # pragma: no cover
+        elif self.b2(**self._schedule_args(key)) > 0.0:  # pragma: no cover
             raise NotImplementedError  # TODO: error message
         else:
-            weights -= lr_scale * self.learn_rate * gradient
+            weights -= lr_scale * self.learn_rate(**self._schedule_args(key)) * gradient
         gradient *= 0
-        if self.L2 != 0 and self.L2_is_weight_decay:
-            weights -= lr_scale * self.learn_rate * self.L2 * weights
+        if self.L2(**self._schedule_args(key)) != 0 and self.L2_is_weight_decay:
+            weights -= (
+                lr_scale
+                * self.learn_rate(**self._schedule_args(key))
+                * self.L2(**self._schedule_args(key))
+                * weights
+            )
         if self.averages is not None:
             if key not in self.averages:
                 self.averages[key] = ops.alloc(weights.shape, dtype="float32")
@@ -266,9 +295,12 @@ class Optimizer(object):
             "exp_avg_sq": self.mom2[key],
         }
         group = {
-            "lr": self.learn_rate,
-            "betas": [self.b1, self.b2],
-            "eps": self.eps,
+            "lr": self.learn_rate(**self._schedule_args(key)),
+            "betas": [
+                self.b1(**self._schedule_args(key)),
+                self.b2(**self._schedule_args(key)),
+            ],
+            "eps": self.eps(**self._schedule_args(key)),
             "weight_decay": 0.0,
             "buffer": self._radam_buffer,
         }
@@ -336,12 +368,12 @@ class Optimizer(object):
             self.mom2[key] = ops.alloc1f(weights.size)
         mom1 = self.mom1[key]
         mom2 = self.mom2[key]
-        b1 = self.b1
-        b2 = self.b2
+        b1 = self.b1(**self._schedule_args(key))
+        b2 = self.b2(**self._schedule_args(key))
         fix1 = 1.0 - (b1**nr_upd)
         fix2 = 1.0 - (b2**nr_upd)
-        lr = self.learn_rate * fix2**0.5 / fix1
-        eps = self.eps
+        lr = self.learn_rate(**self._schedule_args(key)) * fix2**0.5 / fix1
+        eps = self.eps(**self._schedule_args(key))
         # needs to be 1D going into the adam function
         weights_1D, gradient_1D, mom1, mom2 = ops.adam(
             weights_1D, gradient_1D, mom1, mom2, b1, b2, eps, lr * lr_scale
@@ -352,6 +384,36 @@ class Optimizer(object):
             ops.reshape_f(weights_1D, weights.shape),
             ops.reshape_f(gradient_1D, gradient.shape),
         )
+
+
+def _generator_schedule(attr_name: str, schedule: Generator) -> ScheduleCallable:
+    last_step = 0
+    try:
+        value = next(schedule)
+    except (StopIteration, TypeError) as e:  # schedule exhausted, use last value
+        err = f"Invalid schedule for '{attr_name}' ({type(schedule)})\n{e}"
+        raise ValueError(err)
+
+    def callback(*, step: int, **kwargs) -> float:
+        nonlocal last_step
+        nonlocal value
+
+        if step < last_step:
+            raise ValueError(
+                f"'step' of the generator-based schedule for {attr_name} must not decrease"
+            )
+
+        for i in range(step - last_step):
+            try:
+                value = next(schedule)
+            except StopIteration:
+                break
+
+        last_step = step
+
+        return value
+
+    return callback
 
 
 __all__ = ["Adam", "RAdam", "SGD", "Optimizer", "ADAM_DEFAULTS", "SGD_DEFAULTS"]

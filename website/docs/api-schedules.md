@@ -5,7 +5,7 @@ next: /docs/api-loss
 
 Schedules are generators that provide different rates, schedules, decays or
 series. They're typically used for batch sizes or learning rates. You can easily
-implement your own schedules as well: just write your own generator function,
+implement your own schedules as well: just write your own callback function,
 that produces whatever series of values you need. A common use case for
 schedules is within [`Optimizer`](/docs/api-optimizer) objects, which accept
 iterators for most of their parameters. See the
@@ -24,7 +24,7 @@ Yield a constant rate.
 from thinc.api import constant
 
 batch_sizes = constant(0.001)
-batch_size = next(batch_sizes)
+batch_size = batch_sizes(step=0)
 ```
 
 ```ini
@@ -58,7 +58,7 @@ learn_rates = constant_then(
     1000,
     decaying(0.005, 1e-4)
 )
-learn_rate = next(learn_rates)
+learn_rate = learn_rates(step=0)
 ```
 
 ```ini
@@ -97,8 +97,8 @@ Yield an infinite series of linearly decaying values, following the schedule
 from thinc.api import decaying
 
 learn_rates = decaying(0.005, 1e-4)
-learn_rate = next(learn_rates)  # 0.001
-learn_rate = next(learn_rates)  # 0.00999
+learn_rate = learn_rates(step=0)  # 0.001
+learn_rate = learn_rates(step=1)  # 0.00999
 ```
 
 ```ini
@@ -135,8 +135,8 @@ rate.
 from thinc.api import compounding
 
 batch_sizes = compounding(1.0, 32.0, 1.001)
-batch_size = next(batch_sizes)  # 1.0
-batch_size = next(batch_sizes)  # 1.0 * 1.001
+batch_size = batch_sizes(step=0)  # 1.0
+batch_size = batch_sizes(step=1)  # 1.0 * 1.001
 ```
 
 ```ini
@@ -174,7 +174,7 @@ and then a linear decline. Used for learning rates.
 from thinc.api import warmup_linear
 
 learn_rates = warmup_linear(0.01, 3000, 6000)
-learn_rate = next(learn_rates)
+learn_rate = learn_rates(step=0)
 ```
 
 ```ini
@@ -210,7 +210,7 @@ triangular learning rate" schedule.
 from thinc.api import slanted_triangular
 
 learn_rates = slanted_triangular(0.1, 5000)
-learn_rate = next(learn_rates)
+learn_rate = learn_rates(step=0)
 ```
 
 ```ini
@@ -251,7 +251,7 @@ Linearly increasing then linearly decreasing the rate at each cycle.
 from thinc.api import cyclic_triangular
 
 learn_rates = cyclic_triangular(0.005, 0.001, 1000)
-learn_rate = next(learn_rates)
+learn_rate = learn_rates(step=0)
 ```
 
 ```ini

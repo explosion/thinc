@@ -1,30 +1,50 @@
 """Generators that provide different rates, schedules, decays or series."""
-from typing import Iterable
+from typing import Dict, Iterable, Optional, Tuple
+from typing_extensions import Protocol, runtime_checkable
 import numpy
 
 from .config import registry
 
 
+@runtime_checkable
+class ScheduleCallable(Protocol):
+    def __call__(
+        self,
+        *,
+        key: Tuple[int, str],
+        step: int,
+        step_score: Optional[Tuple[int, float]],
+    ) -> float:
+        ...
+
+
 @registry.schedules("constant_then.v1")
 def constant_then(
-    rate: float, steps: int, schedule: Iterable[float]
-) -> Iterable[float]:
+    rate: float, steps: int, schedule: ScheduleCallable
+) -> ScheduleCallable:
     """Yield a constant rate for N steps, before starting a schedule."""
-    for i in range(steps):
-        yield rate
-    for value in schedule:
-        yield value
+
+    def callback(*, step: int, **kwargs) -> float:
+        if step < steps:
+            return rate
+        else:
+            return schedule(step=step, **kwargs)
+
+    return callback
 
 
 @registry.schedules("constant.v1")
-def constant(rate: float) -> Iterable[float]:
+def constant(rate: float) -> ScheduleCallable:
     """Yield a constant rate."""
-    while True:
-        yield rate
+
+    def callback(*args, **kwags) -> float:
+        return rate
+
+    return callback
 
 
 @registry.schedules("decaying.v1")
-def decaying(base_rate: float, decay: float, *, t: int = 0) -> Iterable[float]:
+def decaying(base_rate: float, decay: float, *, t: int = 0) -> ScheduleCallable:
     """Yield an infinite series of linearly decaying values,
     following the schedule: base_rate * 1 / (1 + decay * t)
 
@@ -35,15 +55,17 @@ def decaying(base_rate: float, decay: float, *, t: int = 0) -> Iterable[float]:
         >>> next(learn_rates)
         0.00999
     """
-    while True:
-        yield base_rate * (1.0 / (1.0 + decay * t))
-        t += 1
+
+    def callback(*, step: int, **kwargs) -> float:
+        return base_rate * (1.0 / (1.0 + decay * step))
+
+    return callback
 
 
 @registry.schedules("compounding.v1")
 def compounding(
     start: float, stop: float, compound: float, *, t: float = 0.0
-) -> Iterable[float]:
+) -> ScheduleCallable:
     """Yield an infinite series of compounding values. Each time the
     generator is called, a value is produced by multiplying the previous
     value by the compound rate.
@@ -54,10 +76,11 @@ def compounding(
         >>> assert next(sizes) == 1 * 1.5
         >>> assert next(sizes) == 1.5 * 1.5
     """
-    curr = float(start)
-    while True:
-        yield _clip(curr, start, stop)
-        curr *= compound
+
+    def callback(*, step: int, **kwargs) -> float:
+        return _clip(start * (compound**step), start, stop)
+
+    return callback
 
 
 def _clip(value: float, start: float, stop: float) -> float:
@@ -73,50 +96,54 @@ def slanted_triangular(
     ratio: int = 32,
     decay: float = 1.0,
     t: float = 0.0,
-) -> Iterable[float]:
+) -> ScheduleCallable:
     """Yield an infinite series of values according to Howard and Ruder's
     "slanted triangular learning rate" schedule.
     """
     cut = int(num_steps * cut_frac)
-    while True:
-        t += 1
+
+    def callback(*, step: int, **kwargs) -> float:
+        t = step + 1
         if t < cut:
             p = t / cut
         else:
             p = 1 - ((t - cut) / (cut * (1 / cut_frac - 1)))
-        learn_rate = max_rate * (1 + p * (ratio - 1)) * (1 / ratio)
-        yield learn_rate
+        return max_rate * (1 + p * (ratio - 1)) * (1 / ratio)
+
+    return callback
 
 
 @registry.schedules("warmup_linear.v1")
 def warmup_linear(
     initial_rate: float, warmup_steps: int, total_steps: int
-) -> Iterable[float]:
+) -> ScheduleCallable:
     """Generate a series, starting from an initial rate, and then with a warmup
     period, and then a linear decline. Used for learning rates.
     """
-    step = 0
-    while True:
+
+    def callback(*, step: int, **kwargs) -> float:
         if step < warmup_steps:
             factor = step / max(1, warmup_steps)
         else:
             factor = max(
                 0.0, (total_steps - step) / max(1.0, total_steps - warmup_steps)
             )
-        yield factor * initial_rate
-        step += 1
+        return factor * initial_rate
+
+    return callback
 
 
 @registry.schedules("cyclic_triangular.v1")
-def cyclic_triangular(min_lr: float, max_lr: float, period: int) -> Iterable[float]:
-    it = 1
-    while True:
+def cyclic_triangular(min_lr: float, max_lr: float, period: int) -> ScheduleCallable:
+    def callback(*, step: int, **kwargs) -> float:
+        it = step + 1
         # https://towardsdatascience.com/adaptive-and-cyclical-learning-rates-using-pytorch-2bf904d18dee
         cycle = numpy.floor(1 + it / (2 * period))
         x = numpy.abs(it / period - 2 * cycle + 1)
         relative = max(0, 1 - x)
-        yield min_lr + (max_lr - min_lr) * relative
-        it += 1
+        return min_lr + (max_lr - min_lr) * relative
+
+    return callback
 
 
 __all__ = [

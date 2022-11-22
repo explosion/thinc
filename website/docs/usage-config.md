@@ -201,10 +201,11 @@ from typing import Iterable
 import thinc
 
 @thinc.registry.schedules("my_cool_decaying_schedule.v1")
-def decaying(base_rate: float, decay: float, *, t: int = 0) -> Iterable[float]:
-    while True:
-        yield base_rate * (1.0 / (1.0 + decay * t))
-        t += 1
+def decaying(base_rate: float, decay: float, *, t: int = 0) -> SchedulerCallable:
+    def callback(*, step: int, **kwargs) -> float:
+        return base_rate * (1.0 / (1.0 + decay * step))
+
+    return callback
 ```
 
 In your config, you can now define the `learn_rate` as a subsection of
@@ -229,15 +230,6 @@ value will then be passed to the optimizer function as the `learn_rate`
 argument. If type annotations are available for the return value and it's a type
 that can be evaluated, the return value of the function will be validated as
 well.
-
-<infobox variant="warning">
-
-**A note on validating generators:** If a value is a generator, it won't be
-validated further, since this would mean having to execute and consume it.
-Generators can potentially be infinite – like the decaying schedule in this
-example – so checking its return value isn't viable.
-
-</infobox>
 
 ```python
 ### Under the hood
@@ -291,10 +283,11 @@ values:
 ```python
 ### {small="true"}
 @thinc.registry.schedules("my_cool_schedule.v1")
-def schedule(*steps: float, final: float = 1.0) -> Iterable[float]:
-    yield from steps
-    while True:
-        yield final
+def schedule(*steps: float, final: float = 1.0) -> ScheduleCallable:
+    step_list = list(steps)
+    def callback(*, step: int, **kwargs) -> float:
+        return step_list[step] if step < len(step_list) else final
+    return callback
 ```
 
 ```ini

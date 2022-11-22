@@ -120,10 +120,9 @@ also simply consume the entire generator, by calling `list()` on it.
 
 Finally, `minibatch` and `multibatch` support **variable length batching**,
 based on a schedule you can provide as the `batch_size` argument. Simply pass in
-an iterable (such as a generator from the
-[built-in schedules](/docs/api-schedules)) instead of an integer. Variable
-length batching is non-standard, but we regularly use it for some of
-[spaCy](https://spacy.io)'s models, especially the parser and entity recognizer.
+an iterable. Variable length batching is non-standard, but we regularly use it
+for some of [spaCy](https://spacy.io)'s models, especially the parser and entity
+recognizer.
 
 ```python
 from thinc.api import compounding
@@ -225,18 +224,18 @@ normalize = true
 A common trick for stochastic gradient descent is to **vary the learning rate or
 other hyperparameters** over the course of training. Since there are many
 possible ways to vary the learning rate, Thinc lets you implement hyperparameter
-schedules as simple generator functions. Thinc also provides a number of
+schedules as simple callback functions. Thinc also provides a number of
 [popular schedules](/docs/api-schedules) built-in.
 
-You can use schedules directly, by calling `next()` on the schedule and using it
-to update hyperparameters in your training loop. Since schedules are
-particularly common for optimization settings, the
-[`Optimizer`](/docs/api-optimizer) object accepts floats, lists and iterators
-for most of its parameters. When you call
+You can use schedules directly, by calling the schedule with the `step` keyword
+argument and using it to update hyperparameters in your training loop. Since
+schedules are particularly common for optimization settings, the
+[`Optimizer`](/docs/api-optimizer) object accepts floats, lists, iterators, and
+schedule callbacks for most of its parameters. When you call
 [`Optimizer.step_schedules`](/docs/api-optimizer#step_schedules), the optimizer
-will draw the next value from the generators and use them to change the given
-attributes. For instance, here's how to create an instance of the `Adam`
-optimizer with a custom learning rate schedule:
+will increase its step count and pass this step count to the schedules. For
+instance, here's how to create an instance of the `Adam` optimizer with a custom
+learning rate schedule:
 
 ```python
 ### Custom learning rate schedule
@@ -244,18 +243,17 @@ from thinc.api import Adam
 
 def my_schedule():
     values = [0.001, 0.01, 0.1]
-    while True:
-        for value in values:
-            yield value
-        for value in reversed(values):
-            yield value
+    all_values = values + list(reversed(values))
+    def callback(*, step: int, **kwargs) -> float:
+        return all_values[step % len(all_values)]
+    return callback
 
 optimizer = Adam(learn_rate=my_schedule())
-assert optimizer.learn_rate == 0.001
+assert optimizer.learn_rate(optimizer.step) == 0.001
 optimizer.step_schedules()
-assert optimizer.learn_rate == 0.01
+assert optimizer.learn_rate(optimizer.step) == 0.01
 optimizer.step_schedules()
-assert optimizer.learn_rate == 0.1
+assert optimizer.learn_rate(optimizer.step) == 0.1
 ```
 
 ![](images/schedules_custom1.svg)
@@ -273,11 +271,10 @@ of the optimizer. Check out the
 ### Registered function {small="true"}
 @thinc.registry.schedules("my_schedule.v1")
 def my_schedule(values):
-    while True:
-        for value in values:
-            yield value
-        for value in reversed(values):
-            yield value
+    all_values = values + list(reversed(values))
+    def callback(*, step: int, **kwargs) -> float:
+        return all_values[step % len(all_values)]
+    return callback
 ```
 
 ```ini
