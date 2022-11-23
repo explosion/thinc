@@ -1,7 +1,7 @@
 from typing import Any, Callable, Optional
-from thinc.model import Model
 
 from ..compat import torch
+from ..model import Model
 from ..shims import PyTorchGradScaler, PyTorchShim, TorchScriptShim
 from .pytorchwrapper import forward, convert_pytorch_default_inputs
 from .pytorchwrapper import convert_pytorch_default_outputs
@@ -17,9 +17,15 @@ def TorchScriptWrapper_v1(
 ) -> Model[Any, Any]:
     """Wrap a TorchScript model, so that it has the same API as Thinc models.
 
-    model:
+    torchscript_model:
         The TorchScript module. A value of `None` is also possible to
         construct a shim to deserialize into.
+    convert_inputs:
+        Function that converts inputs and gradients that should be passed
+        to the model to Torch tensors.
+    convert_outputs:
+        Function that converts model outputs and gradients from Torch tensors
+        Thinc arrays.
     mixed_precision:
         Enable mixed-precision. This changes whitelisted ops to run
         in half precision for better performance and lower memory use.
@@ -58,12 +64,6 @@ def pytorch_to_torchscript_wrapper(model: Model):
     """Convert a PyTorch wrapper to a TorchScript wrapper. The embedded PyTorch
     `Module` is converted to `ScriptModule`.
     """
-
-    if model.name != "pytorch":
-        raise ValueError(
-            "Only PyTorch wrappers can be converted to TorchScript wrappers"
-        )
-
     shim = model.shims[0]
     if not isinstance(shim, PyTorchShim):
         raise ValueError("Expected PyTorchShim when converting a PyTorch wrapper")

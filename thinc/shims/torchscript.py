@@ -36,7 +36,7 @@ class TorchScriptShim(PyTorchShim):
         grad_scaler: Optional[PyTorchGradScaler] = None,
         device: Optional["torch.device"] = None,
     ):
-        if not isinstance(model, torch.jit.ScriptModule) and model is not None:
+        if model is not None and not isinstance(model, torch.jit.ScriptModule):
             raise ValueError(
                 "PyTorchScriptShim must be initialized with ScriptModule or None (for deserialization)"
             )

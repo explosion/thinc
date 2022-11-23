@@ -8,11 +8,13 @@ from .mxnet import MXNetShim
 
 # fmt: off
 __all__ = [
-    "Shim",
+    "MXNetShim",
     "PyTorchShim",
     "PyTorchGradScaler",
-    "keras_model_fns", "TensorFlowShim", "maybe_handshake_model",
-    "MXNetShim",
+    "Shim",
+    "TensorFlowShim",
     "TorchScriptShim",
+    "maybe_handshake_model",
+    "keras_model_fns",
 ]
 # fmt: on

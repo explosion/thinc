@@ -1746,6 +1746,9 @@ script_model = pytorch_to_torchscript_wrapper(model)
 | `torchscript_model` | <tt>Optional[torch.jit.ScriptModule]</tt> | The TorchScript model.                                                                   |
 | `convert_inputs`    | <tt>Callable</tt>                         | Function to convert inputs to PyTorch tensors (same signature as `forward` function).    |
 | `convert_outputs`   | <tt>Callable</tt>                         | Function to convert outputs from PyTorch tensors (same signature as `forward` function). |
+| `mixed_precision`   | <tt>bool</tt>                             | Enable mixed-precision training.                                                         |
+| `grad_scaler`       | <tt>Optional[PyTorchGradScaler]</tt>      | Gradient scaler to use during mixed-precision training.                                  |
+| `device`            | <tt>Optional[torch.Device]</tt>         | The Torch device to execute the model on.                                                |
 | **RETURNS**         | <tt>Model[Any, Any]</tt>                  | The Thinc model.                                                                         |
 
 ```python
