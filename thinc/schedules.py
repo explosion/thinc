@@ -44,7 +44,7 @@ def constant(rate: float) -> ScheduleCallable:
 
 
 @registry.schedules("decaying.v1")
-def decaying(base_rate: float, decay: float, *, t: float = 0) -> ScheduleCallable:
+def decaying(base_rate: float, decay: float, *, t: float = 0.0) -> ScheduleCallable:
     """Yield an infinite series of linearly decaying values,
     following the schedule: base_rate * 1 / (1 + decay * (t + step))
 
