@@ -15,6 +15,10 @@ def test_decaying_rate():
     assert next_rate > 0
     assert next_rate > rates(step=2, key=STUB_KEY)
 
+    rates_offset = decaying(0.001, 1e-4, t=1.0)
+    assert rates(step=1, key=STUB_KEY) == rates_offset(step=0, key=STUB_KEY)
+    assert rates(step=2, key=STUB_KEY) == rates_offset(step=1, key=STUB_KEY)
+
 
 def test_compounding_rate():
     rates = compounding(1, 16, 1.01)
@@ -25,6 +29,10 @@ def test_compounding_rate():
     rate3 = rates(step=3, key=STUB_KEY)
     assert rate3 > rate2 > rate1 > rate0
     assert (rate3 - rate2) > (rate2 - rate1) > (rate1 - rate0)
+
+    rates_offset = compounding(1, 16, 1.01, t=1.0)
+    assert rates(step=1, key=STUB_KEY) == rates_offset(step=0, key=STUB_KEY)
+    assert rates(step=2, key=STUB_KEY) == rates_offset(step=1, key=STUB_KEY)
 
 
 def test_slanted_triangular_rate():
@@ -37,6 +45,10 @@ def test_slanted_triangular_rate():
     assert rate2 < rate1
     rate3 = rates(step=3, key=STUB_KEY)
     assert rate0 < rate3 < rate2
+
+    rates_offset = slanted_triangular(1.0, 20.0, ratio=10, t=1.0)
+    assert rates(step=1, key=STUB_KEY) == rates_offset(step=0, key=STUB_KEY)
+    assert rates(step=2, key=STUB_KEY) == rates_offset(step=1, key=STUB_KEY)
 
 
 def test_constant_then_schedule():

@@ -44,9 +44,9 @@ def constant(rate: float) -> ScheduleCallable:
 
 
 @registry.schedules("decaying.v1")
-def decaying(base_rate: float, decay: float, *, t: int = 0) -> ScheduleCallable:
+def decaying(base_rate: float, decay: float, *, t: float = 0) -> ScheduleCallable:
     """Yield an infinite series of linearly decaying values,
-    following the schedule: base_rate * 1 / (1 + decay * t)
+    following the schedule: base_rate * 1 / (1 + decay * (t + step))
 
     EXAMPLE:
         >>> learn_rates = decaying(0.001, 1e-4)
@@ -57,7 +57,7 @@ def decaying(base_rate: float, decay: float, *, t: int = 0) -> ScheduleCallable:
     """
 
     def callback(*, step: int, **kwargs) -> float:
-        return base_rate * (1.0 / (1.0 + decay * step))
+        return base_rate * (1.0 / (1.0 + decay * (step + t)))
 
     return callback
 
@@ -78,7 +78,7 @@ def compounding(
     """
 
     def callback(*, step: int, **kwargs) -> float:
-        return _clip(start * (compound**step), start, stop)
+        return _clip(start * (compound ** (step + t)), start, stop)
 
     return callback
 
@@ -94,7 +94,6 @@ def slanted_triangular(
     *,
     cut_frac: float = 0.1,
     ratio: int = 32,
-    decay: float = 1.0,
     t: float = 0.0,
 ) -> ScheduleCallable:
     """Yield an infinite series of values according to Howard and Ruder's
@@ -103,11 +102,11 @@ def slanted_triangular(
     cut = int(num_steps * cut_frac)
 
     def callback(*, step: int, **kwargs) -> float:
-        t = step + 1
-        if t < cut:
-            p = t / cut
+        t_step = step + t + 1.0
+        if t_step < cut:
+            p = t_step / cut
         else:
-            p = 1 - ((t - cut) / (cut * (1 / cut_frac - 1)))
+            p = 1 - ((t_step - cut) / (cut * (1 / cut_frac - 1)))
         return max_rate * (1 + p * (ratio - 1)) * (1 / ratio)
 
     return callback
