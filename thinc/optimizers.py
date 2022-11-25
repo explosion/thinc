@@ -242,34 +242,33 @@ class Optimizer(object):
         ops = get_array_ops(weights)
         self.nr_update[key] += 1
         nr_upd = self.nr_update[key]
-        if self.L2(**self._schedule_args(key)) != 0 and not self.L2_is_weight_decay:
-            gradient += self.L2(**self._schedule_args(key)) * weights
-        if self.grad_clip(**self._schedule_args(key)):
+        schedule_args = self._schedule_args(key)
+
+        if self.L2(**schedule_args) != 0 and not self.L2_is_weight_decay:
+            gradient += self.L2(**schedule_args) * weights
+        if self.grad_clip(**schedule_args):
             gradient = ops.clip_gradient(
                 gradient,
-                self.grad_clip(**self._schedule_args(key)),
+                self.grad_clip(schedule_args),
             )
         if self.use_radam:
             weights, gradient = self._radam(
                 ops, weights, gradient, lr_scale, key, nr_upd
             )
-        elif (
-            self.b1(**self._schedule_args(key)) > 0.0
-            and self.b2(**self._schedule_args(key)) > 0.0
-        ):
+        elif self.b1(**schedule_args) > 0.0 and self.b2(**schedule_args) > 0.0:
             weights, gradient = self._adam(
                 ops, weights, gradient, lr_scale, key, nr_upd
             )
-        elif self.b2(**self._schedule_args(key)) > 0.0:  # pragma: no cover
+        elif self.b2(**schedule_args) > 0.0:  # pragma: no cover
             raise NotImplementedError  # TODO: error message
         else:
-            weights -= lr_scale * self.learn_rate(**self._schedule_args(key)) * gradient
+            weights -= lr_scale * self.learn_rate(**schedule_args) * gradient
         gradient *= 0
-        if self.L2(**self._schedule_args(key)) != 0 and self.L2_is_weight_decay:
+        if self.L2(**schedule_args) != 0 and self.L2_is_weight_decay:
             weights -= (
                 lr_scale
-                * self.learn_rate(**self._schedule_args(key))
-                * self.L2(**self._schedule_args(key))
+                * self.learn_rate(**schedule_args)
+                * self.L2(**schedule_args)
                 * weights
             )
         if self.averages is not None:
@@ -287,6 +286,8 @@ class Optimizer(object):
         weights_1D = ops.reshape1f(weights, weights.size)
         gradient_1D = ops.reshape1f(grad, grad.size)
 
+        schedule_args = self._schedule_args(key)
+
         # While we port from the pytorch implementation, keep some of the same
         # naming
         state = {
@@ -295,12 +296,12 @@ class Optimizer(object):
             "exp_avg_sq": self.mom2[key],
         }
         group = {
-            "lr": self.learn_rate(**self._schedule_args(key)),
+            "lr": self.learn_rate(**schedule_args),
             "betas": [
-                self.b1(**self._schedule_args(key)),
-                self.b2(**self._schedule_args(key)),
+                self.b1(**schedule_args),
+                self.b2(**schedule_args),
             ],
-            "eps": self.eps(**self._schedule_args(key)),
+            "eps": self.eps(**schedule_args),
             "weight_decay": 0.0,
             "buffer": self._radam_buffer,
         }
@@ -362,18 +363,21 @@ class Optimizer(object):
     def _adam(self, ops, weights, gradient, lr_scale, key, nr_upd):
         weights_1D = ops.reshape1f(weights, weights.size)
         gradient_1D = ops.reshape1f(gradient, gradient.size)
+
+        schedule_args = self._schedule_args(key)
+
         if key not in self.mom1:
             self.mom1[key] = ops.alloc1f(weights.size)
         if key not in self.mom2:
             self.mom2[key] = ops.alloc1f(weights.size)
         mom1 = self.mom1[key]
         mom2 = self.mom2[key]
-        b1 = self.b1(**self._schedule_args(key))
-        b2 = self.b2(**self._schedule_args(key))
+        b1 = self.b1(**schedule_args)
+        b2 = self.b2(**schedule_args)
         fix1 = 1.0 - (b1**nr_upd)
         fix2 = 1.0 - (b2**nr_upd)
-        lr = self.learn_rate(**self._schedule_args(key)) * fix2**0.5 / fix1
-        eps = self.eps(**self._schedule_args(key))
+        lr = self.learn_rate(**schedule_args) * fix2**0.5 / fix1
+        eps = self.eps(**schedule_args)
         # needs to be 1D going into the adam function
         weights_1D, gradient_1D, mom1, mom2 = ops.adam(
             weights_1D, gradient_1D, mom1, mom2, b1, b2, eps, lr * lr_scale
