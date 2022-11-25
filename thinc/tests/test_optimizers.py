@@ -54,32 +54,32 @@ def test_optimizers_from_config(name):
     learn_rate = 0.123
     cfg = {"@optimizers": name, "learn_rate": learn_rate}
     optimizer = registry.resolve({"config": cfg})["config"]
-    assert optimizer.learn_rate(step=optimizer.step, key=STUB_KEY) == learn_rate
+    assert optimizer.learn_rate(step=optimizer._step, key=STUB_KEY) == learn_rate
 
 
 def test_optimizer_schedules_from_config(schedule_valid):
     lr, lr_next1, lr_next2, lr_next3 = schedule_valid
     cfg = {"@optimizers": "Adam.v1", "learn_rate": lr}
     optimizer = registry.resolve({"cfg": cfg})["cfg"]
-    assert optimizer.learn_rate(step=optimizer.step, key=STUB_KEY) == lr_next1
+    assert optimizer.learn_rate(step=optimizer._step, key=STUB_KEY) == lr_next1
     optimizer.step_schedules()
-    assert optimizer.learn_rate(step=optimizer.step, key=STUB_KEY) == lr_next2
+    assert optimizer.learn_rate(step=optimizer._step, key=STUB_KEY) == lr_next2
     optimizer.step_schedules()
-    assert optimizer.learn_rate(step=optimizer.step, key=STUB_KEY) == lr_next3
+    assert optimizer.learn_rate(step=optimizer._step, key=STUB_KEY) == lr_next3
     optimizer.learn_rate = lambda *, step, key: 1.0
-    assert optimizer.learn_rate(step=optimizer.step, key=STUB_KEY) == 1.0
+    assert optimizer.learn_rate(step=optimizer._step, key=STUB_KEY) == 1.0
 
 
 def test_optimizer_schedules_valid(schedule_valid):
     lr, lr_next1, lr_next2, lr_next3 = schedule_valid
     optimizer = Optimizer(learn_rate=lr)
-    assert optimizer.learn_rate(step=optimizer.step, key=STUB_KEY) == lr_next1
+    assert optimizer.learn_rate(step=optimizer._step, key=STUB_KEY) == lr_next1
     optimizer.step_schedules()
-    assert optimizer.learn_rate(step=optimizer.step, key=STUB_KEY) == lr_next2
+    assert optimizer.learn_rate(step=optimizer._step, key=STUB_KEY) == lr_next2
     optimizer.step_schedules()
-    assert optimizer.learn_rate(step=optimizer.step, key=STUB_KEY) == lr_next3
+    assert optimizer.learn_rate(step=optimizer._step, key=STUB_KEY) == lr_next3
     optimizer.learn_rate = lambda *, step, key: 1.0
-    assert optimizer.learn_rate(step=optimizer.step, key=STUB_KEY) == 1.0
+    assert optimizer.learn_rate(step=optimizer._step, key=STUB_KEY) == 1.0
 
 
 def test_optimizer_schedules_invalid(schedule_invalid):

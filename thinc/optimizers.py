@@ -121,7 +121,7 @@ class Optimizer(object):
     use_radam: bool
     L2_is_weight_decay: bool
     _radam_buffer: List[List[Optional[FloatsXd]]]
-    step: int
+    _step: int
     _last_score: Optional[Tuple[int, float]]
 
     # This "locks" the class, so we get an error if you try to assign to
@@ -142,7 +142,7 @@ class Optimizer(object):
         "use_radam",
         "L2_is_weight_decay",
         "_radam_buffer",
-        "step",
+        "_step",
         "_last_score",
     ]
 
@@ -173,7 +173,7 @@ class Optimizer(object):
         L2_is_weight_decay (bool): Whether to interpret the L2 parameter as a
             weight decay term, in the style of the AdamW optimizer.
         """
-        self.step = 0
+        self._step = 0
         self._last_score = None
         self.mom1 = {}
         self.mom2 = {}
@@ -208,7 +208,7 @@ class Optimizer(object):
             raise ValueError(err)
 
     def step_schedules(self):
-        self.step += 1
+        self._step += 1
 
     @property
     def last_score(self) -> Optional[Tuple[int, float]]:
@@ -216,13 +216,13 @@ class Optimizer(object):
 
     @last_score.setter
     def last_score(self, score: float):
-        self._last_score = (self.step, score)
+        self._last_score = (self._step, score)
 
     def _schedule_args(self, key: KeyT) -> Dict[str, Any]:
         return {
             "key": key,
             "last_score": self.last_score,
-            "step": self.step,
+            "step": self._step,
         }
 
     def __call__(
