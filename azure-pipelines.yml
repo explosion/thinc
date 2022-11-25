@@ -99,13 +99,13 @@ jobs:
   - script: |
       pip install "protobuf~=3.20.0" "tensorflow~=2.5.0"
       pip install "mxnet; sys_platform != 'win32'"
-      pip install "torch<1.13.0" --extra-index-url https://download.pytorch.org/whl/cpu
+      pip install "torch" --extra-index-url https://download.pytorch.org/whl/cpu
       # torch does not have a direct numpy requirement but is compiled against
       # a newer version than the oldest supported numpy for windows and
       # python 3.10; this version of numpy would not work with
       # tensorflow~=2.5.0 as specified above, but there is no release for
       # python 3.10 anyway
-      pip install "numpy~=1.23.0; python_version=='3.10' and sys_platform=='win32'"
+      pip install --pre "numpy>=1.23.0; python_version=='3.10' and sys_platform=='win32'"
       pip install -r requirements.txt
       pip uninstall -y mypy
     displayName: 'Install extras for testing'
