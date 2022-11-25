@@ -390,7 +390,7 @@ def _generator_schedule(attr_name: str, schedule: Generator) -> ScheduleCallable
     last_step = 0
     try:
         value = next(schedule)
-    except (StopIteration, TypeError) as e:  # schedule exhausted, use last value
+    except (StopIteration, TypeError) as e:
         err = f"Invalid schedule for '{attr_name}' ({type(schedule)})\n{e}"
         raise ValueError(err)
 
@@ -406,7 +406,7 @@ def _generator_schedule(attr_name: str, schedule: Generator) -> ScheduleCallable
         for i in range(step - last_step):
             try:
                 value = next(schedule)
-            except StopIteration:
+            except StopIteration:  # schedule exhausted, use last value
                 break
 
         last_step = step

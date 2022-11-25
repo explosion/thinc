@@ -233,9 +233,9 @@ schedules are particularly common for optimization settings, the
 [`Optimizer`](/docs/api-optimizer) object accepts floats, lists, iterators, and
 schedule callbacks for most of its parameters. When you call
 [`Optimizer.step_schedules`](/docs/api-optimizer#step_schedules), the optimizer
-will increase its step count and pass this step count to the schedules. For
-instance, here's how to create an instance of the `Adam` optimizer with a custom
-learning rate schedule:
+will increase its step count and pass it to the schedules. For instance, this is
+how one creates an instance of the `Adam` optimizer with a custom learning rate
+schedule:
 
 ```python
 ### Custom learning rate schedule

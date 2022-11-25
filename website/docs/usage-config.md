@@ -203,7 +203,7 @@ import thinc
 @thinc.registry.schedules("my_cool_decaying_schedule.v1")
 def decaying(base_rate: float, decay: float, *, t: int = 0) -> SchedulerCallable:
     def callback(*, step: int, **kwargs) -> float:
-        return base_rate * (1.0 / (1.0 + decay * step))
+        return base_rate * (1.0 / (1.0 + decay * (step + t)))
 
     return callback
 ```
