@@ -249,7 +249,7 @@ class Optimizer(object):
         if self.grad_clip(**schedule_args):
             gradient = ops.clip_gradient(
                 gradient,
-                self.grad_clip(schedule_args),
+                self.grad_clip(**schedule_args),
             )
         if self.use_radam:
             weights, gradient = self._radam(
