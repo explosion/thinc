@@ -11,7 +11,7 @@ from ..types import Floats3d, ArgsKwargs, Padded
 
 @registry.layers("PyTorchRNNWrapper.v1")
 def PyTorchRNNWrapper(
-    pytorch_model,
+    pytorch_model: Any,
     convert_inputs: Optional[Callable] = None,
     convert_outputs: Optional[Callable] = None,
 ) -> Model[Padded, Padded]:
@@ -32,7 +32,7 @@ def PyTorchRNNWrapper(
 
 @registry.layers("PyTorchWrapper.v1")
 def PyTorchWrapper(
-    pytorch_model,
+    pytorch_model: Any,
     convert_inputs: Optional[Callable] = None,
     convert_outputs: Optional[Callable] = None,
 ) -> Model[Any, Any]:
@@ -72,7 +72,7 @@ def PyTorchWrapper(
 
 @registry.layers("PyTorchWrapper.v2")
 def PyTorchWrapper_v2(
-    pytorch_model,
+    pytorch_model: Any,
     convert_inputs: Optional[Callable] = None,
     convert_outputs: Optional[Callable] = None,
     mixed_precision: bool = False,
@@ -134,7 +134,7 @@ def PyTorchWrapper_v2(
 
 @registry.layers("PyTorchWrapper.v3")
 def PyTorchWrapper_v3(
-    pytorch_model,
+    pytorch_model: Any,
     convert_inputs: Optional[Callable] = None,
     convert_outputs: Optional[Callable] = None,
     mixed_precision: bool = False,
@@ -148,7 +148,7 @@ def PyTorchWrapper_v3(
     optimizer.step() after each batch. See examples/wrap_pytorch.py
 
     Your PyTorch model's forward method can take arbitrary args and kwargs,
-    but must return either a single tensor as output or a tuple. You may find the
+    but must return either a single tensor or a tuple. You may find the
     PyTorch register_forward_hook helpful if you need to adapt the output.
 
     The convert functions are used to map inputs and outputs to and from your

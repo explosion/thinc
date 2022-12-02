@@ -66,12 +66,8 @@ class PyTorchShim(Shim):
         self._grad_scaler = grad_scaler
         self._mixed_precision = mixed_precision
 
-        if serialize_model is None:
-            serialize_model = default_serialize_torch_model
-        if deserialize_model is None:
-            deserialize_model = default_deserialize_torch_model
-        self._serialize_model = serialize_model
-        self._deserialize_model = deserialize_model
+        self._serialize_model = serialize_model if serialize_model else default_serialize_torch_model
+        self._deserialize_model = deserialize_model if deserialize_model else default_deserialize_torch_model
 
         if CupyOps.xp is not None and isinstance(get_current_ops(), CupyOps):
             pools = context_pools.get()
@@ -209,6 +205,14 @@ class PyTorchShim(Shim):
 
 
 def default_serialize_torch_model(model: Any) -> bytes:
+    """Serializes the parameters of the wrapped PyTorch model to bytes.
+
+    model:
+        Wrapped PyTorch model.
+
+    Returns:
+        A `bytes` object that encapsulates the serialized model parameters.
+    """
     filelike = BytesIO()
     torch.save(model.state_dict(), filelike)
     filelike.seek(0)
@@ -218,6 +222,19 @@ def default_serialize_torch_model(model: Any) -> bytes:
 def default_deserialize_torch_model(
     model: Any, state_bytes: bytes, device: "torch.device"
 ) -> Any:
+    """Deserializes the parameters of the wrapped PyTorch model and
+    moves it to the specified device.
+
+    model:
+        Wrapped PyTorch model.
+    state_bytes:
+        Serialized parameters as a byte stream.
+    device:
+        PyTorch device to which the model is bound.
+
+    Returns:
+        The deserialized model.
+    """
     filelike = BytesIO(state_bytes)
     filelike.seek(0)
     model.load_state_dict(torch.load(filelike, map_location=device))
