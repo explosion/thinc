@@ -19,11 +19,13 @@ def Embed(
     nV: Optional[int] = None,
     *,
     column: Optional[int] = None,
-    initializer: Callable = uniform_init,
+    initializer: Optional[Callable] = None,
     dropout: Optional[float] = None
 ) -> Model[InT, OutT]:
     """Map integers to vectors, using a fixed-size lookup table."""
     attrs: Dict[str, Union[None, int, float]] = {}
+    if initializer is None:
+        initializer = uniform_init
     if dropout is not None:
         attrs["dropout_rate"] = dropout
     model: Model = Model(

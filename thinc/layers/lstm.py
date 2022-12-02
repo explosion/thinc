@@ -18,12 +18,16 @@ def LSTM(
     bi: bool = False,
     depth: int = 1,
     dropout: float = 0.0,
-    init_W=glorot_uniform_init,
-    init_b=zero_init
+    init_W: Optional[Callable] = None,
+    init_b: Optional[Callable] = None,
 ) -> Model[Padded, Padded]:
     if depth == 0:
         msg = "LSTM depth must be at least 1. Maybe we should make this a noop?"
         raise ValueError(msg)
+    if init_W is None:
+        init_W  = glorot_uniform_init
+    if init_b is None:
+        init_b = zero_init
 
     model: Model[Padded, Padded] = Model(
         "lstm",
