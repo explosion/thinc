@@ -802,6 +802,42 @@ length, describing the concatenated batch of input features and their values.
 The `lengths` array should have one entry per sequence in the batch, and the sum
 of the lengths should equal the length of the keys and values array.
 
+<infobox variant="warning">
+
+`SparseLinear` should not be used for new models because it contains an indexing
+bug. As a result, only a subset of the weights is used. Use
+[`SparseLinear_v2`](#sparselinear_v2) instead.
+
+</infobox>
+
+| Argument    | Type                                                      | Description                                              |
+| ----------- | --------------------------------------------------------- | -------------------------------------------------------- |
+| `nO`        | <tt>Optional[int]</tt>                                    | The size of the output vectors.                          |
+| `length`    | <tt>int</tt>                                              | The size of the weights vector, to be tuned empirically. |
+| **RETURNS** | <tt>Model[Tuple[ArrayXd, ArrayXd, ArrayXd], ArrayXd]</tt> | The created layer.                                       |
+
+```python
+https://github.com/explosion/thinc/blob/master/thinc/layers/sparselinear.pyx
+```
+
+### SparseLinear_v2 {#sparselinear_v2 tag="function" new="8.1.6"}
+
+<inline-list>
+
+- **Input:** <ndarray>Tuple[ArrayXd, ArrayXd, ArrayXd]</ndarray>
+- **Output:** <ndarray>ArrayXd</ndarray>
+- **Parameters:** <ndarray shape="nO*length,">W</ndarray>,
+  <ndarray shape="nO,">b</ndarray>, `length` <tt>int</tt>
+
+</inline-list>
+
+A sparse linear layer using the "hashing trick". Useful for tasks such as text
+classification. Inputs to the layer should be a tuple of arrays
+`(keys, values, lengths)`, where the `keys` and `values` are arrays of the same
+length, describing the concatenated batch of input features and their values.
+The `lengths` array should have one entry per sequence in the batch, and the sum
+of the lengths should equal the length of the keys and values array.
+
 | Argument    | Type                                                      | Description                                              |
 | ----------- | --------------------------------------------------------- | -------------------------------------------------------- |
 | `nO`        | <tt>Optional[int]</tt>                                    | The size of the output vectors.                          |
@@ -1657,6 +1693,66 @@ the backward pass.
 
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/pytorchwrapper.py
+```
+
+### TorchScriptWrapper_v1 {#torchscriptwrapper tag="function" new="8.1.6"}
+
+<inline-list>
+
+- **Input:** <tt>Any</tt>
+- **Output:** <tt>Any</tt>
+
+</inline-list>
+
+Wrap a [TorchScript](https://pytorch.org/docs/stable/jit.html) model so that it
+has the same API as Thinc models. To optimize the model, you'll need to create a
+PyTorch optimizer and call `optimizer.step` after each batch.
+
+Your TorchScript model's forward method can take arbitrary positional arguments
+and keyword arguments, but must return either a **single tensor** as output or a
+**tuple**. The convert functions are used to map inputs and outputs to and from
+your TorchScript model. Each function should return the converted output, and a
+callback to use during the backward pass:
+
+```python
+Xtorch, get_dX = convert_inputs(X)
+Ytorch, torch_backprop = model.shims[0](Xtorch, is_train)
+Y, get_dYtorch = convert_outputs(Ytorch)
+```
+
+To allow maximum flexibility, the [`TorchScriptShim`](/docs/api-model#shims)
+expects [`ArgsKwargs`](/docs/api-types#argskwargs) objects on the way into the
+forward and backward passes. The `ArgsKwargs` objects will be passed straight
+into the model in the forward pass, and straight into `torch.autograd.backward`
+during the backward pass.
+
+Note that the `torchscript_model` argument can be `None`. This is useful for
+deserialization since serialized TorchScript contains both the model and its
+weights.
+
+A PyTorch wrapper can be converted to a TorchScript wrapper using the
+`pytorch_to_torchscript_wrapper` function:
+
+```python
+from thinc.api import PyTorchWrapper_v2, pytorch_to_torchscript_wrapper
+import torch
+
+model = PyTorchWrapper_v2(torch.nn.Linear(nI, nO)).initialize()
+script_model = pytorch_to_torchscript_wrapper(model)
+```
+
+| Argument            | Type                                      | Description                                                                              |
+| ------------------- | ----------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `torchscript_model` | <tt>Optional[torch.jit.ScriptModule]</tt> | The TorchScript model.                                                                   |
+| `convert_inputs`    | <tt>Callable</tt>                         | Function to convert inputs to PyTorch tensors (same signature as `forward` function).    |
+| `convert_outputs`   | <tt>Callable</tt>                         | Function to convert outputs from PyTorch tensors (same signature as `forward` function). |
+| `mixed_precision`   | <tt>bool</tt>                             | Enable mixed-precision training.                                                         |
+| `grad_scaler`       | <tt>Optional[PyTorchGradScaler]</tt>      | Gradient scaler to use during mixed-precision training.                                  |
+| `device`            | <tt>Optional[torch.Device]</tt>         | The Torch device to execute the model on.                                                |
+| **RETURNS**         | <tt>Model[Any, Any]</tt>                  | The Thinc model.                                                                         |
+
+```python
+https://github.com/explosion/thinc/blob/master/thinc/layers/torchscriptwrapper.py
 ```
 
 ### TensorFlowWrapper {#tensorflowwrapper tag="function"}
