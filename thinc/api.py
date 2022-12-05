@@ -6,7 +6,7 @@ from .loss import SequenceCategoricalCrossentropy
 from .model import Model, serialize_attr, deserialize_attr
 from .model import set_dropout_rate, change_attr_values, wrap_model_recursive
 from .shims import Shim, PyTorchGradScaler, PyTorchShim, TensorFlowShim, keras_model_fns
-from .shims import MXNetShim, maybe_handshake_model
+from .shims import MXNetShim, TorchScriptShim, maybe_handshake_model
 from .optimizers import Adam, RAdam, SGD, Optimizer
 from .schedules import cyclic_triangular, warmup_linear, constant, constant_then
 from .schedules import decaying, slanted_triangular, compounding
@@ -26,11 +26,12 @@ from .layers import Dropout, Embed, expand_window, HashEmbed, LayerNorm, Linear
 from .layers import Maxout, Mish, MultiSoftmax, Relu, softmax_activation, Softmax, LSTM
 from .layers import CauchySimilarity, ParametricAttention, Logistic
 from .layers import resizable, sigmoid_activation, Sigmoid, SparseLinear
-from .layers import ClippedLinear, ReluK, HardTanh, HardSigmoid
+from .layers import SparseLinear_v2, ClippedLinear, ReluK, HardTanh, HardSigmoid
 from .layers import Dish, HardSwish, HardSwishMobilenet, Swish, Gelu
 from .layers import PyTorchWrapper, PyTorchRNNWrapper, PyTorchLSTM
 from .layers import TensorFlowWrapper, keras_subclass, MXNetWrapper
-from .layers import PyTorchWrapper_v2, Softmax_v2
+from .layers import PyTorchWrapper_v2, Softmax_v2, TorchScriptWrapper_v1
+from .layers import pytorch_to_torchscript_wrapper
 
 from .layers import add, bidirectional, chain, clone, concatenate, noop
 from .layers import residual, uniqued, siamese, list2ragged, ragged2list
@@ -61,7 +62,7 @@ __all__ = [
     "set_dropout_rate", "change_attr_values", "wrap_model_recursive",
     # .shims
     "Shim", "PyTorchGradScaler", "PyTorchShim", "TensorFlowShim", "keras_model_fns",
-    "MXNetShim", "maybe_handshake_model",
+    "MXNetShim", "TorchScriptShim", "maybe_handshake_model",
     # .optimizers
     "Adam", "RAdam", "SGD", "Optimizer",
     # .schedules
@@ -91,7 +92,8 @@ __all__ = [
     "Dish", "HardSwish", "HardSwishMobilenet", "Swish", "Gelu",
     "PyTorchWrapper", "PyTorchRNNWrapper", "PyTorchLSTM",
     "TensorFlowWrapper", "keras_subclass", "MXNetWrapper",
-    "PyTorchWrapper_v2", "Softmax_v2",
+    "PyTorchWrapper_v2", "Softmax_v2", "SparseLinear_v2",
+    "TorchScriptWrapper_v1",
 
     "add", "bidirectional", "chain", "clone", "concatenate", "noop",
     "residual", "uniqued", "siamese", "list2ragged", "ragged2list",
@@ -103,6 +105,7 @@ __all__ = [
     "array_getitem", "with_cpu", "with_debug", "with_nvtx_range",
     "with_signpost_interval",
     "tuplify",
+    "pytorch_to_torchscript_wrapper",
 
     "reduce_first", "reduce_last", "reduce_max", "reduce_mean", "reduce_sum",
 ]
