@@ -55,7 +55,7 @@ def torch_softmax_with_temperature(
 
     return cast(
         Floats2d, torch2xp(torch.nn.functional.softmax(XWbt_temp, dim=-1))
-    ), cast(Floats2d, torch2xp(Xt.grad))
+    ), cast(Floats2d, torch2xp(cast(torch.Tensor, Xt.grad)))
 
 
 @pytest.mark.skipif(not has_torch, reason="needs PyTorch")
