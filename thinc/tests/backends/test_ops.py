@@ -727,7 +727,9 @@ def torch_softmax_with_temperature(
     Yt = torch.nn.functional.softmax(Xt_temp, dim=-1)
     Yt.backward(dYt)
 
-    return cast(Floats2d, torch2xp(Yt)), cast(Floats2d, torch2xp(Xt.grad))
+    return cast(Floats2d, torch2xp(Yt)), cast(
+        Floats2d, torch2xp(cast(torch.Tensor, Xt.grad))
+    )
 
 
 @pytest.mark.skipif(not has_torch, reason="needs PyTorch")
@@ -833,7 +835,7 @@ def test_reduce_first(ops, dtype):
     ops.xp.testing.assert_allclose(Y, [[1.0, 6.0], [4.0, 9.0]])
 
     lengths = ops.asarray1i([3, 0, 2])
-    with pytest.raises(ValueError, match=r"all sequence lengths must be >= 0"):
+    with pytest.raises(ValueError, match=r"all sequence lengths must be > 0"):
         ops.reduce_last(X, lengths)
 
     lengths = ops.asarray1i([3, 2, 1])
@@ -864,7 +866,7 @@ def test_reduce_last(ops, dtype):
     ops.xp.testing.assert_allclose(Y, [[3.0, 8.0], [5.0, 10.0]])
 
     lengths = ops.asarray1i([3, 0, 2])
-    with pytest.raises(ValueError, match=r"all sequence lengths must be >= 0"):
+    with pytest.raises(ValueError, match=r"all sequence lengths must be > 0"):
         ops.reduce_last(X, lengths)
 
     lengths = ops.asarray1i([3, 2, 1])

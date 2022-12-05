@@ -1188,7 +1188,7 @@ class Ops:
         if lengths.size == 0:
             return self.alloc2f(0, X.shape[1]), lengths
         if not self.xp.all(lengths > 0):
-            raise ValueError(f"all sequence lengths must be >= 0")
+            raise ValueError(f"all sequence lengths must be > 0")
         starts_ends = self.alloc1i(lengths.shape[0] + 1, zeros=False)
         starts_ends[0] = 0
         starts_ends[1:] = lengths.cumsum()
@@ -1201,7 +1201,7 @@ class Ops:
         if lengths.size == 0:
             return self.alloc2f(0, X.shape[1]), lengths
         if not self.xp.all(lengths > 0):
-            raise ValueError(f"all sequence lengths must be >= 0")
+            raise ValueError(f"all sequence lengths must be > 0")
         lasts = lengths.cumsum() - 1
         if lasts[-1] + 1 != X.shape[0]:
             raise IndexError("lengths must sum up to the number of rows")

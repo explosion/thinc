@@ -1,5 +1,6 @@
 from typing import Tuple, Sequence, cast, TypeVar, Generic, Any, Union, Optional, List
 from typing import Dict
+from abc import abstractmethod
 
 from .types import Floats2d, Ints1d, Ragged, ArrayXd
 from .util import get_array_module, to_categorical, smooth_one_hot
@@ -29,9 +30,11 @@ class Loss(Generic[GuessT, TruthT, GradT, LossT]):  # pragma: no cover
     def __call__(self, guesses: GuessT, truths: TruthT) -> Tuple[GradT, LossT]:
         return self.get_grad(guesses, truths), self.get_loss(guesses, truths)
 
+    @abstractmethod
     def get_grad(self, guesses: GuessT, truths: TruthT) -> GradT:
         ...
 
+    @abstractmethod
     def get_loss(self, guesses: GuessT, truths: TruthT) -> LossT:
         ...
 
