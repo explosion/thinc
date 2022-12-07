@@ -39,7 +39,7 @@ from .layers import map_list
 from .layers import with_array, with_array2d
 from .layers import with_padded, with_list, with_ragged, with_flatten
 from .layers import with_reshape, with_getitem, strings2arrays, list2array
-from .layers import list2ragged, ragged2list, list2padded, padded2list, remap_ids
+from .layers import list2ragged, ragged2list, list2padded, padded2list, remap_ids, premap_ids
 from .layers import array_getitem, with_cpu, with_debug, with_nvtx_range
 from .layers import with_signpost_interval
 from .layers import tuplify
@@ -101,7 +101,7 @@ __all__ = [
     "with_array", "with_array2d",
     "with_padded", "with_list", "with_ragged", "with_flatten",
     "with_reshape", "with_getitem", "strings2arrays", "list2array",
-    "list2ragged", "ragged2list", "list2padded", "padded2list", "remap_ids",
+    "list2ragged", "ragged2list", "list2padded", "padded2list", "remap_ids", "premap_ids",
     "array_getitem", "with_cpu", "with_debug", "with_nvtx_range",
     "with_signpost_interval",
     "tuplify",
