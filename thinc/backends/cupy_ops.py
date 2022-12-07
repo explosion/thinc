@@ -79,7 +79,7 @@ class CupyOps(Ops):
     def asarray(self, data, dtype=None):
         # We'll try to perform a zero-copy conversion if possible.
         if is_cupy_array(data):
-            array = self.xp.asarray(data, dtype)
+            array = self.xp.asarray(data, dtype=dtype)
         elif is_torch_cuda_array(data):
             array = torch2xp(data)
         elif is_tensorflow_gpu_array(data):
