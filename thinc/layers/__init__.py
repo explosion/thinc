@@ -139,6 +139,7 @@ __all__ = [
     "with_signpost_interval",
     "remap_ids",
     "remap_ids_v2",
+    "premap_ids",
     "softmax_activation",
     "Logistic",
     "Sigmoid",
