@@ -1,6 +1,6 @@
 from thinc.api import remap_ids_v2
 from thinc.api import premap_ids
-from thinc.api import chain, Embed
+from thinc.api import chain, Embed, HashEmbed
 import time
 import random
 import numpy as np
@@ -110,6 +110,16 @@ def speed_test_cupy_with_embed():
     print("speedup", remaptime / premaptime)
 
 
+def speed_test_hashembed():
+    embed = HashEmbed(N_dim, N_symbols)
+    embed.initialize()
+    keys = np.random.randint(0, N_symbols, N_tokens)
+    start = time.process_time()
+    for i in range(100):
+        embed(keys, False)
+    print(time.process_time() - start)
+
+
 print("No columns")
 speed_test_no_column()
 print("Columns")
@@ -120,3 +130,5 @@ print("With Embed")
 speed_test_with_embed()
 print("Cupy With Embed")
 speed_test_cupy_with_embed()
+print("HashEmbed speed")
+speed_test_hashembed()
