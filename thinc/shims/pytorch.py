@@ -66,8 +66,8 @@ class PyTorchShim(Shim):
         self._grad_scaler = grad_scaler
         self._mixed_precision = mixed_precision
 
-        self._serialize_model = serialize_model if serialize_model else default_serialize_torch_model
-        self._deserialize_model = deserialize_model if deserialize_model else default_deserialize_torch_model
+        self._serialize_model = serialize_model if serialize_model is not None else default_serialize_torch_model
+        self._deserialize_model = deserialize_model if deserialize_model is not None else default_deserialize_torch_model
 
         if CupyOps.xp is not None and isinstance(get_current_ops(), CupyOps):
             pools = context_pools.get()
