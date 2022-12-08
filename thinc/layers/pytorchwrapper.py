@@ -179,13 +179,11 @@ def PyTorchWrapper_v3(
         Callback that receives the wrapped PyTorch model as its argument and
         returns a "bytes" representation of the same. The representation should
         contain all the necessary information to fully deserialize the model.
-
         When set to "None", the default serializer serializes the model's parameters.
     deserialize_model:
         Callback that receives the default PyTorch model (passed to the constructor), the
         serialized "bytes" representation and a PyTorch device. It should return a
         fully deserialized model on the target device as its result.
-
         When set to "None", the default deserializer deserializes the model's parameters.
     """
     if convert_inputs is None:
