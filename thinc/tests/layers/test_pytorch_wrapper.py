@@ -5,10 +5,7 @@ from thinc.api import CupyOps, MPSOps, NumpyOps
 from thinc.backends import context_pools
 from thinc.layers.pytorchwrapper import PyTorchWrapper_v3
 from thinc.shims.pytorch_grad_scaler import PyTorchGradScaler
-from thinc.shims.pytorch import (
-    default_deserialize_torch_model,
-    default_serialize_torch_model,
-)
+from thinc.shims.pytorch import default_deserialize_torch_model, default_serialize_torch_model
 from thinc.compat import has_torch, has_torch_amp
 from thinc.compat import has_cupy_gpu, has_torch_mps_gpu
 import numpy
