@@ -1,13 +1,13 @@
 from typing import Optional, Sequence, Dict, Union, Tuple
 from typing import cast, List
-from ..types import Floats2d, Ints1d, Ints2d
+from ..types import Floats2d, Ints1d
 from ..config import registry
 from ..util import to_categorical, get_array_module
 from ..loss import IntsOrFloatsOrStrs, Loss
 from ..loss import _make_mask, _make_mask_by_value
 
 
-TruthsT = Union[List[str], List[int], Ints1d, Floats2d]
+TruthsT = Union[List[Optional[str]], List[int], Ints1d, Floats2d]
 
 
 class LegacyCategoricalCrossentropy(Loss):
@@ -57,7 +57,7 @@ class LegacyCategoricalCrossentropy(Loss):
                         if value == missing_value:
                             missing.append(i)
                 else:
-                    truths = cast(List[str], truths)
+                    truths = cast(List[Optional[str]], truths)
                     if self.names is None:
                         msg = (
                             "Cannot calculate loss from list of strings without names. "
@@ -81,11 +81,16 @@ class LegacyCategoricalCrossentropy(Loss):
                             and self.neg_prefix
                             and value.startswith(self.neg_prefix)
                         ):
-                            truths[i] = value[len(self.neg_prefix) :]
-                            neg_index = self._name_to_i[truths[i]]
+                            neg_value = value[len(self.neg_prefix) :]
+                            truths[i] = neg_value
+                            neg_index = self._name_to_i[neg_value]
                             negatives_mask[i] = 0  # type: ignore
                             negatives_mask[i][neg_index] = -1  # type: ignore
-                    truths = [self._name_to_i[name] for name in truths]
+                    # In the loop above, we have ensured that `truths` doesn't
+                    # contain `None` (anymore). However, mypy can't infer this
+                    # and doesn't like the shadowing.
+                    truths_str = cast(List[str], truths)
+                    truths = [self._name_to_i[name] for name in truths_str]
             truths = xp.asarray(truths, dtype="i")
             mask = _make_mask(guesses, missing)
         else:
