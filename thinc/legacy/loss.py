@@ -67,7 +67,7 @@ class LegacyCategoricalCrossentropy(Loss):
                         )
                         raise ValueError(msg)
                     for i, value in enumerate(truths):
-                        if not (isinstance(value, str) or value == None):
+                        if not (isinstance(value, str) or value == missing_value):
                             raise ValueError(
                                 "All values in the truths list have to "
                                 "have the same type. The first value was "
