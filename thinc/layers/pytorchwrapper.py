@@ -186,7 +186,7 @@ def PyTorchWrapper_v3(
         serialized "bytes" representation and a PyTorch device. It should return a
         fully deserialized model on the target device as its result.
 
-        When set to "None", the default dserializer deserializes the model's parameters.
+        When set to "None", the default deserializer deserializes the model's parameters.
     """
     if convert_inputs is None:
         convert_inputs = convert_pytorch_default_inputs
