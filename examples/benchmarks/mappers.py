@@ -91,6 +91,25 @@ def speed_test_with_embed():
     print("speedup", remaptime / premaptime)
 
 
+def speed_test_cupy_with_embed():
+    remap = chain(remap_ids_v2(mapper), Embed(N_dim, N_symbols))
+    premap = chain(premap_ids(mapper), Embed(N_dim, N_symbols))
+    remap.initialize()
+    premap.initialize()
+    keys = cp.random.randint(0, N_symbols, N_tokens)
+    start = time.process_time()
+    for i in range(100):
+        remap(keys, False)
+    remaptime = time.process_time() - start
+    start = time.process_time()
+    for i in range(100):
+        premap(keys, False)
+    premaptime = time.process_time() - start
+    print("remap", remaptime)
+    print("premap", premaptime)
+    print("speedup", remaptime / premaptime)
+
+
 print("No columns")
 speed_test_no_column()
 print("Columns")
@@ -99,3 +118,5 @@ print("Cupy")
 speed_test_cupy()
 print("With Embed")
 speed_test_with_embed()
+print("Cupy With Embed")
+speed_test_cupy_with_embed()
