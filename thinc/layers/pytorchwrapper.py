@@ -11,7 +11,7 @@ from ..types import Floats3d, ArgsKwargs, Padded
 
 @registry.layers("PyTorchRNNWrapper.v1")
 def PyTorchRNNWrapper(
-    pytorch_model: Any,
+    pytorch_model: "torch.nn.Module",
     convert_inputs: Optional[Callable] = None,
     convert_outputs: Optional[Callable] = None,
 ) -> Model[Padded, Padded]:
@@ -32,7 +32,7 @@ def PyTorchRNNWrapper(
 
 @registry.layers("PyTorchWrapper.v1")
 def PyTorchWrapper(
-    pytorch_model: Any,
+    pytorch_model: "torch.nn.Module",
     convert_inputs: Optional[Callable] = None,
     convert_outputs: Optional[Callable] = None,
 ) -> Model[Any, Any]:
@@ -72,7 +72,7 @@ def PyTorchWrapper(
 
 @registry.layers("PyTorchWrapper.v2")
 def PyTorchWrapper_v2(
-    pytorch_model: Any,
+    pytorch_model: "torch.nn.Module",
     convert_inputs: Optional[Callable] = None,
     convert_outputs: Optional[Callable] = None,
     mixed_precision: bool = False,
@@ -134,7 +134,7 @@ def PyTorchWrapper_v2(
 
 @registry.layers("PyTorchWrapper.v3")
 def PyTorchWrapper_v3(
-    pytorch_model: Any,
+    pytorch_model: "torch.nn.Module",
     convert_inputs: Optional[Callable] = None,
     convert_outputs: Optional[Callable] = None,
     mixed_precision: bool = False,
