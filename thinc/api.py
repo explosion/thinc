@@ -30,8 +30,8 @@ from .layers import SparseLinear_v2, ClippedLinear, ReluK, HardTanh, HardSigmoid
 from .layers import Dish, HardSwish, HardSwishMobilenet, Swish, Gelu
 from .layers import PyTorchWrapper, PyTorchRNNWrapper, PyTorchLSTM
 from .layers import TensorFlowWrapper, keras_subclass, MXNetWrapper
-from .layers import PyTorchWrapper_v2, Softmax_v2, TorchScriptWrapper_v1
-from .layers import pytorch_to_torchscript_wrapper
+from .layers import PyTorchWrapper_v2, Softmax_v2, PyTorchWrapper_v3
+from .layers import TorchScriptWrapper_v1, pytorch_to_torchscript_wrapper
 
 from .layers import add, bidirectional, chain, clone, concatenate, noop
 from .layers import residual, uniqued, siamese, list2ragged, ragged2list
@@ -92,8 +92,8 @@ __all__ = [
     "Dish", "HardSwish", "HardSwishMobilenet", "Swish", "Gelu",
     "PyTorchWrapper", "PyTorchRNNWrapper", "PyTorchLSTM",
     "TensorFlowWrapper", "keras_subclass", "MXNetWrapper",
-    "PyTorchWrapper_v2", "Softmax_v2", "SparseLinear_v2",
-    "TorchScriptWrapper_v1",
+    "PyTorchWrapper_v2", "Softmax_v2", "PyTorchWrapper_v3",
+    "SparseLinear_v2", "TorchScriptWrapper_v1",
 
     "add", "bidirectional", "chain", "clone", "concatenate", "noop",
     "residual", "uniqued", "siamese", "list2ragged", "ragged2list",
