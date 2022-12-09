@@ -1,13 +1,13 @@
 from typing import Optional, Sequence, Dict, Union, Tuple
 from typing import cast, List
-from ..types import Floats2d, Ints1d, Ints2d
+from ..types import Floats2d, Ints1d
 from ..config import registry
 from ..util import to_categorical, get_array_module
 from ..loss import IntsOrFloatsOrStrs, Loss
 from ..loss import _make_mask, _make_mask_by_value
 
 
-TruthsT = Union[List[str], List[int], Ints1d, Floats2d]
+TruthsT = Union[List[Optional[str]], List[int], Ints1d, Floats2d]
 
 
 class LegacyCategoricalCrossentropy(Loss):
@@ -34,7 +34,9 @@ class LegacyCategoricalCrossentropy(Loss):
         else:
             self._name_to_i = {}
 
-    def convert_truths(self, truths: TruthsT, guesses: Floats2d) -> Tuple[Floats2d, Floats2d]:
+    def convert_truths(
+        self, truths: TruthsT, guesses: Floats2d
+    ) -> Tuple[Floats2d, Floats2d]:
         xp = get_array_module(guesses)
         missing = []
         negatives_mask = None
@@ -49,13 +51,13 @@ class LegacyCategoricalCrossentropy(Loss):
                         if not isinstance(value, int):
                             raise ValueError(
                                 "All values in the truths list have to "
-                                "have the same time. The first value was "
+                                "have the same type. The first value was "
                                 f"detected to be integer, but found {type(value)}."
                             )
                         if value == missing_value:
                             missing.append(i)
                 else:
-                    truths = cast(List[str], truths)
+                    truths = cast(List[Optional[str]], truths)
                     if self.names is None:
                         msg = (
                             "Cannot calculate loss from list of strings without names. "
@@ -65,10 +67,10 @@ class LegacyCategoricalCrossentropy(Loss):
                         )
                         raise ValueError(msg)
                     for i, value in enumerate(truths):
-                        if not isinstance(value, str):
+                        if not (isinstance(value, str) or value == missing_value):
                             raise ValueError(
                                 "All values in the truths list have to "
-                                "have the same time. The first value was "
+                                "have the same type. The first value was "
                                 f"detected to be string, but found {type(value)}."
                             )
                         if value == missing_value:
@@ -79,11 +81,16 @@ class LegacyCategoricalCrossentropy(Loss):
                             and self.neg_prefix
                             and value.startswith(self.neg_prefix)
                         ):
-                            truths[i] = value[len(self.neg_prefix) :]
-                            neg_index = self._name_to_i[truths[i]]
+                            neg_value = value[len(self.neg_prefix) :]
+                            truths[i] = neg_value
+                            neg_index = self._name_to_i[neg_value]
                             negatives_mask[i] = 0  # type: ignore
                             negatives_mask[i][neg_index] = -1  # type: ignore
-                    truths = [self._name_to_i[name] for name in truths]
+                    # In the loop above, we have ensured that `truths` doesn't
+                    # contain `None` (anymore). However, mypy can't infer this
+                    # and doesn't like the shadowing.
+                    truths_str = cast(List[str], truths)
+                    truths = [self._name_to_i[name] for name in truths_str]
             truths = xp.asarray(truths, dtype="i")
             mask = _make_mask(guesses, missing)
         else:
@@ -113,9 +120,7 @@ class LegacyCategoricalCrossentropy(Loss):
             mask *= negatives_mask
         return cast(Floats2d, truths_2d), mask
 
-    def __call__(
-        self, guesses: Floats2d, truths: TruthsT
-    ) -> Tuple[Floats2d, float]:
+    def __call__(self, guesses: Floats2d, truths: TruthsT) -> Tuple[Floats2d, float]:
         d_truth = self.get_grad(guesses, truths)
         return (d_truth, self._get_loss_from_grad(d_truth))
 
@@ -187,9 +192,7 @@ class LegacySequenceCategoricalCrossentropy(Loss):
             d_scores.append(d_yh)
         return d_scores
 
-    def get_loss(
-        self, guesses: Sequence[Floats2d], truths: Sequence[TruthsT]
-    ) -> float:
+    def get_loss(self, guesses: Sequence[Floats2d], truths: Sequence[TruthsT]) -> float:
         return self._get_loss_from_grad(self.get_grad(guesses, truths))
 
     def _get_loss_from_grad(self, grads: Sequence[Floats2d]) -> float:

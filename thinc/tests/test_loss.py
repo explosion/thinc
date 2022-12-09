@@ -199,6 +199,15 @@ def test_equal_legacy_cross_entropy(vect, version):
     cross_entropy = _get_legacy_cross_entropy(version)
     assert int(cross_entropy.get_grad(vect, vect)[0][0]) == pytest.approx(0, abs=eps)
     assert cross_entropy.get_loss(vect, vect) == pytest.approx(0, abs=eps)
+    assert cross_entropy.get_loss(vect, vect) == pytest.approx(0, abs=eps)
+
+
+@pytest.mark.parametrize("version", [1, 2, 3])
+def test_legacy_cross_entropy_absent_labels(version):
+    cross_entropy = _get_legacy_cross_entropy(version, names=["cat", "dog", "rat"])
+    assert cross_entropy.get_loss(scores0, [None, None, None]) == pytest.approx(
+        0, abs=eps
+    )
 
 
 @pytest.mark.parametrize(
