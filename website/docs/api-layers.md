@@ -1401,18 +1401,18 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/with_array.py
 
 <inline-list>
 
-- **Input:** <tt>Sequence[Sequence[Any]]</tt>
-- **Output:** <tt>ListXd</tt>
+- **Input:** <tt>Sequence[Sequence[InItemT]]</tt>
+- **Output:** <tt>List[List[OutItemT]]</tt>
 
 </inline-list>
 
 Flatten nested inputs on the way into a layer and reverse the transformation
 over the outputs.
 
-| Argument    | Type                                                             | Description        |
-| ----------- | ---------------------------------------------------------------- | ------------------ |
-| `layer`     | <tt>Model[Sequence[Sequence[Any]], Sequence[Sequence[Any]]]</tt> | The layer to wrap. |
-| **RETURNS** | <tt>Model[ListXd, ListXd]</tt>                                   | The wrapped layer. |
+| Argument    | Type                                                              | Description        |
+| ----------- | ----------------------------------------------------------------- | ------------------ |
+| `layer`     | <tt>Model[List[InItemT], List[OutItemT]]</tt>                     | The layer to wrap. |
+| **RETURNS** | <tt>Model[Sequence[Sequence[InItemT]], List[List[OutItemT]]]</tt> | The wrapped layer. |
 
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/with_flatten.py
@@ -1748,7 +1748,7 @@ script_model = pytorch_to_torchscript_wrapper(model)
 | `convert_outputs`   | <tt>Callable</tt>                         | Function to convert outputs from PyTorch tensors (same signature as `forward` function). |
 | `mixed_precision`   | <tt>bool</tt>                             | Enable mixed-precision training.                                                         |
 | `grad_scaler`       | <tt>Optional[PyTorchGradScaler]</tt>      | Gradient scaler to use during mixed-precision training.                                  |
-| `device`            | <tt>Optional[torch.Device]</tt>         | The Torch device to execute the model on.                                                |
+| `device`            | <tt>Optional[torch.Device]</tt>           | The Torch device to execute the model on.                                                |
 | **RETURNS**         | <tt>Model[Any, Any]</tt>                  | The Thinc model.                                                                         |
 
 ```python
