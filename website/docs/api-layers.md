@@ -1401,7 +1401,7 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/with_array.py
 
 <inline-list>
 
-- **Input:** <tt>Sequence[Sequence[InItemT]]</tt>
+- **Input:** <tt>List[List[InItemT]]</tt>
 - **Output:** <tt>List[List[OutItemT]]</tt>
 
 </inline-list>
@@ -1409,10 +1409,10 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/with_array.py
 Flatten nested inputs on the way into a layer and reverse the transformation
 over the outputs.
 
-| Argument    | Type                                                              | Description        |
-| ----------- | ----------------------------------------------------------------- | ------------------ |
-| `layer`     | <tt>Model[List[InItemT], List[OutItemT]]</tt>                     | The layer to wrap. |
-| **RETURNS** | <tt>Model[Sequence[Sequence[InItemT]], List[List[OutItemT]]]</tt> | The wrapped layer. |
+| Argument    | Type                                                      | Description        |
+| ----------- | --------------------------------------------------------- | ------------------ |
+| `layer`     | <tt>Model[List[InItemT], List[OutItemT]]</tt>             | The layer to wrap. |
+| **RETURNS** | <tt>Model[List[List[InItemT]], List[List[OutItemT]]]</tt> | The wrapped layer. |
 
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/with_flatten.py
