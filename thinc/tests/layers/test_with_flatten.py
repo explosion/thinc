@@ -1,5 +1,5 @@
 from typing import List
-from thinc.api import Model, with_flatten
+from thinc.api import Model, with_flatten_v2
 
 INPUT = [[1, 2, 3], [4, 5], [], [6, 7, 8]]
 INPUT_FLAT = [1, 2, 3, 4, 5, 6, 7, 8]
@@ -23,7 +23,7 @@ def _memoize_input_forward(
 
 
 def test_with_flatten():
-    model = with_flatten(_memoize_input())
+    model = with_flatten_v2(_memoize_input())
     Y, backprop = model(INPUT, is_train=True)
     assert Y == OUTPUT
     assert model.layers[0].attrs["last_input"] == INPUT_FLAT
