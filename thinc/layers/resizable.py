@@ -54,8 +54,8 @@ def resize_linear_weighted(
     assert not layer.shims
 
     # return the original layer if it wasn't initialized or if nO didn't change
-    if layer.has_dim("nO") is None:
-        layer.set_dim("nO", new_nO)
+    if layer.has_dim("nO") is None or layer.has_dim("nI") is None:
+        layer.set_dim("nO", new_nO, force=True)
         return layer
     elif new_nO == layer.get_dim("nO"):
         return layer
