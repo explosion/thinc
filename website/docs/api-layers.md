@@ -1413,14 +1413,14 @@ over the outputs.
 
 Even though `with_flatten` is a layer wrapper, it does not preserve symmetry
 between the input and output data types. This often makes it hard to compose
-with other layers. [`with_flatten_v2`](#with_flatten_v2) solves this issue.
+with other layers. [`with_flatten_v2`](#with_flatten_v2) instead.
 
 </infobox>
 
-| Argument    | Type                                                             | Description        |
-| ----------- | ---------------------------------------------------------------- | ------------------ |
-| `layer`     | <tt>Model[Sequence[Sequence[Any]], Sequence[Sequence[Any]]]</tt> | The layer to wrap. |
-| **RETURNS** | <tt>Model[ListXd, ListXd]</tt>                                   | The wrapped layer. |
+| Argument    | Type                                            | Description        |
+| ----------- | ----------------------------------------------- | ------------------ |
+| `layer`     | <tt>Model[Sequence[Any], ArrayXd]</tt>          | The layer to wrap. |
+| **RETURNS** | <tt>Model[Sequence[Sequence[Any]], ListXd]</tt> | The wrapped layer. |
 
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/with_flatten.py
