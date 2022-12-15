@@ -1413,7 +1413,7 @@ over the outputs.
 
 Even though `with_flatten` is a layer wrapper, it does not preserve symmetry
 between the input and output data types. This often makes it hard to compose
-with other layers. [`with_flatten_v2`](#with_flatten_v2) instead.
+with other layers. Use [`with_flatten_v2`](#with_flatten_v2) instead.
 
 </infobox>
 
