@@ -1,6 +1,6 @@
 from typing import Union, Tuple, Sized, Container, Any, TypeVar, Callable
 from typing import Iterable, Iterator, Sequence, Dict, Generic, cast
-from typing import Optional, List, overload
+from typing import Optional, List, overload, runtime_checkable
 from abc import abstractmethod
 from dataclasses import dataclass
 import numpy
@@ -1276,6 +1276,18 @@ class ArgsKwargs:
         """Yield enumerate(self.args), followed by self.kwargs.items()"""
         yield from enumerate(self.args)
         yield from self.kwargs.items()
+
+
+@runtime_checkable
+class ScheduleCallable(Protocol):
+    def __call__(
+        self,
+        *,
+        key: Tuple[int, str],
+        step: int,
+        step_score: Optional[Tuple[int, float]],
+    ) -> float:
+        ...
 
 
 @dataclass

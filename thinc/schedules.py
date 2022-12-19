@@ -1,21 +1,9 @@
 """Generators that provide different rates, schedules, decays or series."""
-from typing import Dict, Iterable, Optional, Tuple
 from typing_extensions import Protocol, runtime_checkable
 import numpy
 
 from .config import registry
-
-
-@runtime_checkable
-class ScheduleCallable(Protocol):
-    def __call__(
-        self,
-        *,
-        key: Tuple[int, str],
-        step: int,
-        step_score: Optional[Tuple[int, float]],
-    ) -> float:
-        ...
+from .types import ScheduleCallable
 
 
 @registry.schedules("constant_then.v1")
