@@ -8,6 +8,7 @@ from thinc.types import Ragged, Padded, Array2d, Floats2d, FloatsXd, Shape
 from thinc.compat import has_torch
 import numpy
 import pytest
+import srsly
 
 OPS = NumpyOps()
 
@@ -120,9 +121,9 @@ TEST_CASES = [
     # Other
     ("expand_window.v1", {}, array2d, array2d),
     ("expand_window.v1", {}, ragged, ragged),
-    ("Embed.v1", {"nO": 4, "nV": array2dint.max() + 1, "column": 0, "dropout": 0.2}, array2dint, array2d),
-    ("Embed.v1", {"nO": 4, "nV": array1dint.max() + 1}, array1dint, array2d),
-    ("HashEmbed.v1", {"nO": 1, "nV": array2dint.max(), "column": 0, "dropout": 0.2}, array2dint, array2d),
+    ("Embed.v1", {"nO": 4, "nV": int(array2dint.max() + 1), "column": 0, "dropout": 0.2}, array2dint, array2d),
+    ("Embed.v1", {"nO": 4, "nV": int(array1dint.max() + 1)}, array1dint, array2d),
+    ("HashEmbed.v1", {"nO": 1, "nV": int(array2dint.max()), "column": 0, "dropout": 0.2}, array2dint, array2d),
     ("HashEmbed.v1", {"nO": 1, "nV": 2}, array1dint, array2d),
     ("MultiSoftmax.v1", {"nOs": (1, 3)}, array2d, array2d),
     # ("CauchySimilarity.v1", {}, (array2d, array2d), array1d),
@@ -138,6 +139,8 @@ TEST_CASES = [
 @pytest.mark.parametrize("name,kwargs,in_data,out_data", TEST_CASES)
 def test_layers_from_config(name, kwargs, in_data, out_data):
     cfg = {"@layers": name, **kwargs}
+    filled_cfg = registry.fill({"config": cfg})
+    assert srsly.is_json_serializable(filled_cfg)
     model = registry.resolve({"config": cfg})["config"]
     if "LSTM" in name:
         model = with_padded(model)

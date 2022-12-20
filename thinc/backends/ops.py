@@ -626,7 +626,7 @@ class Ops:
 
     def asarray4f(
         self,
-        data: Union[Floats4d, Sequence[float]],
+        data: Union[Floats4d, Sequence[Sequence[Sequence[Sequence[float]]]]],
         *,
         dtype: Optional[DTypes] = "float32",
     ) -> Floats4d:
@@ -634,7 +634,7 @@ class Ops:
 
     def asarray3f(
         self,
-        data: Union[Floats3d, Sequence[float]],
+        data: Union[Floats3d, Sequence[Sequence[Sequence[float]]]],
         *,
         dtype: Optional[DTypes] = "float32",
     ) -> Floats3d:
@@ -642,7 +642,7 @@ class Ops:
 
     def asarray2f(
         self,
-        data: Union[Floats2d, Sequence[float]],
+        data: Union[Floats2d, Sequence[Sequence[float]]],
         *,
         dtype: Optional[DTypes] = "float32",
     ) -> Floats2d:
@@ -658,7 +658,7 @@ class Ops:
 
     def asarray_f(
         self,
-        data: Union[FloatsXd, Sequence[float]],
+        data: Union[FloatsXd, Sequence[Any]],
         *,
         dtype: Optional[DTypes] = "float32",
     ) -> FloatsXd:
@@ -670,28 +670,37 @@ class Ops:
         return cast(Ints1d, self.asarray(data, dtype=dtype))
 
     def asarray2i(
-        self, data: Union[Ints2d, Sequence[int]], *, dtype: Optional[DTypes] = "int32"
+        self,
+        data: Union[Ints2d, Sequence[Sequence[int]]],
+        *,
+        dtype: Optional[DTypes] = "int32",
     ) -> Ints2d:
         return cast(Ints2d, self.asarray(data, dtype=dtype))
 
     def asarray3i(
-        self, data: Union[Ints3d, Sequence[int]], *, dtype: Optional[DTypes] = "int32"
+        self,
+        data: Union[Ints3d, Sequence[Sequence[Sequence[int]]]],
+        *,
+        dtype: Optional[DTypes] = "int32",
     ) -> Ints3d:
         return cast(Ints3d, self.asarray(data, dtype=dtype))
 
     def asarray4i(
-        self, data: Union[Ints4d, Sequence[int]], *, dtype: Optional[DTypes] = "int32"
+        self,
+        data: Union[Ints4d, Sequence[Sequence[Sequence[Sequence[int]]]]],
+        *,
+        dtype: Optional[DTypes] = "int32",
     ) -> Ints4d:
         return cast(Ints4d, self.asarray(data, dtype=dtype))
 
     def asarray_i(
-        self, data: Union[IntsXd, Sequence[int]], *, dtype: Optional[DTypes] = "int32"
+        self, data: Union[IntsXd, Sequence[Any]], *, dtype: Optional[DTypes] = "int32"
     ) -> IntsXd:
         return cast(IntsXd, self.asarray(data, dtype=dtype))
 
     def asarray(
         self,
-        data: Union[ArrayXd, Sequence[ArrayXd], Sequence[float], Sequence[int]],
+        data: Union[ArrayXd, Sequence[ArrayXd], Sequence[Any]],
         *,
         dtype: Optional[DTypes] = None,
     ) -> ArrayXd:

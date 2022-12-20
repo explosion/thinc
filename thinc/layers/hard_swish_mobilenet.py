@@ -15,11 +15,15 @@ def HardSwishMobilenet(
     nO: Optional[int] = None,
     nI: Optional[int] = None,
     *,
-    init_W: Callable = he_normal_init,
-    init_b: Callable = zero_init,
+    init_W: Optional[Callable] = None,
+    init_b: Optional[Callable] = None,
     dropout: Optional[float] = None,
     normalize: bool = False,
 ) -> Model[Floats2d, Floats2d]:
+    if init_W is None:
+        init_W = he_normal_init
+    if init_b is None:
+        init_b = zero_init
     model: Model[Floats2d, Floats2d] = Model(
         "hardswishmobilenet",
         forward,
