@@ -20,7 +20,7 @@ def HashEmbed(
     *,
     seed: Optional[int] = None,
     column: Optional[int] = None,
-    initializer: Callable = uniform_init,
+    initializer: Optional[Callable] = None,
     dropout: Optional[float] = None
 ) -> Model[InT, OutT]:
     """
@@ -33,6 +33,8 @@ def HashEmbed(
     when the number of vectors in the table is very low.
     """
     attrs: Dict[str, Any] = {"column": column, "seed": seed}
+    if initializer is None:
+        initializer = uniform_init
     if dropout is not None:
         attrs["dropout_rate"] = dropout
     model: Model = Model(
@@ -62,7 +64,7 @@ def forward(
     nV = vectors.shape[0]
     nO = vectors.shape[1]
     if len(ids) == 0:
-        output: Floats2d = model.ops.alloc((0, nO), dtype=vectors.dtype)
+        output: Floats2d = model.ops.alloc2f(0, nO, dtype=vectors.dtype)
     else:
         ids = model.ops.as_contig(ids, dtype="uint64")
         nN = ids.shape[0]

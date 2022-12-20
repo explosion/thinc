@@ -19,11 +19,15 @@ def Relu(
     nO: Optional[int] = None,
     nI: Optional[int] = None,
     *,
-    init_W: Callable = glorot_uniform_init,
-    init_b: Callable = zero_init,
+    init_W: Optional[Callable] = None,
+    init_b: Optional[Callable] = None,
     dropout: Optional[float] = None,
     normalize: bool = False,
 ) -> Model[InT, OutT]:
+    if init_W is None:
+        init_W = glorot_uniform_init
+    if init_b is None:
+        init_b = zero_init
     model: Model[InT, OutT] = Model(
         "relu",
         forward,

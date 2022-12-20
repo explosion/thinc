@@ -13,7 +13,7 @@ from .maxout import Maxout
 from .mish import Mish
 from .multisoftmax import MultiSoftmax
 from .parametricattention import ParametricAttention
-from .pytorchwrapper import PyTorchWrapper, PyTorchWrapper_v2
+from .pytorchwrapper import PyTorchWrapper, PyTorchWrapper_v2, PyTorchWrapper_v3
 from .pytorchwrapper import PyTorchRNNWrapper
 from .relu import Relu
 from .clipped_linear import ClippedLinear, ReluK, HardSigmoid, HardTanh
@@ -26,8 +26,9 @@ from .sigmoid_activation import sigmoid_activation
 from .sigmoid import Sigmoid
 from .softmax_activation import softmax_activation
 from .softmax import Softmax, Softmax_v2
-from .sparselinear import SparseLinear
+from .sparselinear import SparseLinear, SparseLinear_v2
 from .tensorflowwrapper import TensorFlowWrapper, keras_subclass
+from .torchscriptwrapper import TorchScriptWrapper_v1, pytorch_to_torchscript_wrapper
 from .mxnetwrapper import MXNetWrapper
 
 # Combinators
@@ -75,6 +76,7 @@ from .with_nvtx_range import with_nvtx_range
 from .with_signpost_interval import with_signpost_interval
 
 
+# fmt: off
 __all__ = [
     "CauchySimilarity",
     "Linear",
@@ -91,14 +93,18 @@ __all__ = [
     "PyTorchLSTM",
     "PyTorchWrapper",
     "PyTorchWrapper_v2",
+    "PyTorchWrapper_v3",
     "PyTorchRNNWrapper",
     "Relu",
     "sigmoid_activation",
-    "Sigmoid" "softmax_activation",
+    "Sigmoid",
+    "softmax_activation",
     "Softmax",
     "Softmax_v2",
     "SparseLinear",
+    "SparseLinear_v2",
     "TensorFlowWrapper",
+    "TorchScriptWrapper_v1",
     "add",
     "bidirectional",
     "chain",
@@ -132,4 +138,25 @@ __all__ = [
     "with_nvtx_range",
     "with_signpost_interval",
     "remap_ids",
+    "remap_ids_v2",
+    "softmax_activation",
+    "Logistic",
+    "Sigmoid",
+    "ClippedLinear",
+    "ReluK",
+    "HardTanh",
+    "HardSigmoid",
+    "Dish",
+    "HardSwish",
+    "HardSwishMobilenet",
+    "Swish",
+    "Gelu",
+    "keras_subclass",
+    "MXNetWrapper",
+    "map_list",
+    "strings2arrays",
+    "array_getitem",
+    "tuplify",
+    "pytorch_to_torchscript_wrapper",
 ]
+# fmt: on

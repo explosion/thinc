@@ -16,13 +16,17 @@ def Sigmoid(
     nO: Optional[int] = None,
     nI: Optional[int] = None,
     *,
-    init_W: Callable = zero_init,
-    init_b: Callable = zero_init
+    init_W: Optional[Callable] = None,
+    init_b: Optional[Callable] = None,
 ) -> Model[InT, OutT]:
     """A dense layer, followed by a sigmoid (logistic) activation function. This
     is usually used instead of the Softmax layer as an output for multi-label
     classification.
     """
+    if init_W is None:
+        init_W = zero_init
+    if init_b is None:
+        init_b = zero_init
     return Model(
         "sigmoid",
         forward,
