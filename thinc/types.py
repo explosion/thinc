@@ -1,6 +1,6 @@
 from typing import Union, Tuple, Sized, Container, Any, TypeVar, Callable
 from typing import Iterable, Iterator, Sequence, Dict, Generic, cast
-from typing import Optional, List, overload, runtime_checkable
+from typing import Optional, List, overload
 from abc import abstractmethod
 from dataclasses import dataclass
 import numpy
