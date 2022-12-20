@@ -62,16 +62,16 @@ elementary functions like `exp` or `erf`, making it much
 [faster to compute](https://twitter.com/danieldekok/status/1484898130441166853)
 in most cases.
 
-| Argument       | Type                               | Description                                                                                                        |
-| -------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `nO`           | <tt>Optional[int]</tt>             | The size of the output vectors.                                                                                    |
-| `nI`           | <tt>Optional[int]</tt>             | The size of the input vectors.                                                                                     |
-| _keyword-only_ |                                    |                                                                                                                    |
-| `init_W`       | <tt>Callable</tt>                  | A function to initialize the weights matrix. Defaults to [`he_normal_init`](/docs/api-initializers#he_normal_init) |
-| `init_b`       | <tt>Callable</tt>                  | A function to initialize the bias vector. Defaults to [`zero_init`](/docs/api-initializers#zero_init).             |
-| `dropout`      | <tt>Optional[float]</tt>           | Dropout rate to avoid overfitting.                                                                                 |
-| `normalize`    | <tt>bool</tt>                      | Whether or not to apply [layer normalization](#layernorm). Defaults to `False`.                                    |
-| **RETURNS**    | <tt>Model[Floats2d, Floats2d]</tt> | The created dense layer.                                                                                           |
+| Argument       | Type                               | Description                                                                                                                            |
+| -------------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `nO`           | <tt>Optional[int]</tt>             | The size of the output vectors.                                                                                                        |
+| `nI`           | <tt>Optional[int]</tt>             | The size of the input vectors.                                                                                                         |
+| _keyword-only_ |                                    |                                                                                                                                        |
+| `init_W`       | <tt>Optional[Callable]</tt>        | A function to initialize the weights matrix. Defaults to [`he_normal_init`](/docs/api-initializers#he_normal_init) when set to `None`. |
+| `init_b`       | <tt>Optional[Callable]</tt>        | A function to initialize the bias vector. Defaults to [`zero_init`](/docs/api-initializers#zero_init) when set to `None`.              |
+| `dropout`      | <tt>Optional[float]</tt>           | Dropout rate to avoid overfitting.                                                                                                     |
+| `normalize`    | <tt>bool</tt>                      | Whether or not to apply [layer normalization](#layernorm). Defaults to `False`.                                                        |
+| **RETURNS**    | <tt>Model[Floats2d, Floats2d]</tt> | The created dense layer.                                                                                                               |
 
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/dish.py
@@ -130,15 +130,15 @@ Map integers to vectors, using a fixed-size lookup table. The input to the layer
 should be a two-dimensional array of integers, one column of which the
 embeddings table will slice as the indices.
 
-| Argument       | Type                                            | Description                                                                                                          |
-| -------------- | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `nO`           | <tt>Optional[int]</tt>                          | The size of the output vectors.                                                                                      |
-| `nV`           | <tt>int</tt>                                    | Number of input vectors. Defaults to `1`.                                                                            |
-| _keyword-only_ |                                                 |                                                                                                                      |
-| `column`       | <tt>int</tt>                                    | The column to slice from the input, to get the indices.                                                              |
-| `initializer`  | <tt>Callable</tt>                               | A function to initialize the internal parameters. Defaults to [`uniform_init`](/docs/api-initializers#uniform_init). |
-| `dropout`      | <tt>Optional[float]</tt>                        | Dropout rate to avoid overfitting (default `None`).                                                                  |
-| **RETURNS**    | <tt>Model[Union[Ints1d, Ints2d], Floats2d]</tt> | The created embedding layer.                                                                                         |
+| Argument       | Type                                            | Description                                                                                                                             |
+| -------------- | ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `nO`           | <tt>Optional[int]</tt>                          | The size of the output vectors.                                                                                                         |
+| `nV`           | <tt>int</tt>                                    | Number of input vectors. Defaults to `1`.                                                                                               |
+| _keyword-only_ |                                                 |                                                                                                                                         |
+| `column`       | <tt>int</tt>                                    | The column to slice from the input, to get the indices.                                                                                 |
+| `initializer`  | <tt>Optional[Callable]</tt>                     | A function to initialize the internal parameters. Defaults to [`uniform_init`](/docs/api-initializers#uniform_init) when set to `None`. |
+| `dropout`      | <tt>Optional[float]</tt>                        | Dropout rate to avoid overfitting (default `None`).                                                                                     |
+| **RETURNS**    | <tt>Model[Union[Ints1d, Ints2d], Floats2d]</tt> | The created embedding layer.                                                                                                            |
 
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/embed.py
@@ -164,16 +164,16 @@ unlikely that two different keys will collide on all four "buckets", most
 distinct keys will receive a distinct vector under this scheme, even when the
 number of vectors in the table is very low.
 
-| Argument       | Type                                            | Description                                                                                                          |
-| -------------- | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `nO`           | <tt>int</tt>                                    | The size of the output vectors.                                                                                      |
-| `nV`           | <tt>int</tt>                                    | Number of input vectors.                                                                                             |
-| _keyword-only_ |                                                 |                                                                                                                      |
-| `seed`         | <tt>Optional[int]</tt>                          | A seed to use for the hashing.                                                                                       |
-| `column`       | <tt>int</tt>                                    | The column to select features from.                                                                                  |
-| `initializer`  | <tt>Callable</tt>                               | A function to initialize the internal parameters. Defaults to [`uniform_init`](/docs/api-initializers#uniform_init). |
-| `dropout`      | <tt>Optional[float]</tt>                        | Dropout rate to avoid overfitting (default `None`).                                                                  |
-| **RETURNS**    | <tt>Model[Union[Ints1d, Ints2d], Floats2d]</tt> | The created embedding layer.                                                                                         |
+| Argument       | Type                                            | Description                                                                                                                             |
+| -------------- | ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `nO`           | <tt>int</tt>                                    | The size of the output vectors.                                                                                                         |
+| `nV`           | <tt>int</tt>                                    | Number of input vectors.                                                                                                                |
+| _keyword-only_ |                                                 |                                                                                                                                         |
+| `seed`         | <tt>Optional[int]</tt>                          | A seed to use for the hashing.                                                                                                          |
+| `column`       | <tt>int</tt>                                    | The column to select features from.                                                                                                     |
+| `initializer`  | <tt>Optional[Callable]</tt>                     | A function to initialize the internal parameters. Defaults to [`uniform_init`](/docs/api-initializers#uniform_init) when set to `None`. |
+| `dropout`      | <tt>Optional[float]</tt>                        | Dropout rate to avoid overfitting (default `None`).                                                                                     |
+| **RETURNS**    | <tt>Model[Union[Ints1d, Ints2d], Floats2d]</tt> | The created embedding layer.                                                                                                            |
 
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/hashembed.py
@@ -304,15 +304,17 @@ If you are able to install PyTorch, you should usually prefer to use the
 `PyTorchLSTM` layer instead of Thinc's implementations, as PyTorch's LSTM
 implementation is significantly faster.
 
-| Argument       | Type                           | Description                                      |
-| -------------- | ------------------------------ | ------------------------------------------------ |
-| `nO`           | <tt>Optional[int]</tt>         | The size of the output vectors.                  |
-| `nI`           | <tt>Optional[int]</tt>         | The size of the input vectors.                   |
-| _keyword-only_ |                                |                                                  |
-| `bi`           | <tt>bool</tt>                  | Use BiLSTM.                                      |
-| `depth`        | <tt>int</tt>                   | Number of layers (default `1`).                  |
-| `dropout`      | <tt>float</tt>                 | Dropout rate to avoid overfitting (default `0`). |
-| **RETURNS**    | <tt>Model[Padded, Padded]</tt> | The created LSTM layer(s).                       |
+| Argument       | Type                           | Description                                                                                                                                      |
+| -------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `nO`           | <tt>Optional[int]</tt>         | The size of the output vectors.                                                                                                                  |
+| `nI`           | <tt>Optional[int]</tt>         | The size of the input vectors.                                                                                                                   |
+| _keyword-only_ |                                |                                                                                                                                                  |
+| `bi`           | <tt>bool</tt>                  | Use BiLSTM.                                                                                                                                      |
+| `depth`        | <tt>int</tt>                   | Number of layers (default `1`).                                                                                                                  |
+| `dropout`      | <tt>float</tt>                 | Dropout rate to avoid overfitting (default `0`).                                                                                                 |
+| `init_W`       | <tt>Optional[Callable]</tt>    | A function to initialize the weights matrix. Defaults to [`glorot_uniform_init`](/docs/api-initializers#glorot_uniform_init) when set to `None`. |
+| `init_b`       | <tt>Optional[Callable]</tt>    | A function to initialize the bias vector. Defaults to [`zero_init`](/docs/api-initializers#zero_init) when set to `None`.                        |
+| **RETURNS**    | <tt>Model[Padded, Padded]</tt> | The created LSTM layer(s).                                                                                                                       |
 
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/lstm.py
@@ -335,17 +337,17 @@ require a weights array of shape `(nO, nP, nI)` in order to compute outputs of
 width `nO` given inputs of width `nI`. The extra multiple, `nP`, determines the
 number of "pieces" that the piecewise-linear activation will consider.
 
-| Argument       | Type                               | Description                                                                                                                   |
-| -------------- | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `nO`           | <tt>Optional[int]</tt>             | The size of the output vectors.                                                                                               |
-| `nI`           | <tt>Optional[int]</tt>             | The size of the input vectors.                                                                                                |
-| `nP`           | <tt>int</tt>                       | Number of maxout pieces (default: 3).                                                                                         |
-| _keyword-only_ |                                    |                                                                                                                               |
-| `init_W`       | <tt>Callable</tt>                  | A function to initialize the weights matrix. Defaults to [`glorot_uniform_init`](/docs/api-initializers#glorot_uniform_init). |
-| `init_b`       | <tt>Callable</tt>                  | A function to initialize the bias vector. Defaults to [`zero_init`](/docs/api-initializers#zero_init).                        |
-| `dropout`      | <tt>Optional[float]</tt>           | Dropout rate to avoid overfitting.                                                                                            |
-| `normalize`    | <tt>bool</tt>                      | Whether or not to apply [layer normalization](#layernorm), (default: False).                                                  |
-| **RETURNS**    | <tt>Model[Floats2d, Floats2d]</tt> | The created maxout layer.                                                                                                     |
+| Argument       | Type                               | Description                                                                                                                                      |
+| -------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `nO`           | <tt>Optional[int]</tt>             | The size of the output vectors.                                                                                                                  |
+| `nI`           | <tt>Optional[int]</tt>             | The size of the input vectors.                                                                                                                   |
+| `nP`           | <tt>int</tt>                       | Number of maxout pieces (default: 3).                                                                                                            |
+| _keyword-only_ |                                    |                                                                                                                                                  |
+| `init_W`       | <tt>Optional[Callable]</tt>        | A function to initialize the weights matrix. Defaults to [`glorot_uniform_init`](/docs/api-initializers#glorot_uniform_init) when set to `None`. |
+| `init_b`       | <tt>Optional[Callable]</tt>        | A function to initialize the bias vector. Defaults to [`zero_init`](/docs/api-initializers#zero_init) when set to `None`.                        |
+| `dropout`      | <tt>Optional[float]</tt>           | Dropout rate to avoid overfitting.                                                                                                               |
+| `normalize`    | <tt>bool</tt>                      | Whether or not to apply [layer normalization](#layernorm), (default: False).                                                                     |
+| **RETURNS**    | <tt>Model[Floats2d, Floats2d]</tt> | The created maxout layer.                                                                                                                        |
 
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/maxout.py
@@ -365,16 +367,16 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/maxout.py
 A dense layer with Mish activation
 ([Misra, 2019](https://arxiv.org/pdf/1908.08681.pdf)).
 
-| Argument       | Type                               | Description                                                                                                                  |
-| -------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `nO`           | <tt>Optional[int]</tt>             | The size of the output vectors.                                                                                              |
-| `nI`           | <tt>Optional[int]</tt>             | The size of the input vectors.                                                                                               |
-| _keyword-only_ |                                    |                                                                                                                              |
-| `init_W`       | <tt>Callable</tt>                  | A function to initialize the weights matrix. Defaults to [`glorot_uniform_init`](/docs/api-initializers#glorot_uniform_init) |
-| `init_b`       | <tt>Callable</tt>                  | A function to initialize the bias vector. Defaults to [`zero_init`](/docs/api-initializers#zero_init).                       |
-| `dropout`      | <tt>Optional[float]</tt>           | Dropout rate to avoid overfitting.                                                                                           |
-| `normalize`    | <tt>bool</tt>                      | Whether or not to apply [layer normalization](#layernorm), (default: False).                                                 |
-| **RETURNS**    | <tt>Model[Floats2d, Floats2d]</tt> | The created dense layer.                                                                                                     |
+| Argument       | Type                               | Description                                                                                                                                      |
+| -------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `nO`           | <tt>Optional[int]</tt>             | The size of the output vectors.                                                                                                                  |
+| `nI`           | <tt>Optional[int]</tt>             | The size of the input vectors.                                                                                                                   |
+| _keyword-only_ |                                    |                                                                                                                                                  |
+| `init_W`       | <tt>Optional[Callable]</tt>        | A function to initialize the weights matrix. Defaults to [`glorot_uniform_init`](/docs/api-initializers#glorot_uniform_init) when set to `None`. |
+| `init_b`       | <tt>Optional[Callable]</tt>        | A function to initialize the bias vector. Defaults to [`zero_init`](/docs/api-initializers#zero_init) when set to `None`.                        |
+| `dropout`      | <tt>Optional[float]</tt>           | Dropout rate to avoid overfitting.                                                                                                               |
+| `normalize`    | <tt>bool</tt>                      | Whether or not to apply [layer normalization](#layernorm), (default: False).                                                                     |
+| **RETURNS**    | <tt>Model[Floats2d, Floats2d]</tt> | The created dense layer.                                                                                                                         |
 
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/mish.py
@@ -398,16 +400,16 @@ whereas GELU uses the CDF of the Gaussian distribution Φ for self-gating
 `x * Φ(x)` Swish uses the logistic CDF `x * σ(x)`. Sometimes referred to as
 "SiLU" for "Sigmoid Linear Unit".
 
-| Argument       | Type                               | Description                                                                                                        |
-| -------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `nO`           | <tt>Optional[int]</tt>             | The size of the output vectors.                                                                                    |
-| `nI`           | <tt>Optional[int]</tt>             | The size of the input vectors.                                                                                     |
-| _keyword-only_ |                                    |                                                                                                                    |
-| `init_W`       | <tt>Callable</tt>                  | A function to initialize the weights matrix. Defaults to [`he_normal_init`](/docs/api-initializers#he_normal_init) |
-| `init_b`       | <tt>Callable</tt>                  | A function to initialize the bias vector. Defaults to [`zero_init`](/docs/api-initializers#zero_init).             |
-| `dropout`      | <tt>Optional[float]</tt>           | Dropout rate to avoid overfitting.                                                                                 |
-| `normalize`    | <tt>bool</tt>                      | Whether or not to apply [layer normalization](#layernorm). Defaults to `False`.                                    |
-| **RETURNS**    | <tt>Model[Floats2d, Floats2d]</tt> | The created dense layer.                                                                                           |
+| Argument       | Type                               | Description                                                                                                                            |
+| -------------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `nO`           | <tt>Optional[int]</tt>             | The size of the output vectors.                                                                                                        |
+| `nI`           | <tt>Optional[int]</tt>             | The size of the input vectors.                                                                                                         |
+| _keyword-only_ |                                    |                                                                                                                                        |
+| `init_W`       | <tt>Optional[Callable]</tt>        | A function to initialize the weights matrix. Defaults to [`he_normal_init`](/docs/api-initializers#he_normal_init) when set to `None`. |
+| `init_b`       | <tt>Optional[Callable]</tt>        | A function to initialize the bias vector. Defaults to [`zero_init`](/docs/api-initializers#zero_init) when set to `None`.              |
+| `dropout`      | <tt>Optional[float]</tt>           | Dropout rate to avoid overfitting.                                                                                                     |
+| `normalize`    | <tt>bool</tt>                      | Whether or not to apply [layer normalization](#layernorm). Defaults to `False`.                                                        |
+| **RETURNS**    | <tt>Model[Floats2d, Floats2d]</tt> | The created dense layer.                                                                                                               |
 
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/swish.py
@@ -433,16 +435,16 @@ CDF σ and computes `x * σ(x)`. Various approximations exist, but `thinc`
 implements the exact GELU. The use of GELU is popular within transformer
 feed-forward blocks.
 
-| Argument       | Type                               | Description                                                                                                        |
-| -------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `nO`           | <tt>Optional[int]</tt>             | The size of the output vectors.                                                                                    |
-| `nI`           | <tt>Optional[int]</tt>             | The size of the input vectors.                                                                                     |
-| _keyword-only_ |                                    |                                                                                                                    |
-| `init_W`       | <tt>Callable</tt>                  | A function to initialize the weights matrix. Defaults to [`he_normal_init`](/docs/api-initializers#he_normal_init) |
-| `init_b`       | <tt>Callable</tt>                  | A function to initialize the bias vector. Defaults to [`zero_init`](/docs/api-initializers#zero_init).             |
-| `dropout`      | <tt>Optional[float]</tt>           | Dropout rate to avoid overfitting.                                                                                 |
-| `normalize`    | <tt>bool</tt>                      | Whether or not to apply [layer normalization](#layernorm). Defaults to `False`.                                    |
-| **RETURNS**    | <tt>Model[Floats2d, Floats2d]</tt> | The created dense layer.                                                                                           |
+| Argument       | Type                               | Description                                                                                                                            |
+| -------------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `nO`           | <tt>Optional[int]</tt>             | The size of the output vectors.                                                                                                        |
+| `nI`           | <tt>Optional[int]</tt>             | The size of the input vectors.                                                                                                         |
+| _keyword-only_ |                                    |                                                                                                                                        |
+| `init_W`       | <tt>Optional[Callable]</tt>        | A function to initialize the weights matrix. Defaults to [`he_normal_init`](/docs/api-initializers#he_normal_init) when set to `None`. |
+| `init_b`       | <tt>Optional[Callable]</tt>        | A function to initialize the bias vector. Defaults to [`zero_init`](/docs/api-initializers#zero_init) when set to `None`.              |
+| `dropout`      | <tt>Optional[float]</tt>           | Dropout rate to avoid overfitting.                                                                                                     |
+| `normalize`    | <tt>bool</tt>                      | Whether or not to apply [layer normalization](#layernorm). Defaults to `False`.                                                        |
+| **RETURNS**    | <tt>Model[Floats2d, Floats2d]</tt> | The created dense layer.                                                                                                               |
 
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/gelu.py
@@ -465,17 +467,17 @@ belief networks
 [(Krizhevsky, 2010)](https://www.cs.toronto.edu/~kriz/conv-cifar10-aug2010.pdf).
 The resulting function `relu6` is commonly used in low-precision scenarios.
 
-| Argument       | Type                               | Description                                                                                                                  |
-| -------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `nO`           | <tt>Optional[int]</tt>             | The size of the output vectors.                                                                                              |
-| `nI`           | <tt>Optional[int]</tt>             | The size of the input vectors.                                                                                               |
-| _keyword-only_ |                                    |                                                                                                                              |
-| `init_W`       | <tt>Callable</tt>                  | A function to initialize the weights matrix. Defaults to [`glorot_uniform_init`](/docs/api-initializers#glorot_uniform_init) |
-| `init_b`       | <tt>Callable</tt>                  | A function to initialize the bias vector. Defaults to [`zero_init`](/docs/api-initializers#zero_init).                       |
-| `dropout`      | <tt>Optional[float]</tt>           | Dropout rate to avoid overfitting.                                                                                           |
-| `normalize`    | <tt>bool</tt>                      | Whether or not to apply [layer normalization](#layernorm). Defaults to `False`.                                              |
-| `k`            | <tt>float</tt>                     | Maximum value. Defaults to `6.0`..                                                                                           |
-| **RETURNS**    | <tt>Model[Floats2d, Floats2d]</tt> | The created dense layer.                                                                                                     |
+| Argument       | Type                               | Description                                                                                                                                      |
+| -------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `nO`           | <tt>Optional[int]</tt>             | The size of the output vectors.                                                                                                                  |
+| `nI`           | <tt>Optional[int]</tt>             | The size of the input vectors.                                                                                                                   |
+| _keyword-only_ |                                    |                                                                                                                                                  |
+| `init_W`       | <tt>Optional[Callable]</tt>        | A function to initialize the weights matrix. Defaults to [`glorot_uniform_init`](/docs/api-initializers#glorot_uniform_init) when set to `None`. |
+| `init_b`       | <tt>Optional[Callable]</tt>        | A function to initialize the bias vector. Defaults to [`zero_init`](/docs/api-initializers#zero_init) when set to `None`.                        |
+| `dropout`      | <tt>Optional[float]</tt>           | Dropout rate to avoid overfitting.                                                                                                               |
+| `normalize`    | <tt>bool</tt>                      | Whether or not to apply [layer normalization](#layernorm). Defaults to `False`.                                                                  |
+| `k`            | <tt>float</tt>                     | Maximum value. Defaults to `6.0`..                                                                                                               |
+| **RETURNS**    | <tt>Model[Floats2d, Floats2d]</tt> | The created dense layer.                                                                                                                         |
 
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/clipped_linear.py#L132
@@ -495,16 +497,16 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/clipped_linear.py#L1
 A dense layer with hard sigmoid activation function, which is a fast linear
 approximation of sigmoid, defined as `max(0, min(1, x * 0.2 + 0.5))`.
 
-| Argument       | Type                               | Description                                                                                                                  |
-| -------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `nO`           | <tt>Optional[int]</tt>             | The size of the output vectors.                                                                                              |
-| `nI`           | <tt>Optional[int]</tt>             | The size of the input vectors.                                                                                               |
-| _keyword-only_ |                                    |                                                                                                                              |
-| `init_W`       | <tt>Callable</tt>                  | A function to initialize the weights matrix. Defaults to [`glorot_uniform_init`](/docs/api-initializers#glorot_uniform_init) |
-| `init_b`       | <tt>Callable</tt>                  | A function to initialize the bias vector. Defaults to [`zero_init`](/docs/api-initializers#zero_init).                       |
-| `dropout`      | <tt>Optional[float]</tt>           | Dropout rate to avoid overfitting.                                                                                           |
-| `normalize`    | <tt>bool</tt>                      | Whether or not to apply [layer normalization](#layernorm). Defaults to `False`.                                              |
-| **RETURNS**    | <tt>Model[Floats2d, Floats2d]</tt> | The created dense layer.                                                                                                     |
+| Argument       | Type                               | Description                                                                                                                                      |
+| -------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `nO`           | <tt>Optional[int]</tt>             | The size of the output vectors.                                                                                                                  |
+| `nI`           | <tt>Optional[int]</tt>             | The size of the input vectors.                                                                                                                   |
+| _keyword-only_ |                                    |                                                                                                                                                  |
+| `init_W`       | <tt>Optional[Callable]</tt>        | A function to initialize the weights matrix. Defaults to [`glorot_uniform_init`](/docs/api-initializers#glorot_uniform_init) when set to `None`. |
+| `init_b`       | <tt>Optional[Callable]</tt>        | A function to initialize the bias vector. Defaults to [`zero_init`](/docs/api-initializers#zero_init) when set to `None`.                        |
+| `dropout`      | <tt>Optional[float]</tt>           | Dropout rate to avoid overfitting.                                                                                                               |
+| `normalize`    | <tt>bool</tt>                      | Whether or not to apply [layer normalization](#layernorm). Defaults to `False`.                                                                  |
+| **RETURNS**    | <tt>Model[Floats2d, Floats2d]</tt> | The created dense layer.                                                                                                                         |
 
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/clipped_linear.py#L90
@@ -524,16 +526,16 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/clipped_linear.py#L9
 A dense layer with hard tanh activation function, which is a fast linear
 approximation of tanh, defined as `max(-1, min(1, x))`.
 
-| Argument       | Type                               | Description                                                                                                                  |
-| -------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `nO`           | <tt>Optional[int]</tt>             | The size of the output vectors.                                                                                              |
-| `nI`           | <tt>Optional[int]</tt>             | The size of the input vectors.                                                                                               |
-| _keyword-only_ |                                    |                                                                                                                              |
-| `init_W`       | <tt>Callable</tt>                  | A function to initialize the weights matrix. Defaults to [`glorot_uniform_init`](/docs/api-initializers#glorot_uniform_init) |
-| `init_b`       | <tt>Callable</tt>                  | A function to initialize the bias vector. Defaults to [`zero_init`](/docs/api-initializers#zero_init).                       |
-| `dropout`      | <tt>Optional[float]</tt>           | Dropout rate to avoid overfitting.                                                                                           |
-| `normalize`    | <tt>bool</tt>                      | Whether or not to apply [layer normalization](#layernorm). Defaults to `False`.                                              |
-| **RETURNS**    | <tt>Model[Floats2d, Floats2d]</tt> | The created dense layer.                                                                                                     |
+| Argument       | Type                               | Description                                                                                                                                      |
+| -------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `nO`           | <tt>Optional[int]</tt>             | The size of the output vectors.                                                                                                                  |
+| `nI`           | <tt>Optional[int]</tt>             | The size of the input vectors.                                                                                                                   |
+| _keyword-only_ |                                    |                                                                                                                                                  |
+| `init_W`       | <tt>Optional[Callable]</tt>        | A function to initialize the weights matrix. Defaults to [`glorot_uniform_init`](/docs/api-initializers#glorot_uniform_init) when set to `None`. |
+| `init_b`       | <tt>Optional[Callable]</tt>        | A function to initialize the bias vector. Defaults to [`zero_init`](/docs/api-initializers#zero_init) when set to `None`.                        |
+| `dropout`      | <tt>Optional[float]</tt>           | Dropout rate to avoid overfitting.                                                                                                               |
+| `normalize`    | <tt>bool</tt>                      | Whether or not to apply [layer normalization](#layernorm). Defaults to `False`.                                                                  |
+| **RETURNS**    | <tt>Model[Floats2d, Floats2d]</tt> | The created dense layer.                                                                                                                         |
 
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/clipped_linear.py#L111
@@ -555,20 +557,20 @@ form `max(min_value, min(max_value, x * slope + offset))`. It is used to
 implement the [`ReluK`](#reluk), [`HardSigmoid`](#hardsigmoid), and
 [`HardTanh`](#hardtanh) layers.
 
-| Argument       | Type                               | Description                                                                                                                  |
-| -------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `nO`           | <tt>Optional[int]</tt>             | The size of the output vectors.                                                                                              |
-| `nI`           | <tt>Optional[int]</tt>             | The size of the input vectors.                                                                                               |
-| _keyword-only_ |                                    |                                                                                                                              |
-| `init_W`       | <tt>Callable</tt>                  | A function to initialize the weights matrix. Defaults to [`glorot_uniform_init`](/docs/api-initializers#glorot_uniform_init) |
-| `init_b`       | <tt>Callable</tt>                  | A function to initialize the bias vector. Defaults to [`zero_init`](/docs/api-initializers#zero_init).                       |
-| `dropout`      | <tt>Optional[float]</tt>           | Dropout rate to avoid overfitting.                                                                                           |
-| `normalize`    | <tt>bool</tt>                      | Whether or not to apply [layer normalization](#layernorm). Defaults to `False`.                                              |
-| `slope`        | <tt>float</tt>                     | The slope of the linear function: `input * slope`.                                                                           |
-| `offset`       | <tt>float</tt>                     | The offset or intercept of the linear function: `input * slope + offset`.                                                    |
-| `min_val`      | <tt>float</tt>                     | Minimum value to clip to.                                                                                                    |
-| `max_val`      | <tt>float</tt>                     | Maximum value to clip to.                                                                                                    |
-| **RETURNS**    | <tt>Model[Floats2d, Floats2d]</tt> | The created dense layer.                                                                                                     |
+| Argument       | Type                               | Description                                                                                                                                      |
+| -------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `nO`           | <tt>Optional[int]</tt>             | The size of the output vectors.                                                                                                                  |
+| `nI`           | <tt>Optional[int]</tt>             | The size of the input vectors.                                                                                                                   |
+| _keyword-only_ |                                    |                                                                                                                                                  |
+| `init_W`       | <tt>Optional[Callable]</tt>        | A function to initialize the weights matrix. Defaults to [`glorot_uniform_init`](/docs/api-initializers#glorot_uniform_init) when set to `None`. |
+| `init_b`       | <tt>Optional[Callable]</tt>        | A function to initialize the bias vector. Defaults to [`zero_init`](/docs/api-initializers#zero_init) when set to `None`.                        |
+| `dropout`      | <tt>Optional[float]</tt>           | Dropout rate to avoid overfitting.                                                                                                               |
+| `normalize`    | <tt>bool</tt>                      | Whether or not to apply [layer normalization](#layernorm). Defaults to `False`.                                                                  |
+| `slope`        | <tt>float</tt>                     | The slope of the linear function: `input * slope`.                                                                                               |
+| `offset`       | <tt>float</tt>                     | The offset or intercept of the linear function: `input * slope + offset`.                                                                        |
+| `min_val`      | <tt>float</tt>                     | Minimum value to clip to.                                                                                                                        |
+| `max_val`      | <tt>float</tt>                     | Maximum value to clip to.                                                                                                                        |
+| **RETURNS**    | <tt>Model[Floats2d, Floats2d]</tt> | The created dense layer.                                                                                                                         |
 
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/clipped_linear.py
@@ -588,16 +590,16 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/clipped_linear.py
 A dense layer implementing the hard Swish activation function, which is a fast
 linear approximation of Swish: `x * hard_sigmoid(x)`.
 
-| Argument       | Type                               | Description                                                                                                        |
-| -------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `nO`           | <tt>Optional[int]</tt>             | The size of the output vectors.                                                                                    |
-| `nI`           | <tt>Optional[int]</tt>             | The size of the input vectors.                                                                                     |
-| _keyword-only_ |                                    |                                                                                                                    |
-| `init_W`       | <tt>Callable</tt>                  | A function to initialize the weights matrix. Defaults to [`he_normal_init`](/docs/api-initializers#he_normal_init) |
-| `init_b`       | <tt>Callable</tt>                  | A function to initialize the bias vector. Defaults to [`zero_init`](/docs/api-initializers#zero_init).             |
-| `dropout`      | <tt>Optional[float]</tt>           | Dropout rate to avoid overfitting.                                                                                 |
-| `normalize`    | <tt>bool</tt>                      | Whether or not to apply [layer normalization](#layernorm). Defaults to `False`.                                    |
-| **RETURNS**    | <tt>Model[Floats2d, Floats2d]</tt> | The created dense layer.                                                                                           |
+| Argument       | Type                               | Description                                                                                                                            |
+| -------------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `nO`           | <tt>Optional[int]</tt>             | The size of the output vectors.                                                                                                        |
+| `nI`           | <tt>Optional[int]</tt>             | The size of the input vectors.                                                                                                         |
+| _keyword-only_ |                                    |                                                                                                                                        |
+| `init_W`       | <tt>Optional[Callable]</tt>        | A function to initialize the weights matrix. Defaults to [`he_normal_init`](/docs/api-initializers#he_normal_init) when set to `None`. |
+| `init_b`       | <tt>Optional[Callable]</tt>        | A function to initialize the bias vector. Defaults to [`zero_init`](/docs/api-initializers#zero_init) when set to `None`.              |
+| `dropout`      | <tt>Optional[float]</tt>           | Dropout rate to avoid overfitting.                                                                                                     |
+| `normalize`    | <tt>bool</tt>                      | Whether or not to apply [layer normalization](#layernorm). Defaults to `False`.                                                        |
+| **RETURNS**    | <tt>Model[Floats2d, Floats2d]</tt> | The created dense layer.                                                                                                               |
 
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/hard_swish.py
@@ -619,16 +621,16 @@ activation function used in `MobileNetV3`
 [(Howard et al., 2019)](https://arxiv.org/abs/1905.02244), defined as
 `x * (relu6(x + 3) / 6)`.
 
-| Argument       | Type                               | Description                                                                                                        |
-| -------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `nO`           | <tt>Optional[int]</tt>             | The size of the output vectors.                                                                                    |
-| `nI`           | <tt>Optional[int]</tt>             | The size of the input vectors.                                                                                     |
-| _keyword-only_ |                                    |                                                                                                                    |
-| `init_W`       | <tt>Callable</tt>                  | A function to initialize the weights matrix. Defaults to [`he_normal_init`](/docs/api-initializers#he_normal_init) |
-| `init_b`       | <tt>Callable</tt>                  | A function to initialize the bias vector. Defaults to [`zero_init`](/docs/api-initializers#zero_init).             |
-| `dropout`      | <tt>Optional[float]</tt>           | Dropout rate to avoid overfitting.                                                                                 |
-| `normalize`    | <tt>bool</tt>                      | Whether or not to apply [layer normalization](#layernorm). Defaults to `False`.                                    |
-| **RETURNS**    | <tt>Model[Floats2d, Floats2d]</tt> | The created dense layer.                                                                                           |
+| Argument       | Type                               | Description                                                                                                                            |
+| -------------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `nO`           | <tt>Optional[int]</tt>             | The size of the output vectors.                                                                                                        |
+| `nI`           | <tt>Optional[int]</tt>             | The size of the input vectors.                                                                                                         |
+| _keyword-only_ |                                    |                                                                                                                                        |
+| `init_W`       | <tt>Optional[Callable]</tt>        | A function to initialize the weights matrix. Defaults to [`he_normal_init`](/docs/api-initializers#he_normal_init) when set to `None`. |
+| `init_b`       | <tt>Optional[Callable]</tt>        | A function to initialize the bias vector. Defaults to [`zero_init`](/docs/api-initializers#zero_init) when set to `None`.              |
+| `dropout`      | <tt>Optional[float]</tt>           | Dropout rate to avoid overfitting.                                                                                                     |
+| `normalize`    | <tt>bool</tt>                      | Whether or not to apply [layer normalization](#layernorm). Defaults to `False`.                                                        |
+| **RETURNS**    | <tt>Model[Floats2d, Floats2d]</tt> | The created dense layer.                                                                                                               |
 
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/hard_swish_mobilenet.py
@@ -697,16 +699,16 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/parametricattention.
 
 A dense layer with Relu activation.
 
-| Argument       | Type                               | Description                                                                                                                  |
-| -------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `nO`           | <tt>Optional[int]</tt>             | The size of the output vectors.                                                                                              |
-| `nI`           | <tt>Optional[int]</tt>             | The size of the input vectors.                                                                                               |
-| _keyword-only_ |                                    |                                                                                                                              |
-| `init_W`       | <tt>Callable</tt>                  | A function to initialize the weights matrix. Defaults to [`glorot_uniform_init`](/docs/api-initializers#glorot_uniform_init) |
-| `init_b`       | <tt>Callable</tt>                  | A function to initialize the bias vector. Defaults to [`zero_init`](/docs/api-initializers#zero_init).                       |
-| `dropout`      | <tt>Optional[float]</tt>           | Dropout rate to avoid overfitting.                                                                                           |
-| `normalize`    | <tt>bool</tt>                      | Whether or not to apply [layer normalization](#layernorm), (default: False).                                                 |
-| **RETURNS**    | <tt>Model[Floats2d, Floats2d]</tt> | The created Relu layer.                                                                                                      |
+| Argument       | Type                               | Description                                                                                                                                      |
+| -------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `nO`           | <tt>Optional[int]</tt>             | The size of the output vectors.                                                                                                                  |
+| `nI`           | <tt>Optional[int]</tt>             | The size of the input vectors.                                                                                                                   |
+| _keyword-only_ |                                    |                                                                                                                                                  |
+| `init_W`       | <tt>Optional[Callable]</tt>        | A function to initialize the weights matrix. Defaults to [`glorot_uniform_init`](/docs/api-initializers#glorot_uniform_init) when set to `None`. |
+| `init_b`       | <tt>Optional[Callable]</tt>        | A function to initialize the bias vector. Defaults to [`zero_init`](/docs/api-initializers#zero_init) when set to `None`.                        |
+| `dropout`      | <tt>Optional[float]</tt>           | Dropout rate to avoid overfitting.                                                                                                               |
+| `normalize`    | <tt>bool</tt>                      | Whether or not to apply [layer normalization](#layernorm), (default: False).                                                                     |
+| **RETURNS**    | <tt>Model[Floats2d, Floats2d]</tt> | The created Relu layer.                                                                                                                          |
 
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/relu.py
@@ -728,14 +730,14 @@ layer. Vectors produced by the softmax function sum to 1, and have values
 between 0 and 1, so each vector can be interpreted as a probability
 distribution.
 
-| Argument       | Type                               | Description                                                                                              |
-| -------------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `nO`           | <tt>Optional[int]</tt>             | The size of the output vectors.                                                                          |
-| `nI`           | <tt>Optional[int]</tt>             | The size of the input vectors.                                                                           |
-| _keyword-only_ |                                    |                                                                                                          |
-| `init_W`       | <tt>Callable</tt>                  | A function to initialize the weights matrix. Defaults to [`zero_init`](/docs/api-initializers#zero_init) |
-| `init_b`       | <tt>Callable</tt>                  | A function to initialize the bias vector. Defaults to [`zero_init`](/docs/api-initializers#zero_init).   |
-| **RETURNS**    | <tt>Model[Floats2d, Floats2d]</tt> | The created softmax layer.                                                                               |
+| Argument       | Type                               | Description                                                                                                                  |
+| -------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `nO`           | <tt>Optional[int]</tt>             | The size of the output vectors.                                                                                              |
+| `nI`           | <tt>Optional[int]</tt>             | The size of the input vectors.                                                                                               |
+| _keyword-only_ |                                    |                                                                                                                              |
+| `init_W`       | <tt>Optional[Callable]</tt>        | A function to initialize the weights matrix. Defaults to [`zero_init`](/docs/api-initializers#zero_init) when set to `None`. |
+| `init_b`       | <tt>Optional[Callable]</tt>        | A function to initialize the bias vector. Defaults to [`zero_init`](/docs/api-initializers#zero_init) when set to `None`.    |
+| **RETURNS**    | <tt>Model[Floats2d, Floats2d]</tt> | The created softmax layer.                                                                                                   |
 
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/softmax.py
@@ -769,16 +771,16 @@ distribution. Values larger than 1 increase entropy and values between 0 and 1
 will calculate the unmodified softmax distribution. `temperature` is not used
 during inference when `normalize_outputs=False`.
 
-| Argument            | Type                               | Description                                                                                              |
-| ------------------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `nO`                | <tt>Optional[int]</tt>             | The size of the output vectors.                                                                          |
-| `nI`                | <tt>Optional[int]</tt>             | The size of the input vectors.                                                                           |
-| _keyword-only_      |                                    |                                                                                                          |
-| `init_W`            | <tt>Callable</tt>                  | A function to initialize the weights matrix. Defaults to [`zero_init`](/docs/api-initializers#zero_init) |
-| `init_b`            | <tt>Callable</tt>                  | A function to initialize the bias vector. Defaults to [`zero_init`](/docs/api-initializers#zero_init).   |
-| `normalize_outputs` | <tt>bool</tt>                      | Return normalized probabilities during inference. Defaults to `True`.                                    |
-| `temperature`       | <tt>float</tt>                     | Temperature to divide logits by. Defaults to `1.0`.                                                      |
-| **RETURNS**         | <tt>Model[Floats2d, Floats2d]</tt> | The created softmax layer.                                                                               |
+| Argument            | Type                               | Description                                                                                                                  |
+| ------------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `nO`                | <tt>Optional[int]</tt>             | The size of the output vectors.                                                                                              |
+| `nI`                | <tt>Optional[int]</tt>             | The size of the input vectors.                                                                                               |
+| _keyword-only_      |                                    |                                                                                                                              |
+| `init_W`            | <tt>Optional[Callable]</tt>        | A function to initialize the weights matrix. Defaults to [`zero_init`](/docs/api-initializers#zero_init) when set to `None`. |
+| `init_b`            | <tt>Optional[Callable]</tt>        | A function to initialize the bias vector. Defaults to [`zero_init`](/docs/api-initializers#zero_init) when set to `None`.    |
+| `normalize_outputs` | <tt>bool</tt>                      | Return normalized probabilities during inference. Defaults to `True`.                                                        |
+| `temperature`       | <tt>float</tt>                     | Temperature to divide logits by. Defaults to `1.0`.                                                                          |
+| **RETURNS**         | <tt>Model[Floats2d, Floats2d]</tt> | The created softmax layer.                                                                                                   |
 
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/softmax.py
@@ -1748,7 +1750,7 @@ script_model = pytorch_to_torchscript_wrapper(model)
 | `convert_outputs`   | <tt>Callable</tt>                         | Function to convert outputs from PyTorch tensors (same signature as `forward` function). |
 | `mixed_precision`   | <tt>bool</tt>                             | Enable mixed-precision training.                                                         |
 | `grad_scaler`       | <tt>Optional[PyTorchGradScaler]</tt>      | Gradient scaler to use during mixed-precision training.                                  |
-| `device`            | <tt>Optional[torch.Device]</tt>         | The Torch device to execute the model on.                                                |
+| `device`            | <tt>Optional[torch.Device]</tt>           | The Torch device to execute the model on.                                                |
 | **RETURNS**         | <tt>Model[Any, Any]</tt>                  | The Thinc model.                                                                         |
 
 ```python
