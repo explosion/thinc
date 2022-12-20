@@ -224,31 +224,34 @@ normalize = true
 A common trick for stochastic gradient descent is to **vary the learning rate or
 other hyperparameters** over the course of training. Since there are many
 possible ways to vary the learning rate, Thinc lets you implement hyperparameter
-schedules as simple callback functions. Thinc also provides a number of
-[popular schedules](/docs/api-schedules) built-in.
+schedules as instances of the [`Schedule`](/docs/api-schedules#schedule) class.
+Thinc also provides a number of [popular schedules](/docs/api-schedules)
+built-in.
 
 You can use schedules directly, by calling the schedule with the `step` keyword
 argument and using it to update hyperparameters in your training loop. Since
 schedules are particularly common for optimization settings, the
 [`Optimizer`](/docs/api-optimizer) object accepts floats, lists, iterators, and
-schedule callbacks for most of its parameters. When you call
-[`Optimizer.step_schedules`](/docs/api-optimizer#step_schedules), the optimizer
-will increase its step count and pass it to the schedules. For instance, this is
-how one creates an instance of the `Adam` optimizer with a custom learning rate
-schedule:
+[`Schedule`](/docs/api-schedules#schedule) instances for most of its parameters.
+When you call [`Optimizer.step_schedules`](/docs/api-optimizer#step_schedules),
+the optimizer will increase its step count and pass it to the schedules. For
+instance, this is how one creates an instance of the `Adam` optimizer with a
+custom learning rate schedule:
 
 ```python
 ### Custom learning rate schedule
-from thinc.api import Adam
+from thinc.api import Adam, Schedule
 
-def my_schedule():
+def cycle():
     values = [0.001, 0.01, 0.1]
     all_values = values + list(reversed(values))
-    def callback(*, step: int, **kwargs) -> float:
-        return all_values[step % len(all_values)]
-    return callback
+    return Schedule("cycle", _cycle_schedule, attrs={"all_values": all_values})
 
-optimizer = Adam(learn_rate=my_schedule())
+def _cycle_schedule(schedule: Schedule, step: int, **kwargs) -> float:
+    all_values = schedule.attrs["all_values"]
+    return all_values[step % len(all_values)]
+
+optimizer = Adam(learn_rate=cycle())
 assert optimizer.learn_rate(optimizer.step) == 0.001
 optimizer.step_schedules()
 assert optimizer.learn_rate(optimizer.step) == 0.01
@@ -269,12 +272,14 @@ of the optimizer. Check out the
 
 ```python
 ### Registered function {small="true"}
-@thinc.registry.schedules("my_schedule.v1")
-def my_schedule(values):
+@thinc.registry.schedules("cycle.v1")
+def cycle(values):
     all_values = values + list(reversed(values))
-    def callback(*, step: int, **kwargs) -> float:
-        return all_values[step % len(all_values)]
-    return callback
+    return Schedule("cycle", _cycle_schedule, attrs={"all_values": all_values})
+
+def _cycle_schedule(schedule: Schedule, step: int, **kwargs) -> float:
+    all_values = schedule.attrs["all_values"]
+    return all_values[step % len(all_values)]
 ```
 
 ```ini
@@ -283,7 +288,7 @@ def my_schedule(values):
 @optimizers = "Adam.v1"
 
 [optimizer.learn_rate]
-@schedules = "my_schedule.v1"
+@schedules = "cycle.v1"
 values = [0.001, 0.01, 0.1]
 ```
 

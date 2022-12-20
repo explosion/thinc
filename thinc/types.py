@@ -1278,18 +1278,6 @@ class ArgsKwargs:
         yield from self.kwargs.items()
 
 
-@runtime_checkable
-class ScheduleCallable(Protocol):
-    def __call__(
-        self,
-        *,
-        key: Tuple[int, str],
-        step: int,
-        step_score: Optional[Tuple[int, float]],
-    ) -> float:
-        ...
-
-
 @dataclass
 class Unserializable:
     """Wrap a value to prevent it from being serialized by msgpack."""

@@ -3,60 +3,57 @@ from thinc.api import constant, warmup_linear, cyclic_triangular
 from thinc.optimizers import KeyT
 
 
-STUB_KEY: KeyT = (0, "")
-
-
 def test_decaying_rate():
     rates = decaying(0.001, 1e-4)
-    rate = rates(step=0, key=STUB_KEY)
+    rate = rates(step=0)
     assert rate == 0.001
-    next_rate = rates(step=1, key=STUB_KEY)
+    next_rate = rates(step=1)
     assert next_rate < rate
     assert next_rate > 0
-    assert next_rate > rates(step=2, key=STUB_KEY)
+    assert next_rate > rates(step=2)
 
     rates_offset = decaying(0.001, 1e-4, t=1.0)
-    assert rates(step=1, key=STUB_KEY) == rates_offset(step=0, key=STUB_KEY)
-    assert rates(step=2, key=STUB_KEY) == rates_offset(step=1, key=STUB_KEY)
+    assert rates(step=1) == rates_offset(step=0)
+    assert rates(step=2) == rates_offset(step=1)
 
 
 def test_compounding_rate():
     rates = compounding(1, 16, 1.01)
-    rate0 = rates(step=0, key=STUB_KEY)
+    rate0 = rates(step=0)
     assert rate0 == 1.0
-    rate1 = rates(step=1, key=STUB_KEY)
-    rate2 = rates(step=2, key=STUB_KEY)
-    rate3 = rates(step=3, key=STUB_KEY)
+    rate1 = rates(step=1)
+    rate2 = rates(step=2)
+    rate3 = rates(step=3)
     assert rate3 > rate2 > rate1 > rate0
     assert (rate3 - rate2) > (rate2 - rate1) > (rate1 - rate0)
 
     rates_offset = compounding(1, 16, 1.01, t=1.0)
-    assert rates(step=1, key=STUB_KEY) == rates_offset(step=0, key=STUB_KEY)
-    assert rates(step=2, key=STUB_KEY) == rates_offset(step=1, key=STUB_KEY)
+    assert rates(step=1) == rates_offset(step=0)
+    assert rates(step=2) == rates_offset(step=1)
 
 
 def test_slanted_triangular_rate():
     rates = slanted_triangular(1.0, 20.0, ratio=10)
-    rate0 = rates(step=0, key=STUB_KEY)
+    rate0 = rates(step=0)
     assert rate0 < 1.0
-    rate1 = rates(step=1, key=STUB_KEY)
+    rate1 = rates(step=1)
     assert rate1 > rate0
-    rate2 = rates(step=2, key=STUB_KEY)
+    rate2 = rates(step=2)
     assert rate2 < rate1
-    rate3 = rates(step=3, key=STUB_KEY)
+    rate3 = rates(step=3)
     assert rate0 < rate3 < rate2
 
     rates_offset = slanted_triangular(1.0, 20.0, ratio=10, t=1.0)
-    assert rates(step=1, key=STUB_KEY) == rates_offset(step=0, key=STUB_KEY)
-    assert rates(step=2, key=STUB_KEY) == rates_offset(step=1, key=STUB_KEY)
+    assert rates(step=1) == rates_offset(step=0)
+    assert rates(step=2) == rates_offset(step=1)
 
 
 def test_constant_then_schedule():
     rates = constant_then(1.0, 2, constant(100))
-    assert rates(step=0, key=STUB_KEY) == 1.0
-    assert rates(step=1, key=STUB_KEY) == 1.0
-    assert rates(step=2, key=STUB_KEY) == 100
-    assert rates(step=3, key=STUB_KEY) == 100
+    assert rates(step=0) == 1.0
+    assert rates(step=1) == 1.0
+    assert rates(step=2) == 100
+    assert rates(step=3) == 100
 
 
 def test_constant():

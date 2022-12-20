@@ -190,22 +190,30 @@ For details and examples, see the
 
 The function registry integration becomes even more powerful when used to build
 **recursive structures**. Let's say you want to use a learning rate schedule and
-pass in a generator as the `learn_rate` argument. Here's an example of a
-function that yields an infinite series of decaying values, following the
-schedule `base_rate * 1 / (1 + decay * t)`. It's also available in Thinc as
+pass in a schedule as the `learn_rate` argument. Here's an example of a function
+that yields an infinite series of decaying values, following the schedule
+`base_rate * 1 / (1 + decay * t)`. It's also available in Thinc as
 [`schedules.decaying`](/docs/api-schedules#decaying). The decorator registers
 the function `"my_cool_decaying_schedule.v1"` in the registry `schedules`:
 
 ```python
-from typing import Iterable
 import thinc
+from thinc.schedules import Schedule
 
 @thinc.registry.schedules("my_cool_decaying_schedule.v1")
-def decaying(base_rate: float, decay: float, *, t: int = 0) -> SchedulerCallable:
-    def callback(*, step: int, **kwargs) -> float:
-        return base_rate * (1.0 / (1.0 + decay * (step + t)))
+def decaying(base_rate: float, decay: float, *, t: int = 0) -> Schedule[float]:
+    return Schedule(
+        "decaying",
+        _decaying_schedule,
+        attrs={"base_rate": base_rate, "decay": decay, "t": t}
+    )
 
-    return callback
+
+def _decaying_schedule(schedule: Schedule, step: int, **kwargs) -> float:
+    base_rate = schedule.attrs["base_rate"]
+    decay = schedule.attrs["decay"]
+    t = schedule.attrs["t"]
+    return base_rate * (1.0 / (1.0 + decay * (step + t)))
 ```
 
 In your config, you can now define the `learn_rate` as a subsection of
@@ -282,12 +290,22 @@ values:
 
 ```python
 ### {small="true"}
+import thinc
+from thinc.schedules import Schedule
+
 @thinc.registry.schedules("my_cool_schedule.v1")
-def schedule(*steps: float, final: float = 1.0) -> ScheduleCallable:
+def step_values(*steps: float, final: float = 1.0) -> Schedule[float]:
     step_list = list(steps)
-    def callback(*, step: int, **kwargs) -> float:
-        return step_list[step] if step < len(step_list) else final
-    return callback
+    return Schedule(
+        "step_values",
+        _step_values_schedule,
+        attrs={"steps": list(steps), "final": final}
+    )
+
+def _step_values_schedule(schedule: Schedule, step: int, **kwargs) -> float:
+    steps = schedule.attrs["steps"]
+    final = schedule.attrs["final"]
+    return steps[step] if step < len(steps) else final
 ```
 
 ```ini

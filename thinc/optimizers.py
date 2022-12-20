@@ -1,17 +1,17 @@
-import math
-
 from typing import Any, Dict, Optional, Union, Tuple, List, cast
 from collections import defaultdict
+import itertools
+import math
 from types import GeneratorType
 
 from .backends import get_array_ops
 from .types import Generator, FloatsXd
 from .config import registry
-from .schedules import constant, ScheduleCallable
+from .schedules import constant, Schedule
 
 
 KeyT = Tuple[int, str]
-ScheduleT = Union[float, List[float], Generator, ScheduleCallable]
+ScheduleT = Union[float, List[float], Generator, Schedule]
 
 SGD_DEFAULTS: Dict[str, Union[float, bool, int]] = {
     "L2": 0.0,
@@ -112,12 +112,12 @@ class Optimizer(object):
     schedules: Dict[str, Generator]
     nr_update: Dict[KeyT, int]
     last_seen: Dict[KeyT, int]
-    grad_clip: ScheduleCallable
-    learn_rate: ScheduleCallable
-    b1: ScheduleCallable
-    b2: ScheduleCallable
-    eps: ScheduleCallable
-    L2: ScheduleCallable
+    grad_clip: Schedule
+    learn_rate: Schedule
+    b1: Schedule
+    b2: Schedule
+    eps: Schedule
+    L2: Schedule
     use_radam: bool
     L2_is_weight_decay: bool
     _radam_buffer: List[List[Optional[FloatsXd]]]
@@ -198,10 +198,10 @@ class Optimizer(object):
             setattr(self, name, constant(value))
         elif isinstance(value, list):
             value = iter(value)
-            setattr(self, name, _generator_schedule(name, value))
+            setattr(self, name, _wrap_generator(name, value))
         elif isinstance(value, GeneratorType):
-            setattr(self, name, _generator_schedule(name, value))
-        elif isinstance(value, ScheduleCallable):
+            setattr(self, name, _wrap_generator(name, value))
+        elif isinstance(value, Schedule):
             setattr(self, name, value)
         else:
             err = f"Invalid schedule for '{name}' ({type(value)})"
@@ -218,11 +218,14 @@ class Optimizer(object):
     def last_score(self, score: float):
         self._last_score = (self._step, score)
 
+    @property
+    def step(self) -> int:
+        return self._step
+
     def _schedule_args(self, key: KeyT) -> Dict[str, Any]:
         return {
             "key": key,
             "last_score": self.last_score,
-            "step": self._step,
         }
 
     def __call__(
@@ -244,31 +247,34 @@ class Optimizer(object):
         nr_upd = self.nr_update[key]
         schedule_args = self._schedule_args(key)
 
-        if self.L2(**schedule_args) != 0 and not self.L2_is_weight_decay:
-            gradient += self.L2(**schedule_args) * weights
-        if self.grad_clip(**schedule_args):
+        if self.L2(self.step, **schedule_args) != 0 and not self.L2_is_weight_decay:
+            gradient += self.L2(self.step, **schedule_args) * weights
+        if self.grad_clip(self.step, **schedule_args):
             gradient = ops.clip_gradient(
                 gradient,
-                self.grad_clip(**schedule_args),
+                self.grad_clip(self.step, **schedule_args),
             )
         if self.use_radam:
             weights, gradient = self._radam(
                 ops, weights, gradient, lr_scale, key, nr_upd
             )
-        elif self.b1(**schedule_args) > 0.0 and self.b2(**schedule_args) > 0.0:
+        elif (
+            self.b1(self.step, **schedule_args) > 0.0
+            and self.b2(self.step, **schedule_args) > 0.0
+        ):
             weights, gradient = self._adam(
                 ops, weights, gradient, lr_scale, key, nr_upd
             )
-        elif self.b2(**schedule_args) > 0.0:  # pragma: no cover
+        elif self.b2(self.step, **schedule_args) > 0.0:  # pragma: no cover
             raise NotImplementedError  # TODO: error message
         else:
-            weights -= lr_scale * self.learn_rate(**schedule_args) * gradient
+            weights -= lr_scale * self.learn_rate(self.step, **schedule_args) * gradient
         gradient *= 0
-        if self.L2(**schedule_args) != 0 and self.L2_is_weight_decay:
+        if self.L2(self.step, **schedule_args) != 0 and self.L2_is_weight_decay:
             weights -= (
                 lr_scale
-                * self.learn_rate(**schedule_args)
-                * self.L2(**schedule_args)
+                * self.learn_rate(self.step, **schedule_args)
+                * self.L2(self.step, **schedule_args)
                 * weights
             )
         if self.averages is not None:
@@ -296,12 +302,12 @@ class Optimizer(object):
             "exp_avg_sq": self.mom2[key],
         }
         group = {
-            "lr": self.learn_rate(**schedule_args),
+            "lr": self.learn_rate(self.step, **schedule_args),
             "betas": [
-                self.b1(**schedule_args),
-                self.b2(**schedule_args),
+                self.b1(self.step, **schedule_args),
+                self.b2(self.step, **schedule_args),
             ],
-            "eps": self.eps(**schedule_args),
+            "eps": self.eps(self.step, **schedule_args),
             "weight_decay": 0.0,
             "buffer": self._radam_buffer,
         }
@@ -372,12 +378,12 @@ class Optimizer(object):
             self.mom2[key] = ops.alloc1f(weights.size)
         mom1 = self.mom1[key]
         mom2 = self.mom2[key]
-        b1 = self.b1(**schedule_args)
-        b2 = self.b2(**schedule_args)
+        b1 = self.b1(self.step, **schedule_args)
+        b2 = self.b2(self.step, **schedule_args)
         fix1 = 1.0 - (b1**nr_upd)
         fix2 = 1.0 - (b2**nr_upd)
-        lr = self.learn_rate(**schedule_args) * fix2**0.5 / fix1
-        eps = self.eps(**schedule_args)
+        lr = self.learn_rate(self.step, **schedule_args) * fix2**0.5 / fix1
+        eps = self.eps(self.step, **schedule_args)
         # needs to be 1D going into the adam function
         weights_1D, gradient_1D, mom1, mom2 = ops.adam(
             weights_1D, gradient_1D, mom1, mom2, b1, b2, eps, lr * lr_scale
@@ -390,34 +396,49 @@ class Optimizer(object):
         )
 
 
-def _generator_schedule(attr_name: str, schedule: Generator) -> ScheduleCallable:
-    last_step = 0
+def _wrap_generator(attr_name: str, generator: Generator) -> Schedule[Any]:
     try:
-        value = next(schedule)
+        peek = next(generator)
     except (StopIteration, TypeError) as e:
-        err = f"Invalid schedule for '{attr_name}' ({type(schedule)})\n{e}"
+        err = f"Invalid schedule for '{attr_name}' ({type(generator)})\n{e}"
         raise ValueError(err)
+    return Schedule(
+        "wrap_generator",
+        _wrap_generator_schedule,
+        attrs={
+            "attr_name": attr_name,
+            "last_step": -1,
+            "last_value": peek,
+            "generator": itertools.chain([peek], generator),
+        },
+    )
 
-    def callback(*, step: int, **kwargs) -> float:
-        nonlocal last_step
-        nonlocal value
 
-        if step < last_step:
-            raise ValueError(
-                f"'step' of the generator-based schedule for {attr_name} must not decrease"
-            )
+def _wrap_generator_schedule(schedule: Schedule, step, **kwargs) -> float:
+    attr_name = schedule.attrs["attr_name"]
+    last_step = schedule.attrs["last_step"]
+    last_value = schedule.attrs["last_value"]
+    generator = schedule.attrs["generator"]
 
-        for i in range(step - last_step):
-            try:
-                value = next(schedule)
-            except StopIteration:  # schedule exhausted, use last value
-                break
+    if step < last_step:
+        raise ValueError(
+            f"'step' of the generator-based schedule for {attr_name} must not decrease"
+        )
 
-        last_step = step
+    # Ensure that we have a value when we didn't step or when the
+    # generator is exhausted.
+    value = last_value
 
-        return value
+    for i in range(step - last_step):
+        try:
+            value = next(generator)
+        except StopIteration:  # schedule exhausted, use last value
+            break
 
-    return callback
+    schedule.attrs["last_step"] = step
+    schedule.attrs["last_value"] = value
+
+    return value
 
 
 __all__ = ["Adam", "RAdam", "SGD", "Optimizer", "ADAM_DEFAULTS", "SGD_DEFAULTS"]

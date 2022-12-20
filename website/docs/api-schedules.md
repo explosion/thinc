@@ -5,11 +5,94 @@ next: /docs/api-loss
 
 Schedules are generators that provide different rates, schedules, decays or
 series. They're typically used for batch sizes or learning rates. You can easily
-implement your own schedules as well: just write your own callback function,
-that produces whatever series of values you need. A common use case for
-schedules is within [`Optimizer`](/docs/api-optimizer) objects, which accept
-iterators for most of their parameters. See the
-[training guide](/docs/usage-training) for details.
+implement your own schedules as well: just write your own
+[`Schedule`](#schedule) implementation, that produces whatever series of values
+you need. A common use case for schedules is within
+[`Optimizer`](/docs/api-optimizer) objects, which accept iterators for most of
+their parameters. See the [training guide](/docs/usage-training) for details.
+
+## Schedule {#schedule tag="class" new="9"}
+
+Class for implementing Thinc schedules.
+
+<infobox variant="warning">
+
+There's only one `Schedule` class in Thinc and schedules are built using
+**composition**, not inheritance. This means that a schedule or composed
+schedule will return an **instance** of `Schedule` – it doesn't subclass it. To
+read more about this concept, see the pages on
+[Thinc's philosophy](/docs/concept).
+
+</infobox>
+
+### Typing {#typing}
+
+`Schedule` can be used as a
+[generic type](https://docs.python.org/3/library/typing.html#generics) with one
+parameter. This parameter specifies the type that is returned by the schedule.
+For instance, `Schedule[int]` denotes a scheduler that returns integers when
+called. A mismatch will cause a type error. For more details, see the docs on
+[type checking](/docs/usage-type-checking).
+
+```python
+from thinc.api import Schedule
+
+def my_function(schedule: Schedule[int]):
+    ...
+```
+
+### Attributes {#attributes}
+
+| Name   | Type         | Description                     |
+| ------ | ------------ | ------------------------------- |
+| `name` | <tt>str</tt> | The name of the scheduler type. |
+
+### Properties {#properties}
+
+| Name    | Type                    | Description                                                                                                                                                               |
+| ------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `attrs` | <tt>Dict[str, Any]</tt> | The scheduler attributes. You can use the dict directly and assign _to_ it – but you cannot reassign `schedule.attrs` to a new variable: `schedule.attrs = {}` will fail. |
+
+### Schedule.\_\_init\_\_ {#init tag="method"}
+
+Initialize a new schedule.
+
+```python
+### Example
+schedule = Schedule(
+    "constant",
+    constant_schedule,
+    attrs={"rate": rate},
+)
+```
+
+| Argument       | Type                    | Description                                              |
+| -------------- | ----------------------- | -------------------------------------------------------- |
+| `name`         | <tt>str</tt>            | The name of the schedule type.                           |
+| `schedule`     | <tt>Callable</tt>       | Function to compute the schedule value for a given step. |
+| _keyword-only_ |                         |                                                          |
+| `attrs`        | <tt>Dict[str, Any]</tt> | Dictionary of non-parameter attributes.                  |
+
+### Schedule.\_\_call\_\_ {#call tag="method"}
+
+Call the the schedule function, returning the value for the given step. The
+`step` positional argument is always required. Some schedules may require
+additional keyword arguments.
+
+```python
+### Example
+from thinc.api import constant
+
+schedule = constant(0.1)
+assert schedule(0) == 0.1
+assert schedule(1000) == 0.1
+```
+
+| Argument    | Type         | Description                                |
+| ----------- | ------------ | ------------------------------------------ |
+| `step`      | <tt>int</tt> | The step to compute the schedule for.      |
+| `**kwargs`  |              | Optional arguments passed to the schedule. |
+| **RETURNS** | <tt>Any</tt> | The schedule value for the step.           |
 
 ## constant {#constant tag="function"}
 
