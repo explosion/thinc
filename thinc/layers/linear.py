@@ -16,10 +16,14 @@ def Linear(
     nO: Optional[int] = None,
     nI: Optional[int] = None,
     *,
-    init_W: Callable = glorot_uniform_init,
-    init_b: Callable = zero_init,
+    init_W: Optional[Callable] = None,
+    init_b: Optional[Callable] = None,
 ) -> Model[InT, OutT]:
     """Multiply inputs by a weights matrix and adds a bias vector."""
+    if init_W is None:
+        init_W = glorot_uniform_init
+    if init_b is None:
+        init_b = zero_init
     return Model(
         "linear",
         forward,

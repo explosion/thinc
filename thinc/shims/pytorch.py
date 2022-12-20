@@ -1,4 +1,4 @@
-from typing import Any, Optional, cast
+from typing import Any, Dict, Optional, cast, Callable
 import contextlib
 from io import BytesIO
 import itertools
@@ -30,6 +30,14 @@ class PyTorchShim(Shim):
         The PyTorch device to run the model on. When this argument is
         set to "None", the default device for the currently active Thinc
         ops is used.
+    serialize_model:
+        Callback that receives the wrapped PyTorch model as its argument and
+        returns a "bytes" representation of the same. The representation should
+        contain all the necessary information to fully deserialize the model.
+    deserialize_model:
+        Callback that receives the default PyTorch model (passed to the constructor), the
+        serialized "bytes" representation and a PyTorch device. It should return a
+        fully deserialized model on the target device as its result.
     """
 
     def __init__(
@@ -40,6 +48,8 @@ class PyTorchShim(Shim):
         mixed_precision: bool = False,
         grad_scaler: Optional[PyTorchGradScaler] = None,
         device: Optional["torch.device"] = None,
+        serialize_model: Optional[Callable[[Any], bytes]] = None,
+        deserialize_model: Optional[Callable[[Any, bytes, "torch.device"], Any]] = None,
     ):
         super().__init__(model, config, optimizer)
 
@@ -54,8 +64,18 @@ class PyTorchShim(Shim):
         grad_scaler.to_(device)
 
         self._grad_scaler = grad_scaler
-
         self._mixed_precision = mixed_precision
+
+        self._serialize_model = (
+            serialize_model
+            if serialize_model is not None
+            else default_serialize_torch_model
+        )
+        self._deserialize_model = (
+            deserialize_model
+            if deserialize_model is not None
+            else default_deserialize_torch_model
+        )
 
         if CupyOps.xp is not None and isinstance(get_current_ops(), CupyOps):
             pools = context_pools.get()
@@ -179,20 +199,52 @@ class PyTorchShim(Shim):
             raise ValueError(msg)
 
     def to_bytes(self):
-        filelike = BytesIO()
-        torch.save(self._model.state_dict(), filelike)
-        filelike.seek(0)
-        weights_bytes = filelike.getvalue()
-        msg = {"config": self.cfg, "state": weights_bytes}
+        model_bytes = self._serialize_model(self._model)
+        msg = {"config": self.cfg, "state": model_bytes}
         return srsly.msgpack_dumps(msg)
 
     def from_bytes(self, bytes_data):
         device = get_torch_default_device()
         msg = srsly.msgpack_loads(bytes_data)
         self.cfg = msg["config"]
-        filelike = BytesIO(msg["state"])
-        filelike.seek(0)
-        self._model.load_state_dict(torch.load(filelike, map_location=device))
-        self._model.to(device)
+        self._model = self._deserialize_model(self._model, msg["state"], device)
         self._grad_scaler.to_(device)
         return self
+
+
+def default_serialize_torch_model(model: Any) -> bytes:
+    """Serializes the parameters of the wrapped PyTorch model to bytes.
+
+    model:
+        Wrapped PyTorch model.
+
+    Returns:
+        A `bytes` object that encapsulates the serialized model parameters.
+    """
+    filelike = BytesIO()
+    torch.save(model.state_dict(), filelike)
+    filelike.seek(0)
+    return filelike.getvalue()
+
+
+def default_deserialize_torch_model(
+    model: Any, state_bytes: bytes, device: "torch.device"
+) -> Any:
+    """Deserializes the parameters of the wrapped PyTorch model and
+    moves it to the specified device.
+
+    model:
+        Wrapped PyTorch model.
+    state_bytes:
+        Serialized parameters as a byte stream.
+    device:
+        PyTorch device to which the model is bound.
+
+    Returns:
+        The deserialized model.
+    """
+    filelike = BytesIO(state_bytes)
+    filelike.seek(0)
+    model.load_state_dict(torch.load(filelike, map_location=device))
+    model.to(device)
+    return model
