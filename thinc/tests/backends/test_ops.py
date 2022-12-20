@@ -835,7 +835,7 @@ def test_reduce_first(ops, dtype):
     ops.xp.testing.assert_allclose(Y, [[1.0, 6.0], [4.0, 9.0]])
 
     lengths = ops.asarray1i([3, 0, 2])
-    with pytest.raises(ValueError, match=r"all sequence lengths must be >= 0"):
+    with pytest.raises(ValueError, match=r"all sequence lengths must be > 0"):
         ops.reduce_last(X, lengths)
 
     lengths = ops.asarray1i([3, 2, 1])
@@ -866,7 +866,7 @@ def test_reduce_last(ops, dtype):
     ops.xp.testing.assert_allclose(Y, [[3.0, 8.0], [5.0, 10.0]])
 
     lengths = ops.asarray1i([3, 0, 2])
-    with pytest.raises(ValueError, match=r"all sequence lengths must be >= 0"):
+    with pytest.raises(ValueError, match=r"all sequence lengths must be > 0"):
         ops.reduce_last(X, lengths)
 
     lengths = ops.asarray1i([3, 2, 1])
