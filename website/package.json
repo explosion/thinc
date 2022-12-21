@@ -67,5 +67,8 @@
     "repository": {
         "type": "git",
         "url": "https://github.com/explosion/thinc"
+    },
+    "engines": {
+        "node": "16"
     }
 }
