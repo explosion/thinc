@@ -8,7 +8,7 @@ import Link, { Button } from '../components/link'
 import Footer from '../components/footer'
 import * as classes from '../styles/landing.module.sass'
 
-export default ({ data }) => {
+const page404 = ({ data }) => {
     const { twitter, email } = data.site.siteMetadata
     return (
         <Layout title="404 Error" className={classes.root}>
@@ -32,6 +32,8 @@ export default ({ data }) => {
         </Layout>
     )
 }
+
+export default page404
 
 export const pageQuery = graphql`
     query {

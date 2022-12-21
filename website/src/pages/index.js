@@ -10,7 +10,7 @@ import TensorFlowLogo from '../images/logos/tensorflow.svg'
 import MXNetLogo from '../images/logos/mxnet.svg'
 import * as classes from '../styles/landing.module.sass'
 
-export default () => (
+const Page = () => (
     <Layout className={classes.root}>
         <Header logoLink="/docs">
             <H2>
@@ -94,3 +94,5 @@ export default () => (
         <Footer className={classes.footer} />
     </Layout>
 )
+
+export default Page
