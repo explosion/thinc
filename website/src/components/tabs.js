@@ -38,5 +38,5 @@ export const Tabs = ({ id = 'tabs', defaultActive = 0, children }) => {
 }
 
 export const Tab = ({ children }) => {
-    return <section className={classes.tab}>{children}</section>
+    return <section>{children}</section>
 }

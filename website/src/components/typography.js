@@ -97,10 +97,7 @@ const Banner = ({ text, id }) => {
 }
 
 export const Tag = ({ variant, className, children }) => {
-    const stringVersion = getStringChildren(children)
-    const tagClassNames = classNames(classes.tag, className, {
-        [classes.tagNew]: stringVersion === 'new' || variant === 'new',
-    })
+    const tagClassNames = classNames(classes.tag, className)
     return (
         <span className={tagClassNames}>
             {variant === 'new' && 'New: v'}

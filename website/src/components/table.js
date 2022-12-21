@@ -29,7 +29,7 @@ function isFootRow(children) {
 export const Tr = ({ children, ...props }) => {
     const isDivider = isDividerRow(children)
     const isFoot = isFootRow(children)
-    const trClasssNames = classNames(classes.tr, {
+    const trClasssNames = classNames({
         [classes.foot]: isFoot,
         [classes.divider]: isDivider,
     })
