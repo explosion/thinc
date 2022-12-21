@@ -8,7 +8,7 @@ import Footer from '../components/footer'
 import PyTorchLogo from '../images/logos/pytorch.svg'
 import TensorFlowLogo from '../images/logos/tensorflow.svg'
 import MXNetLogo from '../images/logos/mxnet.svg'
-import classes from '../styles/landing.module.sass'
+import * as classes from '../styles/landing.module.sass'
 
 export default () => (
     <Layout className={classes.root}>
@@ -49,9 +49,9 @@ export default () => (
                 <Feature title="Type checking" emoji="🚀">
                     <p>
                         Develop faster and catch bugs sooner with sophisticated type checking.
-                        Trying to pass a 1-dimensional array into a model that expects two dimensions?
-                        That’s a type error. Your editor can pick it up as the code leaves your
-                        fingers.
+                        Trying to pass a 1-dimensional array into a model that expects two
+                        dimensions? That’s a type error. Your editor can pick it up as the code
+                        leaves your fingers.
                     </p>
                 </Feature>
                 <Feature title="Awesome config" emoji="🐍">

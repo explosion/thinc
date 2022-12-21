@@ -4,7 +4,7 @@ import Tippy from '@tippy.js/react'
 import slugify from 'slugify'
 
 import { getStringChildren } from '../util'
-import classes from '../styles/typography.module.sass'
+import * as classes from '../styles/typography.module.sass'
 
 export const H0 = ({ Component = 'h1', className, ...props }) => (
     <Headline Component={Component} className={classNames(classes.h0, className)} {...props} />

@@ -6,7 +6,7 @@ import { Header } from '../components/landing'
 import { H0, H4 } from '../components/typography'
 import Link, { Button } from '../components/link'
 import Footer from '../components/footer'
-import classes from '../styles/landing.module.sass'
+import * as classes from '../styles/landing.module.sass'
 
 export default ({ data }) => {
     const { twitter, email } = data.site.siteMetadata
