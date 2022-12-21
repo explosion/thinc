@@ -6,7 +6,6 @@ const plugins = [
     {
         resolve: `gatsby-plugin-sass`,
         options: {
-            indentedSyntax: true,
             postCssPlugins: [autoprefixer()],
             cssLoaderOptions: {
                 localIdentName:
