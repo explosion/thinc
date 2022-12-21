@@ -39,7 +39,6 @@ const plugins = [
     {
         resolve: `gatsby-transformer-remark`,
         options: {
-            pedantic: false,
             plugins: [
                 `gatsby-remark-copy-linked-files`,
                 `gatsby-remark-unwrap`,
@@ -48,7 +47,6 @@ const plugins = [
                     options: {
                         maxWidth: 790,
                         linkImagesToOriginal: true,
-                        sizeByPixelDensity: false,
                         showCaptions: true,
                         quality: 80,
                         withWebp: { quality: 80 },
