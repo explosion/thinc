@@ -10,7 +10,7 @@ from .numpy_ops import NumpyOps
 from .mps_ops import MPSOps
 from ._cupy_allocators import cupy_tensorflow_allocator, cupy_pytorch_allocator
 from ._param_server import ParamServer
-from ..util import assert_tensorflow_installed, assert_pytorch_installed
+from ..util import assert_pytorch_installed, assert_thinc_addons_installed
 from ..util import get_torch_default_device, is_cupy_array, require_cpu
 from .. import registry
 from ..compat import cupy, has_cupy
@@ -69,7 +69,7 @@ def use_tensorflow_for_gpu_memory() -> None:  # pragma: no cover
     We'd like to support routing PyTorch memory allocation via Tensorflow as
     well (or vice versa), but do not currently have an implementation for it.
     """
-    assert_tensorflow_installed()
+    assert_thinc_addons_installed()
     pools = context_pools.get()
     if "tensorflow" not in pools:
         pools["tensorflow"] = cupy.cuda.MemoryPool(allocator=cupy_tensorflow_allocator)

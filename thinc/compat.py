@@ -52,31 +52,6 @@ except ImportError:  # pragma: no cover
     has_torch_amp = False
     torch_version = Version("0.0.0")
 
-try:  # pragma: no cover
-    import tensorflow.experimental.dlpack
-    import tensorflow
-
-    has_tensorflow = True
-    has_tensorflow_gpu = len(tensorflow.config.get_visible_devices("GPU")) > 0
-except ImportError:  # pragma: no cover
-    tensorflow = None
-    has_tensorflow = False
-    has_tensorflow_gpu = False
-
-
-try:  # pragma: no cover
-    import mxnet
-
-    has_mxnet = True
-except ImportError:  # pragma: no cover
-    mxnet = None
-    has_mxnet = False
-
-try:
-    import h5py
-except ImportError:  # pragma: no cover
-    h5py = None
-
 
 try:  # pragma: no cover
     import os_signpost
@@ -96,14 +71,15 @@ except ImportError:
     has_blis = False
 
 
+try:  # pragma: no cover
+    import thinc_addons
+
+    has_thinc_addons = True
+except ImportError:
+    thinc_addons = None
+    has_thinc_addons = False
+
+
 has_gpu = has_cupy_gpu or has_torch_mps_gpu
 
-__all__ = [
-    "cupy",
-    "cupyx",
-    "torch",
-    "tensorflow",
-    "mxnet",
-    "h5py",
-    "os_signpost",
-]
+__all__ = ["cupy", "cupyx", "torch", "os_signpost", "thinc_addons"]

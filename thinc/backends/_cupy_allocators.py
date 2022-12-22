@@ -1,8 +1,14 @@
 from typing import cast
 
 from ..types import ArrayXd
-from ..util import get_torch_default_device, tensorflow2xp
-from ..compat import torch, cupy, tensorflow
+from ..util import get_torch_default_device, assert_thinc_addons_installed
+from ..compat import torch, cupy
+from ..compat import has_thinc_addons, thinc_addons
+
+
+if has_thinc_addons:
+    from thinc_addons.compat import tensorflow
+    from thinc_addons.util import tensorflow2xp
 
 
 def cupy_tensorflow_allocator(size_in_bytes: int):
@@ -11,6 +17,7 @@ def cupy_tensorflow_allocator(size_in_bytes: int):
     together, as otherwise OOM errors can occur when there's available memory
     sitting in the other library's pool.
     """
+    assert_thinc_addons_installed()
     size_in_bytes = max(1024, size_in_bytes)
     tensor = tensorflow.zeros((size_in_bytes // 4,), dtype=tensorflow.dtypes.float32)
     # We convert to cupy via dlpack, so that we can get a memory pointer.

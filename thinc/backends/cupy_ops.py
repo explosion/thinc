@@ -4,10 +4,13 @@ from .ops import Ops
 from .numpy_ops import NumpyOps
 from . import _custom_kernels
 from ..types import DeviceTypes
-from ..util import torch2xp, tensorflow2xp, mxnet2xp
-from ..util import is_cupy_array
-from ..util import is_torch_cuda_array, is_tensorflow_gpu_array, is_mxnet_gpu_array
+from ..util import torch2xp, is_cupy_array, is_torch_cuda_array
 from ..compat import cupy, cupyx
+from ..compat import has_thinc_addons, thinc_addons
+
+if has_thinc_addons:
+    from thinc_addons.util import tensorflow2xp, mxnet2xp
+    from thinc_addons.util import is_tensorflow_gpu_array, is_mxnet_gpu_array
 
 
 @registry.ops("CupyOps")
@@ -82,9 +85,9 @@ class CupyOps(Ops):
             array = self.xp.asarray(data, dtype=dtype)
         elif is_torch_cuda_array(data):
             array = torch2xp(data)
-        elif is_tensorflow_gpu_array(data):
+        elif has_thinc_addons and is_tensorflow_gpu_array(data):
             array = tensorflow2xp(data)
-        elif is_mxnet_gpu_array(data):
+        elif has_thinc_addons and is_mxnet_gpu_array(data):
             array = mxnet2xp(data)
         else:
             array = self.xp.array(data)
