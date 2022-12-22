@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import classNames from 'classnames'
 
-import classes from '../styles/tabs.module.sass'
+import * as classes from '../styles/tabs.module.sass'
 
 export const Tabs = ({ id = 'tabs', defaultActive = 0, children }) => {
     const [active, setActive] = useState(defaultActive)
@@ -38,5 +38,5 @@ export const Tabs = ({ id = 'tabs', defaultActive = 0, children }) => {
 }
 
 export const Tab = ({ children }) => {
-    return <section className={classes.tab}>{children}</section>
+    return <section>{children}</section>
 }

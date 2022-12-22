@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 
 import { CodeBlock } from './code'
 import { H2 } from './typography'
-import classes from '../styles/quickstart.module.sass'
+import * as classes from '../styles/quickstart.module.sass'
 import QUICKSTART from '../../docs/_quickstart.json'
 
 export default ({ id, title, base = 'pip install thinc', suffix = '' }) => {

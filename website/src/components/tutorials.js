@@ -6,7 +6,7 @@ import Icon from './icon'
 import { isTrue } from '../util'
 import ColabBadge from '../images/colab-badge.svg'
 import TUTORIALS from '../../docs/_tutorials.json'
-import classes from '../styles/tutorials.module.sass'
+import * as classes from '../styles/tutorials.module.sass'
 
 export const ROOT = 'explosion/thinc/blob/master/examples'
 
