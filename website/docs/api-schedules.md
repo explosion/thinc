@@ -75,7 +75,7 @@ schedule = Schedule(
 
 ### Schedule.\_\_call\_\_ {#call tag="method"}
 
-Call the the schedule function, returning the value for the given step. The
+Call the schedule function, returning the value for the given step. The
 `step` positional argument is always required. Some schedules may require
 additional keyword arguments.
 
