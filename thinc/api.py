@@ -8,8 +8,8 @@ from .model import set_dropout_rate, change_attr_values, wrap_model_recursive
 from .shims import Shim, PyTorchGradScaler, PyTorchShim, TensorFlowShim, keras_model_fns
 from .shims import MXNetShim, TorchScriptShim, maybe_handshake_model
 from .optimizers import Adam, RAdam, SGD, Optimizer
-from .schedules import cyclic_triangular, warmup_linear, constant, constant_then
-from .schedules import decaying, slanted_triangular, compounding
+from .schedules import Schedule, cyclic_triangular, warmup_linear, constant
+from .schedules import constant_then, decaying, slanted_triangular, compounding
 from .types import Ragged, Padded, ArgsKwargs, Unserializable
 from .util import fix_random_seed, is_cupy_array, set_active_gpu
 from .util import prefer_gpu, require_gpu, require_cpu
@@ -66,7 +66,7 @@ __all__ = [
     # .optimizers
     "Adam", "RAdam", "SGD", "Optimizer",
     # .schedules
-    "cyclic_triangular", "warmup_linear", "constant", "constant_then",
+    "Schedule", "cyclic_triangular", "warmup_linear", "constant", "constant_then",
     "decaying", "slanted_triangular", "compounding",
     # .types
     "Ragged", "Padded", "ArgsKwargs", "Unserializable",

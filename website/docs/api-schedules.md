@@ -5,11 +5,94 @@ next: /docs/api-loss
 
 Schedules are generators that provide different rates, schedules, decays or
 series. They're typically used for batch sizes or learning rates. You can easily
-implement your own schedules as well: just write your own generator function,
-that produces whatever series of values you need. A common use case for
-schedules is within [`Optimizer`](/docs/api-optimizer) objects, which accept
-iterators for most of their parameters. See the
-[training guide](/docs/usage-training) for details.
+implement your own schedules as well: just write your own
+[`Schedule`](#schedule) implementation, that produces whatever series of values
+you need. A common use case for schedules is within
+[`Optimizer`](/docs/api-optimizer) objects, which accept iterators for most of
+their parameters. See the [training guide](/docs/usage-training) for details.
+
+## Schedule {#schedule tag="class" new="9"}
+
+Class for implementing Thinc schedules.
+
+<infobox variant="warning">
+
+There's only one `Schedule` class in Thinc and schedules are built using
+**composition**, not inheritance. This means that a schedule or composed
+schedule will return an **instance** of `Schedule` – it doesn't subclass it. To
+read more about this concept, see the pages on
+[Thinc's philosophy](/docs/concept).
+
+</infobox>
+
+### Typing {#typing}
+
+`Schedule` can be used as a
+[generic type](https://docs.python.org/3/library/typing.html#generics) with one
+parameter. This parameter specifies the type that is returned by the schedule.
+For instance, `Schedule[int]` denotes a scheduler that returns integers when
+called. A mismatch will cause a type error. For more details, see the docs on
+[type checking](/docs/usage-type-checking).
+
+```python
+from thinc.api import Schedule
+
+def my_function(schedule: Schedule[int]):
+    ...
+```
+
+### Attributes {#attributes}
+
+| Name   | Type         | Description                     |
+| ------ | ------------ | ------------------------------- |
+| `name` | <tt>str</tt> | The name of the scheduler type. |
+
+### Properties {#properties}
+
+| Name    | Type                    | Description                                                                                                                                                               |
+| ------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `attrs` | <tt>Dict[str, Any]</tt> | The scheduler attributes. You can use the dict directly and assign _to_ it – but you cannot reassign `schedule.attrs` to a new variable: `schedule.attrs = {}` will fail. |
+
+### Schedule.\_\_init\_\_ {#init tag="method"}
+
+Initialize a new schedule.
+
+```python
+### Example
+schedule = Schedule(
+    "constant",
+    constant_schedule,
+    attrs={"rate": rate},
+)
+```
+
+| Argument       | Type                    | Description                                              |
+| -------------- | ----------------------- | -------------------------------------------------------- |
+| `name`         | <tt>str</tt>            | The name of the schedule type.                           |
+| `schedule`     | <tt>Callable</tt>       | Function to compute the schedule value for a given step. |
+| _keyword-only_ |                         |                                                          |
+| `attrs`        | <tt>Dict[str, Any]</tt> | Dictionary of non-parameter attributes.                  |
+
+### Schedule.\_\_call\_\_ {#call tag="method"}
+
+Call the schedule function, returning the value for the given step. The
+`step` positional argument is always required. Some schedules may require
+additional keyword arguments.
+
+```python
+### Example
+from thinc.api import constant
+
+schedule = constant(0.1)
+assert schedule(0) == 0.1
+assert schedule(1000) == 0.1
+```
+
+| Argument    | Type         | Description                                |
+| ----------- | ------------ | ------------------------------------------ |
+| `step`      | <tt>int</tt> | The step to compute the schedule for.      |
+| `**kwargs`  |              | Optional arguments passed to the schedule. |
+| **RETURNS** | <tt>Any</tt> | The schedule value for the step.           |
 
 ## constant {#constant tag="function"}
 
@@ -24,7 +107,7 @@ Yield a constant rate.
 from thinc.api import constant
 
 batch_sizes = constant(0.001)
-batch_size = next(batch_sizes)
+batch_size = batch_sizes(step=0)
 ```
 
 ```ini
@@ -58,7 +141,7 @@ learn_rates = constant_then(
     1000,
     decaying(0.005, 1e-4)
 )
-learn_rate = next(learn_rates)
+learn_rate = learn_rates(step=0)
 ```
 
 ```ini
@@ -97,8 +180,8 @@ Yield an infinite series of linearly decaying values, following the schedule
 from thinc.api import decaying
 
 learn_rates = decaying(0.005, 1e-4)
-learn_rate = next(learn_rates)  # 0.001
-learn_rate = next(learn_rates)  # 0.00999
+learn_rate = learn_rates(step=0)  # 0.001
+learn_rate = learn_rates(step=1)  # 0.00999
 ```
 
 ```ini
@@ -135,8 +218,8 @@ rate.
 from thinc.api import compounding
 
 batch_sizes = compounding(1.0, 32.0, 1.001)
-batch_size = next(batch_sizes)  # 1.0
-batch_size = next(batch_sizes)  # 1.0 * 1.001
+batch_size = batch_sizes(step=0)  # 1.0
+batch_size = batch_sizes(step=1)  # 1.0 * 1.001
 ```
 
 ```ini
@@ -174,7 +257,7 @@ and then a linear decline. Used for learning rates.
 from thinc.api import warmup_linear
 
 learn_rates = warmup_linear(0.01, 3000, 6000)
-learn_rate = next(learn_rates)
+learn_rate = learn_rates(step=0)
 ```
 
 ```ini
@@ -210,7 +293,7 @@ triangular learning rate" schedule.
 from thinc.api import slanted_triangular
 
 learn_rates = slanted_triangular(0.1, 5000)
-learn_rate = next(learn_rates)
+learn_rate = learn_rates(step=0)
 ```
 
 ```ini
@@ -251,7 +334,7 @@ Linearly increasing then linearly decreasing the rate at each cycle.
 from thinc.api import cyclic_triangular
 
 learn_rates = cyclic_triangular(0.005, 0.001, 1000)
-learn_rate = next(learn_rates)
+learn_rate = learn_rates(step=0)
 ```
 
 ```ini

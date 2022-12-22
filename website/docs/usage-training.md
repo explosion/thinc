@@ -120,10 +120,9 @@ also simply consume the entire generator, by calling `list()` on it.
 
 Finally, `minibatch` and `multibatch` support **variable length batching**,
 based on a schedule you can provide as the `batch_size` argument. Simply pass in
-an iterable (such as a generator from the
-[built-in schedules](/docs/api-schedules)) instead of an integer. Variable
-length batching is non-standard, but we regularly use it for some of
-[spaCy](https://spacy.io)'s models, especially the parser and entity recognizer.
+an iterable. Variable length batching is non-standard, but we regularly use it
+for some of [spaCy](https://spacy.io)'s models, especially the parser and entity
+recognizer.
 
 ```python
 from thinc.api import compounding
@@ -225,37 +224,39 @@ normalize = true
 A common trick for stochastic gradient descent is to **vary the learning rate or
 other hyperparameters** over the course of training. Since there are many
 possible ways to vary the learning rate, Thinc lets you implement hyperparameter
-schedules as simple generator functions. Thinc also provides a number of
-[popular schedules](/docs/api-schedules) built-in.
+schedules as instances of the [`Schedule`](/docs/api-schedules#schedule) class.
+Thinc also provides a number of [popular schedules](/docs/api-schedules)
+built-in.
 
-You can use schedules directly, by calling `next()` on the schedule and using it
-to update hyperparameters in your training loop. Since schedules are
-particularly common for optimization settings, the
-[`Optimizer`](/docs/api-optimizer) object accepts floats, lists and iterators
-for most of its parameters. When you call
-[`Optimizer.step_schedules`](/docs/api-optimizer#step_schedules), the optimizer
-will draw the next value from the generators and use them to change the given
-attributes. For instance, here's how to create an instance of the `Adam`
-optimizer with a custom learning rate schedule:
+You can use schedules directly, by calling the schedule with the `step` keyword
+argument and using it to update hyperparameters in your training loop. Since
+schedules are particularly common for optimization settings, the
+[`Optimizer`](/docs/api-optimizer) object accepts floats, lists, iterators, and
+[`Schedule`](/docs/api-schedules#schedule) instances for most of its parameters.
+When you call [`Optimizer.step_schedules`](/docs/api-optimizer#step_schedules),
+the optimizer will increase its step count and pass it to the schedules. For
+instance, this is how one creates an instance of the `Adam` optimizer with a
+custom learning rate schedule:
 
 ```python
 ### Custom learning rate schedule
-from thinc.api import Adam
+from thinc.api import Adam, Schedule
 
-def my_schedule():
+def cycle():
     values = [0.001, 0.01, 0.1]
-    while True:
-        for value in values:
-            yield value
-        for value in reversed(values):
-            yield value
+    all_values = values + list(reversed(values))
+    return Schedule("cycle", _cycle_schedule, attrs={"all_values": all_values})
 
-optimizer = Adam(learn_rate=my_schedule())
-assert optimizer.learn_rate == 0.001
+def _cycle_schedule(schedule: Schedule, step: int, **kwargs) -> float:
+    all_values = schedule.attrs["all_values"]
+    return all_values[step % len(all_values)]
+
+optimizer = Adam(learn_rate=cycle())
+assert optimizer.learn_rate(optimizer.step) == 0.001
 optimizer.step_schedules()
-assert optimizer.learn_rate == 0.01
+assert optimizer.learn_rate(optimizer.step) == 0.01
 optimizer.step_schedules()
-assert optimizer.learn_rate == 0.1
+assert optimizer.learn_rate(optimizer.step) == 0.1
 ```
 
 ![](images/schedules_custom1.svg)
@@ -271,13 +272,14 @@ of the optimizer. Check out the
 
 ```python
 ### Registered function {small="true"}
-@thinc.registry.schedules("my_schedule.v1")
-def my_schedule(values):
-    while True:
-        for value in values:
-            yield value
-        for value in reversed(values):
-            yield value
+@thinc.registry.schedules("cycle.v1")
+def cycle(values):
+    all_values = values + list(reversed(values))
+    return Schedule("cycle", _cycle_schedule, attrs={"all_values": all_values})
+
+def _cycle_schedule(schedule: Schedule, step: int, **kwargs) -> float:
+    all_values = schedule.attrs["all_values"]
+    return all_values[step % len(all_values)]
 ```
 
 ```ini
@@ -286,7 +288,7 @@ def my_schedule(values):
 @optimizers = "Adam.v1"
 
 [optimizer.learn_rate]
-@schedules = "my_schedule.v1"
+@schedules = "cycle.v1"
 values = [0.001, 0.01, 0.1]
 ```
 

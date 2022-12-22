@@ -14,10 +14,9 @@ zero the gradients in place. The optimizers are registered in the
 
 ### SGD {#sgd tag="function"}
 
-If a hyperparameter specifies a schedule as a list or generator, its value will
-be replaced with the next item on each call to
-[`Optimizer.step_schedules`](#step-schedules). Once the schedule is exhausted,
-its last value will be used.
+Function to create a SGD optimizer. If a hyperparameter specifies a schedule,
+the step that is passed to the schedule will be incremented on each call to
+[`Optimizer.step_schedules`](#step-schedules).
 
 <grid>
 
@@ -58,10 +57,9 @@ use_averages = true
 ### Adam {#adam tag="function"}
 
 Function to create an Adam optimizer. Returns an instance of
-[`Optimizer`](#optimizer). If a hyperparameter specifies a schedule as a list or
-generator, its value will be replaced with the next item on each call to
-[`Optimizer.step_schedules`](#step-schedules). Once the schedule is exhausted,
-its last value will be used.
+[`Optimizer`](#optimizer). If a hyperparameter specifies a schedule, the step
+that is passed to the schedule will be incremented on each call to
+[`Optimizer.step_schedules`](#step-schedules).
 
 <grid>
 
@@ -113,10 +111,9 @@ use_averages = true
 ### RAdam {#radam tag="function"}
 
 Function to create an RAdam optimizer. Returns an instance of
-[`Optimizer`](#optimizer). If a hyperparameter specifies a schedule as a list or
-generator, its value will be replaced with the next item on each call to
-[`Optimizer.step_schedules`](#step-schedules). Once the schedule is exhausted,
-its last value will be used.
+[`Optimizer`](#optimizer). If a hyperparameter specifies a schedule, the step
+that is passed to the schedule will be incremented on each call to
+[`Optimizer.step_schedules`](#step-schedules).
 
 <grid>
 
@@ -171,10 +168,9 @@ momentum. Currently support "vanilla" SGD, Adam, and RAdam.
 
 ### Optimizer.\_\_init\_\_ {#init tag="method"}
 
-Initialize an optimizer. If a hyperparameter specifies a schedule as a list or
-generator, its value will be replaced with the next item on each call to
-[`Optimizer.step_schedules`](#step-schedules). Once the schedule is exhausted,
-its last value will be used.
+Initialize an optimizer. If a hyperparameter specifies a schedule, the step that
+is passed to the schedule will be incremented on each call to
+[`Optimizer.step_schedules`](#step-schedules).
 
 ```python
 ### Example
@@ -213,9 +209,8 @@ and parameter name.
 
 ### Optimizer.step_schedules {#step_schedules tag="method"}
 
-Replace the the named hyperparameters with the next item from the schedules
-iterator, if available. Once the schedule is exhausted, its last value will be
-used.
+Increase the current step of the optimizer. This step will be used by schedules
+to determine their next value.
 
 ```python
 ### Example
