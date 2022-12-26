@@ -41,7 +41,7 @@ class Loss(Generic[GuessT, TruthT, GradT, LossT]):  # pragma: no cover
 
 class CategoricalCrossentropyBase(Loss):
     normalize: bool
-    class_weights: Union[Ints1d, None]
+    class_weights: Union[Floats1d, None]
 
     def _validate_input(self, guesses: FloatsOrRaggedT, target: Floats2d) -> None:
         guesses_f2d = _to_array(guesses)
@@ -124,7 +124,7 @@ class CategoricalCrossentropy(CategoricalCrossentropyBase):
         normalize: bool = True,
         missing_value: Optional[int] = None,
         label_smoothing: Optional[float] = 0.0,
-        class_weights: Optional[Ints1d] = None
+        class_weights: Optional[Floats1d] = None
     ):
         self.normalize = normalize
         self.missing_value = missing_value
@@ -188,7 +188,7 @@ class SparseCategoricalCrossentropy(CategoricalCrossentropyBase):
         missing_value: Optional[Union[str, int]] = None,
         neg_prefix: Optional[str] = None,
         label_smoothing: float = 0.0,
-        class_weights: Optional[Ints1d] = None
+        class_weights: Optional[Floats1d] = None
     ):
         self.normalize = normalize
         self.names = names
@@ -352,7 +352,7 @@ def configure_CategoricalCrossentropy_v4(
     normalize: bool = True,
     missing_value: Optional[int] = None,
     label_smoothing: Optional[float] = 0.0,
-    class_weights: Optional[Ints1d] = None
+    class_weights: Optional[Floats1d] = None
 ) -> CategoricalCrossentropy:
     return CategoricalCrossentropy(
         normalize=normalize,
@@ -370,7 +370,7 @@ def configure_SparseCategoricalCrossentropy_v4(
     missing_value: Optional[Union[str, int]] = None,
     neg_prefix: Optional[str] = None,
     label_smoothing: Optional[float] = 0.0,
-    class_weights: Optional[Ints1d] = None
+    class_weights: Optional[Floats1d] = None
 ) -> SparseCategoricalCrossentropy:
     return SparseCategoricalCrossentropy(
         normalize=normalize,
@@ -448,7 +448,7 @@ def configure_SequenceCategoricalCrossentropy_v4(
     missing_value: Optional[Union[str, int]] = None,
     neg_prefix: Optional[str] = None,
     label_smoothing: Optional[float] = 0.0,
-    class_weights: Optional[Ints1d] = None
+    class_weights: Optional[Floats1d] = None
 ) -> SequenceCategoricalCrossentropy:
     if names is None and neg_prefix is None and not sparse:
         cross_entropy: Union[
