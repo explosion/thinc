@@ -18,7 +18,7 @@ from .compat import has_cupy, has_mxnet, has_torch, has_tensorflow
 from .compat import has_cupy_gpu, has_torch_cuda_gpu, has_gpu
 from .compat import torch, cupy, tensorflow as tf, mxnet as mx, cupy_from_dlpack
 
-from .types import ArrayXd, ArgsKwargs, Ragged, Padded, FloatsXd, IntsXd, Floats2d  # noqa: E402
+from .types import ArrayXd, ArgsKwargs, Ragged, Padded, FloatsXd, IntsXd, Ints1d, Floats1d, Floats2d  # noqa: E402
 from . import types  # noqa: E402
 
 if TYPE_CHECKING:
@@ -266,6 +266,16 @@ def smooth_one_hot(X: Floats2d, label_smoothing: float) -> Floats2d:
     X[X == 1] = 1 - label_smoothing
     X[X == 0] = label_smoothing / (X.shape[1] - 1)
     return X
+
+
+# Computed as in "Logistic regression in rare events data"
+# G King, L Zeng - Political analysis, 2001
+def balanced_class_weights(labels: Ints1d) -> Dict[int, float]:
+    xp = get_array_module(labels)
+    classes, freqs = xp.unique(labels, return_counts=True)
+    N_x, N_c = len(labels), len(classes)
+    weights = {cl: N_x / (N_c * freq) for cl, freq in zip(classes, freqs)}
+    return weights
 
 
 def get_width(

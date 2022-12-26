@@ -2,7 +2,7 @@ from typing import Tuple, Sequence, cast, TypeVar, Generic, Any, Union, Optional
 from typing import Dict
 from abc import abstractmethod
 
-from .types import Floats2d, Ints1d, Ragged, ArrayXd
+from .types import Floats2d, Floats1d, Ints1d, Ragged, ArrayXd
 from .util import get_array_module, to_categorical, smooth_one_hot
 from .util import is_xp_array
 from .config import registry
@@ -41,6 +41,7 @@ class Loss(Generic[GuessT, TruthT, GradT, LossT]):  # pragma: no cover
 
 class CategoricalCrossentropyBase(Loss):
     normalize: bool
+    class_weights: Union[Ints1d, None]
 
     def _validate_input(self, guesses: FloatsOrRaggedT, target: Floats2d) -> None:
         guesses_f2d = _to_array(guesses)
@@ -67,10 +68,28 @@ class CategoricalCrossentropyBase(Loss):
                 "with truth values outside the [0,1] interval."
             )
 
+    def _get_sample_weights(self, target: Floats2d) -> Floats1d:
+        if target.shape[1] != len(self.class_weights):
+            raise ValueError(
+                "The number of classes in the "
+                "target and in class weights "
+                "has to be equal, but found "
+                f"{target.shape[1]} and "
+                f"{len(self.class_weights)}"
+            )
+        xp = get_array_module(target)
+        targets1d = xp.argmax(target, axis=1)
+        sample_weights = self.class_weights[targets1d]
+        return sample_weights
+
     def _get_grad(
         self, guesses: FloatsOrRaggedT, target: Floats2d, mask: Floats2d
     ) -> FloatsOrRaggedT:
+        xp = get_array_module(target)
         difference = _to_array(guesses) - target
+        if self.class_weights is not None:
+            sample_weights = self._get_sample_weights(target)
+            difference *= xp.expand_dims(sample_weights, 1)
         difference *= mask
         if self.normalize:
             # FIXME: normalized by the number of sequences, also support normalizing
@@ -86,10 +105,14 @@ class CategoricalCrossentropyBase(Loss):
         xp = get_array_module(guesses_f2d)
         logprobs = xp.log(guesses_f2d + 1e-9)
         logprobs *= mask
+        loss_terms = -(target * logprobs).sum(1)
+        if self.class_weights is not None:
+            sample_weights = self._get_sample_weights(target)
+            loss_terms *= sample_weights
+        total_loss = loss_terms.sum()
         if self.normalize:
-            return -(target * logprobs).sum() / _normalization_length(guesses)
-        else:
-            return -(target * logprobs).sum()
+            total_loss /= _normalization_length(guesses)
+        return total_loss
 
 
 class CategoricalCrossentropy(CategoricalCrossentropyBase):
@@ -100,11 +123,13 @@ class CategoricalCrossentropy(CategoricalCrossentropyBase):
         *,
         normalize: bool = True,
         missing_value: Optional[int] = None,
-        label_smoothing: float = 0.0,
+        label_smoothing: Optional[float] = 0.0,
+        class_weights: Optional[Ints1d] = None
     ):
         self.normalize = normalize
         self.missing_value = missing_value
         self.label_smoothing = label_smoothing
+        self.class_weights = class_weights
 
     def __call__(
         self, guesses: FloatsOrRaggedT, truths: Floats2d
@@ -163,12 +188,15 @@ class SparseCategoricalCrossentropy(CategoricalCrossentropyBase):
         missing_value: Optional[Union[str, int]] = None,
         neg_prefix: Optional[str] = None,
         label_smoothing: float = 0.0,
+        class_weights: Optional[Ints1d] = None
     ):
         self.normalize = normalize
         self.names = names
         self.missing_value = missing_value
         self.neg_prefix = neg_prefix
         self.label_smoothing = label_smoothing
+        self.class_weights = class_weights
+
         if names is not None:
             self._name_to_i = {name: i for i, name in enumerate(names)}
         else:
@@ -323,12 +351,14 @@ def configure_CategoricalCrossentropy_v4(
     *,
     normalize: bool = True,
     missing_value: Optional[int] = None,
-    label_smoothing: float = 0.0,
+    label_smoothing: Optional[float] = 0.0,
+    class_weights: Optional[Ints1d] = None
 ) -> CategoricalCrossentropy:
     return CategoricalCrossentropy(
         normalize=normalize,
         missing_value=missing_value,
         label_smoothing=label_smoothing,
+        class_weights=class_weights
     )
 
 
@@ -339,7 +369,8 @@ def configure_SparseCategoricalCrossentropy_v4(
     names: Optional[Sequence[str]] = None,
     missing_value: Optional[Union[str, int]] = None,
     neg_prefix: Optional[str] = None,
-    label_smoothing: float = 0.0,
+    label_smoothing: Optional[float] = 0.0,
+    class_weights: Optional[Ints1d] = None
 ) -> SparseCategoricalCrossentropy:
     return SparseCategoricalCrossentropy(
         normalize=normalize,
@@ -347,6 +378,7 @@ def configure_SparseCategoricalCrossentropy_v4(
         missing_value=missing_value,
         neg_prefix=neg_prefix,
         label_smoothing=label_smoothing,
+        class_weights=class_weights
     )
 
 
@@ -415,7 +447,8 @@ def configure_SequenceCategoricalCrossentropy_v4(
     names: Optional[Sequence[str]] = None,
     missing_value: Optional[Union[str, int]] = None,
     neg_prefix: Optional[str] = None,
-    label_smoothing: float = 0.0,
+    label_smoothing: Optional[float] = 0.0,
+    class_weights: Optional[Ints1d] = None
 ) -> SequenceCategoricalCrossentropy:
     if names is None and neg_prefix is None and not sparse:
         cross_entropy: Union[
@@ -424,6 +457,7 @@ def configure_SequenceCategoricalCrossentropy_v4(
             normalize=False,
             missing_value=cast(Optional[int], missing_value),
             label_smoothing=label_smoothing,
+            class_weights=class_weights
         )
     else:
         cross_entropy = SparseCategoricalCrossentropy(
@@ -432,6 +466,7 @@ def configure_SequenceCategoricalCrossentropy_v4(
             missing_value=cast(Optional[Union[str, int]], missing_value),
             neg_prefix=neg_prefix,
             label_smoothing=label_smoothing,
+            class_weights=class_weights
         )
     return SequenceCategoricalCrossentropy(
         cross_entropy=cross_entropy,
