@@ -1,4 +1,4 @@
-pmport pytest
+import pytest
 import numpy
 from hypothesis import given
 from thinc.api import get_width, Ragged, Padded
