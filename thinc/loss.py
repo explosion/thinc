@@ -69,17 +69,18 @@ class CategoricalCrossentropyBase(Loss):
             )
 
     def _get_sample_weights(self, target: Floats2d) -> Floats1d:
-        if target.shape[1] != len(self.class_weights):
+        cw = cast(Floats1d, self.class_weights)
+        if target.shape[1] != cw.size:
             raise ValueError(
                 "The number of classes in the "
                 "target and in class weights "
                 "has to be equal, but found "
                 f"{target.shape[1]} and "
-                f"{len(self.class_weights)}"
+                f"{cw.size}"
             )
         xp = get_array_module(target)
         targets1d = xp.argmax(target, axis=1)
-        sample_weights = self.class_weights[targets1d]
+        sample_weights = cw[targets1d]
         return sample_weights
 
     def _get_grad(
@@ -369,7 +370,7 @@ def configure_SparseCategoricalCrossentropy_v4(
     names: Optional[Sequence[str]] = None,
     missing_value: Optional[Union[str, int]] = None,
     neg_prefix: Optional[str] = None,
-    label_smoothing: Optional[float] = 0.0,
+    label_smoothing: float = 0.0,
     class_weights: Optional[Floats1d] = None
 ) -> SparseCategoricalCrossentropy:
     return SparseCategoricalCrossentropy(
@@ -447,7 +448,7 @@ def configure_SequenceCategoricalCrossentropy_v4(
     names: Optional[Sequence[str]] = None,
     missing_value: Optional[Union[str, int]] = None,
     neg_prefix: Optional[str] = None,
-    label_smoothing: Optional[float] = 0.0,
+    label_smoothing: float = 0.0,
     class_weights: Optional[Floats1d] = None
 ) -> SequenceCategoricalCrossentropy:
     if names is None and neg_prefix is None and not sparse:
