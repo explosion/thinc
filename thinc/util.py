@@ -1,5 +1,5 @@
 from typing import Any, Union, Sequence, cast, Dict, Optional, Callable, TypeVar
-from typing import List, Mapping
+from typing import List, Mapping, Hashable
 from typing import TYPE_CHECKING
 
 import numpy
@@ -268,13 +268,18 @@ def smooth_one_hot(X: Floats2d, label_smoothing: float) -> Floats2d:
     return X
 
 
-# Computed as in "Logistic regression in rare events data"
-# G King, L Zeng - Political analysis, 2001
-def balanced_class_weights(labels: Ints1d) -> Dict[int, float]:
-    xp = get_array_module(labels)
-    classes, freqs = xp.unique(labels, return_counts=True)
-    N_x, N_c = len(labels), len(classes)
-    weights = {cl: N_x / (N_c * freq) for cl, freq in zip(classes, freqs)}
+def balanced_class_weights(label_data: Dict[Hashable, int]) -> Dict[Hashable, float]:
+    """
+    Computed as in "Logistic regression in rare events data"
+    G King, L Zeng - Political analysis, 2001
+
+    label_data: A dictionary with labels as keys and counts as values.
+    """
+    labels = label_data.keys()
+    counts = label_data.values()
+    N_x = sum(counts)
+    N_c = len(labels)
+    weights = {lab: N_x / (N_c * count) for lab, count in label_data.items()}
     return weights
 
 
