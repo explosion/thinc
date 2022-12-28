@@ -376,6 +376,19 @@ def test_sparse_crossentropy_missing(guesses, labels, grad, missing_value):
 @pytest.mark.parametrize(
     "guesses, labels, grad, loss, class_weights",
     [
+        (guesses1, labels1_full, d_guesses1_weighted, weighted_loss1, class_weights1),
+    ],
+)
+def test_sparse_crossentropy_class_weights(guesses, labels, grad, loss, class_weights):
+    cross_entropy = ce_factory(normalize=False, class_weights=class_weights)
+    d_scores, loss_val = cross_entropy(guesses, labels)
+    assert numpy.isclose(loss_val, loss)
+    assert numpy.allclose(d_scores, grad)
+
+
+@pytest.mark.parametrize(
+    "guesses, labels, grad, loss, class_weights",
+    [
         (guesses1, labels1, d_guesses1_weighted, weighted_loss1, class_weights1),
     ],
 )
