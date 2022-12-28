@@ -277,9 +277,9 @@ def balanced_class_weights(label_data: Dict[Hashable, int]) -> Dict[Hashable, fl
     """
     labels = label_data.keys()
     counts = label_data.values()
-    N_x = sum(counts)
-    N_c = len(labels)
-    weights = {lab: N_x / (N_c * count) for lab, count in label_data.items()}
+    n_samples = sum(counts)
+    n_labels = len(labels)
+    weights = {lab: n_samples / (n_labels * count) for lab, count in label_data.items()}
     return weights
 
 
