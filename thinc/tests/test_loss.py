@@ -36,6 +36,7 @@ guesses1_legacy = numpy.asarray(
 labels1 = numpy.asarray([2, 1, 0, 2])
 labels1_full = numpy.asarray([[0, 0, 1], [0, 1, 0], [1, 0, 0], [0, 0, 1]], dtype="f")
 labels1_strings = ["C", "B", "A", "C"]
+names1 = ["A", "B", "C"]
 d_guesses1 = numpy.array(
     [
         [0.025, 0.125, -0.15],
@@ -83,6 +84,8 @@ d_guesses1_weighted = numpy.array(
 )
 loss1 = 5.75151207
 class_weights1 = numpy.array([1., 2., 3.])
+class_weights1_str = {"A": 1., "B": 2., "C": 3.}
+class_weights1_int = {0: 1., 1: 2., 2: 3.}
 weighted_loss1 = 26.367641
 loss1_seq = 11.50302410
 loss1_0_missing = 0.57069561
@@ -362,7 +365,7 @@ def test_legacy_categorical_cross_entropy_incorrect_scores_targets(version):
 )
 def test_sparse_crossentropy_missing(guesses, labels, grad, missing_value):
     if missing_value == "A":
-        names = ["A", "B", "C"]
+        names = names1
     else:
         names = None
     sparse_cross_entropy = sparse_ce_factory(missing_value=missing_value, names=names)
@@ -389,11 +392,57 @@ def test_categorical_crossentropy_class_weights(guesses, labels, grad, loss, cla
 @pytest.mark.parametrize(
     "guesses, labels, grad, loss, class_weights",
     [
+        (guesses1, labels1_full, d_guesses1_weighted, weighted_loss1, class_weights1_int),
+    ],
+)
+def test_categorical_crossentropy_class_weights_int(guesses, labels, grad, loss, class_weights):
+    cross_entropy = ce_factory(normalize=False, class_weights=class_weights)
+    d_scores, loss_val = cross_entropy(guesses, labels)
+    assert numpy.isclose(loss_val, loss)
+    assert numpy.allclose(d_scores, grad)
+
+
+@pytest.mark.parametrize(
+    "guesses, labels, grad, loss, class_weights",
+    [
         (guesses1, labels1, d_guesses1_weighted, weighted_loss1, class_weights1),
     ],
 )
 def test_sparse_crossentropy_class_weights(guesses, labels, grad, loss, class_weights):
     cross_entropy = sparse_ce_factory(normalize=False, class_weights=class_weights)
+    d_scores, loss_val = cross_entropy(guesses, labels)
+    assert numpy.isclose(loss_val, loss)
+    assert numpy.allclose(d_scores, grad)
+
+
+@pytest.mark.parametrize(
+    "guesses, labels, grad, loss, class_weights",
+    [
+        (guesses1, labels1, d_guesses1_weighted, weighted_loss1, class_weights1_int),
+    ],
+)
+def test_sparse_crossentropy_class_weights_int(guesses, labels, grad, loss, class_weights):
+    cross_entropy = sparse_ce_factory(normalize=False, class_weights=class_weights)
+    d_scores, loss_val = cross_entropy(guesses, labels)
+    assert numpy.isclose(loss_val, loss)
+    assert numpy.allclose(d_scores, grad)
+
+
+@pytest.mark.parametrize(
+    "guesses, labels, names, grad, loss, class_weights",
+    [
+        (guesses1,
+         labels1_strings,
+         names1,
+         d_guesses1_weighted,
+         weighted_loss1,
+         class_weights1_str),
+    ],
+)
+def test_sparse_crossentropy_class_weights_names(guesses, labels, names, grad, loss, class_weights):
+    cross_entropy = sparse_ce_factory(
+        normalize=False, names=names, class_weights=class_weights
+    )
     d_scores, loss_val = cross_entropy(guesses, labels)
     assert numpy.isclose(loss_val, loss)
     assert numpy.allclose(d_scores, grad)
