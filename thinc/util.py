@@ -277,9 +277,13 @@ def balanced_class_weights(label_data: Dict[Hashable, int]) -> Dict[Hashable, fl
     """
     labels = label_data.keys()
     counts = label_data.values()
+    if not all(map(lambda x: isinstance(x, int), counts)):
+        raise ValueError("Input format has to be Dict[Hashable, int]")
     n_samples = sum(counts)
     n_labels = len(labels)
-    weights = {lab: n_samples / (n_labels * count) for lab, count in label_data.items()}
+    weights = {
+        lab: n_samples / (n_labels * count) for lab, count in label_data.items()
+    }
     return weights
 
 
