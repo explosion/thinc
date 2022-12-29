@@ -273,8 +273,8 @@ class SparseCategoricalCrossentropy(CategoricalCrossentropyBase):
                             " then all values have to be of type float, "
                             f"but found {type(v)}"
                         )
-                    cl = cast(str, k)
-                    idx = self._name_to_i[cl]
+                    name = cast(str, k)
+                    idx = self._name_to_i[name]
                     cw[idx] = v
                 self.class_weights = to_numpy(cw)
             # XXX Maybe not the most elegant to have an "unexpected" branch.
