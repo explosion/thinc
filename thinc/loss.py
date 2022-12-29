@@ -1,9 +1,9 @@
-from typing import Tuple, Sequence, cast, TypeVar, Generic, Any, Union, Optional, List
+from typing import Tuple, Sequence, cast, TypeVar, Generic, Any, Union, Optional, List, Hashable
 from typing import Dict
 from abc import abstractmethod
 
 from .types import Floats2d, Floats1d, Ints1d, Ragged, ArrayXd
-from .util import get_array_module, to_categorical, smooth_one_hot
+from .util import get_array_module, to_categorical, smooth_one_hot, to_numpy
 from .util import is_xp_array
 from .config import registry
 
@@ -15,6 +15,7 @@ FloatsOrRaggedT = TypeVar("FloatsOrRaggedT", Floats2d, Ragged)
 IntsOrFloats = Union[Ints1d, Floats2d]
 IntsOrFloatsOrStrs = Union[Ints1d, Floats2d, Sequence[int], Sequence[str]]
 Categories1d = Union[Ints1d, Sequence[int], Sequence[str]]
+
 
 
 class Loss(Generic[GuessT, TruthT, GradT, LossT]):  # pragma: no cover
@@ -41,7 +42,7 @@ class Loss(Generic[GuessT, TruthT, GradT, LossT]):  # pragma: no cover
 
 class CategoricalCrossentropyBase(Loss):
     normalize: bool
-    class_weights: Union[Floats1d, None]
+    class_weights: ...
 
     def _validate_input(self, guesses: FloatsOrRaggedT, target: Floats2d) -> None:
         guesses_f2d = _to_array(guesses)
@@ -80,6 +81,7 @@ class CategoricalCrossentropyBase(Loss):
             )
         xp = get_array_module(target)
         targets1d = xp.argmax(target, axis=1)
+        cw = xp.array(cw)
         sample_weights = cw[targets1d]
         return sample_weights
 
@@ -125,12 +127,39 @@ class CategoricalCrossentropy(CategoricalCrossentropyBase):
         normalize: bool = True,
         missing_value: Optional[int] = None,
         label_smoothing: Optional[float] = 0.0,
-        class_weights: Optional[Floats1d] = None
+        class_weights: Optional[Union[Dict[int, float], Floats1d]] = None
     ):
         self.normalize = normalize
         self.missing_value = missing_value
         self.label_smoothing = label_smoothing
-        self.class_weights = class_weights
+        if class_weights is None:
+            self.class_weights = None
+        elif isinstance(class_weights, dict):
+            cw = [1. for _ in range(len(class_weights))]
+            for k, v in class_weights.items():
+                if not isinstance(k, int):
+                    raise ValueError(
+                        "For CategoricalCrossentropy when the "
+                        "class_weights are provided in dictionary "
+                        "format it has to be of type Dict[int, float] "
+                        f"but found key of type {type(k)}"
+                    )
+                if not isinstance(v, float):
+                    raise ValueError(
+                        "For CategoricalCrossentropy when the "
+                        "class_weights are provided in dictionary "
+                        "format it has to be of type Dict[int, float] "
+                        f"but found value of type {type(v)}"
+                    )
+                cw[k] = v
+            self.class_weights = to_numpy(cw)
+        elif is_xp_array(class_weights):
+            self.class_weights = class_weights
+        else:
+            raise ValueError(
+                "class_weights has to be either Floats1d "
+                f"or Dict[int, float], but found {type(class_weights)}"
+            )
 
     def __call__(
         self, guesses: FloatsOrRaggedT, truths: Floats2d
@@ -146,7 +175,9 @@ class CategoricalCrossentropy(CategoricalCrossentropyBase):
         self, truths: Floats2d, guesses: FloatsOrRaggedT
     ) -> Tuple[Floats2d, Floats2d]:
         if truths.ndim != 2:
-            raise ValueError(f"'truths' have to have 2 axes, but found {truths.ndim}")
+            raise ValueError(
+                f"'truths' have to have 2 axes, but found {truths.ndim}"
+            )
         guesses_2d = _to_array(guesses)
         missing_value = self.missing_value
         xp = get_array_module(guesses_2d)
@@ -189,19 +220,65 @@ class SparseCategoricalCrossentropy(CategoricalCrossentropyBase):
         missing_value: Optional[Union[str, int]] = None,
         neg_prefix: Optional[str] = None,
         label_smoothing: float = 0.0,
-        class_weights: Optional[Floats1d] = None
+        class_weights: Optional[
+            Union[Floats1d, Dict[int, float], Dict[str, float]]
+        ] = None
     ):
         self.normalize = normalize
         self.names = names
         self.missing_value = missing_value
         self.neg_prefix = neg_prefix
         self.label_smoothing = label_smoothing
-        self.class_weights = class_weights
-
         if names is not None:
             self._name_to_i = {name: i for i, name in enumerate(names)}
         else:
             self._name_to_i = {}
+        if class_weights is None:
+            self.class_weights = None
+        elif is_xp_array(class_weights):
+            self.class_weights = class_weights
+        # Class weights conversion
+        elif isinstance(class_weights, dict):
+            cw = [1. for _ in range(len(class_weights))]
+            # Dict[int, float]
+            if all(map(lambda x: isinstance(x, int), class_weights.keys())):
+                for k, v in class_weights.items():
+                    if not isinstance(v, float):
+                        raise ValueError(
+                            "If class_weights is provided as a dictionary"
+                            " then all values have to be of type float, "
+                            f"but found {type(v)}"
+                        )
+                    cw[k] = v
+                self.class_weights = to_numpy(cw)
+            # Dict[str, float]
+            elif all(map(lambda x: isinstance(x, str), class_weights.keys())):
+                if self._name_to_i == {}:
+                    raise ValueError(
+                        "Have to provide 'names' if class_weights"
+                        " has type Dict[str, float]"
+                    )
+                for k, v in class_weights.items():
+                    if k not in self._name_to_i:
+                        raise ValueError(
+                            "Encountered class name in class_weights "
+                            f"not found in 'names': {k}"
+                        )
+                    if not isinstance(v, float):
+                        raise ValueError(
+                            "If class_weights is provided as a dictionary"
+                            " then all values have to be of type float, "
+                            f"but found {type(v)}"
+                        )
+                    idx = self._name_to_i[k]
+                    cw[idx] = v
+                self.class_weights = to_numpy(cw)
+            # XXX Maybe not the most elegant to have an "unexpected" branch.
+            else:
+                raise ValueError(
+                    "The provided class_weights were not found to be one of "
+                    "Dict[str, float], Dict[int, float] or Floats1d"
+                )
 
     def __call__(
         self, guesses: Floats2d, truths: Union[Sequence[int], Sequence[str]]
