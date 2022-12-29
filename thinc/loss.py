@@ -42,7 +42,9 @@ class Loss(Generic[GuessT, TruthT, GradT, LossT]):  # pragma: no cover
 
 class CategoricalCrossentropyBase(Loss):
     normalize: bool
-    class_weights: ...
+    # Not exactly sure what type would make sense because the two cross-entropies
+    # want slightly different.
+    class_weights: Any
 
     def _validate_input(self, guesses: FloatsOrRaggedT, target: Floats2d) -> None:
         guesses_f2d = _to_array(guesses)
@@ -249,7 +251,8 @@ class SparseCategoricalCrossentropy(CategoricalCrossentropyBase):
                             " then all values have to be of type float, "
                             f"but found {type(v)}"
                         )
-                    cw[k] = v
+                    cl = cast(int, k)
+                    cw[cl] = v
                 self.class_weights = to_numpy(cw)
             # Dict[str, float]
             elif all(map(lambda x: isinstance(x, str), class_weights.keys())):
@@ -270,7 +273,8 @@ class SparseCategoricalCrossentropy(CategoricalCrossentropyBase):
                             " then all values have to be of type float, "
                             f"but found {type(v)}"
                         )
-                    idx = self._name_to_i[k]
+                    cl = cast(str, k)
+                    idx = self._name_to_i[cl]
                     cw[idx] = v
                 self.class_weights = to_numpy(cw)
             # XXX Maybe not the most elegant to have an "unexpected" branch.
