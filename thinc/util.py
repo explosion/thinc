@@ -268,19 +268,38 @@ def smooth_one_hot(X: Floats2d, label_smoothing: float) -> Floats2d:
     return X
 
 
-def balanced_class_weights(label_data: Dict[Hashable, int]) -> Dict[Hashable, float]:
+# XXX not the best type hint, what this function
+# would really want is Dict[Hashable, Wholenumber]
+# Also it uses try/except duck-typingish which is
+# appropriate I think, but we rarely do it.
+# This way it can work across int, float, numpy, cupy
+# and torch arrays and scalars.
+def balanced_class_weights(
+    label_data: Dict[Hashable, Union[int, float, Ints1d, Floats1d]]
+) -> Dict[Hashable, float]:
     """
     Computed as in "Logistic regression in rare events data"
     G King, L Zeng - Political analysis, 2001
 
     label_data: A dictionary with labels as keys and counts as values.
     """
-    labels = label_data.keys()
-    counts = label_data.values()
-    if not all(map(lambda x: isinstance(x, int), counts)):
-        raise ValueError("Input format has to be Dict[Hashable, int]")
-    n_samples = sum(counts)
-    n_labels = len(labels)
+    n_samples = 0
+    for c in label_data.values():
+        try:
+            c = float(c)
+        except TypeError:
+            raise ValueError(
+                "Did not recognize value in `label_data` as scalar type: "
+                f"{c}, {type(c)}"
+            )
+        if (c).is_integer():
+            n_samples += c
+        else:
+            raise ValueError(
+                "Values in `label_data` have to be whole numbers "
+                f"representing counts, but found {c}"
+            )
+    n_labels = len(label_data)
     weights = {
         lab: n_samples / (n_labels * count) for lab, count in label_data.items()
     }
