@@ -283,7 +283,7 @@ def balanced_class_weights(
 
     label_data: A dictionary with labels as keys and counts as values.
     """
-    n_samples = 0
+    n_samples = 0.
     for c in label_data.values():
         try:
             c = float(c)
@@ -301,7 +301,7 @@ def balanced_class_weights(
             )
     n_labels = len(label_data)
     weights = {
-        lab: n_samples / (n_labels * count) for lab, count in label_data.items()
+        lab: float(n_samples / (n_labels * count)) for lab, count in label_data.items()
     }
     return weights
 
