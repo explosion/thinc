@@ -1,10 +1,10 @@
 import pytest
 import numpy
+from math import isclose
 from hypothesis import given
 from thinc.api import get_width, Ragged, Padded
 from thinc.util import get_array_module, is_numpy_array, to_categorical
-from thinc.util import is_cupy_array
-from thinc.util import convert_recursive
+from thinc.util import is_cupy_array, convert_recursive, balanced_class_weights
 from thinc.types import ArgsKwargs
 
 from . import strategies
@@ -158,3 +158,14 @@ def test_convert_recursive():
     result = convert_recursive(is_match, convert_item, obj)
     assert result["a"].args == ("FOO", [{"b": "FOO"}])
     assert result["a"].kwargs == {"a": ["x", "FOO"]}
+
+
+def test_balanced_class_weights():
+    counts = {0: 2, 2: 2, 5: 1, 6: 2, 7: 2, 8: 1}
+    weights = balanced_class_weights(counts)
+    assert isclose(weights[0], 0.8333333333)
+    assert isclose(weights[2], 0.8333333333)
+    assert isclose(weights[6], 0.8333333333)
+    assert isclose(weights[7], 0.8333333333)
+    assert isclose(weights[5], 1.6666666666)
+    assert isclose(weights[8], 1.6666666666)
