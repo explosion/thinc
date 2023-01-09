@@ -25,14 +25,12 @@ def forward(
     is_train: bool,
 ) -> Tuple[NestedT[OutItemT], Callable]:
     layer: Model[FlatT[InItemT], FlatT[OutItemT]] = model.layers[0]
-    Xflat = _flatten(Xnest)
+    Xflat, lens = _flatten(Xnest)
     Yflat, backprop_layer = layer(Xflat, is_train)
-    # Get the split points. We want n-1 splits for n items.
-    lens = [len(x) for x in Xnest]
     Ynest = _unflatten(Yflat, lens)
 
     def backprop(dYnest: NestedT[InItemT]) -> NestedT[OutItemT]:
-        dYflat = _flatten(dYnest)  # type: ignore[arg-type, var-annotated]
+        dYflat, _ = _flatten(dYnest)  # type: ignore[arg-type, var-annotated]
         # type ignore necessary for older versions of Mypy/Pydantic
         dXflat = backprop_layer(dYflat)
         dXnest = _unflatten(dXflat, lens)
@@ -41,11 +39,13 @@ def forward(
     return Ynest, backprop
 
 
-def _flatten(nested: NestedT[ItemT]) -> FlatT[ItemT]:
+def _flatten(nested: NestedT[ItemT]) -> Tuple[FlatT[ItemT], List[int]]:
     flat: List = []
+    lens: List[int] = []
     for item in nested:
         flat.extend(item)
-    return cast(FlatT[ItemT], flat)
+        lens.append(len(item))
+    return cast(FlatT[ItemT], flat), lens
 
 
 def _unflatten(flat: FlatT[ItemT], lens: List[int]) -> NestedT[ItemT]:
@@ -62,6 +62,6 @@ def init(
     Y: Optional[NestedT[OutItemT]] = None,
 ) -> None:
     model.layers[0].initialize(
-        _flatten(X) if X is not None else None,
+        _flatten(X)[0] if X is not None else None,
         model.layers[0].ops.xp.hstack(Y) if Y is not None else None,
     )
