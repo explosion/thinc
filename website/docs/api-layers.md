@@ -1411,13 +1411,42 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/with_array.py
 Flatten nested inputs on the way into a layer and reverse the transformation
 over the outputs.
 
-| Argument    | Type                                                             | Description        |
-| ----------- | ---------------------------------------------------------------- | ------------------ |
-| `layer`     | <tt>Model[Sequence[Sequence[Any]], Sequence[Sequence[Any]]]</tt> | The layer to wrap. |
-| **RETURNS** | <tt>Model[ListXd, ListXd]</tt>                                   | The wrapped layer. |
+<infobox variant="warning">
+
+Even though `with_flatten` is a layer wrapper, it does not preserve symmetry
+between the input and output data types. This often makes it hard to compose
+with other layers. Use [`with_flatten_v2`](#with_flatten_v2) instead.
+
+</infobox>
+
+| Argument    | Type                                            | Description        |
+| ----------- | ----------------------------------------------- | ------------------ |
+| `layer`     | <tt>Model[Sequence[Any], ArrayXd]</tt>          | The layer to wrap. |
+| **RETURNS** | <tt>Model[Sequence[Sequence[Any]], ListXd]</tt> | The wrapped layer. |
 
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/with_flatten.py
+```
+
+### with_flatten_v2 {#with_flatten_v2 tag="function" new="8.1.6"}
+
+<inline-list>
+
+- **Input:** <tt>List[List[InItemT]]</tt>
+- **Output:** <tt>List[List[OutItemT]]</tt>
+
+</inline-list>
+
+Flatten nested inputs on the way into a layer and reverse the transformation
+over the outputs.
+
+| Argument    | Type                                                      | Description        |
+| ----------- | --------------------------------------------------------- | ------------------ |
+| `layer`     | <tt>Model[List[InItemT], List[OutItemT]]</tt>             | The layer to wrap. |
+| **RETURNS** | <tt>Model[List[List[InItemT]], List[List[OutItemT]]]</tt> | The wrapped layer. |
+
+```python
+https://github.com/explosion/thinc/blob/master/thinc/layers/with_flatten_v2.py
 ```
 
 ### with_padded {#with_padded tag="function"}
