@@ -49,7 +49,7 @@ class Schedule(Generic[OutT]):
 
         start (int): The schedule initial step.
         step_size (int): The amount to increase the step for each generated value.
-        **kwargs: Additional arguments that are passed to the schedule.
+        **extra: Additional arguments that are passed to the schedule.
         RETURNS (Generator[OutT, None, None]): The generator.
         """
         if start < 0:
