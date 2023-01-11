@@ -223,6 +223,17 @@ def test_set_dropout_2(model_with_no_args):
     assert model.attrs["dropout_rate"] == 0.2
 
 
+def test_set_dropout_specified_attr_name():
+    model = Dropout(rate_attr_name="another_dropout_rate")
+    assert model.attrs["another_dropout_rate"] == 0.0
+    set_dropout_rate(model, 0.2)
+    assert model.attrs["another_dropout_rate"] == 0.0
+    set_dropout_rate(model, 0.2, attrs=["another_dropout_rate"])
+    assert model.attrs["another_dropout_rate"] == 0.2
+    set_dropout_rate(model, 0.3, attrs=["dropout_rate", "another_dropout_rate"])
+    assert model.attrs["another_dropout_rate"] == 0.3
+
+
 def test_bind_plus():
     with Model.define_operators({"+": lambda a, b: (a.name, b.name)}):
         m = create_model(name="a") + create_model(name="b")
