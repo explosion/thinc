@@ -1,3 +1,4 @@
+from itertools import islice
 from thinc.api import decaying, compounding, slanted_triangular, constant_then
 from thinc.api import constant, warmup_linear, cyclic_triangular
 from thinc.optimizers import KeyT
@@ -74,3 +75,9 @@ def test_cyclic_triangular():
     expected = [0.55, 1.0, 0.55, 0.1, 0.55, 1.0, 0.55, 0.1, 0.55, 1.0]
     for i in range(10):
         assert rates(step=i, key=(0, "")) == expected[i]
+
+
+def test_to_generator():
+    rates = warmup_linear(1.0, 2, 10)
+    expected = [0.0, 0.5, 1.0, 0.875, 0.75, 0.625, 0.5, 0.375, 0.25, 0.125, 0.0]
+    assert list(islice(rates.to_generator(), len(expected))) == expected
