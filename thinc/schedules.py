@@ -1,5 +1,6 @@
 """Generators that provide different rates, schedules, decays or series."""
-from typing import Any, Callable, Dict, Generic, TypeVar
+from typing import Any, Callable, Dict, Generator, Generic, TypeVar
+import itertools
 import numpy
 
 from .config import registry
@@ -40,6 +41,27 @@ class Schedule(Generic[OutT]):
     def attrs(self):
         """Schedule attributes."""
         return self._attrs
+
+    def to_generator(
+        self, start: int = 0, step_size=1, **extra
+    ) -> Generator[OutT, None, None]:
+        """Turn the schedule into a generator.
+
+        start (int): The schedule initial step.
+        step_size (int): The amount to increase the step for each generated value.
+        **extra: Additional arguments that are passed to the schedule.
+        RETURNS (Generator[OutT, None, None]): The generator.
+        """
+        if start < 0:
+            raise ValueError(f"Schedule start must be non-negative, was: {start}")
+        if step_size < 0:
+            raise ValueError(f"Step size must be non-negative, was: {step_size}")
+
+        def generate():
+            for step in itertools.count(start, step_size):
+                yield self(step, **extra)
+
+        return generate()
 
 
 @registry.schedules("constant_then.v1")

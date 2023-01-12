@@ -75,9 +75,9 @@ schedule = Schedule(
 
 ### Schedule.\_\_call\_\_ {#call tag="method"}
 
-Call the schedule function, returning the value for the given step. The
-`step` positional argument is always required. Some schedules may require
-additional keyword arguments.
+Call the schedule function, returning the value for the given step. The `step`
+positional argument is always required. Some schedules may require additional
+keyword arguments.
 
 ```python
 ### Example
@@ -93,6 +93,27 @@ assert schedule(1000) == 0.1
 | `step`      | <tt>int</tt> | The step to compute the schedule for.      |
 | `**kwargs`  |              | Optional arguments passed to the schedule. |
 | **RETURNS** | <tt>Any</tt> | The schedule value for the step.           |
+
+### Schedule.to_generator {#to_generator tag="method"}
+
+Turn the schedule into a generator by passing monotonically increasing step
+count into the schedule.
+
+```python
+### Example
+from thinc.api import constant
+
+g = constant(0.1).to_generator()
+assert next(g) == 0.1
+assert next(g) == 0.1
+```
+
+| Argument    | Type                                 | Description                                                                     |
+| ----------- | ------------------------------------ | ------------------------------------------------------------------------------- |
+| `start`     | <tt>int</tt>                         | The initial schedule step. Defaults to `0`.                                     |
+| `step_size` | <tt>int</tt>                         | The amount to increase the step with for each generated value. Defaults to `1`. |
+| `**kwargs`  |                                      | Optional arguments passed to the schedule.                                      |
+| **RETURNS** | <tt>Generator[OutT, None, None]</tt> | The generator.                                                                  |
 
 ## constant {#constant tag="function"}
 
