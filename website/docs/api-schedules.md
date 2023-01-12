@@ -94,7 +94,7 @@ assert schedule(1000) == 0.1
 | `**kwargs`  |              | Optional arguments passed to the schedule. |
 | **RETURNS** | <tt>Any</tt> | The schedule value for the step.           |
 
-### Schedule.to_generator {#call tag="method"}
+### Schedule.to_generator {#to_generator tag="method"}
 
 Turn the schedule into a generator by passing monotonically increasing step
 count into the schedule.
