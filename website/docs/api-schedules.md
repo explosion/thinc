@@ -108,12 +108,12 @@ assert next(g) == 0.1
 assert next(g) == 0.1
 ```
 
-| Argument    | Type                                 | Description                                                    |
-| ----------- | ------------------------------------ | -------------------------------------------------------------- |
-| `start`     | <tt>int</tt>                         | The initial schedule step.                                     |
-| `step_size` | <tt>int</tt>                         | The amount to increase the step with for each generated value. |
-| `**kwargs`  |                                      | Optional arguments passed to the schedule.                     |
-| **RETURNS** | <tt>Generator[OutT, None, None]</tt> | The generator.                                                 |
+| Argument    | Type                                 | Description                                                                     |
+| ----------- | ------------------------------------ | ------------------------------------------------------------------------------- |
+| `start`     | <tt>int</tt>                         | The initial schedule step. Defaults to `0`.                                     |
+| `step_size` | <tt>int</tt>                         | The amount to increase the step with for each generated value. Defaults to `1`. |
+| `**kwargs`  |                                      | Optional arguments passed to the schedule.                                      |
+| **RETURNS** | <tt>Generator[OutT, None, None]</tt> | The generator.                                                                  |
 
 ## constant {#constant tag="function"}
 
