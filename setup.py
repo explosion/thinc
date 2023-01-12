@@ -26,7 +26,7 @@ COMPILE_OPTIONS = {
     "other": ["-O3", "-Wno-strict-prototypes", "-Wno-unused-function", "-std=c++11"],
 }
 COMPILER_DIRECTIVES = {
-    "language_level": -3,
+    "language_level": 3,
     "embedsignature": True,
     "annotation_typing": False,
 }

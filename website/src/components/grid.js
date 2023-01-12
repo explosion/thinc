@@ -1,7 +1,7 @@
 import React from 'react'
 import classNames from 'classnames'
 
-import classes from '../styles/grid.module.sass'
+import * as classes from '../styles/grid.module.sass'
 
 export default ({ layout = 'auto', children }) => {
     const gridClassNames = classNames(classes.root, {
