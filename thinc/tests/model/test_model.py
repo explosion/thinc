@@ -4,7 +4,7 @@ import threading
 import time
 from thinc.api import Adam, CupyOps, Dropout, Linear, Model, Relu
 from thinc.api import Shim, Softmax, chain, change_attr_values
-from thinc.api import concatenate, set_dropout_rate
+from thinc.api import concatenate, set_dropout_rate, Dropout_v2
 from thinc.api import use_ops, with_debug, wrap_model_recursive
 from thinc.compat import has_cupy_gpu
 import numpy
@@ -224,7 +224,7 @@ def test_set_dropout_2(model_with_no_args):
 
 
 def test_set_dropout_specified_attr_name():
-    model = Dropout(rate_attr_name="another_dropout_rate")
+    model = Dropout_v2(rate_attr_name="another_dropout_rate")
     assert model.attrs["another_dropout_rate"] == 0.0
     set_dropout_rate(model, 0.2)
     assert model.attrs["another_dropout_rate"] == 0.0

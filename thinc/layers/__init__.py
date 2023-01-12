@@ -1,7 +1,7 @@
 # Weights layers
 from .cauchysimilarity import CauchySimilarity
 from .dish import Dish
-from .dropout import Dropout
+from .dropout import Dropout, Dropout_v2
 from .embed import Embed
 from .expand_window import expand_window
 from .hashembed import HashEmbed
@@ -82,6 +82,7 @@ __all__ = [
     "CauchySimilarity",
     "Linear",
     "Dropout",
+    "Dropout_v2",
     "Embed",
     "expand_window",
     "HashEmbed",

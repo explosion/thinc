@@ -10,6 +10,24 @@ InT = TypeVar("InT", bound=Union[ArrayXd, Sequence[ArrayXd], Ragged, Padded])
 
 @registry.layers("Dropout.v1")
 def Dropout(
+    rate: float = 0.0
+) -> Model[InT, InT]:
+    """Help prevent overfitting by adding a random distortion to the input data
+    during training.  Specifically, cells of the input are zeroed with
+    probability determined by the `rate` argument.
+    """
+    return Model(
+        "dropout",
+        forward,
+        attrs={
+            "rate_attr_name": "dropout_rate",
+            "dropout_rate": rate,
+            "is_enabled": True,
+        },
+    )
+
+@registry.layers("Dropout.v2")
+def Dropout_v2(
     rate: float = 0.0, *, rate_attr_name: str = "dropout_rate"
 ) -> Model[InT, InT]:
     """Help prevent overfitting by adding a random distortion to the input data

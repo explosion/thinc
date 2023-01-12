@@ -106,6 +106,44 @@ for node in model.walk():
         node.attrs["dropout_rate"] = 0.5
 ```
 
+| Argument    | Type                 | Description                                                                                                                             |
+| ----------- | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `rate`      | <tt>float</tt>       | The probability of zeroing the activations (default: 0). Higher dropout rates mean more distortion. Values around `0.2` are often good. |
+| **RETURNS** | <tt>Model[T, T]</tt> | The created dropout layer.                                                                                                              |
+
+```python
+https://github.com/explosion/thinc/blob/master/thinc/layers/dropout.py
+```
+
+### Dropout_v2 {#dropout_v2 tag="function"}
+
+<inline-list>
+
+- **Input:** <ndarray>ArrayXd</ndarray> / <ndarray>Sequence[ArrayXd]</ndarray> /
+  <ndarray>Ragged</ndarray> / <ndarray>Padded</ndarray>
+- **Output:** <ndarray>ArrayXd</ndarray> / <ndarray>Sequence[ArrayXd]</ndarray>
+  / <ndarray>Ragged</ndarray> / <ndarray>Padded</ndarray>
+- **Attrs:** `dropout_rate` <tt>float</tt>
+
+</inline-list>
+
+Helps prevent overfitting by adding a random distortion to the input data during
+training. Specifically, cells of the input are zeroed with probability
+determined by the `dropout_rate` argument. Cells which are not zeroed are
+rescaled by `1-rate`. When not in training mode, the distortion is disabled (see
+[Hinton et al., 2012](https://arxiv.org/abs/1207.0580)).
+
+```python
+### Example
+from thinc.api import chain, Linear, Dropout
+model = chain(Linear(10, 2), Dropout(0.2))
+Y, backprop = model(X, is_train=True)
+# Configure dropout rate via the dropout_rate attribute.
+for node in model.walk():
+    if node.name == "dropout":
+        node.attrs["dropout_rate"] = 0.5
+```
+
 | Argument         | Type                 | Description                                                                                                                                                                                                            |
 | ---------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `rate`           | <tt>float</tt>       | The probability of zeroing the activations (default: 0). Higher dropout rates mean more distortion. Values around `0.2` are often good.                                                                                |

@@ -22,9 +22,9 @@ from .backends import get_ops, set_current_ops, get_current_ops, use_ops
 from .backends import Ops, CupyOps, MPSOps, NumpyOps, set_gpu_allocator
 from .backends import use_pytorch_for_gpu_memory, use_tensorflow_for_gpu_memory
 
-from .layers import Dropout, Embed, expand_window, HashEmbed, LayerNorm, Linear
+from .layers import Dropout, Dropout_v2, Embed, expand_window, HashEmbed, LayerNorm
 from .layers import Maxout, Mish, MultiSoftmax, Relu, softmax_activation, Softmax, LSTM
-from .layers import CauchySimilarity, ParametricAttention, Logistic
+from .layers import CauchySimilarity, ParametricAttention, Linear, Logistic
 from .layers import resizable, sigmoid_activation, Sigmoid, SparseLinear
 from .layers import SparseLinear_v2, ClippedLinear, ReluK, HardTanh, HardSigmoid
 from .layers import Dish, HardSwish, HardSwishMobilenet, Swish, Gelu
@@ -84,7 +84,7 @@ __all__ = [
     "Ops", "CupyOps", "MPSOps", "NumpyOps", "set_gpu_allocator",
     "use_pytorch_for_gpu_memory", "use_tensorflow_for_gpu_memory",
     # .layers
-    "Dropout", "Embed", "expand_window", "HashEmbed", "LayerNorm", "Linear",
+    "Dropout", "Dropout_v2", "Embed", "expand_window", "HashEmbed", "LayerNorm", "Linear",
     "Maxout", "Mish", "MultiSoftmax", "Relu", "softmax_activation", "Softmax", "LSTM",
     "CauchySimilarity", "ParametricAttention", "Logistic",
     "resizable", "sigmoid_activation", "Sigmoid", "SparseLinear",
