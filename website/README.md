@@ -3,8 +3,9 @@
 ## Setup and installation
 
 The site is powered by [Gatsby](https://www.gatsbyjs.org/) and
-[Markdown Remark](https://github.com/remarkjs/remark). To run the site, Node
-10.15+ is required.
+[Markdown Remark](https://github.com/remarkjs/remark). To run the site, Node 16
+is required. If you use NVM you can `nvm use` to select the correct Node
+version.
 
 ```bash
 npm install  # install dependencies

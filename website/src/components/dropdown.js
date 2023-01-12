@@ -2,7 +2,7 @@ import React from 'react'
 import classNames from 'classnames'
 import { navigate } from 'gatsby'
 
-import classes from '../styles/dropdown.module.sass'
+import * as classes from '../styles/dropdown.module.sass'
 
 const Dropdown = ({ defaultValue, className, onChange, children }) => {
     const defaultOnChange = ({ target }) => {

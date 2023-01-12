@@ -9,7 +9,7 @@ import { H3 } from '../components/typography'
 import { Emoji } from '../components/icon'
 import ExplosionLogo from '../images/logos/explosion.svg'
 import Logo from '../images/logo.svg'
-import classes from '../styles/landing.module.sass'
+import * as classes from '../styles/landing.module.sass'
 
 const headerQuery = graphql`
     query {
