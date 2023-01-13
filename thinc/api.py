@@ -42,7 +42,7 @@ from .layers import with_reshape, with_getitem, strings2arrays, list2array
 from .layers import list2ragged, ragged2list, list2padded, padded2list, remap_ids
 from .layers import array_getitem, with_cpu, with_debug, with_nvtx_range
 from .layers import with_signpost_interval
-from .layers import tuplify
+from .layers import tuplify, with_flatten_v2
 
 from .layers import reduce_first, reduce_last, reduce_max, reduce_mean, reduce_sum
 
@@ -104,7 +104,7 @@ __all__ = [
     "list2ragged", "ragged2list", "list2padded", "padded2list", "remap_ids",
     "array_getitem", "with_cpu", "with_debug", "with_nvtx_range",
     "with_signpost_interval",
-    "tuplify",
+    "tuplify", "with_flatten_v2",
     "pytorch_to_torchscript_wrapper",
 
     "reduce_first", "reduce_last", "reduce_max", "reduce_mean", "reduce_sum",

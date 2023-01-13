@@ -4,7 +4,7 @@ import classNames from 'classnames'
 
 import Link from './link'
 import Icon from './icon'
-import classes from '../styles/footer.module.sass'
+import * as classes from '../styles/footer.module.sass'
 
 export default ({ className }) => (
     <StaticQuery
