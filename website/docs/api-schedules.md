@@ -376,7 +376,7 @@ period = 1000
 | `period`   | <tt>int</tt>   |
 | **YIELDS** | <tt>float</tt> |
 
-## plateau {#cyclic_triangular tag="function" new="9"}
+## plateau {#plateau tag="function" new="9"}
 
 Yields values from the wrapped schedule, exponentially scaled by the number
 of times optimization has plateaued. This schedule requires an additional
