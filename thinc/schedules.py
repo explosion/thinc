@@ -189,7 +189,11 @@ def plateau(
 
 
 def _plateau_schedule(
-    schedule: Schedule, step: int, *, last_score: Tuple[int, float], **kwargs
+    schedule: Schedule,
+    step: int,
+    *,
+    last_score: Optional[Tuple[int, float]] = None,
+    **kwargs,
 ) -> float:
     inner_schedule: Schedule[float] = schedule.attrs["schedule"]
     max_patience: int = schedule.attrs["max_patience"]
