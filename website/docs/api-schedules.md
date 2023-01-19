@@ -412,3 +412,10 @@ rate = 1.0
 ```
 
 </grid>
+
+| Argument       | Type                     | Description                                                                           |
+| -------------- | ------------------------ | ------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| `max_patience` | <tt>int</tt>             | Number of evaluations without an improvement to consider the model to have plateaued. |
+| `scale`        | <tt>float</tt>           |                                                                                       | Scaling of the inner schedule after plateauing. |
+| `schedule`     | <tt>Schedule[float]</tt> |                                                                                       | The schedule to wrap.                           |
+| **RETURNS**    | <tt>Schedule[float]</tt> |                                                                                       |
