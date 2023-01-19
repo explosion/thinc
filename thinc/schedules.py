@@ -163,10 +163,11 @@ def plateau(
 ) -> Schedule[float]:
 
     """Yields values from the wrapped schedule, exponentially scaled by the
-    number of times optimization has plateaued. This schedule requires an
-    additional last_score argument, which is a tuple of the shape
-    (last_score_step, last_score). This tuple indicates when a model was
-    last evaluated (last_score_step) and with what score (last_score).
+    number of times optimization has plateaued. The caller must pass model
+    evaluation scores through the last_score argument for the scaling to be
+    adjusted. The last evaluation score is passed through the last_score argument
+    as a tuple (last_score_step, last_score). This tuple indicates when a model
+    was last evaluated (last_score_step) and with what score (last_score).
 
     max_patience (int): the number of evaluations without improvement when
         we consider the model to have plateaued.
