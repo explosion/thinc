@@ -182,7 +182,7 @@ def plateau(
             "max_patience": max_patience,
             "schedule": schedule,
             "state": _PlateauState(
-                best_score=None, last_score_step=None, patience=0, stagnations=0
+                best_score=None, last_score_step=None, patience=0, n_plateaus=0
             ),
         },
     )
@@ -197,7 +197,7 @@ def _plateau_schedule(
     state: _PlateauState = schedule.attrs["state"]
 
     if last_score is None:
-        return (scale**state.stagnations) * inner_schedule(
+        return (scale**state.n_plateaus) * inner_schedule(
             step=step, last_score=last_score, **kwargs
         )
 
@@ -219,15 +219,15 @@ def _plateau_schedule(
         # score again, we may be at a plateau, so increase patience.
         state.patience += 1
 
-        # If we are at the maximum patience, the optimization is considered
-        # to be stagnant. Record stagnation and reset patience.
+        # If we are at the maximum patience, we consider the optimization
+        # to have reached a plateau.
         if state.patience == max_patience:
-            state.stagnations += 1
+            state.n_plateaus += 1
             state.patience = 0
 
     state.last_score_step = last_score_step
 
-    return (scale**state.stagnations) * inner_schedule(
+    return (scale**state.n_plateaus) * inner_schedule(
         step=step, last_score=last_score, **kwargs
     )
 
@@ -242,17 +242,17 @@ class _PlateauState:
         observed.
     patience (int): the number of scores so far which do not improve over
         the best score (reset after reaching the maximum patience).
-    stagnations (int): the number of times the maximum patience has been
+    n_plateaus (int): the number of times the maximum patience has been
         reached.
     """
 
     best_score: Optional[float]
     last_score_step: Optional[int]
     patience: int
-    stagnations: int
+    n_plateaus: int
 
     # @dataclass(slots=True) is only supported in Python >= 3.10
-    __slots__ = ["best_score", "last_score_step", "patience", "stagnations"]
+    __slots__ = ["best_score", "last_score_step", "patience", "n_plateaus"]
 
 
 @registry.schedules("slanted_triangular.v1")
