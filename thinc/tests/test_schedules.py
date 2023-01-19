@@ -1,7 +1,9 @@
 from itertools import islice
+import pytest
 from thinc.api import decaying, compounding, slanted_triangular, constant_then
 from thinc.api import constant, warmup_linear, cyclic_triangular
 from thinc.optimizers import KeyT
+from thinc.schedules import plateau
 
 
 def test_decaying_rate():
@@ -75,6 +77,23 @@ def test_cyclic_triangular():
     expected = [0.55, 1.0, 0.55, 0.1, 0.55, 1.0, 0.55, 0.1, 0.55, 1.0]
     for i in range(10):
         assert rates(step=i, key=(0, "")) == expected[i]
+
+
+def test_plateau():
+    schedule = plateau(2, 0.5, constant(1.0))
+    assert schedule(step=0, last_score=None) == 1.0
+    assert schedule(step=1, last_score=(1, 1.0)) == 1.0  # patience == 0
+    assert schedule(step=2, last_score=(2, 1.0)) == 1.0  # patience == 1
+    assert schedule(step=3, last_score=None) == 1.0  # patience == 1
+    assert schedule(step=4, last_score=(4, 1.0)) == 0.5  # patience == 2, reset
+    assert schedule(step=5, last_score=(4, 1.0)) == 0.5  # patience == 0
+    assert schedule(step=6, last_score=(6, 0.9)) == 0.5  # patience == 1
+    assert schedule(step=7, last_score=(7, 2.0)) == 0.5  # patience == 0
+    assert schedule(step=8, last_score=(8, 1.0)) == 0.5  # patience == 1
+    assert schedule(step=9, last_score=(9, 2.0)) == 0.25  # patience == 2, reset
+
+    with pytest.raises(ValueError, match=r"Expected score with step"):
+        schedule(step=1, last_score=(1, 1.0)) == 1.0
 
 
 def test_to_generator():

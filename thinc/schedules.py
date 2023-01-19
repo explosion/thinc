@@ -1,5 +1,7 @@
 """Generators that provide different rates, schedules, decays or series."""
-from typing import Any, Callable, Dict, Generator, Generic, TypeVar
+from typing import Any, Callable, Dict, Generator, Generic, Tuple, TypeVar
+from typing import Optional
+from dataclasses import dataclass
 import itertools
 import numpy
 
@@ -153,6 +155,109 @@ def _compounding_schedule(schedule: Schedule, step: int, **kwargs) -> float:
 
 def _clip(value: float, start: float, stop: float) -> float:
     return max(value, stop) if (start > stop) else min(value, stop)
+
+
+@registry.schedules("plateau.v1")
+def plateau(
+    max_patience: int, scale: float, schedule: Schedule[float]
+) -> Schedule[float]:
+
+    """Yields values from the wrapped schedule, exponentially scaled by the
+    number of times optimization has plateaued. The caller must pass model
+    evaluation scores through the last_score argument for the scaling to be
+    adjusted. The last evaluation score is passed through the last_score argument
+    as a tuple (last_score_step, last_score). This tuple indicates when a model
+    was last evaluated (last_score_step) and with what score (last_score).
+
+    max_patience (int): the number of evaluations without improvement when
+        we consider the model to have plateaued.
+    scale (float): scaling of the inner schedule (scale**n_plateaus * inner).
+    schedule (Schedule[float]): the schedule to wrap.
+    """
+
+    return Schedule(
+        "plateau",
+        _plateau_schedule,
+        attrs={
+            "scale": scale,
+            "max_patience": max_patience,
+            "schedule": schedule,
+            "state": _PlateauState(
+                best_score=None, last_score_step=None, patience=0, n_plateaus=0
+            ),
+        },
+    )
+
+
+def _plateau_schedule(
+    schedule: Schedule,
+    step: int,
+    *,
+    last_score: Optional[Tuple[int, float]] = None,
+    **kwargs,
+) -> float:
+    inner_schedule: Schedule[float] = schedule.attrs["schedule"]
+    max_patience: int = schedule.attrs["max_patience"]
+    scale: float = schedule.attrs["scale"]
+    state: _PlateauState = schedule.attrs["state"]
+
+    if last_score is None:
+        return (scale**state.n_plateaus) * inner_schedule(
+            step=step, last_score=last_score, **kwargs
+        )
+
+    last_score_step, last_score_ = last_score
+
+    if (
+        state.best_score is None
+        or state.last_score_step is None
+        or last_score_ > state.best_score
+    ):
+        state.best_score = last_score_
+        state.patience = 0
+    elif last_score_step < state.last_score_step:
+        raise ValueError(
+            f"Expected score with step >= {state.last_score_step}, was: {last_score_step}"
+        )
+    elif last_score_step > state.last_score_step:
+        # If the score didn't improve and we are not seeing the last
+        # score again, we may be at a plateau, so increase patience.
+        state.patience += 1
+
+        # If we are at the maximum patience, we consider the optimization
+        # to have reached a plateau.
+        if state.patience == max_patience:
+            state.n_plateaus += 1
+            state.patience = 0
+
+    state.last_score_step = last_score_step
+
+    return (scale**state.n_plateaus) * inner_schedule(
+        step=step, last_score=last_score, **kwargs
+    )
+
+
+@dataclass
+class _PlateauState:
+    """Plateau schedule state.
+
+    best_score (Optional[float]): the best score so far, or None when no
+        score has been observed.
+    last_score_step (Optional[int]): the step of the last score that was
+        observed.
+    patience (int): the number of scores so far which do not improve over
+        the best score (reset after reaching the maximum patience).
+    n_plateaus (int): the number of times the maximum patience has been
+        reached.
+    """
+
+    best_score: Optional[float]
+    last_score_step: Optional[int]
+    patience: int
+    n_plateaus: int
+
+    # @dataclass(slots=True) is only supported in Python >= 3.10
+    __slots__ = ["best_score", "last_score_step", "patience", "n_plateaus"]
 
 
 @registry.schedules("slanted_triangular.v1")
