@@ -9,9 +9,7 @@ InT = TypeVar("InT", bound=Union[ArrayXd, Sequence[ArrayXd], Ragged, Padded])
 
 
 @registry.layers("Dropout.v1")
-def Dropout(
-    rate: float = 0.0
-) -> Model[InT, InT]:
+def Dropout(rate: float = 0.0) -> Model[InT, InT]:
     """Help prevent overfitting by adding a random distortion to the input data
     during training.  Specifically, cells of the input are zeroed with
     probability determined by the `rate` argument.
@@ -20,22 +18,23 @@ def Dropout(
         "dropout",
         forward,
         attrs={
-            "rate_attr_name": "dropout_rate",
+            "dropout_attr": "dropout_rate",
             "dropout_rate": rate,
             "is_enabled": True,
         },
     )
 
+
 @registry.layers("Dropout.v2")
 def Dropout_v2(
-    rate: float = 0.0, *, rate_attr_name: str = "dropout_rate"
+    rate: float = 0.0, *, dropout_attr: str = "dropout_rate"
 ) -> Model[InT, InT]:
     """Help prevent overfitting by adding a random distortion to the input data
     during training.  Specifically, cells of the input are zeroed with
     probability determined by the `rate` argument.
 
     rate: the probability of the dropout mask.
-    rate_attr_name: the name to use for the model attribute used to store *rate*. Different names
+    dropout_attr: the name to use for the model attribute used to store *rate*. Different names
         can be used to enable dropout layers to be sensitive to different calls to
         *Model.set_dropout_rate()*. The default both here and in *Model.set_dropout_rate()* is
         `dropout_rate`.
@@ -44,16 +43,16 @@ def Dropout_v2(
         "dropout",
         forward,
         attrs={
-            "rate_attr_name": rate_attr_name,
-            rate_attr_name: rate,
+            "dropout_attr": dropout_attr,
+            dropout_attr: rate,
             "is_enabled": True,
         },
     )
 
 
 def forward(model: Model[InT, InT], X: InT, is_train: bool) -> Tuple[InT, Callable]:
-    rate_attr_name = model.attrs["rate_attr_name"]
-    rate = model.attrs[rate_attr_name]
+    dropout_attr = model.attrs["dropout_attr"]
+    rate = model.attrs[dropout_attr]
     is_enabled = model.attrs["is_enabled"] and is_train
     if rate == 0 or not is_enabled:
         return X, lambda dY: dY
@@ -74,8 +73,8 @@ def forward(model: Model[InT, InT], X: InT, is_train: bool) -> Tuple[InT, Callab
 def _dropout_array(
     model: Model[InT, InT], X: ArrayXd, is_train: bool
 ) -> Tuple[ArrayXd, Callable]:
-    rate_attr_name = model.attrs["rate_attr_name"]
-    rate = model.attrs[rate_attr_name]
+    dropout_attr = model.attrs["dropout_attr"]
+    rate = model.attrs[dropout_attr]
     mask = model.ops.get_dropout_mask(X.shape, rate)
 
     def backprop(dY: ArrayXd) -> ArrayXd:
@@ -88,8 +87,8 @@ def _dropout_padded(
     model: Model[InT, InT], Xp: Padded, is_train: bool
 ) -> Tuple[Padded, Callable]:
     X = Xp.data
-    rate_attr_name = model.attrs["rate_attr_name"]
-    rate = model.attrs[rate_attr_name]
+    dropout_attr = model.attrs["dropout_attr"]
+    rate = model.attrs[dropout_attr]
     mask = model.ops.get_dropout_mask(X.shape, rate)
     Y = X * mask
 
@@ -104,8 +103,8 @@ def _dropout_ragged(
 ) -> Tuple[Ragged, Callable]:
     X = Xr.data
     lengths = Xr.lengths
-    rate_attr_name = model.attrs["rate_attr_name"]
-    rate = model.attrs[rate_attr_name]
+    dropout_attr = model.attrs["dropout_attr"]
+    rate = model.attrs[dropout_attr]
     mask = model.ops.get_dropout_mask(X.shape, rate)
     Y = X * mask
 
@@ -118,8 +117,8 @@ def _dropout_ragged(
 def _dropout_lists(
     model: Model[InT, InT], Xs: Sequence[ArrayXd], is_train: bool
 ) -> Tuple[Sequence[ArrayXd], Callable]:
-    rate_attr_name = model.attrs["rate_attr_name"]
-    rate = model.attrs[rate_attr_name]
+    dropout_attr = model.attrs["dropout_attr"]
+    rate = model.attrs[dropout_attr]
     masks = [model.ops.get_dropout_mask(X.shape, rate) for X in Xs]
     Ys = [X * mask for X, mask in zip(Xs, masks)]
 

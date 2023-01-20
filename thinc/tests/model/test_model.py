@@ -224,7 +224,7 @@ def test_set_dropout_2(model_with_no_args):
 
 
 def test_set_dropout_specified_attr_name():
-    model = Dropout_v2(rate_attr_name="another_dropout_rate")
+    model = Dropout_v2(dropout_attr="another_dropout_rate")
     assert model.attrs["another_dropout_rate"] == 0.0
     set_dropout_rate(model, 0.2)
     assert model.attrs["another_dropout_rate"] == 0.0

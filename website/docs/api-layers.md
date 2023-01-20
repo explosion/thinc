@@ -144,11 +144,11 @@ for node in model.walk():
         node.attrs["dropout_rate"] = 0.5
 ```
 
-| Argument         | Type                 | Description                                                                                                                                                                                                            |
-| ---------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `rate`           | <tt>float</tt>       | The probability of zeroing the activations (default: 0). Higher dropout rates mean more distortion. Values around `0.2` are often good.                                                                                |
-| `rate_attr_name` | <tt>str</tt>         | The name of the attribute used within the model to store the value of `rate`. Different names can be set to make dropout layers sensitive to different calls to `Model.set_dropout_rate()` (default `"dropout_rate"`). |
-| **RETURNS**      | <tt>Model[T, T]</tt> | The created dropout layer.                                                                                                                                                                                             |
+| Argument       | Type                 | Description                                                                                                                                                                                                            |
+| -------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `rate`         | <tt>float</tt>       | The probability of zeroing the activations (default: 0). Higher dropout rates mean more distortion. Values around `0.2` are often good.                                                                                |
+| `dropout_attr` | <tt>str</tt>         | The name of the attribute used within the model to store the value of `rate`. Different names can be set to make dropout layers sensitive to different calls to `Model.set_dropout_rate()` (default `"dropout_rate"`). |
+| **RETURNS**    | <tt>Model[T, T]</tt> | The created dropout layer.                                                                                                                                                                                             |
 
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/dropout.py
