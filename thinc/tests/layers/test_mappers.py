@@ -1,19 +1,19 @@
+import pytest
 import numpy
 from thinc.layers import premap_ids, remap_ids, remap_ids_v2
 
 
-def get_keys():
+@pytest.fixture
+def keys():
     return numpy.array([4, 2, 6, 1, 8, 7, 9, 3, 30])
 
 
-def get_mapper():
-    keys = get_keys()
+@pytest.fixture
+def mapper(keys):
     return {int(k): int(v) for v, k in enumerate(keys)}
 
 
-def test_premap():
-    mapper = get_mapper()
-    keys = get_keys()
+def test_premap(keys, mapper):
     premap = premap_ids(mapper, default=99)
     values, _ = premap(keys, False)
     numpy.testing.assert_equal(
@@ -21,9 +21,7 @@ def test_premap():
     )
 
 
-def test_remap():
-    mapper = get_mapper()
-    keys = get_keys()
+def test_remap(keys, mapper):
     remap = remap_ids(mapper, default=99)
     values, _ = remap(keys, False)
     numpy.testing.assert_equal(
@@ -31,9 +29,7 @@ def test_remap():
     )
 
 
-def test_remap_v2():
-    mapper = get_mapper()
-    keys = get_keys()
+def test_remap_v2(keys, mapper):
     remap = remap_ids_v2(mapper, default=99)
     values, _ = remap(keys, False)
     numpy.testing.assert_equal(
@@ -41,9 +37,7 @@ def test_remap_v2():
     )
 
 
-def test_remap_premap_eq():
-    mapper = get_mapper()
-    keys = get_keys()
+def test_remap_premap_eq(keys, mapper):
     remap = remap_ids(mapper, default=99)
     remap_v2 = remap_ids_v2(mapper, default=99)
     premap = premap_ids(mapper, default=99)
@@ -54,9 +48,7 @@ def test_remap_premap_eq():
     assert (values2 == values3).all()
 
 
-def test_column():
-    mapper = get_mapper()
-    keys = get_keys()
+def test_column(keys, mapper):
     idx = numpy.zeros((len(keys), 4), dtype="int")
     idx[:, 3] = keys
     remap_v2 = remap_ids_v2(mapper, column=3)
