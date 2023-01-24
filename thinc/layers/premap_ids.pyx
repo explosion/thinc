@@ -1,4 +1,4 @@
-# cython: infer_types=True
+# cython: binding=True, infer_types=True
 cimport cython
 import numpy as np
 from preshed.maps cimport PreshMap
@@ -32,7 +32,6 @@ cdef lookup(PreshMap mapping, long[:] keys, long default):
     return result
 
 
-@cython.binding(True)
 @registry.layers("premap_ids.v1")
 def premap_ids(
     mapping_table: Mapping[int, int],
