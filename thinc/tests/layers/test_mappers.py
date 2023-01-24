@@ -1,9 +1,9 @@
+import numpy
 from thinc.layers import premap_ids, remap_ids, remap_ids_v2
-import numpy as np
 
 
 def get_keys():
-    return np.array([4, 2, 6, 1, 8, 7, 9, 3, 30])
+    return numpy.array([4, 2, 6, 1, 8, 7, 9, 3, 30])
 
 
 def get_mapper():
@@ -16,7 +16,9 @@ def test_premap():
     keys = get_keys()
     premap = premap_ids(mapper, default=99)
     values, _ = premap(keys, False)
-    assert all(values.squeeze() == np.asarray(range(len(keys))))
+    numpy.testing.assert_equal(
+        values.squeeze(), numpy.asarray(range(len(keys)))
+    )
 
 
 def test_remap():
@@ -24,7 +26,9 @@ def test_remap():
     keys = get_keys()
     remap = remap_ids(mapper, default=99)
     values, _ = remap(keys, False)
-    assert all(values.squeeze() == np.asarray(range(len(keys))))
+    numpy.testing.assert_equal(
+        values.squeeze(), numpy.asarray(range(len(keys)))
+    )
 
 
 def test_remap_v2():
@@ -32,7 +36,9 @@ def test_remap_v2():
     keys = get_keys()
     remap = remap_ids_v2(mapper, default=99)
     values, _ = remap(keys, False)
-    assert all(values.squeeze() == np.asarray(range(len(keys))))
+    numpy.testing.assert_equal(
+        values.squeeze(), numpy.asarray(range(len(keys)))
+    )
 
 
 def test_remap_premap_eq():
@@ -51,9 +57,9 @@ def test_remap_premap_eq():
 def test_column():
     mapper = get_mapper()
     keys = get_keys()
-    idx = np.zeros((len(keys), 4), dtype="int")
+    idx = numpy.zeros((len(keys), 4), dtype="int")
     idx[:, 3] = keys
     remap_v2 = remap_ids_v2(mapper, column=3)
     premap = premap_ids(mapper, column=3)
-    assert all(remap_v2(idx, False)[0].squeeze() == np.asarray(range(len(keys))))
-    assert all(premap(idx, False)[0].squeeze() == np.asarray(range(len(keys))))
+    assert all(remap_v2(idx, False)[0].squeeze() == numpy.asarray(range(len(keys))))
+    assert all(premap(idx, False)[0].squeeze() == numpy.asarray(range(len(keys))))
