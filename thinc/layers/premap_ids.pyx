@@ -1,6 +1,6 @@
 # cython: binding=True, infer_types=True
 cimport cython
-import numpy as np
+import numpy
 from preshed.maps cimport PreshMap
 from preshed.maps import PreshMap
 from typing import Dict, Union, Optional, cast, Callable, Tuple, Mapping
@@ -16,12 +16,12 @@ OutT = Ints2d
 
 cdef lookup(PreshMap mapping, long[:] keys, long default):
     """
-    Faster dict.get(keys, default) for the case when 
+    Faster dict.get(keys, default) for the case when
     the "dict" is a Dict[int, int] converted to PreshMap
     and the "keys" is a numpy integer vector.
     """
     cdef int maxi = len(keys)
-    result = np.empty(maxi, dtype="int")
+    result = numpy.empty(maxi, dtype="int")
     cdef long[:] result_view = result
     for i in range(maxi):
         v = mapping[keys[i]]
@@ -61,7 +61,6 @@ def premap_ids(
     )
 
 
-@cython.binding(True)
 def forward(
     model: Model, inputs: InT, is_train: bool
 ) -> Tuple[OutT, Callable]:
@@ -74,7 +73,7 @@ def forward(
         idx = to_numpy(inputs)
     else:
         idx = to_numpy(cast(Ints2d, inputs)[:, column])
-    result = lookup(table, idx, default) 
+    result = lookup(table, idx, default)
     arr = model.ops.asarray2i(result)
     output = model.ops.reshape2i(arr, -1, 1)
 
