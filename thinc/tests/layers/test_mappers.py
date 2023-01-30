@@ -44,8 +44,8 @@ def test_remap_premap_eq(keys, mapper):
     values1, _ = remap(keys, False)
     values2, _ = remap_v2(keys, False)
     values3, _ = premap(keys, False)
-    assert (values1 == values2).all()
-    assert (values2 == values3).all()
+    numpy.testing.assert_equal(values1, values2)
+    numpy.testing.assert_equal(values2, values3)
 
 
 def test_column(keys, mapper):
