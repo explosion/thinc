@@ -1,8 +1,6 @@
 # cython: binding=True, infer_types=True
-cimport cython
 import numpy
 from preshed.maps cimport PreshMap
-from preshed.maps import PreshMap
 from typing import Dict, Union, Optional, cast, Callable, Tuple, Mapping
 from ..types import Ints1d, Ints2d
 from ..config import registry
@@ -41,17 +39,14 @@ def premap_ids(
 ):
     """Remap integer inputs to integers a mapping table, usually as a
     preprocess before embeddings."""
-    if isinstance(mapping_table, PreshMap):
-        mapper = mapping_table
-    else:
-        mapper = PreshMap(initial_size=len(mapping_table))
-        for k, v in mapping_table.items():
-            if not (isinstance(k, int) and isinstance(v, int)):
-                raise ValueError(
-                    "mapping_table has to be of type Mapping[int, int], "
-                    f"but found {k}, {type(k)} and {v}, {type(v)}"
-                )
-            mapper[k] = v
+    mapper = PreshMap(initial_size=len(mapping_table))
+    for k, v in mapping_table.items():
+        if not (isinstance(k, int) and isinstance(v, int)):
+            raise ValueError(
+                "mapping_table has to be of type Mapping[int, int], "
+                f"but found {k}, {type(k)} and {v}, {type(v)}"
+            )
+        mapper[k] = v
     return Model(
         "premap_ids",
         forward,
