@@ -257,12 +257,17 @@ def smooth_one_hot(X: Floats2d, label_smoothing: float) -> Floats2d:
     """
     Apply label-smoothing to one-hot array.
     """
+    n_classes = X.shape[1]
+    max_smooth = (n_classes - 1) / n_classes
     if label_smoothing < 0.0:
         raise ValueError(
             "Label-smoothing parameter has to be greater than or equal to 0"
         )
-    n_classes = X.shape[1]
-    max_smooth = (n_classes - 1) / n_classes
+    if not n_classes > 1:
+        raise ValueError(
+            "n_classes should be greater than 1 when label smoothing is enabled,"
+            f"but {n_classes} was provided."
+        )
     if label_smoothing >= max_smooth:
         raise ValueError(
             f"For {n_classes} classes "
@@ -637,6 +642,7 @@ __all__ = [
     "require_gpu",
     "copy_array",
     "to_categorical",
+    "smooth_one_hot",
     "get_width",
     "xp2torch",
     "torch2xp",
