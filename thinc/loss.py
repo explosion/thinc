@@ -433,7 +433,7 @@ def configure_CategoricalCrossentropy_v4(
     *,
     normalize: bool = True,
     missing_value: Optional[int] = None,
-    label_smoothing: Optional[float] = 0.0,
+    label_smoothing: float = 0.0,
     class_weights: Optional[Floats1d] = None
 ) -> CategoricalCrossentropy:
     return CategoricalCrossentropy(
