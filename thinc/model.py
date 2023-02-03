@@ -717,7 +717,6 @@ class Model(Generic[InT, OutT]):
                 for attr, value in msg["attrs"][i].items():
                     if attr in node.attrs:
                         try:
-
                             serialized = serialize_attr(
                                 node.attrs[attr], node.attrs[attr], attr, node
                             )

@@ -1200,7 +1200,6 @@ def test_backprop_mish(ops, X):
 
 
 def get_lstm_args(depth, dirs, nO, batch_size, nI, draw=None):
-
     if dirs == 1:
         n_params = (nO * 4) * nI + nO * 4 + nO * 4 * nO + nO * 4
         for _ in range(1, depth):

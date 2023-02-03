@@ -43,7 +43,6 @@ def keras_subclass(
         compile_args = {**compile_defaults, **compile_args}
 
     def call_fn(clazz):
-
         clazz.catalogue_name = property(lambda inst: name)
         clazz.eg_shape = property(lambda inst: input_shape)
         clazz.eg_compile = property(lambda inst: compile_args)

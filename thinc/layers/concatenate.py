@@ -83,7 +83,6 @@ def _array_forward(
 def _ragged_forward(
     model: Model[InT, OutT], X, Ys: List, callbacks, is_train: bool
 ) -> Tuple[Ragged, Callable]:
-
     widths = [Y.dataXd.shape[1] for Y in Ys]
     output = Ragged(model.ops.xp.hstack([y.data for y in Ys]), Ys[0].lengths)
 

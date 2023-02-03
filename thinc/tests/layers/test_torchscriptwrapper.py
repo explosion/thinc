@@ -9,7 +9,6 @@ from thinc.compat import has_torch, torch
 @pytest.mark.skipif(not has_torch, reason="needs PyTorch")
 @pytest.mark.parametrize("nN,nI,nO", [(2, 3, 4)])
 def test_pytorch_script(nN, nI, nO):
-
     model = PyTorchWrapper_v2(torch.nn.Linear(nI, nO)).initialize()
     script_model = pytorch_to_torchscript_wrapper(model)
 

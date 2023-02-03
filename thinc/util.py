@@ -219,7 +219,6 @@ def to_categorical(
     *,
     label_smoothing: float = 0.0,
 ) -> FloatsXd:
-
     if n_classes is None:
         n_classes = int(numpy.max(Y) + 1)  # type: ignore
 

@@ -16,7 +16,6 @@ class MockShim(Shim):
 
 
 def test_shim_can_roundtrip_with_path():
-
     with make_tempdir() as path:
         shim_path = path / "cool_shim.data"
         shim = MockShim([1, 2, 3])
