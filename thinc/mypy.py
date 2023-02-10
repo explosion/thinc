@@ -260,4 +260,6 @@ class IntrospectChecker(TypeChecker):
         per_line_checking_time_ns: Dict[int, int],
     ):
         self._error_messages: List[str] = []
-        super().__init__(errors, modules, options, tree, path, plugin, per_line_checking_time_ns)
+        super().__init__(
+            errors, modules, options, tree, path, plugin, per_line_checking_time_ns
+        )
