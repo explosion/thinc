@@ -17,10 +17,19 @@ jobs:
     strategy:
       # TODO change me to false
       fail-fast: true
-      # TODO fix matrix
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        python_version: ["3.8", "3.9", "3.10", "3.11"]
+        python_version: ["3.11"]
+        include:
+          - os: windows-2019
+            python_version: "3.6"
+          - os: ubuntu-latest
+            python-version: "3.8"
+          - os: macos-latest
+            python-version: ["3.7", "3.10"]
+          - os: windows-latest
+            python-version: "3.9"
+
     runs-on: ${{ matrix.os }}
     env:
       NOTEBOOK_KERNEL: "thinc-notebook-tests"
@@ -84,6 +93,9 @@ jobs:
       # 2. restrict to numpy<1.24.0 due to mxnet incompatibility
       # 3. keep restriction to torch<1.13.0 due to segfaults with numpy<1.24.0,
       # which skips torch for python 3.11
+      # Note: some of those pip install are currently failing. As requested by
+      # Adriane and Matt, removing -e from default bash flags to avoid CI failure.
+      # GHA docs for reference: https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstepsshell
       - name: Install extras for testing
         run: |
           pip install "protobuf~=3.20.0" "tensorflow~=2.5.0"
@@ -93,6 +105,7 @@ jobs:
           pip install "numpy<1.24.0"
           pip install -r requirements.txt
           pip uninstall -y mypy
+        shell: bash --noprofile --norc -o pipefail {0}
 
       - name: Run tests with extras
         run: python -m pytest --pyargs thinc --cov=thinc --cov-report=term
