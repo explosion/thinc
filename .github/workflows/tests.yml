@@ -94,9 +94,9 @@ jobs:
       # 2. restrict to numpy<1.24.0 due to mxnet incompatibility
       # 3. keep restriction to torch<1.13.0 due to segfaults with numpy<1.24.0,
       # which skips torch for python 3.11
-      # Note: some of those pip install are currently failing. As requested by
-      # Adriane and Matt, removing -e from default bash flags to avoid CI failure.
-      # GHA docs for reference: https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstepsshell
+      # Note: some of these pip install commands are known to fail for some platforms.
+      # To continue despite errors as in azure pipelines, remove -e from the default
+      # bash flags.
       - name: Install extras for testing
         run: |
           pip install "protobuf~=3.20.0" "tensorflow~=2.5.0"
