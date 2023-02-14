@@ -24,11 +24,11 @@ jobs:
           - os: windows-2019
             python_version: "3.6"
           - os: ubuntu-latest
-            python-version: "3.8"
+            python_version: "3.8"
           - os: macos-latest
-            python-version: ["3.7", "3.10"]
+            python_version: ["3.7", "3.10"]
           - os: windows-latest
-            python-version: "3.9"
+            python_version: "3.9"
 
     runs-on: ${{ matrix.os }}
     env:
