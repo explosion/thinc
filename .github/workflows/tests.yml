@@ -3,12 +3,12 @@ name: tests
 on:
   push:
     paths-ignore:
-      - "website/*"
+      - "website/**"
       - "*.md"
   pull_request:
     types: [opened, synchronize, reopened, edited]
     paths-ignore:
-      - "website/*"
+      - "website/**"
       - "*.md"
 
 jobs:
@@ -29,7 +29,7 @@ jobs:
           - os: windows-latest
             python_version: "3.9"
           - os: macos-latest
-            python_version: "3.10"       
+            python_version: "3.10"
 
     runs-on: ${{ matrix.os }}
     env:
