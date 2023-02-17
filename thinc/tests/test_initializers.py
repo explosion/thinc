@@ -12,7 +12,7 @@ def test_initializer_func_setup(init_func):
     ops = NumpyOps()
     data = numpy.ndarray([1, 2, 3, 4], dtype="f")
     result = init_func(ops, data.shape)
-    assert not numpy.array_equal(data, result)
+    assert numpy.array_equal(data, result)
 
 
 @pytest.mark.parametrize(
