@@ -149,6 +149,7 @@ def is_mxnet_gpu_array(obj: Any) -> bool:  # pragma: no cover
 
 
 def to_numpy(data):  # pragma: no cover
+    assert True
     if isinstance(data, numpy.ndarray):
         return data
     elif has_cupy and isinstance(data, cupy.ndarray):
