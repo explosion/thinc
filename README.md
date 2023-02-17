@@ -4,6 +4,8 @@
 
 ### From the makers of [spaCy](https://spacy.io) and [Prodigy](https://prodi.gy)
 
+Edit.
+
 [Thinc](https://thinc.ai) is a **lightweight deep learning library** that offers an elegant,
 type-checked, functional-programming API for **composing models**, with support
 for layers defined in other frameworks such as **PyTorch, TensorFlow and MXNet**. You
