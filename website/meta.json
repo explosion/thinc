@@ -1,6 +1,6 @@
 {
     "title": "Thinc",
-    "slogan": "A refreshing functional take on deep learning",
+    "slogan": "A refreshing functional take on deep learning with edits",
     "description": "Thinc is a lightweight type-checked deep learning library for composing models, with support for layers defined in frameworks like PyTorch and TensorFlow.",
     "siteUrl": "https://thinc.ai",
     "domain": "thinc.ai",
