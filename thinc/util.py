@@ -604,7 +604,6 @@ class ArrayInfo:
             )
 
 
-
 # fmt: off
 __all__ = [
     "get_array_module",
