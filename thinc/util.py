@@ -582,17 +582,6 @@ def use_nvtx_range(message: str, id_color: int = -1):
         yield
 
 
-class time_context:
-    """Register the running time of a context."""
-
-    def __enter__(self):
-        self.start = time.perf_counter()
-        return self
-
-    def __exit__(self, type, value, traceback):
-        self.elapsed = time.perf_counter() - self.start
-
-
 @dataclass
 class ArrayInfo:
     """Container for info for checking array compatibility."""

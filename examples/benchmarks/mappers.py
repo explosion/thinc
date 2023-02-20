@@ -1,7 +1,6 @@
 from thinc.api import remap_ids_v2
 from thinc.api import premap_ids
 from thinc.api import chain, Embed, HashEmbed
-from thinc.util import time_context
 import time
 import random
 import numpy as np
@@ -18,6 +17,17 @@ numbers = list(range(N_symbols))
 random.shuffle(numbers)
 for v, k in enumerate(numbers):
     mapper[k] = v
+
+
+class time_context:
+    """Register the running time of a context."""
+
+    def __enter__(self):
+        self.start = time.perf_counter()
+        return self
+
+    def __exit__(self, type, value, traceback):
+        self.elapsed = time.perf_counter() - self.start
 
 
 def speed_test_no_column():
