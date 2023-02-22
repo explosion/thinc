@@ -1,14 +1,7 @@
 import pytest
-from mock import MagicMock
 from functools import partial
-from hypothesis import given, settings
-import numpy
-from numpy.testing import assert_allclose
-from thinc.api import resizable, Linear, chain, Dropout, SGD
+from thinc.api import resizable, Linear
 from thinc.layers.resizable import resize_model, resize_linear_weighted
-
-from ..strategies import arrays_OI_O_BI
-from ..util import get_model, get_shape
 
 
 @pytest.fixture
