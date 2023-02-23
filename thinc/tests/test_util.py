@@ -4,8 +4,12 @@ from math import isclose
 from hypothesis import given
 from thinc.api import get_width, Ragged, Padded
 from thinc.util import get_array_module, is_numpy_array, to_categorical
-from thinc.util import is_cupy_array, convert_recursive, balanced_class_weights
+from thinc.util import balanced_class_weights
+from thinc.util import is_cupy_array
+from thinc.util import convert_recursive
+from thinc.util import smooth_one_hot
 from thinc.types import ArgsKwargs
+
 
 from . import strategies
 
@@ -143,6 +147,26 @@ def test_to_categorical(label_smoothing):
 
     with pytest.raises(ValueError, match=r"label_smoothing parameter"):
         to_categorical(numpy.asarray([0, 1, 2, 3, 4]), label_smoothing=0.88)
+
+
+@given(
+    n_classes=strategies.lengths(lo=2, hi=100),
+    n_samples=strategies.lengths(lo=1, hi=100),
+    label_smoothing=strategies.floats(min_value=0.0, max_value=1.0)
+)
+def test_smooth_one_hot(n_samples, n_classes, label_smoothing):
+    one_hot = numpy.zeros((n_samples, n_classes))
+    labels = numpy.random.randint(0, n_classes, (n_samples,))
+    one_hot[numpy.arange(n_samples), labels] = 1
+    max_smooth = (n_classes - 1) / n_classes
+    if label_smoothing >= max_smooth:
+        with pytest.raises(ValueError, match=r"label_smoothing parameter has to be less than"):
+            smooth_one_hot(one_hot, label_smoothing)
+    else:
+        smoothed = smooth_one_hot(one_hot, label_smoothing)
+        assert numpy.all(numpy.argmax(smoothed, axis=1) == labels)
+        assert smoothed.shape == one_hot.shape
+        assert numpy.allclose(smoothed.sum(1), 1.0)
 
 
 def test_convert_recursive():

@@ -66,6 +66,7 @@ from .with_array import with_array
 from .with_array2d import with_array2d
 from .with_cpu import with_cpu
 from .with_flatten import with_flatten
+from .with_flatten_v2 import with_flatten_v2
 from .with_padded import with_padded
 from .with_list import with_list
 from .with_ragged import with_ragged
@@ -134,6 +135,7 @@ __all__ = [
     "with_ragged",
     "with_padded",
     "with_flatten",
+    "with_flatten_v2",
     "with_debug",
     "with_nvtx_range",
     "with_signpost_interval",

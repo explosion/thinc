@@ -75,9 +75,9 @@ schedule = Schedule(
 
 ### Schedule.\_\_call\_\_ {#call tag="method"}
 
-Call the schedule function, returning the value for the given step. The
-`step` positional argument is always required. Some schedules may require
-additional keyword arguments.
+Call the schedule function, returning the value for the given step. The `step`
+positional argument is always required. Some schedules may require additional
+keyword arguments.
 
 ```python
 ### Example
@@ -93,6 +93,27 @@ assert schedule(1000) == 0.1
 | `step`      | <tt>int</tt> | The step to compute the schedule for.      |
 | `**kwargs`  |              | Optional arguments passed to the schedule. |
 | **RETURNS** | <tt>Any</tt> | The schedule value for the step.           |
+
+### Schedule.to_generator {#to_generator tag="method"}
+
+Turn the schedule into a generator by passing monotonically increasing step
+count into the schedule.
+
+```python
+### Example
+from thinc.api import constant
+
+g = constant(0.1).to_generator()
+assert next(g) == 0.1
+assert next(g) == 0.1
+```
+
+| Argument    | Type                                 | Description                                                                     |
+| ----------- | ------------------------------------ | ------------------------------------------------------------------------------- |
+| `start`     | <tt>int</tt>                         | The initial schedule step. Defaults to `0`.                                     |
+| `step_size` | <tt>int</tt>                         | The amount to increase the step with for each generated value. Defaults to `1`. |
+| `**kwargs`  |                                      | Optional arguments passed to the schedule.                                      |
+| **RETURNS** | <tt>Generator[OutT, None, None]</tt> | The generator.                                                                  |
 
 ## constant {#constant tag="function"}
 
@@ -354,3 +375,47 @@ period = 1000
 | `max_lr`   | <tt>float</tt> |
 | `period`   | <tt>int</tt>   |
 | **YIELDS** | <tt>float</tt> |
+
+## plateau {#plateau tag="function" new="9"}
+
+Yields values from the wrapped schedule, exponentially scaled by the number of
+times optimization has plateaued. The caller must pass model evaluation scores
+through the `last_score` argument for the scaling to be adjusted. The last
+evaluation score is passed through the `last_score` argument as a tuple
+(`last_score_step`, `last_score`). This tuple indicates when a model was last
+evaluated (`last_score_step`) and with what score (`last_score`).
+
+<grid>
+
+```python
+### {small="true"}
+from thinc.api import constant, plateau
+
+schedule = plateau(2, 0.5, constant(1.0))
+assert schedule(step=0, last_score=(0, 1.0)) == 1.0
+assert schedule(step=1, last_score=(1, 1.0)) == 1.0
+assert schedule(step=2, last_score=(2, 1.0)) == 0.5
+assert schedule(step=3, last_score=(3, 1.0)) == 0.5
+assert schedule(step=4, last_score=(4, 1.0)) == 0.25
+```
+
+```ini
+### config {small="true"}
+[learn_rate]
+@schedules = "plateau.v1"
+scale = 0.5
+max_patience = 2
+
+[learn_rate.shedule]
+@schedules = "constant.v1"
+rate = 1.0
+```
+
+</grid>
+
+| Argument       | Type                     | Description                                                                           |
+| -------------- | ------------------------ | ------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| `max_patience` | <tt>int</tt>             | Number of evaluations without an improvement to consider the model to have plateaued. |
+| `scale`        | <tt>float</tt>           |                                                                                       | Scaling of the inner schedule after plateauing. |
+| `schedule`     | <tt>Schedule[float]</tt> |                                                                                       | The schedule to wrap.                           |
+| **RETURNS**    | <tt>Schedule[float]</tt> |                                                                                       |
