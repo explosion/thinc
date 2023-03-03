@@ -16,25 +16,19 @@ def mapper(keys):
 def test_premap(keys, mapper):
     premap = premap_ids(mapper, default=99)
     values, _ = premap(keys, False)
-    numpy.testing.assert_equal(
-        values.squeeze(), numpy.asarray(range(len(keys)))
-    )
+    numpy.testing.assert_equal(values.squeeze(), numpy.asarray(range(len(keys))))
 
 
 def test_remap(keys, mapper):
     remap = remap_ids(mapper, default=99)
     values, _ = remap(keys, False)
-    numpy.testing.assert_equal(
-        values.squeeze(), numpy.asarray(range(len(keys)))
-    )
+    numpy.testing.assert_equal(values.squeeze(), numpy.asarray(range(len(keys))))
 
 
 def test_remap_v2(keys, mapper):
     remap = remap_ids_v2(mapper, default=99)
     values, _ = remap(keys, False)
-    numpy.testing.assert_equal(
-        values.squeeze(), numpy.asarray(range(len(keys)))
-    )
+    numpy.testing.assert_equal(values.squeeze(), numpy.asarray(range(len(keys))))
 
 
 def test_remap_premap_eq(keys, mapper):
