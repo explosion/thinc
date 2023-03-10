@@ -32,6 +32,7 @@ if has_cupy_gpu:
 ALL_OPS = XP_OPS + [VANILLA_OPS]
 
 FLOAT_TYPES = ["float32", "float64"]
+INT_TYPES = ["int32", "int64"]
 
 
 def create_pytorch_funcs():
@@ -788,6 +789,25 @@ def test_flatten_unflatten_roundtrip(cpu_ops, X):
     assert len(flat2) > len(flat)
     unflat2 = cpu_ops.unflatten(flat2, [len(x) for x in X], pad=1)
     assert_allclose(X, unflat2)
+
+
+@pytest.mark.parametrize("ops", ALL_OPS)
+@pytest.mark.parametrize("dtype", FLOAT_TYPES + INT_TYPES)
+def test_pad(ops, dtype):
+    X = [ops.xp.arange(1, 3, dtype=dtype), ops.xp.arange(1, 5, dtype=dtype)]
+    ops.xp.testing.assert_allclose(ops.pad(X), [[1, 2, 0, 0], [1, 2, 3, 4]])
+
+    X = [
+        ops.xp.arange(1, 5, dtype=dtype).reshape(2, 2),
+        ops.xp.arange(1, 9, dtype=dtype).reshape(4, 2),
+    ]
+    ops.xp.testing.assert_allclose(
+        ops.pad(X),
+        [
+            [[1, 2], [3, 4], [0, 0], [0, 0]],
+            [[1, 2], [3, 4], [5, 6], [7, 8]],
+        ],
+    )
 
 
 @pytest.mark.parametrize("ops", ALL_OPS)

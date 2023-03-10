@@ -1,4 +1,7 @@
 from typing import Optional, Tuple
+from functools import reduce
+import numpy
+import operator
 import re
 from pathlib import Path
 from collections import defaultdict
@@ -44,6 +47,10 @@ KERNELS_LIST = [
     "maxout<float>",
     "mish<double>",
     "mish<float>",
+    "pad<double>",
+    "pad<float>",
+    "pad<int>",
+    "pad<long long>",
     "reduce_max<double>",
     "reduce_max<float>",
     "reduce_sum<double>",
@@ -93,6 +100,10 @@ maxout_kernel_float = _get_kernel("maxout<float>")
 maxout_kernel_double = _get_kernel("maxout<double>")
 mish_kernel_float = _get_kernel("mish<float>")
 mish_kernel_double = _get_kernel("mish<double>")
+pad_kernel_float = _get_kernel("pad<float>")
+pad_kernel_double = _get_kernel("pad<double>")
+pad_kernel_int32 = _get_kernel("pad<int>")
+pad_kernel_int64 = _get_kernel("pad<long long>")
 reduce_max_kernel_float = _get_kernel("reduce_max<float>")
 reduce_max_kernel_double = _get_kernel("reduce_max<double>")
 reduce_sum_kernel_float = _get_kernel("reduce_sum<float>")
@@ -144,6 +155,61 @@ def _alloc_like(array, zeros: bool = True):
         return cupy.zeros_like(array)
     else:
         return cupy.empty_like(array)
+
+
+def pad(seqs, round_to=1, *, threads_per_block=128, num_blocks=128):
+    for seq in seqs:
+        _is_float_or_int_array(seq)
+
+    lengths = [len(seq) for seq in seqs]
+    length = max(lengths)
+    length = (length + (round_to - 1)) // round_to * round_to
+    lengths = cupy.array(lengths, dtype="int32")
+    final_shape = (len(seqs), length) + seqs[0].shape[1:]
+    out = cupy.empty(final_shape, dtype=seqs[0].dtype)
+
+    # Extract pointers from CuPy arrays, so that we can address
+    # them in the CUDA kernel.
+    ptrs = numpy.empty(
+        (
+            len(
+                seqs,
+            )
+        ),
+        "int64",
+    )
+    for idx, seq in enumerate(seqs):
+        ptrs[idx] = seq.data.ptr
+    ptrs = cupy.array(ptrs)
+
+    stride = reduce(operator.mul, seqs[0].shape[1:], 1)
+
+    if out.dtype == "float32":
+        pad_kernel_float(
+            (num_blocks,),
+            (threads_per_block,),
+            (out, ptrs, lengths, stride, len(seqs), length),
+        )
+    elif out.dtype == "float64":
+        pad_kernel_double(
+            (num_blocks,),
+            (threads_per_block,),
+            (out, ptrs, lengths, stride, len(seqs), length),
+        )
+    elif out.dtype == "int32":
+        pad_kernel_int32(
+            (num_blocks,),
+            (threads_per_block,),
+            (out, ptrs, lengths, stride, len(seqs), length),
+        )
+    elif out.dtype == "int64":
+        pad_kernel_int64(
+            (num_blocks,),
+            (threads_per_block,),
+            (out, ptrs, lengths, stride, len(seqs), length),
+        )
+
+    return out
 
 
 def clipped_linear(
@@ -716,6 +782,18 @@ def _is_float_array(out, *, shape: Optional[Tuple] = None):
         "float32",
         "float64",
     ), "CUDA kernel can only handle float32 and float64"
+    if shape is not None and out.shape != shape:
+        msg = f"array has incorrect shape, expected: {shape}, was: {out.shape}"
+        raise ValueError(msg)
+
+
+def _is_float_or_int_array(out, *, shape: Optional[Tuple] = None):
+    assert out.dtype in (
+        "float32",
+        "float64",
+        "int32",
+        "int64",
+    ), "CUDA kernel can only handle float32, float64, int32 and int64"
     if shape is not None and out.shape != shape:
         msg = f"array has incorrect shape, expected: {shape}, was: {out.shape}"
         raise ValueError(msg)
