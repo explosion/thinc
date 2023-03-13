@@ -1,8 +1,13 @@
 from typing import Tuple, Callable, Optional, TypeVar, cast, List, Union
 
+from ..backends import NumpyOps
 from ..types import Padded, Ragged, Array2d, ListXd, List2d, Ints1d
 from ..model import Model
 from ..config import registry
+
+
+NUMPY_OPS = NumpyOps()
+
 
 RaggedData = Tuple[Array2d, Ints1d]
 SeqT = TypeVar("SeqT", bound=Union[Padded, Ragged, ListXd, RaggedData])
@@ -90,8 +95,8 @@ def _padded_forward(
     Xs = padded2list(Xp)
     # Bit annoying here: padded is in a different order, so we need to make new
     # lengths.
-    lengths = layer.ops.asarray1i([len(x) for x in Xs])
-    Yr, get_dXr = layer(Ragged(flatten(Xs), lengths), is_train)
+    lengths = NUMPY_OPS.asarray1i([len(x) for x in Xs])
+    Yr, get_dXr = layer(Ragged(flatten(Xs), layer.ops.asarray1i(lengths)), is_train)
 
     def backprop(dYp: Padded):
         flattened = flatten(padded2list(dYp))
@@ -111,8 +116,8 @@ def _list_forward(
     flatten = layer.ops.flatten
     unflatten = layer.ops.unflatten
 
-    lengths = layer.ops.asarray1i([len(x) for x in Xs])
-    Yr, get_dXr = layer(Ragged(flatten(Xs), lengths), is_train)
+    lengths = [len(x) for x in Xs]
+    Yr, get_dXr = layer(Ragged(flatten(Xs), layer.ops.asarray1i(lengths)), is_train)
 
     def backprop(dYs):
         flattened = flatten(dYs)
