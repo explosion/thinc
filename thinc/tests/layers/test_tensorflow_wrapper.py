@@ -230,7 +230,7 @@ def test_tensorflow_wrapper_keras_subclass_decorator_compile_args():
 
 
 @pytest.mark.skipif(not _has_tensorflow, reason="needs TensorFlow")
-def test_tensorflow_wrapaper_keras_subclass_decorator():
+def test_tensorflow_wrapper_keras_subclass_decorator():
     import tensorflow as tf
 
     class UndecoratedModel(tf.keras.Model):
