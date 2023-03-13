@@ -94,7 +94,10 @@ def _padded_forward(
     # sooner.
     Xs = padded2list(Xp)
     # Bit annoying here: padded is in a different order, so we need to make new
-    # lengths.
+    # lengths. The lengths are unconditionally allocated in CPU memory, because
+    # otherwire unflatten would move GPU allocations to the CPU again. For the
+    # ragged arrays we let the layer's ops determine how lengths should be
+    # stored to ensure that the array and lengths use the same type of memory.
     lengths = NUMPY_OPS.asarray1i([len(x) for x in Xs])
     Yr, get_dXr = layer(Ragged(flatten(Xs), layer.ops.asarray1i(lengths)), is_train)
 
