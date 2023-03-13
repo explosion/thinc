@@ -5,7 +5,7 @@ from thinc.api import registry, with_padded, Dropout, NumpyOps, Model
 from thinc.backends import NumpyOps
 from thinc.util import data_validation, get_width
 from thinc.types import Ragged, Padded, Array2d, Floats2d, FloatsXd, Shape
-from thinc.compat import has_torch
+from thinc.compat import _has_torch
 import numpy
 import pytest
 import srsly
@@ -99,7 +99,7 @@ TEST_CASES_SUMMABLE = [
     # fmt: off
     # List to list
     ("LSTM.v1", {"bi": False}, [array2d, array2d], [array2d, array2d]),
-    pytest.param("PyTorchLSTM.v1", {"bi": False, "nO": width, "nI": width}, [array2d, array2d], [array2d, array2d], marks=pytest.mark.skipif(not has_torch, reason="needs PyTorch")),
+    pytest.param("PyTorchLSTM.v1", {"bi": False, "nO": width, "nI": width}, [array2d, array2d], [array2d, array2d], marks=pytest.mark.skipif(not _has_torch, reason="needs PyTorch")),
     # fmt: on
 ]
 
@@ -110,7 +110,7 @@ TEST_CASES = [
         {"bi": True, "nO": width * 2, "nI": width},
         [array2d, array2d],
         [array2d, array2d],
-        marks=pytest.mark.skipif(not has_torch, reason="needs PyTorch"),
+        marks=pytest.mark.skipif(not _has_torch, reason="needs PyTorch"),
     ),
     ("LSTM.v1", {"bi": True}, [array2d, array2d], [array2d, array2d]),
     # Ragged to array

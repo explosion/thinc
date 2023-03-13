@@ -3,10 +3,10 @@ import numpy
 
 from thinc.api import PyTorchWrapper_v2, TorchScriptWrapper_v1
 from thinc.api import pytorch_to_torchscript_wrapper
-from thinc.compat import has_torch, torch
+from thinc.compat import _has_torch, torch
 
 
-@pytest.mark.skipif(not has_torch, reason="needs PyTorch")
+@pytest.mark.skipif(not _has_torch, reason="needs PyTorch")
 @pytest.mark.parametrize("nN,nI,nO", [(2, 3, 4)])
 def test_pytorch_script(nN, nI, nO):
 

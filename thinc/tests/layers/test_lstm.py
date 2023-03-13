@@ -2,7 +2,7 @@ import numpy
 import timeit
 from thinc.api import NumpyOps, LSTM, PyTorchLSTM, with_padded, fix_random_seed
 from thinc.api import Ops
-from thinc.compat import has_torch
+from thinc.compat import _has_torch
 import pytest
 
 
@@ -171,7 +171,7 @@ def test_lstm_init():
     model.initialize()
 
 
-@pytest.mark.skipif(not has_torch, reason="needs PyTorch")
+@pytest.mark.skipif(not _has_torch, reason="needs PyTorch")
 def test_pytorch_lstm_init():
     model = with_padded(PyTorchLSTM(2, 2, depth=0)).initialize()
     assert model.name == "with_padded(noop)"

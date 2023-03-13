@@ -2,7 +2,7 @@ import pytest
 
 from hypothesis import given, settings
 from hypothesis.strategies import lists, one_of, tuples
-from thinc.compat import has_torch, has_torch_amp, has_torch_cuda_gpu, torch
+from thinc.compat import _has_torch, _has_torch_amp, _has_torch_cuda_gpu, torch
 from thinc.util import is_torch_array
 from thinc.api import PyTorchGradScaler
 
@@ -13,10 +13,10 @@ def tensors():
     return ndarrays().map(lambda a: torch.tensor(a).cuda())
 
 
-@pytest.mark.skipif(not has_torch, reason="needs PyTorch")
-@pytest.mark.skipif(not has_torch_cuda_gpu, reason="needs a GPU")
+@pytest.mark.skipif(not _has_torch, reason="needs PyTorch")
+@pytest.mark.skipif(not _has_torch_cuda_gpu, reason="needs a GPU")
 @pytest.mark.skipif(
-    not has_torch_amp, reason="requires PyTorch with mixed-precision support"
+    not _has_torch_amp, reason="requires PyTorch with mixed-precision support"
 )
 @given(X=one_of(tensors(), lists(tensors()), tuples(tensors())))
 @settings(deadline=None)
@@ -36,10 +36,10 @@ def test_scale_random_inputs(X):
             assert torch.allclose(t1, t2)
 
 
-@pytest.mark.skipif(not has_torch, reason="needs PyTorch")
-@pytest.mark.skipif(not has_torch_cuda_gpu, reason="needs a GPU")
+@pytest.mark.skipif(not _has_torch, reason="needs PyTorch")
+@pytest.mark.skipif(not _has_torch_cuda_gpu, reason="needs a GPU")
 @pytest.mark.skipif(
-    not has_torch_amp, reason="requires PyTorch with mixed-precision support"
+    not _has_torch_amp, reason="requires PyTorch with mixed-precision support"
 )
 def test_grad_scaler():
     import torch
@@ -83,9 +83,9 @@ def test_grad_scaler():
     ]
 
 
-@pytest.mark.skipif(not has_torch, reason="needs PyTorch")
+@pytest.mark.skipif(not _has_torch, reason="needs PyTorch")
 @pytest.mark.skipif(
-    has_torch_amp, reason="needs PyTorch without gradient scaling support"
+    _has_torch_amp, reason="needs PyTorch without gradient scaling support"
 )
 def test_raises_on_old_pytorch():
     import torch
@@ -95,9 +95,9 @@ def test_raises_on_old_pytorch():
         scaler.scale([torch.tensor([1.0], device="cpu")])
 
 
-@pytest.mark.skipif(not has_torch, reason="needs PyTorch")
+@pytest.mark.skipif(not _has_torch, reason="needs PyTorch")
 @pytest.mark.skipif(
-    not has_torch_amp, reason="needs PyTorch with gradient scaling support"
+    not _has_torch_amp, reason="needs PyTorch with gradient scaling support"
 )
 def test_raises_with_cpu_tensor():
     import torch

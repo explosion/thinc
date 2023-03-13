@@ -1,6 +1,6 @@
 from typing import Dict, Iterable, List, Union, cast
 
-from ..compat import has_torch_amp, torch
+from ..compat import _has_torch_amp, torch
 from ..util import is_torch_array
 
 
@@ -97,7 +97,7 @@ class PyTorchGradScaler:
         scale_per_device: Dict["torch.device", "torch.Tensor"],
         inplace: bool,
     ):
-        if not has_torch_amp:
+        if not _has_torch_amp:
             raise ValueError(
                 "Gradient scaling is not supported, requires capable GPU and torch>=1.9.0"
             )

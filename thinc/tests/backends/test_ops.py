@@ -9,7 +9,7 @@ from packaging.version import Version
 from thinc.api import NumpyOps, CupyOps, Ops, get_ops
 from thinc.api import get_current_ops, use_ops
 from thinc.util import torch2xp, xp2torch
-from thinc.compat import has_cupy_gpu, has_torch, torch_version
+from thinc.compat import _has_cupy_gpu, _has_torch, torch_version
 from thinc.api import fix_random_seed
 from thinc.api import LSTM
 from thinc.types import Floats2d
@@ -26,7 +26,7 @@ NUMPY_OPS = NumpyOps()
 BLIS_OPS = NumpyOps(use_blis=True)
 CPU_OPS = [NUMPY_OPS, VANILLA_OPS]
 XP_OPS = [NUMPY_OPS]
-if has_cupy_gpu:
+if _has_cupy_gpu:
     XP_OPS.append(CupyOps())
 ALL_OPS = XP_OPS + [VANILLA_OPS]
 
@@ -99,7 +99,7 @@ def create_pytorch_funcs():
     ]
 
 
-if has_torch:
+if _has_torch:
     TORCH_FUNCS = create_pytorch_funcs()
 else:
     TORCH_FUNCS = []
@@ -628,7 +628,7 @@ def test_backprop_seq2col_window_two(ops, dtype):
     ops.xp.testing.assert_allclose(seq, expected, atol=0.001, rtol=0.001)
 
 
-@pytest.mark.skipif(not has_cupy_gpu, reason="needs GPU/CuPy")
+@pytest.mark.skipif(not _has_cupy_gpu, reason="needs GPU/CuPy")
 @pytest.mark.parametrize("nW", [1, 2])
 def test_large_seq2col_gpu_against_cpu(nW):
     cupy_ops = CupyOps()
@@ -650,7 +650,7 @@ def test_large_seq2col_gpu_against_cpu(nW):
     assert_allclose(cols, cols_gpu.get())
 
 
-@pytest.mark.skipif(not has_cupy_gpu, reason="needs GPU/CuPy")
+@pytest.mark.skipif(not _has_cupy_gpu, reason="needs GPU/CuPy")
 @pytest.mark.parametrize("nW", [1, 2])
 def test_large_backprop_seq2col_gpu_against_cpu(nW):
     cupy_ops = CupyOps()
@@ -732,7 +732,7 @@ def torch_softmax_with_temperature(
     )
 
 
-@pytest.mark.skipif(not has_torch, reason="needs PyTorch")
+@pytest.mark.skipif(not _has_torch, reason="needs PyTorch")
 @pytest.mark.parametrize("ops", ALL_OPS)
 @pytest.mark.parametrize("temperature", [0.5, 1.0, 2.0])
 def test_softmax_temperature(ops, temperature):
@@ -1361,7 +1361,7 @@ def test_ngrams():
     assert len(ops.ngrams(arr1.shape[0] + 1, arr1)) == 0
 
 
-@pytest.mark.skipif(not has_torch, reason="needs PyTorch")
+@pytest.mark.skipif(not _has_torch, reason="needs PyTorch")
 @pytest.mark.skipif(torch_version < Version("1.9.0"), reason="needs PyTorch 1.9.0")
 @pytest.mark.parametrize("ops", ALL_OPS)
 @pytest.mark.parametrize("dtype", ["float32", "float64"])

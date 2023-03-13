@@ -7,8 +7,8 @@ from thinc.layers.pytorchwrapper import PyTorchWrapper_v3
 from thinc.shims.pytorch_grad_scaler import PyTorchGradScaler
 from thinc.shims.pytorch import default_deserialize_torch_model
 from thinc.shims.pytorch import default_serialize_torch_model
-from thinc.compat import has_torch, has_torch_amp
-from thinc.compat import has_cupy_gpu, has_torch_mps_gpu
+from thinc.compat import _has_torch, _has_torch_amp
+from thinc.compat import _has_cupy_gpu, _has_torch_mps_gpu
 import numpy
 import pytest
 from thinc.util import get_torch_default_device
@@ -17,13 +17,13 @@ from ..util import make_tempdir, check_input_converters
 
 
 XP_OPS = [NumpyOps()]
-if has_cupy_gpu:
+if _has_cupy_gpu:
     XP_OPS.append(CupyOps())
-if has_torch_mps_gpu:
+if _has_torch_mps_gpu:
     XP_OPS.append(MPSOps())
 
 
-if has_torch_amp:
+if _has_torch_amp:
     TORCH_MIXED_PRECISION = [False, True]
 else:
     TORCH_MIXED_PRECISION = [False]
@@ -51,7 +51,7 @@ def check_learns_zero_output(model, sgd, X, Y):
     assert total < prev
 
 
-@pytest.mark.skipif(not has_torch, reason="needs PyTorch")
+@pytest.mark.skipif(not _has_torch, reason="needs PyTorch")
 @pytest.mark.parametrize("nN,nI,nO", [(2, 3, 4)])
 def test_pytorch_unwrapped(nN, nI, nO):
     model = Linear(nO, nI).initialize()
@@ -62,7 +62,7 @@ def test_pytorch_unwrapped(nN, nI, nO):
     check_learns_zero_output(model, sgd, X, Y)
 
 
-@pytest.mark.skipif(not has_torch, reason="needs PyTorch")
+@pytest.mark.skipif(not _has_torch, reason="needs PyTorch")
 @pytest.mark.parametrize("nN,nI,nO", [(2, 3, 4)])
 def test_pytorch_wrapper(nN, nI, nO):
     import torch.nn
@@ -83,7 +83,7 @@ def test_pytorch_wrapper(nN, nI, nO):
     assert isinstance(model.predict(X), numpy.ndarray)
 
 
-@pytest.mark.skipif(not has_torch, reason="needs PyTorch")
+@pytest.mark.skipif(not _has_torch, reason="needs PyTorch")
 @pytest.mark.parametrize("ops_mixed", XP_OPS_MIXED)
 @pytest.mark.parametrize("nN,nI,nO", [(2, 3, 4)])
 def test_pytorch_wrapper_thinc_input(ops_mixed, nN, nI, nO):
@@ -127,7 +127,7 @@ def test_pytorch_wrapper_thinc_input(ops_mixed, nN, nI, nO):
         assert isinstance(model.predict(X), ops.xp.ndarray)
 
 
-@pytest.mark.skipif(not has_torch, reason="needs PyTorch")
+@pytest.mark.skipif(not _has_torch, reason="needs PyTorch")
 def test_pytorch_roundtrip_conversion():
     import torch
 
@@ -138,7 +138,7 @@ def test_pytorch_roundtrip_conversion():
     assert numpy.array_equal(xp_tensor, new_xp_tensor)
 
 
-@pytest.mark.skipif(not has_torch, reason="needs PyTorch")
+@pytest.mark.skipif(not _has_torch, reason="needs PyTorch")
 def test_pytorch_wrapper_roundtrip():
     import torch.nn
 
@@ -152,7 +152,7 @@ def test_pytorch_wrapper_roundtrip():
         new_model.from_disk(model_path)
 
 
-@pytest.mark.skipif(not has_torch, reason="needs PyTorch")
+@pytest.mark.skipif(not _has_torch, reason="needs PyTorch")
 @pytest.mark.parametrize(
     "data,n_args,kwargs_keys",
     [
@@ -174,7 +174,7 @@ def test_pytorch_convert_inputs(data, n_args, kwargs_keys):
     check_input_converters(Y, backprop, data, n_args, kwargs_keys, torch.Tensor)
 
 
-@pytest.mark.skipif(not has_torch, reason="needs PyTorch")
+@pytest.mark.skipif(not _has_torch, reason="needs PyTorch")
 def test_pytorch_wrapper_custom_serde():
     import torch.nn
 

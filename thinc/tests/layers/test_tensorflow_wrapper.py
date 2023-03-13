@@ -3,7 +3,7 @@ import pytest
 from thinc.api import Adam, ArgsKwargs, Linear, Model, TensorFlowWrapper
 from thinc.api import get_current_ops, keras_subclass, tensorflow2xp, xp2tensorflow
 from thinc.util import to_categorical
-from thinc.compat import has_cupy_gpu, has_tensorflow
+from thinc.compat import _has_cupy_gpu, _has_tensorflow
 
 from ..util import check_input_converters, make_tempdir
 
@@ -61,7 +61,7 @@ def model(tf_model):
     return TensorFlowWrapper(tf_model)
 
 
-@pytest.mark.skipif(not has_tensorflow, reason="needs TensorFlow")
+@pytest.mark.skipif(not _has_tensorflow, reason="needs TensorFlow")
 def test_tensorflow_wrapper_roundtrip_conversion():
     import tensorflow as tf
 
@@ -73,7 +73,7 @@ def test_tensorflow_wrapper_roundtrip_conversion():
     assert ops.xp.array_equal(xp_tensor, new_xp_tensor)
 
 
-@pytest.mark.skipif(not has_tensorflow, reason="needs TensorFlow")
+@pytest.mark.skipif(not _has_tensorflow, reason="needs TensorFlow")
 def test_tensorflow_wrapper_construction_requires_keras_model():
     import tensorflow as tf
 
@@ -83,7 +83,7 @@ def test_tensorflow_wrapper_construction_requires_keras_model():
         TensorFlowWrapper(Linear(2, 3))
 
 
-@pytest.mark.skipif(not has_tensorflow, reason="needs TensorFlow")
+@pytest.mark.skipif(not _has_tensorflow, reason="needs TensorFlow")
 def test_tensorflow_wrapper_built_model(model, X, Y):
     # built models are validated more and can perform useful operations:
     assert model.predict(X) is not None
@@ -93,12 +93,12 @@ def test_tensorflow_wrapper_built_model(model, X, Y):
     assert model.from_bytes(model.to_bytes()) is not None
 
 
-@pytest.mark.skipif(not has_tensorflow, reason="needs TensorFlow")
+@pytest.mark.skipif(not _has_tensorflow, reason="needs TensorFlow")
 def test_tensorflow_wrapper_predict(model, X):
     model.predict(X)
 
 
-@pytest.mark.skipif(not has_tensorflow, reason="needs TensorFlow")
+@pytest.mark.skipif(not _has_tensorflow, reason="needs TensorFlow")
 def test_tensorflow_wrapper_train_overfits(model, X, Y, answer):
     optimizer = Adam()
     ops = get_current_ops()
@@ -114,7 +114,7 @@ def test_tensorflow_wrapper_train_overfits(model, X, Y, answer):
     assert predicted == answer
 
 
-@pytest.mark.skipif(not has_tensorflow, reason="needs TensorFlow")
+@pytest.mark.skipif(not _has_tensorflow, reason="needs TensorFlow")
 def test_tensorflow_wrapper_accumulate_gradients(model, X, Y, answer):
     import tensorflow as tf
 
@@ -149,7 +149,7 @@ def test_tensorflow_wrapper_accumulate_gradients(model, X, Y, answer):
         assert found_diff is True
 
 
-@pytest.mark.skipif(not has_tensorflow, reason="needs TensorFlow")
+@pytest.mark.skipif(not _has_tensorflow, reason="needs TensorFlow")
 def test_tensorflow_wrapper_serialize_model_subclass(
     X, Y, input_size, n_classes, answer
 ):
@@ -199,7 +199,7 @@ def test_tensorflow_wrapper_serialize_model_subclass(
     assert model.predict(X).argmax() == answer
 
 
-@pytest.mark.skipif(not has_tensorflow, reason="needs TensorFlow")
+@pytest.mark.skipif(not _has_tensorflow, reason="needs TensorFlow")
 def test_tensorflow_wrapper_keras_subclass_decorator_compile_args():
     import tensorflow as tf
 
@@ -229,8 +229,8 @@ def test_tensorflow_wrapper_keras_subclass_decorator_compile_args():
     assert isinstance(model, Model)
 
 
-@pytest.mark.skipif(not has_tensorflow, reason="needs TensorFlow")
-def test_tensorflow_wrapper_keras_subclass_decorator():
+@pytest.mark.skipif(not _has_tensorflow, reason="needs TensorFlow")
+def test_tensorflow_wrapaper_keras_subclass_decorator():
     import tensorflow as tf
 
     class UndecoratedModel(tf.keras.Model):
@@ -252,7 +252,7 @@ def test_tensorflow_wrapper_keras_subclass_decorator():
     assert isinstance(TensorFlowWrapper(TestModel()), Model)
 
 
-@pytest.mark.skipif(not has_tensorflow, reason="needs TensorFlow")
+@pytest.mark.skipif(not _has_tensorflow, reason="needs TensorFlow")
 def test_tensorflow_wrapper_keras_subclass_decorator_capture_args_kwargs(
     X, Y, input_size, n_classes, answer
 ):
@@ -290,13 +290,13 @@ def test_tensorflow_wrapper_keras_subclass_decorator_capture_args_kwargs(
     model = model.from_bytes(model.to_bytes())
 
 
-@pytest.mark.skipif(not has_tensorflow, reason="needs TensorFlow")
+@pytest.mark.skipif(not _has_tensorflow, reason="needs TensorFlow")
 def test_tensorflow_wrapper_can_copy_model(model):
     copy = model.copy()
     assert copy is not None
 
 
-@pytest.mark.skipif(not has_tensorflow, reason="needs TensorFlow")
+@pytest.mark.skipif(not _has_tensorflow, reason="needs TensorFlow")
 def test_tensorflow_wrapper_print_summary(model, X):
     summary = str(model.shims[0])
     # Summary includes the layers of our model
@@ -308,7 +308,7 @@ def test_tensorflow_wrapper_print_summary(model, X):
     assert "Non-trainable params" in summary
 
 
-@pytest.mark.skipif(not has_tensorflow, reason="needs TensorFlow")
+@pytest.mark.skipif(not _has_tensorflow, reason="needs TensorFlow")
 def test_tensorflow_wrapper_to_bytes(model, X):
     # And can be serialized
     model_bytes = model.to_bytes()
@@ -316,7 +316,7 @@ def test_tensorflow_wrapper_to_bytes(model, X):
     model.from_bytes(model_bytes)
 
 
-@pytest.mark.skipif(not has_tensorflow, reason="needs TensorFlow")
+@pytest.mark.skipif(not _has_tensorflow, reason="needs TensorFlow")
 def test_tensorflow_wrapper_to_from_disk(model, X, Y, answer):
     with make_tempdir() as tmp_path:
         model_file = tmp_path / "model.h5"
@@ -325,7 +325,7 @@ def test_tensorflow_wrapper_to_from_disk(model, X, Y, answer):
         assert another_model is not None
 
 
-@pytest.mark.skipif(not has_tensorflow, reason="needs TensorFlow")
+@pytest.mark.skipif(not _has_tensorflow, reason="needs TensorFlow")
 def test_tensorflow_wrapper_from_bytes(model, X):
     model.predict(X)
     model_bytes = model.to_bytes()
@@ -333,7 +333,7 @@ def test_tensorflow_wrapper_from_bytes(model, X):
     assert another_model is not None
 
 
-@pytest.mark.skipif(not has_tensorflow, reason="needs TensorFlow")
+@pytest.mark.skipif(not _has_tensorflow, reason="needs TensorFlow")
 def test_tensorflow_wrapper_use_params(model, X, Y, answer):
     optimizer = Adam()
     ops = get_current_ops()
@@ -352,19 +352,19 @@ def test_tensorflow_wrapper_use_params(model, X, Y, answer):
     assert predicted == answer
 
 
-@pytest.mark.skipif(not has_tensorflow, reason="needs TensorFlow")
+@pytest.mark.skipif(not _has_tensorflow, reason="needs TensorFlow")
 def test_tensorflow_wrapper_to_cpu(tf_model):
     model = TensorFlowWrapper(tf_model)
     model.to_cpu()
 
 
-@pytest.mark.skipif(not has_tensorflow, reason="needs TensorFlow")
-@pytest.mark.skipif(not has_cupy_gpu, reason="needs GPU/cupy")
+@pytest.mark.skipif(not _has_tensorflow, reason="needs TensorFlow")
+@pytest.mark.skipif(not _has_cupy_gpu, reason="needs GPU/cupy")
 def test_tensorflow_wrapper_to_gpu(model, X):
     model.to_gpu(0)
 
 
-@pytest.mark.skipif(not has_tensorflow, reason="needs TensorFlow")
+@pytest.mark.skipif(not _has_tensorflow, reason="needs TensorFlow")
 @pytest.mark.parametrize(
     "data,n_args,kwargs_keys",
     [
@@ -387,7 +387,7 @@ def test_tensorflow_wrapper_convert_inputs(data, n_args, kwargs_keys):
     check_input_converters(Y, backprop, data, n_args, kwargs_keys, tf.Tensor)
 
 
-@pytest.mark.skipif(not has_tensorflow, reason="needs TensorFlow")
+@pytest.mark.skipif(not _has_tensorflow, reason="needs TensorFlow")
 def test_tensorflow_wrapper_thinc_model_subclass(tf_model):
     class CustomModel(Model):
         def fn(self):
@@ -398,7 +398,7 @@ def test_tensorflow_wrapper_thinc_model_subclass(tf_model):
     assert model.fn() == 1337
 
 
-@pytest.mark.skipif(not has_tensorflow, reason="needs TensorFlow")
+@pytest.mark.skipif(not _has_tensorflow, reason="needs TensorFlow")
 def test_tensorflow_wrapper_thinc_set_model_name(tf_model):
     model = TensorFlowWrapper(tf_model, model_name="cool")
     assert model.name == "cool"

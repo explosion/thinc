@@ -5,7 +5,7 @@ import pytest
 from thinc.api import Adam, ArgsKwargs, Model, Ops, MXNetWrapper
 from thinc.api import get_current_ops, mxnet2xp, xp2mxnet
 from thinc.types import Array2d, Array1d, IntsXd
-from thinc.compat import has_cupy_gpu, has_mxnet
+from thinc.compat import _has_cupy_gpu, _has_mxnet
 from thinc.util import to_categorical
 
 from ..util import check_input_converters, make_tempdir
@@ -67,7 +67,7 @@ def model(mx_model) -> Model[Array2d, Array2d]:
     return MXNetWrapper(mx_model)
 
 
-@pytest.mark.skipif(not has_mxnet, reason="needs MXNet")
+@pytest.mark.skipif(not _has_mxnet, reason="needs MXNet")
 def test_mxnet_wrapper_roundtrip_conversion():
     import mxnet as mx
 
@@ -78,7 +78,7 @@ def test_mxnet_wrapper_roundtrip_conversion():
     assert numpy.array_equal(xp_tensor, new_xp_tensor)
 
 
-@pytest.mark.skipif(not has_mxnet, reason="needs MXNet")
+@pytest.mark.skipif(not _has_mxnet, reason="needs MXNet")
 def test_mxnet_wrapper_gluon_sequential():
     import mxnet as mx
 
@@ -88,7 +88,7 @@ def test_mxnet_wrapper_gluon_sequential():
     assert isinstance(wrapped, Model)
 
 
-@pytest.mark.skipif(not has_mxnet, reason="needs MXNet")
+@pytest.mark.skipif(not _has_mxnet, reason="needs MXNet")
 def test_mxnet_wrapper_built_model(
     model: Model[Array2d, Array2d], X: Array2d, Y: Array1d
 ):
@@ -98,12 +98,12 @@ def test_mxnet_wrapper_built_model(
     assert model.from_bytes(model.to_bytes()) is not None
 
 
-@pytest.mark.skipif(not has_mxnet, reason="needs MXNet")
+@pytest.mark.skipif(not _has_mxnet, reason="needs MXNet")
 def test_mxnet_wrapper_predict(model: Model[Array2d, Array2d], X: Array2d):
     model.predict(X)
 
 
-@pytest.mark.skipif(not has_mxnet, reason="needs MXNet")
+@pytest.mark.skipif(not _has_mxnet, reason="needs MXNet")
 def test_mxnet_wrapper_train_overfits(
     model: Model[Array2d, Array2d], X: Array2d, Y: Array1d, answer: int
 ):
@@ -117,14 +117,14 @@ def test_mxnet_wrapper_train_overfits(
     assert predicted == answer
 
 
-@pytest.mark.skipif(not has_mxnet, reason="needs MXNet")
+@pytest.mark.skipif(not _has_mxnet, reason="needs MXNet")
 def test_mxnet_wrapper_can_copy_model(model: Model[Array2d, Array2d], X: Array2d):
     model.predict(X)
     copy: Model[Array2d, Array2d] = model.copy()
     assert copy is not None
 
 
-@pytest.mark.skipif(not has_mxnet, reason="needs MXNet")
+@pytest.mark.skipif(not _has_mxnet, reason="needs MXNet")
 def test_mxnet_wrapper_to_bytes(model: Model[Array2d, Array2d], X: Array2d):
     model.predict(X)
     # And can be serialized
@@ -133,7 +133,7 @@ def test_mxnet_wrapper_to_bytes(model: Model[Array2d, Array2d], X: Array2d):
     model.from_bytes(model_bytes)
 
 
-@pytest.mark.skipif(not has_mxnet, reason="needs MXNet")
+@pytest.mark.skipif(not _has_mxnet, reason="needs MXNet")
 def test_mxnet_wrapper_to_from_disk(model: Model[Array2d, Array2d], X: Array2d):
     model.predict(X)
     with make_tempdir() as tmp_path:
@@ -143,7 +143,7 @@ def test_mxnet_wrapper_to_from_disk(model: Model[Array2d, Array2d], X: Array2d):
         assert another_model is not None
 
 
-@pytest.mark.skipif(not has_mxnet, reason="needs MXNet")
+@pytest.mark.skipif(not _has_mxnet, reason="needs MXNet")
 def test_mxnet_wrapper_from_bytes(model: Model[Array2d, Array2d], X: Array2d):
     model.predict(X)
     model_bytes = model.to_bytes()
@@ -151,21 +151,21 @@ def test_mxnet_wrapper_from_bytes(model: Model[Array2d, Array2d], X: Array2d):
     assert another_model is not None
 
 
-@pytest.mark.skipif(not has_mxnet, reason="needs MXNet")
+@pytest.mark.skipif(not _has_mxnet, reason="needs MXNet")
 def test_mxnet_wrapper_to_cpu(mx_model, X: Array2d):
     model = MXNetWrapper(mx_model)
     model.predict(X)
     model.to_cpu()
 
 
-@pytest.mark.skipif(not has_mxnet, reason="needs MXNet")
-@pytest.mark.skipif(not has_cupy_gpu, reason="needs GPU/cupy")
+@pytest.mark.skipif(not _has_mxnet, reason="needs MXNet")
+@pytest.mark.skipif(not _has_cupy_gpu, reason="needs GPU/cupy")
 def test_mxnet_wrapper_to_gpu(model: Model[Array2d, Array2d], X: Array2d):
     model.predict(X)
     model.to_gpu(0)
 
 
-@pytest.mark.skipif(not has_mxnet, reason="needs MXNet")
+@pytest.mark.skipif(not _has_mxnet, reason="needs MXNet")
 @pytest.mark.parametrize(
     "data,n_args,kwargs_keys",
     [
@@ -190,7 +190,7 @@ def test_mxnet_wrapper_convert_inputs(data, n_args, kwargs_keys):
     check_input_converters(Y, backprop, data, n_args, kwargs_keys, mx.nd.NDArray)
 
 
-@pytest.mark.skipif(not has_mxnet, reason="needs MXNet")
+@pytest.mark.skipif(not _has_mxnet, reason="needs MXNet")
 def test_mxnet_wrapper_thinc_model_subclass(mx_model):
     class CustomModel(Model):
         def fn(self) -> int:
@@ -201,7 +201,7 @@ def test_mxnet_wrapper_thinc_model_subclass(mx_model):
     assert model.fn() == 1337
 
 
-@pytest.mark.skipif(not has_mxnet, reason="needs MXNet")
+@pytest.mark.skipif(not _has_mxnet, reason="needs MXNet")
 def test_mxnet_wrapper_thinc_set_model_name(mx_model):
     model = MXNetWrapper(mx_model, model_name="cool")
     assert model.name == "cool"

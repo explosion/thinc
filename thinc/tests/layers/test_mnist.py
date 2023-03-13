@@ -2,7 +2,7 @@ import pytest
 from thinc.api import Relu, Softmax, chain, clone, Adam
 from thinc.api import PyTorchWrapper, TensorFlowWrapper
 from thinc.api import get_current_ops
-from thinc.compat import has_torch, has_tensorflow
+from thinc.compat import _has_torch, _has_tensorflow
 
 
 @pytest.fixture(scope="module")
@@ -61,8 +61,8 @@ def create_wrapped_tensorflow(width, dropout, nI, nO):
     # fmt: off
     params=[
         create_relu_softmax,
-        pytest.param(create_wrapped_pytorch, marks=pytest.mark.skipif(not has_torch, reason="needs PyTorch")),
-        pytest.param(create_wrapped_tensorflow, marks=pytest.mark.skipif(not has_tensorflow, reason="needs TensorFlow"))
+        pytest.param(create_wrapped_pytorch, marks=pytest.mark.skipif(not _has_torch, reason="needs PyTorch")),
+        pytest.param(create_wrapped_tensorflow, marks=pytest.mark.skipif(not _has_tensorflow, reason="needs TensorFlow"))
     ]
     # fmt: on
 )

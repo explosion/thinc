@@ -1,6 +1,6 @@
 from typing import Optional, Callable, Any, Tuple, TypeVar
 
-from ..compat import has_os_signpost, os_signpost
+from ..compat import _has_os_signpost, os_signpost
 from ..model import Model
 
 
@@ -18,7 +18,7 @@ def with_signpost_interval(
     By default, the name of the layer is used as the name of the range,
     followed by the name of the pass.
     """
-    if not has_os_signpost:
+    if not _has_os_signpost:
         raise ValueError(
             "with_signpost_interval layer requires the 'os_signpost' package"
         )

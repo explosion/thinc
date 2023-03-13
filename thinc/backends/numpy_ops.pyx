@@ -21,7 +21,7 @@ from ..util import copy_array, get_array_module
 from ..types import DeviceTypes, DTypes, Shape, ArrayXd
 from .cblas cimport CBlas, daxpy, saxpy, sgemm, dgemm, sscal
 from .ops import Ops, _split_weights, _transpose_weights, _untranspose_unsplit_weights
-from ..compat import has_blis
+from ..compat import _has_blis
 
 
 cdef extern from "math.h":
@@ -48,7 +48,7 @@ class NumpyOps(Ops):
         self.device_type = device_type
         self.device_id = device_id
         self.use_blis = use_blis
-        if self.use_blis and not has_blis:
+        if self.use_blis and not _has_blis:
             raise ValueError("BLIS support requires blis: pip install blis")
 
     def asarray(self, data, dtype=None):

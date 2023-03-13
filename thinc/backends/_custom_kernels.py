@@ -2,7 +2,7 @@ from typing import Optional, Tuple
 import re
 from pathlib import Path
 from collections import defaultdict
-from ..compat import cupy, has_cupy_gpu
+from ..compat import cupy, _has_cupy_gpu
 
 
 PWD = Path(__file__).parent
@@ -57,7 +57,7 @@ KERNELS = (
     cupy.RawModule(
         code=KERNELS_SRC, options=("--std=c++11",), name_expressions=KERNELS_LIST
     )
-    if has_cupy_gpu
+    if _has_cupy_gpu
     else None
 )
 
@@ -72,7 +72,7 @@ def _get_kernel(name):
 
 
 def compile_mmh(src):
-    if not has_cupy_gpu:
+    if not _has_cupy_gpu:
         return None
     return cupy.RawKernel(src, "hash_data")
 
@@ -757,7 +757,7 @@ _values_within_range = (
         "true",
         "within_range",
     )
-    if has_cupy_gpu
+    if _has_cupy_gpu
     else None
 )
 

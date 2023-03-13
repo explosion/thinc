@@ -14,8 +14,9 @@ import threading
 import contextlib
 from contextvars import ContextVar
 from dataclasses import dataclass
-from .compat import has_cupy, has_mxnet, has_torch, has_tensorflow
-from .compat import has_cupy_gpu, has_torch_cuda_gpu, has_gpu
+from .compat import has_cupy, _has_mxnet, _has_tensorflow
+from .compat import _has_cupy_gpu, _has_torch_cuda_gpu, _has_gpu
+from .compat import _has_torch as has_torch
 from .compat import torch, cupy, tensorflow as tf, mxnet as mx, cupy_from_dlpack
 
 from .types import ArrayXd, ArgsKwargs, Ragged, Padded, FloatsXd, IntsXd, Floats2d  # noqa: E402
@@ -60,7 +61,7 @@ def get_array_module(arr):  # pragma: no cover
 
 
 def gpu_is_available():
-    return has_gpu
+    return _has_gpu
 
 
 def fix_random_seed(seed: int = 0) -> None:  # pragma: no cover
@@ -69,9 +70,9 @@ def fix_random_seed(seed: int = 0) -> None:  # pragma: no cover
     numpy.random.seed(seed)
     if has_torch:
         torch.manual_seed(seed)
-    if has_cupy_gpu:
+    if _has_cupy_gpu:
         cupy.random.seed(seed)
-        if has_torch and has_torch_cuda_gpu:
+        if has_torch and _has_torch_cuda_gpu:
             torch.cuda.manual_seed_all(seed)
             torch.backends.cudnn.deterministic = True
             torch.backends.cudnn.benchmark = False
@@ -122,7 +123,7 @@ def is_torch_mps_array(obj: Any) -> bool:  # pragma: no cover
 
 
 def is_tensorflow_array(obj: Any) -> bool:  # pragma: no cover
-    if not has_tensorflow:
+    if not _has_tensorflow:
         return False
     elif isinstance(obj, tf.Tensor):
         return True
@@ -135,7 +136,7 @@ def is_tensorflow_gpu_array(obj: Any) -> bool:  # pragma: no cover
 
 
 def is_mxnet_array(obj: Any) -> bool:  # pragma: no cover
-    if not has_mxnet:
+    if not _has_mxnet:
         return False
     elif isinstance(obj, mx.nd.NDArray):
         return True
@@ -158,13 +159,13 @@ def to_numpy(data):  # pragma: no cover
 
 def set_active_gpu(gpu_id: int) -> "cupy.cuda.Device":  # pragma: no cover
     """Set the current GPU device for cupy and torch (if available)."""
-    if not has_cupy_gpu:
+    if not _has_cupy_gpu:
         raise ValueError("No CUDA GPU devices detected")
 
     device = cupy.cuda.device.Device(gpu_id)
     device.use()
 
-    if has_torch_cuda_gpu:
+    if _has_torch_cuda_gpu:
         torch.cuda.set_device(gpu_id)
 
     return device
@@ -182,18 +183,18 @@ def require_cpu() -> bool:  # pragma: no cover
 
 def prefer_gpu(gpu_id: int = 0) -> bool:  # pragma: no cover
     """Use GPU if it's available. Returns True if so, False otherwise."""
-    if has_gpu:
+    if _has_gpu:
         require_gpu(gpu_id=gpu_id)
-    return has_gpu
+    return _has_gpu
 
 
 def require_gpu(gpu_id: int = 0) -> bool:  # pragma: no cover
     from .backends import set_current_ops, CupyOps, MPSOps
 
-    if not has_gpu:
+    if not _has_gpu:
         raise ValueError("No GPU devices detected")
 
-    if has_cupy_gpu:
+    if _has_cupy_gpu:
         set_current_ops(CupyOps())
         set_active_gpu(gpu_id)
     else:
@@ -310,13 +311,13 @@ def get_width(
 def assert_tensorflow_installed() -> None:  # pragma: no cover
     """Raise an ImportError if TensorFlow is not installed."""
     template = "TensorFlow support requires {pkg}: pip install thinc[tensorflow]"
-    if not has_tensorflow:
+    if not _has_tensorflow:
         raise ImportError(template.format(pkg="tensorflow>=2.0.0"))
 
 
 def assert_mxnet_installed() -> None:  # pragma: no cover
     """Raise an ImportError if MXNet is not installed."""
-    if not has_mxnet:
+    if not _has_mxnet:
         raise ImportError("MXNet support requires mxnet: pip install thinc[mxnet]")
 
 
