@@ -32,6 +32,7 @@ try:  # pragma: no cover
 
     has_torch = True
     has_torch_cuda_gpu = torch.cuda.device_count() != 0
+    has_torch_mps = hasattr(torch, "has_mps") and torch.backends.mps.is_built()
     has_torch_mps_gpu = (
         hasattr(torch, "has_mps")
         and torch.has_mps  # type: ignore[attr-defined]
@@ -48,6 +49,7 @@ except ImportError:  # pragma: no cover
     has_torch = False
     has_torch_cuda_gpu = False
     has_torch_gpu = False
+    has_torch_mps = False
     has_torch_mps_gpu = False
     has_torch_amp = False
     torch_version = Version("0.0.0")
