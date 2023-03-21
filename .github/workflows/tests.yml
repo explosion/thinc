@@ -92,8 +92,7 @@ jobs:
       # tensorflow~=2.5.0 as specified above, but there is no release for
       # python 3.10 anyway
       # 2. restrict to numpy<1.24.0 due to mxnet incompatibility
-      # 3. keep restriction to torch<1.13.0 due to segfaults with numpy<1.24.0,
-      # which skips torch for python 3.11
+      # 3. forbid torch!=1.13.0 due to segfaults with numpy<1.24.0
       # Note: some of these pip install commands are known to fail for some platforms.
       # To continue despite errors as in azure pipelines, remove -e from the default
       # bash flags.
@@ -101,7 +100,7 @@ jobs:
         run: |
           pip install "protobuf~=3.20.0" "tensorflow~=2.5.0"
           pip install "mxnet; sys_platform != 'win32'"
-          pip install "torch<1.13.0" --extra-index-url https://download.pytorch.org/whl/cpu
+          pip install "torch!=1.13.0" --extra-index-url https://download.pytorch.org/whl/cpu
           pip install "numpy~=1.23.0; python_version=='3.10' and sys_platform=='win32'"
           pip install "numpy<1.24.0"
           pip install -r requirements.txt
