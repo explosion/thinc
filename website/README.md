@@ -28,10 +28,10 @@ Afterwards, the website can be built and run in the container:
 
 ```bash
 docker run --rm -it \
-  -v $PWD:/thinc-ai/website \
+  -v $PWD:/home/node/website \
   -p 8000:8000 \
   thinc-ai \
-  gatsby develop -H 0.0.0.0
+  npm run dev -- -H 0.0.0.0
 ```
 
 This is currently the only way to build the website on ARM64 Macs, since the
