@@ -20,6 +20,7 @@ MOD_NAMES = [
     "thinc.backends.cblas",
     "thinc.backends.numpy_ops",
     "thinc.layers.sparselinear",
+    "thinc.layers.premap_ids"
 ]
 COMPILE_OPTIONS = {
     "msvc": ["/Ox", "/EHsc"],

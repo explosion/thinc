@@ -59,6 +59,9 @@ def resize_linear_weighted(
         return layer
     elif new_nO == layer.get_dim("nO"):
         return layer
+    elif layer.has_dim("nI") is None:
+        layer.set_dim("nO", new_nO, force=True)
+        return layer
 
     dims = {name: layer.maybe_get_dim(name) for name in layer.dim_names}
     dims["nO"] = new_nO

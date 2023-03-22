@@ -299,7 +299,7 @@ class Model(Generic[InT, OutT]):
             self.init(self, X=X, Y=Y)
         return self
 
-    def begin_update(self, X: InT) -> Tuple[OutT, Callable[[InT], OutT]]:
+    def begin_update(self, X: InT) -> Tuple[OutT, Callable[[OutT], InT]]:
         """Run the model over a batch of data, returning the output and a
         callback to complete the backward pass. A tuple (Y, finish_update),
         where Y is a batch of output data, and finish_update is a callback that
