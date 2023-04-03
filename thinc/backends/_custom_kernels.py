@@ -66,8 +66,8 @@ class LazyKernel:
     """Wraps around `cupy.RawModule` to verify and lazily compile a `cupy.RawKernel` on first call."""
 
     name: str
-    _kernel: Optional[cupy.RawKernel]
-    _compile_callback: Optional[Callable[[], cupy.RawKernel]]
+    _kernel: Optional["cupy.RawKernel"]
+    _compile_callback: Optional[Callable[[], "cupy.RawKernel"]]
     _compiled: bool
 
     __slots__ = ["name", "_kernel", "_compile_callback", "_compiled"]
@@ -76,7 +76,7 @@ class LazyKernel:
         self,
         name: str,
         *,
-        compile_callback: Optional[Callable[[], cupy.RawKernel]] = None,
+        compile_callback: Optional[Callable[[], "cupy.RawKernel"]] = None,
     ) -> None:
         self.name = name
         self._kernel = None
