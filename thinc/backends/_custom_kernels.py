@@ -106,13 +106,10 @@ class LazyKernel:
         self._compiled = True
 
 
-MMH_SRC = (PWD / "_murmur3.cu").read_text(encoding="utf8")
-
-
 def compile_mmh():
     if not has_cupy_gpu:
         return None
-    return cupy.RawKernel(MMH_SRC, "hash_data")
+    return cupy.RawKernel((PWD / "_murmur3.cu").read_text(encoding="utf8"), "hash_data")
 
 
 clipped_linear_kernel_float = LazyKernel("clipped_linear<float>")
