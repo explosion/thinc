@@ -63,7 +63,11 @@ KERNELS = (
 
 
 class LazyKernel:
-    """Wraps around `cupy.RawModule` to verify and lazily compile a `cupy.RawKernel` on first call."""
+    """Wraps around `cupy.RawModule` and `cupy.RawKernel` to verify CuPy availability
+    and lazily compile the latter on first invocation.
+
+    The default CuPy behaviour triggers the compilation as soon as the `cupy.RawKernel` object
+    is accessed."""
 
     name: str
     _kernel: Optional["cupy.RawKernel"]
