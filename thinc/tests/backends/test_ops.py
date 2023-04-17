@@ -14,6 +14,7 @@ from thinc.compat import has_cupy_gpu, has_torch, torch_version
 from thinc.api import fix_random_seed
 from thinc.api import LSTM
 from thinc.types import Floats2d
+from thinc.backends._custom_kernels import KERNELS_LIST, KERNELS, compile_mmh
 import inspect
 
 from .. import strategies
@@ -1466,3 +1467,12 @@ def test_to_numpy_byteorder(ops, byte_order, x):
         assert y.dtype.newbyteorder("S").newbyteorder("S").byteorder == byte_order
     else:
         assert x.dtype.byteorder == y.dtype.byteorder
+
+
+@pytest.mark.skipif(not has_cupy_gpu, reason="needs GPU/CuPy")
+def test_custom_kernel_compilation():
+    for kernel_name in KERNELS_LIST:
+        compiled_kernel = KERNELS.get_function(kernel_name)
+        assert compiled_kernel is not None
+
+    assert compile_mmh() is not None
