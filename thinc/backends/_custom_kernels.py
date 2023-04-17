@@ -72,9 +72,8 @@ class LazyKernel:
     name: str
     _kernel: Optional["cupy.RawKernel"]
     _compile_callback: Optional[Callable[[], "cupy.RawKernel"]]
-    _compiled: bool
 
-    __slots__ = ["name", "_kernel", "_compile_callback", "_compiled"]
+    __slots__ = ["name", "_kernel", "_compile_callback"]
 
     def __init__(
         self,
@@ -85,25 +84,22 @@ class LazyKernel:
         self.name = name
         self._kernel = None
         self._compile_callback = compile_callback
-        self._compiled = False
 
     def __call__(self, *args, **kwargs):
         self._compile_kernel()
-        if self._kernel is None:
-            raise ValueError(
-                f"couldn't invoke Cupy kernel '{self.name}' as it was not compiled"
-            )
         self._kernel(*args, **kwargs)
 
     def _compile_kernel(self):
-        if self._compiled:
+        if self._kernel is not None:
             return
 
         if self._compile_callback is not None:
             self._kernel = self._compile_callback()
         elif KERNELS is not None:
             self._kernel = KERNELS.get_function(self.name)
-        self._compiled = True
+
+        if self._kernel is None:
+            raise ValueError(f"couldn't compile Cupy kernel '{self.name}'")
 
 
 def compile_mmh():
