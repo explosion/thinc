@@ -1,4 +1,4 @@
-from typing import Optional, Tuple
+from typing import Callable, Optional, Tuple
 import re
 from pathlib import Path
 from collections import defaultdict
@@ -62,74 +62,102 @@ KERNELS = (
 )
 
 
-def _get_kernel(name):
-    """A small wrapper around KERNELS.get_function that verifies first that
-    compiler kernels are available (cupy is installed)."""
-    if KERNELS is None:
-        return None
-    else:
-        return KERNELS.get_function(name)
+class LazyKernel:
+    """Wraps around `cupy.RawModule` and `cupy.RawKernel` to verify CuPy availability
+    and lazily compile the latter on first invocation.
+
+    The default CuPy behaviour triggers the compilation as soon as the `cupy.RawKernel` object
+    is accessed."""
+
+    name: str
+    _kernel: Optional["cupy.RawKernel"]
+    _compile_callback: Optional[Callable[[], "cupy.RawKernel"]]
+
+    __slots__ = ["name", "_kernel", "_compile_callback"]
+
+    def __init__(
+        self,
+        name: str,
+        *,
+        compile_callback: Optional[Callable[[], "cupy.RawKernel"]] = None,
+    ) -> None:
+        self.name = name
+        self._kernel = None
+        self._compile_callback = compile_callback
+
+    def __call__(self, *args, **kwargs):
+        self._compile_kernel()
+        self._kernel(*args, **kwargs)
+
+    def _compile_kernel(self):
+        if self._kernel is not None:
+            return
+
+        if self._compile_callback is not None:
+            self._kernel = self._compile_callback()
+        elif KERNELS is not None:
+            self._kernel = KERNELS.get_function(self.name)
+
+        if self._kernel is None:
+            raise ValueError(f"couldn't compile Cupy kernel '{self.name}'")
 
 
-def compile_mmh(src):
+def compile_mmh():
     if not has_cupy_gpu:
         return None
-    return cupy.RawKernel(src, "hash_data")
+    return cupy.RawKernel((PWD / "_murmur3.cu").read_text(encoding="utf8"), "hash_data")
 
 
-MMH_SRC = (PWD / "_murmur3.cu").read_text(encoding="utf8")
+clipped_linear_kernel_float = LazyKernel("clipped_linear<float>")
+clipped_linear_kernel_double = LazyKernel("clipped_linear<double>")
+dish_kernel_float = LazyKernel("dish<float>")
+dish_kernel_double = LazyKernel("dish<double>")
+gather_add_kernel_float = LazyKernel("gather_add<float>")
+gather_add_kernel_double = LazyKernel("gather_add<double>")
+gelu_kernel_float = LazyKernel("gelu<float>")
+gelu_kernel_double = LazyKernel("gelu<double>")
+hash_data_kernel = LazyKernel("hash_data", compile_callback=compile_mmh)
+maxout_kernel_float = LazyKernel("maxout<float>")
+maxout_kernel_double = LazyKernel("maxout<double>")
+mish_kernel_float = LazyKernel("mish<float>")
+mish_kernel_double = LazyKernel("mish<double>")
+reduce_max_kernel_float = LazyKernel("reduce_max<float>")
+reduce_max_kernel_double = LazyKernel("reduce_max<double>")
+reduce_sum_kernel_float = LazyKernel("reduce_sum<float>")
+reduce_sum_kernel_double = LazyKernel("reduce_sum<double>")
+seq2col_kernel_float = LazyKernel("seq2col<float>")
+seq2col_kernel_double = LazyKernel("seq2col<double>")
+swish_kernel_float = LazyKernel("swish<float>")
+swish_kernel_double = LazyKernel("swish<double>")
 
-
-clipped_linear_kernel_float = _get_kernel("clipped_linear<float>")
-clipped_linear_kernel_double = _get_kernel("clipped_linear<double>")
-dish_kernel_float = _get_kernel("dish<float>")
-dish_kernel_double = _get_kernel("dish<double>")
-gather_add_kernel_float = _get_kernel("gather_add<float>")
-gather_add_kernel_double = _get_kernel("gather_add<double>")
-gelu_kernel_float = _get_kernel("gelu<float>")
-gelu_kernel_double = _get_kernel("gelu<double>")
-hash_data_kernel = compile_mmh(MMH_SRC)
-maxout_kernel_float = _get_kernel("maxout<float>")
-maxout_kernel_double = _get_kernel("maxout<double>")
-mish_kernel_float = _get_kernel("mish<float>")
-mish_kernel_double = _get_kernel("mish<double>")
-reduce_max_kernel_float = _get_kernel("reduce_max<float>")
-reduce_max_kernel_double = _get_kernel("reduce_max<double>")
-reduce_sum_kernel_float = _get_kernel("reduce_sum<float>")
-reduce_sum_kernel_double = _get_kernel("reduce_sum<double>")
-seq2col_kernel_float = _get_kernel("seq2col<float>")
-seq2col_kernel_double = _get_kernel("seq2col<double>")
-swish_kernel_float = _get_kernel("swish<float>")
-swish_kernel_double = _get_kernel("swish<double>")
-
-backprop_clipped_linear_kernel_double = _get_kernel("backprop_clipped_linear<double>")
-backprop_clipped_linear_kernel_float = _get_kernel("backprop_clipped_linear<float>")
-backprop_dish_kernel_double = _get_kernel("backprop_dish<double>")
-backprop_dish_kernel_float = _get_kernel("backprop_dish<float>")
-backprop_gelu_kernel_double = _get_kernel("backprop_gelu<double>")
-backprop_gelu_kernel_float = _get_kernel("backprop_gelu<float>")
-backprop_hard_swish_kernel_double = _get_kernel("backprop_hard_swish<double>")
-backprop_hard_swish_kernel_float = _get_kernel("backprop_hard_swish<float>")
-backprop_hard_swish_mobilenet_kernel_double = _get_kernel(
+backprop_clipped_linear_kernel_double = LazyKernel("backprop_clipped_linear<double>")
+backprop_clipped_linear_kernel_float = LazyKernel("backprop_clipped_linear<float>")
+backprop_dish_kernel_double = LazyKernel("backprop_dish<double>")
+backprop_dish_kernel_float = LazyKernel("backprop_dish<float>")
+backprop_gelu_kernel_double = LazyKernel("backprop_gelu<double>")
+backprop_gelu_kernel_float = LazyKernel("backprop_gelu<float>")
+backprop_hard_swish_kernel_double = LazyKernel("backprop_hard_swish<double>")
+backprop_hard_swish_kernel_float = LazyKernel("backprop_hard_swish<float>")
+backprop_hard_swish_mobilenet_kernel_double = LazyKernel(
     "backprop_hard_swish_mobilenet<double>"
 )
-backprop_hard_swish_mobilenet_kernel_float = _get_kernel(
+backprop_hard_swish_mobilenet_kernel_float = LazyKernel(
     "backprop_hard_swish_mobilenet<float>"
 )
-backprop_maxout_kernel_double = _get_kernel("backprop_maxout<double>")
-backprop_maxout_kernel_float = _get_kernel("backprop_maxout<float>")
-backprop_mish_kernel_double = _get_kernel("backprop_mish<double>")
-backprop_mish_kernel_float = _get_kernel("backprop_mish<float>")
-backprop_reduce_max_kernel_double = _get_kernel("backprop_reduce_max<double>")
-backprop_reduce_max_kernel_float = _get_kernel("backprop_reduce_max<float>")
-backprop_reduce_mean_kernel_double = _get_kernel("backprop_reduce_mean<double>")
-backprop_reduce_mean_kernel_float = _get_kernel("backprop_reduce_mean<float>")
-backprop_reduce_sum_kernel_double = _get_kernel("backprop_reduce_sum<double>")
-backprop_reduce_sum_kernel_float = _get_kernel("backprop_reduce_sum<float>")
-backprop_seq2col_kernel_double = _get_kernel("backprop_seq2col<double>")
-backprop_seq2col_kernel_float = _get_kernel("backprop_seq2col<float>")
-backprop_swish_kernel_double = _get_kernel("backprop_swish<double>")
-backprop_swish_kernel_float = _get_kernel("backprop_swish<float>")
+backprop_maxout_kernel_double = LazyKernel("backprop_maxout<double>")
+backprop_maxout_kernel_float = LazyKernel("backprop_maxout<float>")
+backprop_mish_kernel_double = LazyKernel("backprop_mish<double>")
+backprop_mish_kernel_float = LazyKernel("backprop_mish<float>")
+backprop_reduce_max_kernel_double = LazyKernel("backprop_reduce_max<double>")
+backprop_reduce_max_kernel_float = LazyKernel("backprop_reduce_max<float>")
+backprop_reduce_mean_kernel_double = LazyKernel("backprop_reduce_mean<double>")
+backprop_reduce_mean_kernel_float = LazyKernel("backprop_reduce_mean<float>")
+backprop_reduce_sum_kernel_double = LazyKernel("backprop_reduce_sum<double>")
+backprop_reduce_sum_kernel_float = LazyKernel("backprop_reduce_sum<float>")
+backprop_seq2col_kernel_double = LazyKernel("backprop_seq2col<double>")
+backprop_seq2col_kernel_float = LazyKernel("backprop_seq2col<float>")
+backprop_swish_kernel_double = LazyKernel("backprop_swish<double>")
+backprop_swish_kernel_float = LazyKernel("backprop_swish<float>")
 
 
 def _alloc(shape, dtype, *, zeros: bool = True):
