@@ -161,11 +161,11 @@ def pad(seqs, round_to=1, *, threads_per_block=128, num_blocks=128):
     for seq in seqs:
         _is_float_or_int_array(seq)
 
-    lengths = [len(seq) for seq in seqs]
-    length = max(lengths)
-    length = (length + (round_to - 1)) // round_to * round_to
-    lengths = cupy.array(lengths, dtype="int32")
-    final_shape = (len(seqs), length) + seqs[0].shape[1:]
+    seq_lens = [len(seq) for seq in seqs]
+    max_seq_len = max(seq_lens)
+    max_seq_len = (max_seq_len + (round_to - 1)) // round_to * round_to
+    seq_lens = cupy.array(seq_lens, dtype="int32")
+    final_shape = (len(seqs), max_seq_len) + seqs[0].shape[1:]
     out = cupy.empty(final_shape, dtype=seqs[0].dtype)
 
     # Extract pointers from CuPy arrays, so that we can address
@@ -188,25 +188,25 @@ def pad(seqs, round_to=1, *, threads_per_block=128, num_blocks=128):
         pad_kernel_float(
             (num_blocks,),
             (threads_per_block,),
-            (out, ptrs, lengths, stride, len(seqs), length),
+            (out, ptrs, seq_lens, stride, len(seqs), max_seq_len),
         )
     elif out.dtype == "float64":
         pad_kernel_double(
             (num_blocks,),
             (threads_per_block,),
-            (out, ptrs, lengths, stride, len(seqs), length),
+            (out, ptrs, seq_lens, stride, len(seqs), max_seq_len),
         )
     elif out.dtype == "int32":
         pad_kernel_int32(
             (num_blocks,),
             (threads_per_block,),
-            (out, ptrs, lengths, stride, len(seqs), length),
+            (out, ptrs, seq_lens, stride, len(seqs), max_seq_len),
         )
     elif out.dtype == "int64":
         pad_kernel_int64(
             (num_blocks,),
             (threads_per_block,),
-            (out, ptrs, lengths, stride, len(seqs), length),
+            (out, ptrs, seq_lens, stride, len(seqs), max_seq_len),
         )
 
     return out
