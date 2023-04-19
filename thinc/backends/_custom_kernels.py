@@ -165,7 +165,9 @@ def pad(seqs, round_to=1, *, threads_per_block=128, num_blocks=128):
 
     seq_lens = [len(seq) for seq in seqs]
     max_seq_len = max(seq_lens)
-    max_seq_len = (max_seq_len + (round_to - 1)) // round_to * round_to
+    # Round the length to nearest bucket -- helps on GPU, to make similar
+    # array sizes.
+    max_seq_len += -max_seq_len % round_to
     seq_lens = cupy.array(seq_lens, dtype="int32")
     final_shape = (len(seqs), max_seq_len) + seqs[0].shape[1:]
     out = cupy.empty(final_shape, dtype=seqs[0].dtype)

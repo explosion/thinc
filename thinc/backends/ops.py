@@ -373,11 +373,11 @@ class Ops:
         if len(set(seq.shape[1:] for seq in seqs)) != 1:
             raise ValueError("Cannot pad sequences that differ on other dimensions")
         # Find the maximum dimension along each axis. That's what we'll pad to.
-        length = max(len(seq) for seq in seqs)
+        max_seq_len = max(len(seq) for seq in seqs)
         # Round the length to nearest bucket -- helps on GPU, to make similar
         # array sizes.
-        length = (length + (round_to - 1)) // round_to * round_to
-        final_shape = (len(seqs), length) + seqs[0].shape[1:]
+        max_seq_len += -max_seq_len % round_to
+        final_shape = (len(seqs), max_seq_len) + seqs[0].shape[1:]
         output: Array3d = cast(Array3d, self.alloc(final_shape, dtype=seqs[0].dtype))
         for i, arr in enumerate(seqs):
             # It's difficult to convince this that the dtypes will match.

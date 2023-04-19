@@ -796,6 +796,9 @@ def test_flatten_unflatten_roundtrip(cpu_ops, X):
 def test_pad(ops, dtype):
     X = [ops.xp.arange(1, 3, dtype=dtype), ops.xp.arange(1, 5, dtype=dtype)]
     ops.xp.testing.assert_allclose(ops.pad(X), [[1, 2, 0, 0], [1, 2, 3, 4]])
+    ops.xp.testing.assert_allclose(
+        ops.pad(X, round_to=8), [[1, 2, 0, 0, 0, 0, 0, 0], [1, 2, 3, 4, 0, 0, 0, 0]]
+    )
 
     X = [
         ops.xp.arange(1, 5, dtype=dtype).reshape(2, 2),
@@ -806,6 +809,14 @@ def test_pad(ops, dtype):
         [
             [[1, 2], [3, 4], [0, 0], [0, 0]],
             [[1, 2], [3, 4], [5, 6], [7, 8]],
+        ],
+    )
+
+    ops.xp.testing.assert_allclose(
+        ops.pad(X, round_to=5),
+        [
+            [[1, 2], [3, 4], [0, 0], [0, 0], [0, 0]],
+            [[1, 2], [3, 4], [5, 6], [7, 8], [0, 0]],
         ],
     )
 
