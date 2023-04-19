@@ -1,6 +1,7 @@
 from typing import Any, Union, Sequence, cast, Dict, Optional, Callable, TypeVar
 from typing import List, Mapping, Tuple
 import numpy
+import platform
 from packaging.version import Version
 import random
 import functools
@@ -15,7 +16,7 @@ from contextvars import ContextVar
 from dataclasses import dataclass
 from .compat import has_cupy, has_mxnet, has_torch, has_tensorflow
 from .compat import has_cupy_gpu, has_torch_cuda_gpu, has_gpu
-from .compat import has_torch_mps_gpu
+from .compat import has_torch_mps
 from .compat import torch, cupy, tensorflow as tf, mxnet as mx, cupy_from_dlpack
 
 DATA_VALIDATION: ContextVar[bool] = ContextVar("DATA_VALIDATION", default=False)
@@ -191,7 +192,13 @@ def prefer_gpu(gpu_id: int = 0) -> bool:  # pragma: no cover
 def require_gpu(gpu_id: int = 0) -> bool:  # pragma: no cover
     from .backends import set_current_ops, CupyOps, MPSOps
 
-    if not has_gpu:
+    if platform.system() == "Darwin" and not has_torch_mps:
+        if has_torch:
+            raise ValueError("Cannot use GPU, installed PyTorch does not support MPS")
+        raise ValueError("Cannot use GPU, PyTorch is not installed")
+    elif platform.system() != "Darwin" and not has_cupy:
+        raise ValueError("Cannot use GPU, CuPy is not installed")
+    elif not has_gpu:
         raise ValueError("No GPU devices detected")
 
     if has_cupy_gpu:

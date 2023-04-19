@@ -1,11 +1,16 @@
 from typing import Any, List, Tuple, Callable, Optional
 from typing import TypeVar, cast, Dict, Union, Sequence
+
+from ..backends import NumpyOps
 from ..model import Model
 from ..config import registry
 from ..types import Array2d, Ragged
 from ..util import get_width
 from .noop import noop
 from ..types import XY_XY_OutT
+
+
+NUMPY_OPS = NumpyOps()
 
 
 InT = TypeVar("InT", bound=Any)
@@ -120,7 +125,7 @@ def _list_forward(
             start += width
         return dX
 
-    lengths = model.ops.asarray1i([len(x) for x in X])
+    lengths = NUMPY_OPS.asarray1i([len(x) for x in X])
     Ys = [model.ops.xp.concatenate(Y, axis=0) for Y in Ys]
     widths = [Y.shape[1] for Y in Ys]
     out_array = model.ops.xp.hstack(Ys)
