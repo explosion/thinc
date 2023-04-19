@@ -158,6 +158,8 @@ def _alloc_like(array, zeros: bool = True):
 
 
 def pad(seqs, round_to=1, *, threads_per_block=128, num_blocks=128):
+    if round_to < 1:
+        raise ValueError(f"Rounding for padding must at least be 1, was: {round_to}")
     for seq in seqs:
         _is_float_or_int_array(seq)
 

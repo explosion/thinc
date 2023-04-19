@@ -358,6 +358,11 @@ class Ops:
         length, by taking the maximum dimension across each axis. This only
         works on non-empty sequences with the same `ndim` and `dtype`.
         """
+        if round_to < 1:
+            raise ValueError(
+                f"Rounding for padding must at least be 1, was: {round_to}"
+            )
+
         # TODO: This should be generalized to handle different ranks
         if not seqs:
             raise ValueError("Cannot pad empty sequence")

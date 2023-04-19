@@ -809,6 +809,9 @@ def test_pad(ops, dtype):
         ],
     )
 
+    with pytest.raises(ValueError, match=r"Rounding for padding must at least be 1"):
+        ops.pad(X, round_to=0)
+
 
 @pytest.mark.parametrize("ops", ALL_OPS)
 @pytest.mark.parametrize("dtype", FLOAT_TYPES)
