@@ -12,7 +12,6 @@ from libc.stdint cimport uint32_t, uint64_t
 from libc.string cimport memcpy
 from libc.math cimport isnan
 from cymem.cymem cimport Pool
-from preshed.maps cimport PreshMap
 from murmurhash.mrmr cimport hash64
 cimport numpy as np
 
