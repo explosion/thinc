@@ -94,6 +94,32 @@ class CupyOps(Ops):
 
         return array
 
+    def pad(self, seqs, round_to=1):
+        """Perform padding on a list of arrays so that they each have the same
+        length, by taking the maximum dimension across each axis. This only
+        works on non-empty sequences with the same `ndim` and `dtype`.
+        """
+        # TODO: This should be generalized to handle different ranks
+        if not seqs:
+            raise ValueError("Cannot pad empty sequence")
+        if len(set(seq.ndim for seq in seqs)) != 1:
+            raise ValueError("Cannot pad sequences with different ndims")
+        if len(set(seq.dtype for seq in seqs)) != 1:
+            raise ValueError("Cannot pad sequences with different dtypes")
+        if len(set(seq.shape[1:] for seq in seqs)) != 1:
+            raise ValueError("Cannot pad sequences that differ on other dimensions")
+
+        # Our CUDA kernel can currently only handle C contiguous arrays.
+        if not all(seq.flags["C_CONTIGUOUS"] for seq in seqs) or seqs[0].dtype not in (
+            "float32",
+            "float64",
+            "int32",
+            "int64",
+        ):
+            return super().pad(seqs, round_to)
+
+        return _custom_kernels.pad(seqs, round_to)
+
     def maxout(self, X):
         if X.dtype in ("float32", "float64"):
             return _custom_kernels.maxout(X)

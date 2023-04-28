@@ -14,6 +14,7 @@ from thinc.compat import has_cupy_gpu, has_torch, torch_version
 from thinc.api import fix_random_seed
 from thinc.api import LSTM
 from thinc.types import Floats2d
+from thinc.backends._custom_kernels import KERNELS_LIST, KERNELS, compile_mmh
 import inspect
 
 from .. import strategies
@@ -32,6 +33,7 @@ if has_cupy_gpu:
 ALL_OPS = XP_OPS + [VANILLA_OPS]
 
 FLOAT_TYPES = ["float32", "float64"]
+INT_TYPES = ["int32", "int64"]
 
 
 def create_pytorch_funcs():
@@ -791,6 +793,39 @@ def test_flatten_unflatten_roundtrip(cpu_ops, X):
 
 
 @pytest.mark.parametrize("ops", ALL_OPS)
+@pytest.mark.parametrize("dtype", FLOAT_TYPES + INT_TYPES)
+def test_pad(ops, dtype):
+    X = [ops.xp.arange(1, 3, dtype=dtype), ops.xp.arange(1, 5, dtype=dtype)]
+    ops.xp.testing.assert_allclose(ops.pad(X), [[1, 2, 0, 0], [1, 2, 3, 4]])
+    ops.xp.testing.assert_allclose(
+        ops.pad(X, round_to=8), [[1, 2, 0, 0, 0, 0, 0, 0], [1, 2, 3, 4, 0, 0, 0, 0]]
+    )
+
+    X = [
+        ops.xp.arange(1, 5, dtype=dtype).reshape(2, 2),
+        ops.xp.arange(1, 9, dtype=dtype).reshape(4, 2),
+    ]
+    ops.xp.testing.assert_allclose(
+        ops.pad(X),
+        [
+            [[1, 2], [3, 4], [0, 0], [0, 0]],
+            [[1, 2], [3, 4], [5, 6], [7, 8]],
+        ],
+    )
+
+    ops.xp.testing.assert_allclose(
+        ops.pad(X, round_to=5),
+        [
+            [[1, 2], [3, 4], [0, 0], [0, 0], [0, 0]],
+            [[1, 2], [3, 4], [5, 6], [7, 8], [0, 0]],
+        ],
+    )
+
+    with pytest.raises(ValueError, match=r"Rounding for padding must at least be 1"):
+        ops.pad(X, round_to=0)
+
+
+@pytest.mark.parametrize("ops", ALL_OPS)
 @pytest.mark.parametrize("dtype", FLOAT_TYPES)
 def test_reduce_sum(ops, dtype):
     X = ops.asarray2f(
@@ -1466,3 +1501,12 @@ def test_to_numpy_byteorder(ops, byte_order, x):
         assert y.dtype.newbyteorder("S").newbyteorder("S").byteorder == byte_order
     else:
         assert x.dtype.byteorder == y.dtype.byteorder
+
+
+@pytest.mark.skipif(not has_cupy_gpu, reason="needs GPU/CuPy")
+def test_custom_kernel_compilation():
+    for kernel_name in KERNELS_LIST:
+        compiled_kernel = KERNELS.get_function(kernel_name)
+        assert compiled_kernel is not None
+
+    assert compile_mmh() is not None
