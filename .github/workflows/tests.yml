@@ -85,7 +85,7 @@ jobs:
           pip install ipykernel pydot graphviz
           python -m ipykernel install --name thinc-notebook-tests --user
           pip install -U numpy --pre
-          python -m pytest --pyargs thinc --cov=thinc --cov-report=term
+          python -m pytest --pyargs thinc -Werror --cov=thinc --cov-report=term
 
       # Notes on numpy requirements hacks:
       # 1. torch does not have a direct numpy requirement but is compiled
@@ -107,7 +107,6 @@ jobs:
           pip install "numpy<1.24.0"
           pip install -r requirements.txt
           pip uninstall -y mypy
-          pip install -U numpy --pre
         shell: bash --noprofile --norc -o pipefail {0}
 
       - name: Run tests with extras
