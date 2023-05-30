@@ -135,7 +135,6 @@ def test_ops_consistency(op):
 
 
 @pytest.mark.parametrize("ops", ALL_OPS)
-@pytest.mark.filterwarnings("ignore::RuntimeWarning")
 def test_adam_incorrect_inputs(ops):
     one = ops.xp.zeros(1, dtype="f")
     two = ops.xp.zeros(2, dtype="f")
