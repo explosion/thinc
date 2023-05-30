@@ -84,6 +84,7 @@ jobs:
           pip install -r requirements.txt
           pip install ipykernel pydot graphviz
           python -m ipykernel install --name thinc-notebook-tests --user
+          pip install -U numpy --pre
           python -m pytest --pyargs thinc --cov=thinc --cov-report=term
 
       # Notes on numpy requirements hacks:
@@ -106,6 +107,7 @@ jobs:
           pip install "numpy<1.24.0"
           pip install -r requirements.txt
           pip uninstall -y mypy
+          pip install -U numpy --pre
         shell: bash --noprofile --norc -o pipefail {0}
 
       - name: Run tests with extras
