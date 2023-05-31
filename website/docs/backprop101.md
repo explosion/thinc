@@ -323,7 +323,7 @@ def combine_by_average(workers: List[Estimator]) -> Estimator:
         for worker in workers:
             result, callback = worker(inputs)
             summed += result
-            callbacks.append(worker)
+            callbacks.append(callback)
         average = summed / len(workers)
 
         def handle_feedback(re_average: float) -> Array2d:
