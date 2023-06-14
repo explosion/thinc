@@ -1,4 +1,4 @@
-from thinc.api import chain, Relu, reduce_max, Softmax, add
+from thinc.api import Relu, Softmax, add, chain, reduce_max
 
 good_model = chain(Relu(10), Relu(10), Softmax())
 reveal_type(good_model)

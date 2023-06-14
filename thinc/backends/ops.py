@@ -1,18 +1,53 @@
-import math
-
-from typing import Optional, List, Tuple, Sequence, Type, Union, cast, TypeVar
-from typing import Iterator, overload, Any
-import numpy
 import itertools
+import math
+from typing import (
+    Any,
+    Iterator,
+    List,
+    Optional,
+    Sequence,
+    Tuple,
+    Type,
+    TypeVar,
+    Union,
+    cast,
+    overload,
+)
 
-from ..types import Xp, Shape, DTypes, DTypesInt, DTypesFloat, List2d, ArrayXd
-from ..types import Floats1d, Floats2d, Floats3d, Floats4d
-from ..types import Array1d, Array2d, Array3d, Array4d, ListXd
-from ..types import FloatsXd, Ints1d, Ints2d, Ints3d, Ints4d, IntsXd, _Floats
-from ..types import FloatsXdT
-from ..types import DeviceTypes, Generator, Padded, Batchable, SizedGenerator
+import numpy
+
+from ..types import (
+    Array1d,
+    Array2d,
+    Array3d,
+    Array4d,
+    ArrayXd,
+    Batchable,
+    DeviceTypes,
+    DTypes,
+    DTypesFloat,
+    DTypesInt,
+    Floats1d,
+    Floats2d,
+    Floats3d,
+    Floats4d,
+    FloatsXd,
+    FloatsXdT,
+    Generator,
+    Ints1d,
+    Ints2d,
+    Ints3d,
+    Ints4d,
+    IntsXd,
+    List2d,
+    ListXd,
+    Padded,
+    Shape,
+    SizedGenerator,
+    Xp,
+    _Floats,
+)
 from ..util import get_array_module, is_xp_array, to_numpy
-
 from .cblas import CBlas
 
 ArrayT = TypeVar("ArrayT", bound=ArrayXd)

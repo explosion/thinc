@@ -1,8 +1,7 @@
-from typing import Dict, Tuple, Optional, Any
+from typing import Any, Dict, Optional, Tuple
 
 from ..types import FloatsXd
 from ..util import get_array_module
-
 
 KeyT = Tuple[int, str]
 

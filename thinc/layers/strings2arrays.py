@@ -1,10 +1,10 @@
-from typing import Tuple, List, Callable, Sequence
+from typing import Callable, List, Sequence, Tuple
+
 from murmurhash import hash_unicode
 
-from ..model import Model
 from ..config import registry
+from ..model import Model
 from ..types import Ints2d
-
 
 InT = Sequence[Sequence[str]]
 OutT = List[Ints2d]

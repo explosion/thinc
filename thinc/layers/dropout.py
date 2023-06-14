@@ -1,9 +1,8 @@
-from typing import Tuple, Callable, List, TypeVar, cast, Union, Sequence
+from typing import Callable, List, Sequence, Tuple, TypeVar, Union, cast
 
-from ..model import Model
 from ..config import registry
-from ..types import ArrayXd, Ragged, Padded
-
+from ..model import Model
+from ..types import ArrayXd, Padded, Ragged
 
 InT = TypeVar("InT", bound=Union[ArrayXd, Sequence[ArrayXd], Ragged, Padded])
 

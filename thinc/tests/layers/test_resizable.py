@@ -1,7 +1,9 @@
-import pytest
 from functools import partial
-from thinc.api import resizable, Linear
-from thinc.layers.resizable import resize_model, resize_linear_weighted
+
+import pytest
+
+from thinc.api import Linear, resizable
+from thinc.layers.resizable import resize_linear_weighted, resize_model
 
 
 @pytest.fixture

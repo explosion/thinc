@@ -1,10 +1,9 @@
-from typing import Any, Tuple, Callable, Optional, TypeVar, Dict
+from typing import Any, Callable, Dict, Optional, Tuple, TypeVar
 
-from ..model import Model
 from ..config import registry
+from ..model import Model
 from ..types import ArrayXd, XY_XY_OutT
 from ..util import get_width
-
 
 InT = TypeVar("InT", bound=Any)
 OutT = TypeVar("OutT", bound=ArrayXd)

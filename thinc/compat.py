@@ -27,8 +27,8 @@ except (ImportError, AttributeError):
 
 
 try:  # pragma: no cover
-    import torch.utils.dlpack
     import torch
+    import torch.utils.dlpack
 
     has_torch = True
     has_torch_cuda_gpu = torch.cuda.device_count() != 0
@@ -51,8 +51,8 @@ except ImportError:  # pragma: no cover
     torch_version = Version("0.0.0")
 
 try:  # pragma: no cover
-    import tensorflow.experimental.dlpack
     import tensorflow
+    import tensorflow.experimental.dlpack
 
     has_tensorflow = True
     has_tensorflow_gpu = len(tensorflow.config.get_visible_devices("GPU")) > 0

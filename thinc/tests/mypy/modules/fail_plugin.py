@@ -1,4 +1,4 @@
-from thinc.api import chain, Relu, reduce_max, Softmax, add, concatenate
+from thinc.api import Relu, Softmax, add, chain, concatenate, reduce_max
 
 bad_model = chain(Relu(10), reduce_max(), Softmax())
 

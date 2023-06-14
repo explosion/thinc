@@ -1,14 +1,13 @@
-from typing import Tuple, Callable, Optional, cast
+from typing import Callable, Optional, Tuple, cast
 
-from ..model import Model
-from ..initializers import glorot_uniform_init, zero_init
 from ..config import registry
-from ..types import Floats2d, Floats1d
+from ..initializers import glorot_uniform_init, zero_init
+from ..model import Model
+from ..types import Floats1d, Floats2d
 from ..util import get_width, partial
 from .chain import chain
-from .layernorm import LayerNorm
 from .dropout import Dropout
-
+from .layernorm import LayerNorm
 
 InT = Floats2d
 OutT = Floats2d

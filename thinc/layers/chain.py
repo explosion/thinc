@@ -1,10 +1,9 @@
-from typing import Tuple, Callable, Optional, TypeVar, Any, Dict, List, cast
+from typing import Any, Callable, Dict, List, Optional, Tuple, TypeVar, cast
 
-from ..model import Model
 from ..config import registry
-from ..util import get_width
+from ..model import Model
 from ..types import XY_YZ_OutT
-
+from ..util import get_width
 
 InT = TypeVar("InT")
 MidT = TypeVar("MidT")

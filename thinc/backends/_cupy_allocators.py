@@ -1,8 +1,8 @@
 from typing import cast
 
+from ..compat import cupy, tensorflow, torch
 from ..types import ArrayXd
 from ..util import get_torch_default_device, tensorflow2xp
-from ..compat import torch, cupy, tensorflow
 
 
 def cupy_tensorflow_allocator(size_in_bytes: int):

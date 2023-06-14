@@ -1,8 +1,17 @@
 import numpy
-from pydantic import create_model, ValidationError
-from thinc.types import Floats1d, Floats2d, Floats3d, Floats4d
-from thinc.types import Ints1d, Ints2d, Ints3d, Ints4d
 import pytest
+from pydantic import ValidationError, create_model
+
+from thinc.types import (
+    Floats1d,
+    Floats2d,
+    Floats3d,
+    Floats4d,
+    Ints1d,
+    Ints2d,
+    Ints3d,
+    Ints4d,
+)
 
 
 @pytest.mark.parametrize(

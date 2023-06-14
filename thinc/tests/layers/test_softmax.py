@@ -1,8 +1,8 @@
 from typing import Tuple, cast
 
 import numpy
-from numpy.testing import assert_allclose
 import pytest
+from numpy.testing import assert_allclose
 
 from thinc.api import Model, NumpyOps, Softmax_v2
 from thinc.types import Floats2d, Ints1d

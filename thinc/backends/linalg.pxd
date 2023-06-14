@@ -2,10 +2,9 @@
 # cython: cdivision=True
 
 cimport cython
-from libc.stdint cimport int32_t
-from libc.string cimport memset, memcpy
 from cymem.cymem cimport Pool
-
+from libc.stdint cimport int32_t
+from libc.string cimport memcpy, memset
 
 ctypedef float weight_t
 

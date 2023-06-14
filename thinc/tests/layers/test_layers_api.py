@@ -1,14 +1,15 @@
 from typing import List, Optional
 
-from numpy.testing import assert_almost_equal
-from thinc.api import registry, with_padded, Dropout, NumpyOps, Model
-from thinc.backends import NumpyOps
-from thinc.util import data_validation, get_width
-from thinc.types import Ragged, Padded, Array2d, Floats2d, FloatsXd, Shape
-from thinc.compat import has_torch
 import numpy
 import pytest
 import srsly
+from numpy.testing import assert_almost_equal
+
+from thinc.api import Dropout, Model, NumpyOps, registry, with_padded
+from thinc.backends import NumpyOps
+from thinc.compat import has_torch
+from thinc.types import Array2d, Floats2d, FloatsXd, Padded, Ragged, Shape
+from thinc.util import data_validation, get_width
 
 OPS = NumpyOps()
 
