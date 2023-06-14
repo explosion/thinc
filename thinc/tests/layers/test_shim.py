@@ -1,5 +1,7 @@
 from typing import List
+
 from thinc.shims.shim import Shim
+
 from ..util import make_tempdir
 
 

@@ -1,7 +1,8 @@
 import numpy
-from hypothesis.strategies import just, tuples, integers, floats
 from hypothesis.extra.numpy import arrays
-from thinc.api import NumpyOps, Linear
+from hypothesis.strategies import floats, integers, just, tuples
+
+from thinc.api import Linear, NumpyOps
 
 
 def get_ops():

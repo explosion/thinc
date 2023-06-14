@@ -1,13 +1,13 @@
-from typing import Optional, Tuple, Callable, cast
 from functools import partial
+from typing import Callable, Optional, Tuple, cast
 
-from ..model import Model
-from ..config import registry
-from ..util import get_width
-from ..types import Floats1d, Floats2d, Floats4d, Padded, Ragged
-from .noop import noop
-from ..initializers import glorot_uniform_init, zero_init
 from ..backends import Ops
+from ..config import registry
+from ..initializers import glorot_uniform_init, zero_init
+from ..model import Model
+from ..types import Floats1d, Floats2d, Floats4d, Padded, Ragged
+from ..util import get_width
+from .noop import noop
 
 
 @registry.layers("LSTM.v1")
@@ -45,8 +45,9 @@ def PyTorchLSTM(
     nO: int, nI: int, *, bi: bool = False, depth: int = 1, dropout: float = 0.0
 ) -> Model[Padded, Padded]:
     import torch.nn
-    from .with_padded import with_padded
+
     from .pytorchwrapper import PyTorchRNNWrapper
+    from .with_padded import with_padded
 
     if depth == 0:
         return noop()  # type: ignore[misc]

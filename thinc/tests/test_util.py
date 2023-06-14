@@ -1,11 +1,16 @@
-import pytest
 import numpy
+import pytest
 from hypothesis import given
-from thinc.api import get_width, Ragged, Padded
-from thinc.util import get_array_module, is_numpy_array, to_categorical
-from thinc.util import is_cupy_array
-from thinc.util import convert_recursive
+
+from thinc.api import Padded, Ragged, get_width
 from thinc.types import ArgsKwargs
+from thinc.util import (
+    convert_recursive,
+    get_array_module,
+    is_cupy_array,
+    is_numpy_array,
+    to_categorical,
+)
 
 from . import strategies
 

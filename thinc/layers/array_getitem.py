@@ -1,7 +1,7 @@
-from typing import Union, Sequence, Tuple, TypeVar
-from ..types import ArrayXd, FloatsXd, IntsXd
-from ..model import Model
+from typing import Sequence, Tuple, TypeVar, Union
 
+from ..model import Model
+from ..types import ArrayXd, FloatsXd, IntsXd
 
 AxisIndex = Union[int, slice, Sequence[int]]
 Index = Union[AxisIndex, Tuple[AxisIndex, ...]]

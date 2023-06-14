@@ -1,13 +1,12 @@
-from typing import Dict, Callable, Tuple, Optional, Union, cast, TypeVar
+from typing import Callable, Dict, Optional, Tuple, TypeVar, Union, cast
 
-from .chain import chain
-from .array_getitem import ints_getitem
-from ..model import Model
 from ..config import registry
-from ..types import Ints1d, Ints2d, Floats1d, Floats2d
 from ..initializers import uniform_init
+from ..model import Model
+from ..types import Floats1d, Floats2d, Ints1d, Ints2d
 from ..util import get_width, partial
-
+from .array_getitem import ints_getitem
+from .chain import chain
 
 InT = TypeVar("InT", bound=Union[Ints1d, Ints2d])
 OutT = Floats2d

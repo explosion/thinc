@@ -1,13 +1,28 @@
-from collections import Counter
-import pytest
 import threading
 import time
-from thinc.api import Adam, CupyOps, Dropout, Linear, Model, Relu
-from thinc.api import Shim, Softmax, chain, change_attr_values
-from thinc.api import concatenate, set_dropout_rate
-from thinc.api import use_ops, with_debug, wrap_model_recursive
-from thinc.compat import has_cupy_gpu
+from collections import Counter
+
 import numpy
+import pytest
+
+from thinc.api import (
+    Adam,
+    CupyOps,
+    Dropout,
+    Linear,
+    Model,
+    Relu,
+    Shim,
+    Softmax,
+    chain,
+    change_attr_values,
+    concatenate,
+    set_dropout_rate,
+    use_ops,
+    with_debug,
+    wrap_model_recursive,
+)
+from thinc.compat import has_cupy_gpu
 
 from ..util import make_tempdir
 

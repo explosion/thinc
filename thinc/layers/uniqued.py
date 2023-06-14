@@ -1,10 +1,10 @@
-from typing import Tuple, Callable, Optional
+from typing import Callable, Optional, Tuple
+
 import numpy
 
-from ..model import Model
 from ..config import registry
-from ..types import Ints2d, Floats2d
-
+from ..model import Model
+from ..types import Floats2d, Ints2d
 
 InT = Ints2d
 OutT = Floats2d

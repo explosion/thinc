@@ -1,5 +1,6 @@
-import pytest
 import numpy
+import pytest
+
 from thinc.layers import premap_ids, remap_ids, remap_ids_v2
 
 

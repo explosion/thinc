@@ -1,8 +1,7 @@
-from typing import Optional, Callable, Any, Tuple, TypeVar
+from typing import Any, Callable, Optional, Tuple, TypeVar
 
 from ..compat import has_os_signpost, os_signpost
 from ..model import Model
-
 
 _ModelT = TypeVar("_ModelT", bound=Model)
 

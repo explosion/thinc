@@ -1,7 +1,5 @@
 from cymem.cymem cimport Pool
-
-from libc.stdint cimport uint32_t
-from libc.stdint cimport uint64_t
+from libc.stdint cimport uint32_t, uint64_t
 from libcpp.pair cimport pair
 from libcpp.queue cimport priority_queue
 from libcpp.vector cimport vector

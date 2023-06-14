@@ -1,10 +1,9 @@
-from typing import Tuple, Callable, Optional, TypeVar
+from typing import Callable, Optional, Tuple, TypeVar
 
+from ..config import registry
 from ..model import Model
 from ..types import ArrayXd
-from ..config import registry
 from ..util import get_width
-
 
 LayerT = TypeVar("LayerT")
 SimT = TypeVar("SimT")

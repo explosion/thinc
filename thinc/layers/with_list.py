@@ -1,8 +1,8 @@
-from typing import Tuple, Callable, List, Optional, TypeVar, Union, cast
+from typing import Callable, List, Optional, Tuple, TypeVar, Union, cast
 
-from ..types import Padded, Ragged, Array2d, List2d, Floats2d, Ints2d
-from ..model import Model
 from ..config import registry
+from ..model import Model
+from ..types import Array2d, Floats2d, Ints2d, List2d, Padded, Ragged
 
 SeqT = TypeVar("SeqT", Padded, Ragged, List2d, List[Floats2d], List[Ints2d])
 
