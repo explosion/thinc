@@ -12,8 +12,35 @@ on:
       - "*.md"
 
 jobs:
+  validate:
+    name: Validate
+    if: github.repository_owner == 'explosion'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v3
+
+      - name: Configure Python version
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.7"
+          architecture: x64
+
+      - name: black
+        run: |
+          python -m pip install black -c requirements.txt
+          python -m black thinc --check
+      - name: isort
+        run: |
+          python -m pip install isort -c requirements.txt
+          python -m isort thinc --check
+      - name: flake8
+        run: |
+          python -m pip install flake8==5.0.4
+          python -m flake8 thinc --count --select=E901,E999,F821,F822,F823,W605 --show-source --statistics
   tests:
     name: Test
+    needs: Validate
     if: github.repository_owner == 'explosion'
     strategy:
       fail-fast: false
