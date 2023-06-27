@@ -1,7 +1,7 @@
 import React from 'react'
 import classNames from 'classnames'
 
-import classes from '../styles/box.module.sass'
+import * as classes from '../styles/box.module.sass'
 
 export const Box = ({ Component = 'section', id, className, children }) => (
     <Component id={id} className={classNames(classes.root, className)}>

@@ -1,13 +1,13 @@
-from typing import Optional, Tuple, Callable, cast
 from functools import partial
+from typing import Callable, Optional, Tuple, cast
 
-from ..model import Model
-from ..config import registry
-from ..util import get_width
-from ..types import Floats1d, Floats2d, Floats4d, Padded, Ragged
-from .noop import noop
-from ..initializers import glorot_uniform_init, zero_init
 from ..backends import Ops
+from ..config import registry
+from ..initializers import glorot_uniform_init, zero_init
+from ..model import Model
+from ..types import Floats1d, Floats2d, Floats4d, Padded, Ragged
+from ..util import get_width
+from .noop import noop
 
 
 @registry.layers("LSTM.v1")
@@ -18,12 +18,16 @@ def LSTM(
     bi: bool = False,
     depth: int = 1,
     dropout: float = 0.0,
-    init_W=glorot_uniform_init,
-    init_b=zero_init
+    init_W: Optional[Callable] = None,
+    init_b: Optional[Callable] = None,
 ) -> Model[Padded, Padded]:
     if depth == 0:
         msg = "LSTM depth must be at least 1. Maybe we should make this a noop?"
         raise ValueError(msg)
+    if init_W is None:
+        init_W = glorot_uniform_init
+    if init_b is None:
+        init_b = zero_init
 
     model: Model[Padded, Padded] = Model(
         "lstm",
@@ -41,8 +45,9 @@ def PyTorchLSTM(
     nO: int, nI: int, *, bi: bool = False, depth: int = 1, dropout: float = 0.0
 ) -> Model[Padded, Padded]:
     import torch.nn
-    from .with_padded import with_padded
+
     from .pytorchwrapper import PyTorchRNNWrapper
+    from .with_padded import with_padded
 
     if depth == 0:
         return noop()  # type: ignore[misc]

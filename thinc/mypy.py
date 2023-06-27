@@ -1,13 +1,14 @@
-from typing import Dict, List
 import itertools
-from mypy.errors import Errors
-from mypy.errorcodes import ErrorCode
-from mypy.options import Options
-from mypy.plugin import FunctionContext, Plugin, CheckerPluginInterface
-from mypy.types import Instance, Type, CallableType, TypeVarType
-from mypy.nodes import Expression, CallExpr, NameExpr, FuncDef, Decorator, MypyFile
+from typing import Dict, List
+
 from mypy.checker import TypeChecker
+from mypy.errorcodes import ErrorCode
+from mypy.errors import Errors
+from mypy.nodes import CallExpr, Decorator, Expression, FuncDef, MypyFile, NameExpr
+from mypy.options import Options
+from mypy.plugin import CheckerPluginInterface, FunctionContext, Plugin
 from mypy.subtypes import is_subtype
+from mypy.types import CallableType, Instance, Type, TypeVarType
 
 thinc_model_fullname = "thinc.model.Model"
 chained_out_fullname = "thinc.types.XY_YZ_OutT"
@@ -257,6 +258,9 @@ class IntrospectChecker(TypeChecker):
         tree: MypyFile,
         path: str,
         plugin: Plugin,
+        per_line_checking_time_ns: Dict[int, int],
     ):
         self._error_messages: List[str] = []
-        super().__init__(errors, modules, options, tree, path, plugin)
+        super().__init__(
+            errors, modules, options, tree, path, plugin, per_line_checking_time_ns
+        )

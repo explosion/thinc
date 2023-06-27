@@ -1,5 +1,6 @@
 from mock import MagicMock
-from thinc.api import with_debug, Linear
+
+from thinc.api import Linear, with_debug
 
 
 def test_with_debug():

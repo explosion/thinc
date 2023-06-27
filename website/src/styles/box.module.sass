@@ -64,7 +64,7 @@ $border-width: 6px
 .icon
     $size: 20px
     position: absolute
-    left: -($size + $border-width) / 2
+    left: math.div(-($size + $border-width), 2)
     background: var(--box-border-color)
     border-radius: 50%
     display: inline-block

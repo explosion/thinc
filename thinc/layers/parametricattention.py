@@ -1,10 +1,9 @@
-from typing import Tuple, Callable, Optional
+from typing import Callable, Optional, Tuple
 
-from ..model import Model
 from ..config import registry
+from ..model import Model
 from ..types import Ragged
 from ..util import get_width
-
 
 InT = Ragged
 OutT = Ragged

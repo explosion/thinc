@@ -1,4 +1,4 @@
-from thinc.api import chain, Linear
+from thinc.api import Linear, chain
 
 
 def test_issue208():

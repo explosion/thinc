@@ -1,10 +1,9 @@
-from typing import TypeVar, cast, List
+from typing import List, TypeVar, cast
 
-from .noop import noop
-from .chain import chain
-from ..model import Model
 from ..config import registry
-
+from ..model import Model
+from .chain import chain
+from .noop import noop
 
 InT = TypeVar("InT")
 OutT = TypeVar("OutT")

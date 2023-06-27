@@ -1,7 +1,7 @@
 import React from 'react'
 import classNames from 'classnames'
 
-import classes from '../styles/icon.module.sass'
+import * as classes from '../styles/icon.module.sass'
 
 import TwitterIcon from '../images/icons/twitter.svg'
 import GitHubIcon from '../images/icons/github.svg'

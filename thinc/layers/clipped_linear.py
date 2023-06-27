@@ -1,13 +1,13 @@
-from typing import Tuple, Optional, Callable, cast
+from typing import Callable, Optional, Tuple, cast
 
 from ..config import registry
-from ..model import Model
-from .chain import chain
-from .layernorm import LayerNorm
-from .dropout import Dropout
-from ..types import Floats1d, Floats2d
-from ..util import partial, get_width
 from ..initializers import glorot_uniform_init, zero_init
+from ..model import Model
+from ..types import Floats1d, Floats2d
+from ..util import get_width, partial
+from .chain import chain
+from .dropout import Dropout
+from .layernorm import LayerNorm
 
 
 @registry.layers("ClippedLinear.v1")
@@ -15,8 +15,8 @@ def ClippedLinear(
     nO: Optional[int] = None,
     nI: Optional[int] = None,
     *,
-    init_W: Callable = glorot_uniform_init,
-    init_b: Callable = zero_init,
+    init_W: Optional[Callable] = None,
+    init_b: Optional[Callable] = None,
     dropout: Optional[float] = None,
     normalize: bool = False,
     slope: float = 1.0,
@@ -24,6 +24,10 @@ def ClippedLinear(
     min_val: float = 0.0,
     max_val: float = 1.0,
 ) -> Model[Floats2d, Floats2d]:
+    if init_W is None:
+        init_W = glorot_uniform_init
+    if init_b is None:
+        init_b = zero_init
     model_attrs = {
         "slope": slope,
         "offset": offset,
@@ -90,11 +94,15 @@ def HardSigmoid(
     nO: Optional[int] = None,
     nI: Optional[int] = None,
     *,
-    init_W: Callable = glorot_uniform_init,
-    init_b: Callable = zero_init,
+    init_W: Optional[Callable] = None,
+    init_b: Optional[Callable] = None,
     dropout: Optional[float] = None,
     normalize: bool = False,
 ) -> Model[Floats2d, Floats2d]:
+    if init_W is None:
+        init_W = glorot_uniform_init
+    if init_b is None:
+        init_b = zero_init
     return ClippedLinear(
         nO=nO,
         nI=nI,
@@ -111,11 +119,15 @@ def HardTanh(
     nO: Optional[int] = None,
     nI: Optional[int] = None,
     *,
-    init_W: Callable = glorot_uniform_init,
-    init_b: Callable = zero_init,
+    init_W: Optional[Callable] = None,
+    init_b: Optional[Callable] = None,
     dropout: Optional[float] = None,
     normalize: bool = False,
 ) -> Model[Floats2d, Floats2d]:
+    if init_W is None:
+        init_W = glorot_uniform_init
+    if init_b is None:
+        init_b = zero_init
     return ClippedLinear(
         nO=nO,
         nI=nI,
@@ -132,12 +144,16 @@ def ReluK(
     nO: Optional[int] = None,
     nI: Optional[int] = None,
     *,
-    init_W: Callable = glorot_uniform_init,
-    init_b: Callable = zero_init,
+    init_W: Optional[Callable] = None,
+    init_b: Optional[Callable] = None,
     dropout: Optional[float] = None,
     normalize: bool = False,
     k: float = 6.0,
 ) -> Model[Floats2d, Floats2d]:
+    if init_W is None:
+        init_W = glorot_uniform_init
+    if init_b is None:
+        init_b = zero_init
     return ClippedLinear(
         nO=nO,
         nI=nI,

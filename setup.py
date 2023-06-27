@@ -22,13 +22,14 @@ MOD_NAMES = [
     "thinc.backends.numpy_ops",
     "thinc.extra.search",
     "thinc.layers.sparselinear",
+    "thinc.layers.premap_ids"
 ]
 COMPILE_OPTIONS = {
     "msvc": ["/Ox", "/EHsc"],
     "other": ["-O3", "-Wno-strict-prototypes", "-Wno-unused-function", "-std=c++11"],
 }
 COMPILER_DIRECTIVES = {
-    "language_level": -3,
+    "language_level": 3,
     "embedsignature": True,
     "annotation_typing": False,
 }

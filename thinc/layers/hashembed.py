@@ -1,13 +1,12 @@
-from typing import Callable, Dict, Tuple, Optional, Any, Union, cast, TypeVar
+from typing import Any, Callable, Dict, Optional, Tuple, TypeVar, Union, cast
 
-from .chain import chain
-from .array_getitem import ints_getitem
-from ..model import Model
 from ..config import registry
-from ..types import Floats1d, Floats2d, Ints2d, Ints1d
 from ..initializers import uniform_init
+from ..model import Model
+from ..types import Floats1d, Floats2d, Ints1d, Ints2d
 from ..util import partial
-
+from .array_getitem import ints_getitem
+from .chain import chain
 
 InT = TypeVar("InT", bound=Union[Ints1d, Ints2d])
 OutT = Floats2d
@@ -20,7 +19,7 @@ def HashEmbed(
     *,
     seed: Optional[int] = None,
     column: Optional[int] = None,
-    initializer: Callable = uniform_init,
+    initializer: Optional[Callable] = None,
     dropout: Optional[float] = None
 ) -> Model[InT, OutT]:
     """
@@ -33,6 +32,8 @@ def HashEmbed(
     when the number of vectors in the table is very low.
     """
     attrs: Dict[str, Any] = {"column": column, "seed": seed}
+    if initializer is None:
+        initializer = uniform_init
     if dropout is not None:
         attrs["dropout_rate"] = dropout
     model: Model = Model(
@@ -62,7 +63,7 @@ def forward(
     nV = vectors.shape[0]
     nO = vectors.shape[1]
     if len(ids) == 0:
-        output: Floats2d = model.ops.alloc((0, nO), dtype=vectors.dtype)
+        output: Floats2d = model.ops.alloc2f(0, nO, dtype=vectors.dtype)
     else:
         ids = model.ops.as_contig(ids, dtype="uint64")
         nN = ids.shape[0]

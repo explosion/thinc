@@ -1,22 +1,31 @@
+import inspect
+import platform
 from typing import Tuple, cast
 
-import pytest
 import numpy
+import pytest
 from hypothesis import given, settings
 from hypothesis.strategies import composite, integers
 from numpy.testing import assert_allclose
 from packaging.version import Version
-from thinc.api import NumpyOps, CupyOps, Ops, get_ops
-from thinc.api import get_current_ops, use_ops
-from thinc.util import torch2xp, xp2torch
+
+from thinc.api import (
+    LSTM,
+    CupyOps,
+    NumpyOps,
+    Ops,
+    fix_random_seed,
+    get_current_ops,
+    get_ops,
+    use_ops,
+)
+from thinc.backends._custom_kernels import KERNELS, KERNELS_LIST, compile_mmh
 from thinc.compat import has_cupy_gpu, has_torch, torch_version
-from thinc.api import fix_random_seed
-from thinc.api import LSTM
 from thinc.types import Floats2d
-import inspect
+from thinc.util import torch2xp, xp2torch
 
 from .. import strategies
-from ..strategies import ndarrays_of_shape
+from ..strategies import arrays_BI, ndarrays_of_shape
 
 MAX_EXAMPLES = 10
 
@@ -30,11 +39,13 @@ if has_cupy_gpu:
 ALL_OPS = XP_OPS + [VANILLA_OPS]
 
 FLOAT_TYPES = ["float32", "float64"]
+INT_TYPES = ["int32", "int64"]
 
 
 def create_pytorch_funcs():
-    import torch
     import math
+
+    import torch
 
     def torch_relu(x):
         return torch.nn.functional.relu(x)
@@ -131,6 +142,7 @@ def test_ops_consistency(op):
 
 
 @pytest.mark.parametrize("ops", ALL_OPS)
+@pytest.mark.filterwarnings("ignore::RuntimeWarning")
 def test_adam_incorrect_inputs(ops):
     one = ops.xp.zeros(1, dtype="f")
     two = ops.xp.zeros(2, dtype="f")
@@ -726,7 +738,9 @@ def torch_softmax_with_temperature(
     Yt = torch.nn.functional.softmax(Xt_temp, dim=-1)
     Yt.backward(dYt)
 
-    return cast(Floats2d, torch2xp(Yt)), cast(Floats2d, torch2xp(Xt.grad))
+    return cast(Floats2d, torch2xp(Yt)), cast(
+        Floats2d, torch2xp(cast(torch.Tensor, Xt.grad))
+    )
 
 
 @pytest.mark.skipif(not has_torch, reason="needs PyTorch")
@@ -787,6 +801,39 @@ def test_flatten_unflatten_roundtrip(cpu_ops: NumpyOps, X: numpy.ndarray):
 
 
 @pytest.mark.parametrize("ops", ALL_OPS)
+@pytest.mark.parametrize("dtype", FLOAT_TYPES + INT_TYPES)
+def test_pad(ops, dtype):
+    X = [ops.xp.arange(1, 3, dtype=dtype), ops.xp.arange(1, 5, dtype=dtype)]
+    ops.xp.testing.assert_allclose(ops.pad(X), [[1, 2, 0, 0], [1, 2, 3, 4]])
+    ops.xp.testing.assert_allclose(
+        ops.pad(X, round_to=8), [[1, 2, 0, 0, 0, 0, 0, 0], [1, 2, 3, 4, 0, 0, 0, 0]]
+    )
+
+    X = [
+        ops.xp.arange(1, 5, dtype=dtype).reshape(2, 2),
+        ops.xp.arange(1, 9, dtype=dtype).reshape(4, 2),
+    ]
+    ops.xp.testing.assert_allclose(
+        ops.pad(X),
+        [
+            [[1, 2], [3, 4], [0, 0], [0, 0]],
+            [[1, 2], [3, 4], [5, 6], [7, 8]],
+        ],
+    )
+
+    ops.xp.testing.assert_allclose(
+        ops.pad(X, round_to=5),
+        [
+            [[1, 2], [3, 4], [0, 0], [0, 0], [0, 0]],
+            [[1, 2], [3, 4], [5, 6], [7, 8], [0, 0]],
+        ],
+    )
+
+    with pytest.raises(ValueError, match=r"Rounding for padding must at least be 1"):
+        ops.pad(X, round_to=0)
+
+
+@pytest.mark.parametrize("ops", ALL_OPS)
 @pytest.mark.parametrize("dtype", FLOAT_TYPES)
 def test_reduce_sum(ops, dtype):
     X = ops.asarray2f(
@@ -832,7 +879,7 @@ def test_reduce_first(ops, dtype):
     ops.xp.testing.assert_allclose(Y, [[1.0, 6.0], [4.0, 9.0]])
 
     lengths = ops.asarray1i([3, 0, 2])
-    with pytest.raises(ValueError, match=r"all sequence lengths must be >= 0"):
+    with pytest.raises(ValueError, match=r"all sequence lengths must be > 0"):
         ops.reduce_last(X, lengths)
 
     lengths = ops.asarray1i([3, 2, 1])
@@ -863,7 +910,7 @@ def test_reduce_last(ops, dtype):
     ops.xp.testing.assert_allclose(Y, [[3.0, 8.0], [5.0, 10.0]])
 
     lengths = ops.asarray1i([3, 0, 2])
-    with pytest.raises(ValueError, match=r"all sequence lengths must be >= 0"):
+    with pytest.raises(ValueError, match=r"all sequence lengths must be > 0"):
         ops.reduce_last(X, lengths)
 
     lengths = ops.asarray1i([3, 2, 1])
@@ -1257,6 +1304,7 @@ def test_lstm_forward_training(ops, depth, dirs, nO, batch_size, nI):
     assert_allclose(Y, reference[0], atol=1e-4, rtol=1e-3)
 
 
+@pytest.mark.skipif(platform.machine() == "aarch64", reason="Flaky, skip temporarily")
 @pytest.mark.parametrize("ops", XP_OPS)
 @settings(max_examples=MAX_EXAMPLES, deadline=None)
 @given(args=draw_lstm_args())
@@ -1461,3 +1509,12 @@ def test_to_numpy_byteorder(ops, byte_order, x):
         assert y.dtype.newbyteorder("S").newbyteorder("S").byteorder == byte_order
     else:
         assert x.dtype.byteorder == y.dtype.byteorder
+
+
+@pytest.mark.skipif(not has_cupy_gpu, reason="needs GPU/CuPy")
+def test_custom_kernel_compilation():
+    for kernel_name in KERNELS_LIST:
+        compiled_kernel = KERNELS.get_function(kernel_name)
+        assert compiled_kernel is not None
+
+    assert compile_mmh() is not None

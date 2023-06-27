@@ -1,7 +1,8 @@
-import pytest
 import numpy
+import pytest
 from numpy.testing import assert_allclose
-from thinc.types import Ragged, Pairs
+
+from thinc.types import Pairs, Ragged
 
 
 @pytest.fixture

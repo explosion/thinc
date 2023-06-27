@@ -1,4 +1,5 @@
 from typing import Callable, cast
+
 import numpy
 
 from .backends import Ops
@@ -75,7 +76,7 @@ def configure_glorot_uniform_init() -> Callable[[Shape], FloatsXd]:
 
 
 def zero_init(ops: Ops, shape: Shape) -> FloatsXd:
-    return ops.alloc(shape)
+    return ops.alloc_f(shape)
 
 
 @registry.initializers("zero_init.v1")

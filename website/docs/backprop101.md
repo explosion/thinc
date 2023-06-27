@@ -284,7 +284,7 @@ def combine_by_addition(workers: List[Estimator]) -> Estimator:
         for worker in workers:
             result, callback = worker(inputs)
             summed += result
-            callbacks.append(worker)
+            callbacks.append(callback)
 
         def handle_feedback(re_summed: float) -> Array2d:
             re_input = callbacks[0](re_summed)
@@ -323,7 +323,7 @@ def combine_by_average(workers: List[Estimator]) -> Estimator:
         for worker in workers:
             result, callback = worker(inputs)
             summed += result
-            callbacks.append(worker)
+            callbacks.append(callback)
         average = summed / len(workers)
 
         def handle_feedback(re_average: float) -> Array2d:

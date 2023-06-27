@@ -1,18 +1,53 @@
-import math
-
-from typing import Optional, List, Tuple, Sequence, Type, Union, cast, TypeVar
-from typing import Iterator, overload
-import numpy
 import itertools
+import math
+from typing import (
+    Any,
+    Iterator,
+    List,
+    Optional,
+    Sequence,
+    Tuple,
+    Type,
+    TypeVar,
+    Union,
+    cast,
+    overload,
+)
 
-from ..types import Xp, Shape, DTypes, DTypesInt, DTypesFloat, List2d, ArrayXd
-from ..types import Floats1d, Floats2d, Floats3d, Floats4d
-from ..types import Array1d, Array2d, Array3d, Array4d, ListXd
-from ..types import FloatsXd, Ints1d, Ints2d, Ints3d, Ints4d, IntsXd, _Floats
-from ..types import FloatsXdT
-from ..types import DeviceTypes, Generator, Padded, Batchable, SizedGenerator
+import numpy
+
+from ..types import (
+    Array1d,
+    Array2d,
+    Array3d,
+    Array4d,
+    ArrayXd,
+    Batchable,
+    DeviceTypes,
+    DTypes,
+    DTypesFloat,
+    DTypesInt,
+    Floats1d,
+    Floats2d,
+    Floats3d,
+    Floats4d,
+    FloatsXd,
+    FloatsXdT,
+    Generator,
+    Ints1d,
+    Ints2d,
+    Ints3d,
+    Ints4d,
+    IntsXd,
+    List2d,
+    ListXd,
+    Padded,
+    Shape,
+    SizedGenerator,
+    Xp,
+    _Floats,
+)
 from ..util import get_array_module, is_xp_array, to_numpy
-
 from .cblas import CBlas
 
 ArrayT = TypeVar("ArrayT", bound=ArrayXd)
@@ -358,6 +393,11 @@ class Ops:
         length, by taking the maximum dimension across each axis. This only
         works on non-empty sequences with the same `ndim` and `dtype`.
         """
+        if round_to < 1:
+            raise ValueError(
+                f"Rounding for padding must at least be 1, was: {round_to}"
+            )
+
         # TODO: This should be generalized to handle different ranks
         if not seqs:
             raise ValueError("Cannot pad empty sequence")
@@ -368,12 +408,12 @@ class Ops:
         if len(set(seq.shape[1:] for seq in seqs)) != 1:
             raise ValueError("Cannot pad sequences that differ on other dimensions")
         # Find the maximum dimension along each axis. That's what we'll pad to.
-        length = max(len(seq) for seq in seqs)
+        max_seq_len = max(len(seq) for seq in seqs)
         # Round the length to nearest bucket -- helps on GPU, to make similar
         # array sizes.
-        length = (length + (round_to - 1)) // round_to * round_to
-        final_shape = (len(seqs), length) + seqs[0].shape[1:]
-        output: Array3d = self.alloc(final_shape, dtype=seqs[0].dtype)
+        max_seq_len += -max_seq_len % round_to
+        final_shape = (len(seqs), max_seq_len) + seqs[0].shape[1:]
+        output: Array3d = cast(Array3d, self.alloc(final_shape, dtype=seqs[0].dtype))
         for i, arr in enumerate(seqs):
             # It's difficult to convince this that the dtypes will match.
             output[i, : arr.shape[0]] = arr  # type: ignore[assignment, call-overload]
@@ -451,7 +491,7 @@ class Ops:
         if drop is None or drop <= 0:
             return self.xp.ones(shape, dtype="f")
         elif drop >= 1.0:
-            return self.alloc(shape)
+            return self.alloc_f(shape)
         coinflips = self.xp.random.uniform(0.0, 1.0, shape)
         mask = (coinflips >= drop) / (1.0 - drop)
         return cast(FloatsXd, self.asarray(mask, dtype="float32"))
@@ -463,7 +503,7 @@ class Ops:
         dtype: Optional[DTypesFloat] = "float32",
         zeros: bool = True,
     ) -> Floats1d:
-        return self.alloc((d0,), dtype=dtype, zeros=zeros)
+        return cast(Floats1d, self.alloc((d0,), dtype=dtype, zeros=zeros))
 
     def alloc2f(
         self,
@@ -473,7 +513,7 @@ class Ops:
         dtype: Optional[DTypesFloat] = "float32",
         zeros: bool = True,
     ) -> Floats2d:
-        return self.alloc((d0, d1), dtype=dtype, zeros=zeros)
+        return cast(Floats2d, self.alloc((d0, d1), dtype=dtype, zeros=zeros))
 
     def alloc3f(
         self,
@@ -484,7 +524,7 @@ class Ops:
         dtype: Optional[DTypesFloat] = "float32",
         zeros: bool = True,
     ) -> Floats3d:
-        return self.alloc((d0, d1, d2), dtype=dtype, zeros=zeros)
+        return cast(Floats3d, self.alloc((d0, d1, d2), dtype=dtype, zeros=zeros))
 
     def alloc4f(
         self,
@@ -496,7 +536,7 @@ class Ops:
         dtype: Optional[DTypesFloat] = "float32",
         zeros: bool = True,
     ) -> Floats4d:
-        return self.alloc((d0, d1, d2, d3), dtype=dtype, zeros=zeros)
+        return cast(Floats4d, self.alloc((d0, d1, d2, d3), dtype=dtype, zeros=zeros))
 
     def alloc_f(
         self,
@@ -505,7 +545,7 @@ class Ops:
         dtype: Optional[DTypesFloat] = "float32",
         zeros: bool = True,
     ) -> FloatsXd:
-        return self.alloc(shape, dtype=dtype, zeros=zeros)
+        return cast(FloatsXd, self.alloc(shape, dtype=dtype, zeros=zeros))
 
     def alloc1i(
         self,
@@ -514,7 +554,7 @@ class Ops:
         dtype: Optional[DTypesInt] = "int32",
         zeros: bool = True,
     ) -> Ints1d:
-        return self.alloc((d0,), dtype=dtype, zeros=zeros)
+        return cast(Ints1d, self.alloc((d0,), dtype=dtype, zeros=zeros))
 
     def alloc2i(
         self,
@@ -524,7 +564,7 @@ class Ops:
         dtype: Optional[DTypesInt] = "int32",
         zeros: bool = True,
     ) -> Ints2d:
-        return self.alloc((d0, d1), dtype=dtype, zeros=zeros)
+        return cast(Ints2d, self.alloc((d0, d1), dtype=dtype, zeros=zeros))
 
     def alloc3i(
         self,
@@ -535,7 +575,7 @@ class Ops:
         dtype: Optional[DTypesInt] = "int32",
         zeros: bool = True,
     ) -> Ints3d:
-        return self.alloc((d0, d1, d2), dtype=dtype, zeros=zeros)
+        return cast(Ints3d, self.alloc((d0, d1, d2), dtype=dtype, zeros=zeros))
 
     def alloc4i(
         self,
@@ -547,7 +587,7 @@ class Ops:
         dtype: Optional[DTypesInt] = "int32",
         zeros: bool = True,
     ) -> Ints4d:
-        return self.alloc((d0, d1, d2, d3), dtype=dtype, zeros=zeros)
+        return cast(Ints4d, self.alloc((d0, d1, d2, d3), dtype=dtype, zeros=zeros))
 
     def alloc_i(
         self,
@@ -556,7 +596,7 @@ class Ops:
         dtype: Optional[DTypesInt] = "int32",
         zeros: bool = True,
     ) -> IntsXd:
-        return self.alloc(shape, dtype=dtype, zeros=zeros)
+        return cast(IntsXd, self.alloc(shape, dtype=dtype, zeros=zeros))
 
     def alloc(
         self,
@@ -564,7 +604,7 @@ class Ops:
         *,
         dtype: Optional[DTypes] = "float32",
         zeros: bool = True,
-    ) -> ArrayT:
+    ) -> Any:
         """Allocate an array of a certain shape."""
         if isinstance(shape, int):
             shape = (shape,)
@@ -626,7 +666,7 @@ class Ops:
 
     def asarray4f(
         self,
-        data: Union[Floats4d, Sequence[float]],
+        data: Union[Floats4d, Sequence[Sequence[Sequence[Sequence[float]]]]],
         *,
         dtype: Optional[DTypes] = "float32",
     ) -> Floats4d:
@@ -634,7 +674,7 @@ class Ops:
 
     def asarray3f(
         self,
-        data: Union[Floats3d, Sequence[float]],
+        data: Union[Floats3d, Sequence[Sequence[Sequence[float]]]],
         *,
         dtype: Optional[DTypes] = "float32",
     ) -> Floats3d:
@@ -642,7 +682,7 @@ class Ops:
 
     def asarray2f(
         self,
-        data: Union[Floats2d, Sequence[float]],
+        data: Union[Floats2d, Sequence[Sequence[float]]],
         *,
         dtype: Optional[DTypes] = "float32",
     ) -> Floats2d:
@@ -658,7 +698,7 @@ class Ops:
 
     def asarray_f(
         self,
-        data: Union[FloatsXd, Sequence[float]],
+        data: Union[FloatsXd, Sequence[Any]],
         *,
         dtype: Optional[DTypes] = "float32",
     ) -> FloatsXd:
@@ -670,28 +710,37 @@ class Ops:
         return cast(Ints1d, self.asarray(data, dtype=dtype))
 
     def asarray2i(
-        self, data: Union[Ints2d, Sequence[int]], *, dtype: Optional[DTypes] = "int32"
+        self,
+        data: Union[Ints2d, Sequence[Sequence[int]]],
+        *,
+        dtype: Optional[DTypes] = "int32",
     ) -> Ints2d:
         return cast(Ints2d, self.asarray(data, dtype=dtype))
 
     def asarray3i(
-        self, data: Union[Ints3d, Sequence[int]], *, dtype: Optional[DTypes] = "int32"
+        self,
+        data: Union[Ints3d, Sequence[Sequence[Sequence[int]]]],
+        *,
+        dtype: Optional[DTypes] = "int32",
     ) -> Ints3d:
         return cast(Ints3d, self.asarray(data, dtype=dtype))
 
     def asarray4i(
-        self, data: Union[Ints4d, Sequence[int]], *, dtype: Optional[DTypes] = "int32"
+        self,
+        data: Union[Ints4d, Sequence[Sequence[Sequence[Sequence[int]]]]],
+        *,
+        dtype: Optional[DTypes] = "int32",
     ) -> Ints4d:
         return cast(Ints4d, self.asarray(data, dtype=dtype))
 
     def asarray_i(
-        self, data: Union[IntsXd, Sequence[int]], *, dtype: Optional[DTypes] = "int32"
+        self, data: Union[IntsXd, Sequence[Any]], *, dtype: Optional[DTypes] = "int32"
     ) -> IntsXd:
         return cast(IntsXd, self.asarray(data, dtype=dtype))
 
     def asarray(
         self,
-        data: Union[ArrayXd, Sequence[ArrayXd], Sequence[float], Sequence[int]],
+        data: Union[ArrayXd, Sequence[ArrayXd], Sequence[Any]],
         *,
         dtype: Optional[DTypes] = None,
     ) -> ArrayXd:
@@ -1188,7 +1237,7 @@ class Ops:
         if lengths.size == 0:
             return self.alloc2f(0, X.shape[1]), lengths
         if not self.xp.all(lengths > 0):
-            raise ValueError(f"all sequence lengths must be >= 0")
+            raise ValueError(f"all sequence lengths must be > 0")
         starts_ends = self.alloc1i(lengths.shape[0] + 1, zeros=False)
         starts_ends[0] = 0
         starts_ends[1:] = lengths.cumsum()
@@ -1201,7 +1250,7 @@ class Ops:
         if lengths.size == 0:
             return self.alloc2f(0, X.shape[1]), lengths
         if not self.xp.all(lengths > 0):
-            raise ValueError(f"all sequence lengths must be >= 0")
+            raise ValueError(f"all sequence lengths must be > 0")
         lasts = lengths.cumsum() - 1
         if lasts[-1] + 1 != X.shape[0]:
             raise IndexError("lengths must sum up to the number of rows")

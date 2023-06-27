@@ -1,9 +1,10 @@
-import numpy
 import timeit
-from thinc.api import NumpyOps, LSTM, PyTorchLSTM, with_padded, fix_random_seed
-from thinc.api import Ops
-from thinc.compat import has_torch
+
+import numpy
 import pytest
+
+from thinc.api import LSTM, NumpyOps, Ops, PyTorchLSTM, fix_random_seed, with_padded
+from thinc.compat import has_torch
 
 
 @pytest.fixture(params=[1, 6])

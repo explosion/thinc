@@ -1,5 +1,6 @@
-from thinc.backends._param_server import ParamServer
 import numpy
+
+from thinc.backends._param_server import ParamServer
 
 
 def test_param_server_init():

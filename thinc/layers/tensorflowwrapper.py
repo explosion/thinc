@@ -2,12 +2,18 @@ from typing import Any, Callable, Dict, Optional, Tuple, Type, TypeVar
 
 import srsly
 
+from ..compat import tensorflow as tf
 from ..model import Model
 from ..shims import TensorFlowShim, keras_model_fns, maybe_handshake_model
-from ..util import xp2tensorflow, tensorflow2xp, assert_tensorflow_installed
-from ..util import is_tensorflow_array, convert_recursive, is_xp_array
-from ..types import ArrayXd, ArgsKwargs
-from ..compat import tensorflow as tf
+from ..types import ArgsKwargs, ArrayXd
+from ..util import (
+    assert_tensorflow_installed,
+    convert_recursive,
+    is_tensorflow_array,
+    is_xp_array,
+    tensorflow2xp,
+    xp2tensorflow,
+)
 
 InT = TypeVar("InT")
 OutT = TypeVar("OutT")

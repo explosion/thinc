@@ -1,7 +1,7 @@
-from typing import Optional, Tuple, Any, TypeVar
+from typing import Any, Optional, Tuple, TypeVar
 
-from ..model import Model
 from ..config import registry
+from ..model import Model
 
 InT = TypeVar("InT")
 OutT = Tuple

@@ -1,6 +1,7 @@
-import pytest
-from thinc.api import registry, Optimizer
 import numpy
+import pytest
+
+from thinc.api import Optimizer, registry
 
 
 def _test_schedule_valid():
