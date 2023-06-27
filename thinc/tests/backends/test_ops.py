@@ -1078,6 +1078,46 @@ def test_backprop_reduce_mean(ops, dtype):
 
 
 @pytest.mark.parametrize("ops", ALL_OPS)
+@pytest.mark.parametrize("dtype", FLOAT_TYPES)
+@pytest.mark.parametrize("reduction", ["reduce_mean", "reduce_sum", "reduce_max"])
+def test_reduce_empty_batch(ops, dtype, reduction):
+    func = getattr(ops, reduction)
+    backprop_func = getattr(ops, f"backprop_{reduction}")
+
+    lengths = ops.asarray1i([])
+    Y = func(ops.alloc((0, 10), dtype=dtype), lengths)
+
+    if reduction == "reduce_max":
+        Y, which = Y
+        dX = backprop_func(Y, which, lengths)
+    else:
+        dX = backprop_func(Y, lengths)
+
+    assert Y.shape == (0, 10)
+    assert dX.shape == (0, 10)
+
+
+@pytest.mark.parametrize("ops", ALL_OPS)
+@pytest.mark.parametrize("dtype", FLOAT_TYPES)
+@pytest.mark.parametrize("reduction", ["reduce_mean", "reduce_sum", "reduce_max"])
+def test_reduce_empty_hidden(ops, dtype, reduction):
+    func = getattr(ops, reduction)
+    backprop_func = getattr(ops, f"backprop_{reduction}")
+
+    lengths = ops.asarray1i([2, 3])
+    Y = func(ops.alloc((5, 0), dtype=dtype), lengths)
+
+    if reduction == "reduce_max":
+        Y, which = Y
+        dX = backprop_func(Y, which, lengths)
+    else:
+        dX = backprop_func(Y, lengths)
+
+    assert Y.shape == (2, 0)
+    assert dX.shape == (5, 0)
+
+
+@pytest.mark.parametrize("ops", ALL_OPS)
 @settings(max_examples=MAX_EXAMPLES, deadline=None)
 @given(X=strategies.arrays_BI())
 def test_mish(ops, X):
