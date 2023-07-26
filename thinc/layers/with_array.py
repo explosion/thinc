@@ -1,8 +1,12 @@
-from typing import Tuple, Callable, Optional, TypeVar, Union, cast
+from typing import Callable, Optional, Tuple, TypeVar, Union, cast
 
-from ..model import Model
+from ..backends import NumpyOps
 from ..config import registry
-from ..types import Padded, Ragged, ArrayXd, Array3d, ListXd
+from ..model import Model
+from ..types import Array3d, ArrayXd, ListXd, Padded, Ragged
+
+NUMPY_OPS = NumpyOps()
+
 
 ArrayTXd = TypeVar("ArrayTXd", bound=ArrayXd)
 SeqT = TypeVar("SeqT", bound=Union[Padded, Ragged, ListXd, ArrayXd])
@@ -68,7 +72,7 @@ def _list_forward(
 ) -> Tuple[ListXd, Callable]:
     layer: Model[ArrayXd, ArrayXd] = model.layers[0]
     pad = model.attrs["pad"]
-    lengths = layer.ops.asarray1i([len(seq) for seq in Xs])
+    lengths = NUMPY_OPS.asarray1i([len(seq) for seq in Xs])
     Xf = layer.ops.flatten(Xs, pad=pad)
     Yf, get_dXf = layer(Xf, is_train)
 

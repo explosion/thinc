@@ -1,8 +1,18 @@
-import pytest
 import numpy
+import pytest
 from numpy.testing import assert_allclose
-from thinc.api import clone, concatenate, noop, add, map_list
-from thinc.api import Linear, Dropout, Model, NumpyOps
+
+from thinc.api import (
+    Dropout,
+    Linear,
+    Model,
+    NumpyOps,
+    add,
+    clone,
+    concatenate,
+    map_list,
+    noop,
+)
 from thinc.layers import chain, tuplify
 
 

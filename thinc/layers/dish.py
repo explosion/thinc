@@ -1,13 +1,13 @@
-from typing import Tuple, Optional, Callable, cast
+from typing import Callable, Optional, Tuple, cast
 
 from ..config import registry
-from ..model import Model
-from .chain import chain
-from .layernorm import LayerNorm
-from .dropout import Dropout
-from ..types import Floats1d, Floats2d
-from ..util import partial, get_width
 from ..initializers import he_normal_init, zero_init
+from ..model import Model
+from ..types import Floats1d, Floats2d
+from ..util import get_width, partial
+from .chain import chain
+from .dropout import Dropout
+from .layernorm import LayerNorm
 
 
 @registry.layers("Dish.v1")
@@ -15,11 +15,15 @@ def Dish(
     nO: Optional[int] = None,
     nI: Optional[int] = None,
     *,
-    init_W: Callable = he_normal_init,
-    init_b: Callable = zero_init,
+    init_W: Optional[Callable] = None,
+    init_b: Optional[Callable] = None,
     dropout: Optional[float] = None,
     normalize: bool = False,
 ) -> Model[Floats2d, Floats2d]:
+    if init_W is None:
+        init_W = he_normal_init
+    if init_b is None:
+        init_b = zero_init
     model: Model[Floats2d, Floats2d] = Model(
         "dish",
         forward,

@@ -1,7 +1,16 @@
 import pytest
 import srsly
-from thinc.api import with_array, Linear, Maxout, chain, Model, Shim
-from thinc.api import serialize_attr, deserialize_attr
+
+from thinc.api import (
+    Linear,
+    Maxout,
+    Model,
+    Shim,
+    chain,
+    deserialize_attr,
+    serialize_attr,
+    with_array,
+)
 
 
 @pytest.fixture

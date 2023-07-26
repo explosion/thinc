@@ -1,14 +1,13 @@
-from typing import Tuple, Callable, Optional, cast
+from typing import Callable, Optional, Tuple, cast
 
-from ..model import Model
-from ..initializers import glorot_uniform_init, zero_init
 from ..config import registry
-from ..types import Floats2d, Floats1d
+from ..initializers import glorot_uniform_init, zero_init
+from ..model import Model
+from ..types import Floats1d, Floats2d
 from ..util import get_width, partial
 from .chain import chain
-from .layernorm import LayerNorm
 from .dropout import Dropout
-
+from .layernorm import LayerNorm
 
 InT = Floats2d
 OutT = Floats2d
@@ -19,11 +18,15 @@ def Relu(
     nO: Optional[int] = None,
     nI: Optional[int] = None,
     *,
-    init_W: Callable = glorot_uniform_init,
-    init_b: Callable = zero_init,
+    init_W: Optional[Callable] = None,
+    init_b: Optional[Callable] = None,
     dropout: Optional[float] = None,
     normalize: bool = False,
 ) -> Model[InT, OutT]:
+    if init_W is None:
+        init_W = glorot_uniform_init
+    if init_b is None:
+        init_b = zero_init
     model: Model[InT, OutT] = Model(
         "relu",
         forward,

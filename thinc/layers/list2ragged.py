@@ -1,9 +1,8 @@
-from typing import Tuple, List, Callable, cast, TypeVar
+from typing import Callable, List, Tuple, TypeVar, cast
 
-from ..model import Model
 from ..config import registry
-from ..types import ListXd, ArrayXd, Ragged
-
+from ..model import Model
+from ..types import ArrayXd, ListXd, Ragged
 
 InT = TypeVar("InT", bound=ListXd)
 OutT = Ragged

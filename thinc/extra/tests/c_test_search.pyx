@@ -1,5 +1,6 @@
-from thinc.extra.search cimport Beam
 from cymem.cymem cimport Pool
+
+from thinc.extra.search cimport Beam
 from thinc.typedefs cimport class_t, weight_t
 
 

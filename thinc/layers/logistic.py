@@ -1,9 +1,8 @@
-from typing import Tuple, Callable
+from typing import Callable, Tuple
 
-from ..model import Model
 from ..config import registry
+from ..model import Model
 from ..types import Floats2d
-
 
 InT = Floats2d
 OutT = Floats2d

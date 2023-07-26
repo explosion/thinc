@@ -1,9 +1,8 @@
-from typing import Tuple, Callable, TypeVar, cast
+from typing import Callable, Tuple, TypeVar, cast
 
-from ..types import Padded, List2d
-from ..model import Model
 from ..config import registry
-
+from ..model import Model
+from ..types import List2d, Padded
 
 InT = Padded
 OutT = TypeVar("OutT", bound=List2d)

@@ -27,16 +27,13 @@ except (ImportError, AttributeError):
 
 
 try:  # pragma: no cover
-    import torch.utils.dlpack
     import torch
+    import torch.utils.dlpack
 
     has_torch = True
     has_torch_cuda_gpu = torch.cuda.device_count() != 0
-    has_torch_mps_gpu = (
-        hasattr(torch, "has_mps")
-        and torch.has_mps  # type: ignore[attr-defined]
-        and torch.backends.mps.is_available()  # type: ignore[attr-defined]
-    )
+    has_torch_mps = hasattr(torch.backends, "mps") and torch.backends.mps.is_built()
+    has_torch_mps_gpu = has_torch_mps and torch.backends.mps.is_available()
     has_torch_gpu = has_torch_cuda_gpu
     torch_version = Version(str(torch.__version__))
     has_torch_amp = (
@@ -48,13 +45,14 @@ except ImportError:  # pragma: no cover
     has_torch = False
     has_torch_cuda_gpu = False
     has_torch_gpu = False
+    has_torch_mps = False
     has_torch_mps_gpu = False
     has_torch_amp = False
     torch_version = Version("0.0.0")
 
 try:  # pragma: no cover
-    import tensorflow.experimental.dlpack
     import tensorflow
+    import tensorflow.experimental.dlpack
 
     has_tensorflow = True
     has_tensorflow_gpu = len(tensorflow.config.get_visible_devices("GPU")) > 0
@@ -88,3 +86,13 @@ except ImportError:
 
 
 has_gpu = has_cupy_gpu or has_torch_mps_gpu
+
+__all__ = [
+    "cupy",
+    "cupyx",
+    "torch",
+    "tensorflow",
+    "mxnet",
+    "h5py",
+    "os_signpost",
+]

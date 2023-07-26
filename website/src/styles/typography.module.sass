@@ -18,14 +18,14 @@ p + .heading
 
 .heading-wrapper-banner
     position: relative
-    margin-left: $banner-size / 3
+    margin-left: math.div($banner-size, 3)
 
 .banner
     width: $banner-size
     height: $banner-size
     position: absolute
-    top: -$banner-size / 4
-    left: -$banner-size / 2
+    top: math.div(-$banner-size, 4)
+    left: math.div(-$banner-size, 2)
     display: block
     overflow: visible !important
 

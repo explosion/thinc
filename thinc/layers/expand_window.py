@@ -1,9 +1,8 @@
-from typing import Tuple, TypeVar, Callable, Union, cast
+from typing import Callable, Tuple, TypeVar, Union, cast
 
-from ..model import Model
 from ..config import registry
+from ..model import Model
 from ..types import Floats2d, Ragged
-
 
 InT = TypeVar("InT", Floats2d, Ragged)
 

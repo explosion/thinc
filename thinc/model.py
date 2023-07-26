@@ -1,20 +1,39 @@
-from typing import Dict, List, Callable, Optional, Any, Union, Iterable, Set, cast
-from typing import Generic, Sequence, Tuple, TypeVar, Iterator
 import contextlib
-from contextvars import ContextVar
-import srsly
-from pathlib import Path
 import copy
 import functools
 import threading
+from contextvars import ContextVar
+from pathlib import Path
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Generic,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Sequence,
+    Set,
+    Tuple,
+    TypeVar,
+    Union,
+    cast,
+)
 
-from .backends import ParamServer, Ops, NumpyOps, CupyOps, get_current_ops
+import srsly
+
+from .backends import CupyOps, NumpyOps, Ops, ParamServer, get_current_ops
 from .optimizers import Optimizer  # noqa: F401
 from .shims import Shim
-from .util import convert_recursive, is_xp_array, DATA_VALIDATION
-from .util import partial, validate_fwd_input_output
 from .types import FloatsXd
-
+from .util import (
+    DATA_VALIDATION,
+    convert_recursive,
+    is_xp_array,
+    partial,
+    validate_fwd_input_output,
+)
 
 InT = TypeVar("InT")
 OutT = TypeVar("OutT")
@@ -299,7 +318,7 @@ class Model(Generic[InT, OutT]):
             self.init(self, X=X, Y=Y)
         return self
 
-    def begin_update(self, X: InT) -> Tuple[OutT, Callable[[InT], OutT]]:
+    def begin_update(self, X: InT) -> Tuple[OutT, Callable[[OutT], InT]]:
         """Run the model over a batch of data, returning the output and a
         callback to complete the backward pass. A tuple (Y, finish_update),
         where Y is a batch of output data, and finish_update is a callback that

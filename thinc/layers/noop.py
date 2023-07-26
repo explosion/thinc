@@ -1,8 +1,7 @@
-from typing import Tuple, Callable, TypeVar
+from typing import Callable, Tuple, TypeVar
 
-from ..model import Model
 from ..config import registry
-
+from ..model import Model
 
 InOutT = TypeVar("InOutT")
 

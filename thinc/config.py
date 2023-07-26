@@ -1,6 +1,7 @@
 import catalogue
 import confection
-from confection import Config, ConfigValidationError, Promise, VARIABLE_RE
+from confection import VARIABLE_RE, Config, ConfigValidationError, Promise
+
 from .types import Decorator
 
 
@@ -26,4 +27,4 @@ class registry(confection.registry):
         setattr(cls, registry_name, reg)
 
 
-__all__ = ["Config", "registry", "ConfigValidationError"]
+__all__ = ["Config", "registry", "ConfigValidationError", "Promise", "VARIABLE_RE"]
