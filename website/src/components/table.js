@@ -2,7 +2,7 @@ import React from 'react'
 import classNames from 'classnames'
 
 import { isString } from '../util'
-import classes from '../styles/table.module.sass'
+import * as classes from '../styles/table.module.sass'
 
 function isDividerRow(children) {
     if (children.length && children[0].type == 'td') {
@@ -29,7 +29,7 @@ function isFootRow(children) {
 export const Tr = ({ children, ...props }) => {
     const isDivider = isDividerRow(children)
     const isFoot = isFootRow(children)
-    const trClasssNames = classNames(classes.tr, {
+    const trClasssNames = classNames({
         [classes.foot]: isFoot,
         [classes.divider]: isDivider,
     })

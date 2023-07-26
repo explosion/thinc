@@ -1,27 +1,29 @@
 # cython: cdivision=True
 # cython: infer_types=True
 # cython: profile=True
-from typing import Optional
 from collections.abc import Sized
+from typing import Optional
+
 import numpy
 
-cimport cython
-from libc.string cimport memcpy, memset
-from libc.stdlib cimport calloc, malloc, free
-from libc.stdint cimport uint32_t, uint64_t
-from libc.string cimport memcpy
-from libc.math cimport isnan
-from cymem.cymem cimport Pool
-from preshed.maps cimport PreshMap
-from murmurhash.mrmr cimport hash64
-cimport numpy as np
 cimport blis.cy
+cimport cython
+cimport numpy as np
+from cymem.cymem cimport Pool
+from libc.math cimport isnan
+from libc.stdint cimport uint32_t, uint64_t
+from libc.stdlib cimport calloc, free, malloc
+from libc.string cimport memcpy, memset
+from murmurhash.mrmr cimport hash64
+from preshed.maps cimport PreshMap
 
 from .. import registry
+from ..types import ArrayXd, DeviceTypes, DTypes, Shape
 from ..util import copy_array, get_array_module
-from ..types import DeviceTypes, DTypes, Shape, ArrayXd
+
 from .cblas cimport CBlas, daxpy, saxpy
-from .linalg cimport VecVec, Vec
+from .linalg cimport Vec, VecVec
+
 from .ops import Ops
 
 try:

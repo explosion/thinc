@@ -353,7 +353,7 @@ def toggle_types(hello: Union[str, int]) -> Union[str, int]:
 ## Interpreting type errors {#interpreting-errors}
 - maybe sub-headlines for the most common error types users might encounter and how to read them (because it can be a bit confusing if you're new to mypy – both understanding what it actually means and what's wrong and finding *where* to fix it)
 - note on how mypy doesn't check types if functions aren't typed at all (could potentially cause confusion)
---->
+-->
 
 ## Tips, tricks & best practices {#tips}
 

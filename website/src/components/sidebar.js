@@ -4,7 +4,7 @@ import classNames from 'classnames'
 import Link from './link'
 import Dropdown from './dropdown'
 import Logo from '../images/logo.svg'
-import classes from '../styles/sidebar.module.sass'
+import * as classes from '../styles/sidebar.module.sass'
 
 const DropdownNavigation = ({ items, defaultValue }) => {
     return (

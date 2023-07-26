@@ -1,13 +1,15 @@
 from typing import List, Optional
 
-from numpy.testing import assert_almost_equal
-from thinc.api import registry, with_padded, Dropout, NumpyOps, Model
-from thinc.backends import NumpyOps
-from thinc.util import data_validation, get_width
-from thinc.types import Ragged, Padded, Array2d, Floats2d, FloatsXd, Shape
-from thinc.compat import has_torch
 import numpy
 import pytest
+import srsly
+from numpy.testing import assert_almost_equal
+
+from thinc.api import Dropout, Model, NumpyOps, registry, with_padded
+from thinc.backends import NumpyOps
+from thinc.compat import has_torch
+from thinc.types import Array2d, Floats2d, FloatsXd, Padded, Ragged, Shape
+from thinc.util import data_validation, get_width
 
 OPS = NumpyOps()
 
@@ -120,16 +122,18 @@ TEST_CASES = [
     # Other
     ("expand_window.v1", {}, array2d, array2d),
     ("expand_window.v1", {}, ragged, ragged),
-    ("Embed.v1", {"nO": 4, "nV": array2dint.max() + 1, "column": 0, "dropout": 0.2}, array2dint, array2d),
-    ("Embed.v1", {"nO": 4, "nV": array1dint.max() + 1}, array1dint, array2d),
-    ("HashEmbed.v1", {"nO": 1, "nV": array2dint.max(), "column": 0, "dropout": 0.2}, array2dint, array2d),
+    ("Embed.v1", {"nO": 4, "nV": int(array2dint.max() + 1), "column": 0, "dropout": 0.2}, array2dint, array2d),
+    ("Embed.v1", {"nO": 4, "nV": int(array1dint.max() + 1)}, array1dint, array2d),
+    ("HashEmbed.v1", {"nO": 1, "nV": int(array2dint.max()), "column": 0, "dropout": 0.2}, array2dint, array2d),
     ("HashEmbed.v1", {"nO": 1, "nV": 2}, array1dint, array2d),
     ("MultiSoftmax.v1", {"nOs": (1, 3)}, array2d, array2d),
     # ("CauchySimilarity.v1", {}, (array2d, array2d), array1d),
     ("ParametricAttention.v1", {}, ragged, ragged),
     ("SparseLinear.v1", {}, (numpy.asarray([1, 2, 3], dtype="uint64"), array1d, numpy.asarray([1, 1], dtype="i")), array2d),
+    ("SparseLinear.v2", {}, (numpy.asarray([1, 2, 3], dtype="uint64"), array1d, numpy.asarray([1, 1], dtype="i")), array2d),
     ("remap_ids.v1", {"dtype": "f"}, ["a", 1, 5.0], array2dint),
-    ("remap_ids.v2", {"mapping_table": {}, "column": 1}, numpy.array([[1, 2, 3], [4, 5, 6]]).T, array2dint)
+    ("remap_ids.v2", {"mapping_table": {}, "column": 1}, numpy.array([[1, 2, 3], [4, 5, 6]]).T, array2dint),
+    ("premap_ids.v1", {"mapping_table": {}, "column": 1}, numpy.array([[1, 2, 3], [4, 5, 6]]).T, array2dint),
     # fmt: on
 ]
 
@@ -137,6 +141,8 @@ TEST_CASES = [
 @pytest.mark.parametrize("name,kwargs,in_data,out_data", TEST_CASES)
 def test_layers_from_config(name, kwargs, in_data, out_data):
     cfg = {"@layers": name, **kwargs}
+    filled_cfg = registry.fill({"config": cfg})
+    assert srsly.is_json_serializable(filled_cfg)
     model = registry.resolve({"config": cfg})["config"]
     if "LSTM" in name:
         model = with_padded(model)

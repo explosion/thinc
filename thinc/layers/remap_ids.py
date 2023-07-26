@@ -1,11 +1,9 @@
-from typing import Tuple, Callable, Sequence, cast
-from typing import Dict, Union, Optional, Hashable, Any
+from typing import Any, Callable, Dict, Hashable, Optional, Sequence, Tuple, Union, cast
 
-from ..model import Model
 from ..config import registry
-from ..types import Ints1d, Ints2d, DTypes
+from ..model import Model
+from ..types import DTypes, Ints1d, Ints2d
 from ..util import is_xp_array, to_numpy
-
 
 InT = Union[Sequence[Hashable], Ints1d, Ints2d]
 OutT = Ints2d

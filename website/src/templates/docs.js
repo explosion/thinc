@@ -9,7 +9,7 @@ import { H1 } from '../components/typography'
 import { Button } from '../components/link'
 import { renderAst } from '../markdown'
 
-import classes from '../styles/docs.module.sass'
+import * as classes from '../styles/docs.module.sass'
 
 const Template = ({ data, pageContext }) => {
     const { allMarkdownRemark, markdownRemark, site } = data

@@ -1,8 +1,13 @@
-import pytest
 import numpy
-from thinc.api import CategoricalCrossentropy, SequenceCategoricalCrossentropy
-from thinc.api import L2Distance, CosineDistance
+import pytest
+
 from thinc import registry
+from thinc.api import (
+    CategoricalCrossentropy,
+    CosineDistance,
+    L2Distance,
+    SequenceCategoricalCrossentropy,
+)
 
 # some simple arrays
 scores0 = numpy.zeros((3, 3), dtype="f")

@@ -8,7 +8,7 @@ import Link from './link'
 import { H5 } from './typography'
 import { isString, htmlToReact, isTrue, getStringChildren } from '../util'
 import CUSTOM_TYPES from '../../docs/_type_links.json'
-import classes from '../styles/code.module.sass'
+import * as classes from '../styles/code.module.sass'
 
 const GITHUB_URL_SPLIT_PATH = 'thinc/'
 const DEFAULT_TYPE_URL = CUSTOM_TYPES.__default__

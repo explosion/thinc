@@ -1,8 +1,7 @@
-from typing import Callable, Optional, Tuple, Any
+from typing import Any, Callable, Optional, Tuple
 
-from ..model import Model
 from ..config import registry
-
+from ..model import Model
 
 InT = Tuple[Any, ...]
 OutT = Tuple[Any, ...]

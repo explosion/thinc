@@ -1,11 +1,10 @@
-from typing import Tuple, Callable, Optional, cast
+from typing import Callable, Optional, Tuple, cast
 
-from ..model import Model
 from ..config import registry
-from ..types import Floats2d, Floats1d
 from ..initializers import zero_init
-from ..util import get_width, partial, ArrayInfo
-
+from ..model import Model
+from ..types import Floats1d, Floats2d
+from ..util import ArrayInfo, get_width, partial
 
 InT = Floats2d
 OutT = Floats2d
@@ -16,9 +15,13 @@ def Softmax(
     nO: Optional[int] = None,
     nI: Optional[int] = None,
     *,
-    init_W: Callable = zero_init,
-    init_b: Callable = zero_init,
+    init_W: Optional[Callable] = None,
+    init_b: Optional[Callable] = None,
 ) -> Model[InT, OutT]:
+    if init_W is None:
+        init_W = zero_init
+    if init_b is None:
+        init_b = zero_init
     return Model(
         "softmax",
         forward,
@@ -34,11 +37,15 @@ def Softmax_v2(
     nO: Optional[int] = None,
     nI: Optional[int] = None,
     *,
-    init_W: Callable = zero_init,
-    init_b: Callable = zero_init,
+    init_W: Optional[Callable] = None,
+    init_b: Optional[Callable] = None,
     normalize_outputs: bool = True,
     temperature: float = 1.0,
 ) -> Model[InT, OutT]:
+    if init_W is None:
+        init_W = zero_init
+    if init_b is None:
+        init_b = zero_init
     validate_temperature(temperature)
     return Model(
         "softmax",

@@ -1,10 +1,12 @@
 import os
 import re
-from pathlib import Path
 import shutil
 import sys
+from pathlib import Path
 
 import pytest
+
+mypy = pytest.importorskip("mypy")
 
 # You can change the following variable to True during development to overwrite expected output with generated output
 GENERATE = False
@@ -17,11 +19,13 @@ cases = [
 ]
 
 
+@pytest.mark.skipif(
+    mypy.__file__.endswith(".py"), reason="Non-compiled mypy is too slow"
+)
 @pytest.mark.parametrize("config_filename,python_filename,output_filename", cases)
 def test_mypy_results(
     config_filename, python_filename, output_filename, tmpdir, monkeypatch
 ):
-    pytest.importorskip("mypy")
     from mypy import api as mypy_api
 
     os.chdir(tmpdir)
@@ -77,9 +81,11 @@ def test_mypy_results(
     assert actual_returncode == expected_returncode
 
 
+@pytest.mark.skipif(
+    mypy.__file__.endswith(".py"), reason="Non-compiled mypy is too slow"
+)
 def test_generation_is_disabled():
     """
     Makes sure we don't accidentally leave generation on
     """
-    pytest.importorskip("mypy")
     assert not GENERATE

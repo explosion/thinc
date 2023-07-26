@@ -1,10 +1,12 @@
 import contextlib
-from pathlib import Path
-import tempfile
 import shutil
-from thinc.api import Linear, Ragged, Padded, ArgsKwargs
+import tempfile
+from pathlib import Path
+
 import numpy
 import pytest
+
+from thinc.api import ArgsKwargs, Linear, Padded, Ragged
 from thinc.util import has_cupy, is_cupy_array, is_numpy_array
 
 

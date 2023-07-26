@@ -3,7 +3,7 @@ import { Link as GatsbyLink } from 'gatsby'
 import classNames from 'classnames'
 
 import Icon from './icon'
-import classes from '../styles/link.module.sass'
+import * as classes from '../styles/link.module.sass'
 
 const internalRegex = /(http(s?)):\/\/(explosion.ai|prodi.gy|spacy.io|irl.spacy.io|support.prodi.gy)/gi
 
