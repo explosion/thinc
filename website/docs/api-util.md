@@ -141,6 +141,14 @@ Converts a class vector (integers) to binary class matrix. Based on
 | `label_smoothing` | <tt>float</tt>         | Smoothing-coefficient for label-smoothing.                                                     |
 | **RETURNS**       | <tt>Floats2d</tt>      | A binary matrix representation of the input. The axis representing the classes is placed last. |
 
+### enable_mxnet {#enable_mxnet tag="function" new="8.2.0"}
+
+Import and enable internal support for MXNet.
+
+### enable_tensorflow {#enable_tensorflow tag="function"  new="8.2.0"}
+
+Import and enable internal support for TensorFlow.
+
 ### xp2torch {#xp2torch tag="function"}
 
 Convert a `numpy` or `cupy` tensor to a PyTorch tensor.

@@ -11,7 +11,7 @@ from .backends import (
     use_pytorch_for_gpu_memory,
     use_tensorflow_for_gpu_memory,
 )
-from .compat import has_cupy
+from .compat import enable_mxnet, enable_tensorflow, has_cupy
 from .config import Config, ConfigValidationError, registry
 from .initializers import (
     configure_normal_init,
@@ -190,6 +190,8 @@ __all__ = [
     "torch2xp", "xp2torch", "tensorflow2xp", "xp2tensorflow", "mxnet2xp", "xp2mxnet",
     "get_torch_default_device",
     # .compat
+    "enable_mxnet",
+    "enable_tensorflow",
     "has_cupy",
     # .backends
     "get_ops", "set_current_ops", "get_current_ops", "use_ops",
