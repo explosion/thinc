@@ -50,25 +50,31 @@ except ImportError:  # pragma: no cover
     has_torch_amp = False
     torch_version = Version("0.0.0")
 
-try:  # pragma: no cover
+
+def enable_tensorflow():
+    global tensorflow, has_tensorflow, has_tensorflow_gpu
     import tensorflow
     import tensorflow.experimental.dlpack
 
     has_tensorflow = True
     has_tensorflow_gpu = len(tensorflow.config.get_visible_devices("GPU")) > 0
-except ImportError:  # pragma: no cover
-    tensorflow = None
-    has_tensorflow = False
-    has_tensorflow_gpu = False
 
 
-try:  # pragma: no cover
+tensorflow = None
+has_tensorflow = False
+has_tensorflow_gpu = False
+
+
+def enable_mxnet():
+    global mxnet, has_mxnet
     import mxnet
 
     has_mxnet = True
-except ImportError:  # pragma: no cover
-    mxnet = None
-    has_mxnet = False
+
+
+mxnet = None
+has_mxnet = False
+
 
 try:
     import h5py
