@@ -316,15 +316,17 @@ def get_width(
 
 def assert_tensorflow_installed() -> None:  # pragma: no cover
     """Raise an ImportError if TensorFlow is not installed."""
-    template = "TensorFlow support requires {pkg}: pip install thinc[tensorflow]"
+    template = "TensorFlow support requires {pkg}: pip install thinc[tensorflow]\n\nEnable TensorFlow support with thinc.api.enable_tensorflow()"
     if not has_tensorflow:
-        raise ImportError(template.format(pkg="tensorflow>=2.0.0"))
+        raise ImportError(template.format(pkg="tensorflow>=2.0.0,<2.6.0"))
 
 
 def assert_mxnet_installed() -> None:  # pragma: no cover
     """Raise an ImportError if MXNet is not installed."""
     if not has_mxnet:
-        raise ImportError("MXNet support requires mxnet: pip install thinc[mxnet]")
+        raise ImportError(
+            "MXNet support requires mxnet: pip install thinc[mxnet]\n\nEnable MXNet support with thinc.api.enable_mxnet()"
+        )
 
 
 def assert_pytorch_installed() -> None:  # pragma: no cover
