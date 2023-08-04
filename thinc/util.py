@@ -24,7 +24,12 @@ from typing import (
 
 import numpy
 from packaging.version import Version
-from pydantic import ValidationError, create_model
+
+try:
+    from pydantic.v1 import ValidationError, create_model
+except ImportError:
+    from pydantic import ValidationError, create_model  # type: ignore
+
 from wasabi import table
 
 from .compat import (
@@ -251,7 +256,6 @@ def to_categorical(
     *,
     label_smoothing: float = 0.0,
 ) -> FloatsXd:
-
     if n_classes is None:
         n_classes = int(numpy.max(Y) + 1)  # type: ignore
 
