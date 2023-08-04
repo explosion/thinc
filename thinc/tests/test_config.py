@@ -6,7 +6,11 @@ from typing import Any, Callable, Dict, Iterable, List, Optional, Union
 import catalogue
 import numpy
 import pytest
-from pydantic import BaseModel, PositiveInt, StrictBool, StrictFloat, constr
+
+try:
+    from pydantic.v1 import BaseModel, PositiveInt, StrictBool, StrictFloat, constr
+except ImportError:
+    from pydantic import BaseModel, PositiveInt, StrictBool, StrictFloat, constr  # type: ignore
 
 import thinc.config
 from thinc.api import Config, Model, NumpyOps, RAdam
