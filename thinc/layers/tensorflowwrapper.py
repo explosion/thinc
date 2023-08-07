@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 from typing import Any, Callable, Dict, Optional, Tuple, Type, TypeVar
 
 import srsly

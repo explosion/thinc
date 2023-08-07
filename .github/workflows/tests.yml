@@ -136,7 +136,7 @@ jobs:
         shell: bash --noprofile --norc -o pipefail {0}
 
       - name: Run tests with extras
-        run: python -m pytest --pyargs thinc --cov=thinc --cov-report=term
+        run: python -m pytest --pyargs thinc --cov=thinc --cov-report=term -p thinc.tests.enable_tensorflow -p thinc.tests.enable_mxnet
 
       - name: Run tests for thinc-apple-ops
         run: |

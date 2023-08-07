@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 import copy
 from typing import Any, cast
 

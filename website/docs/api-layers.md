@@ -1003,7 +1003,7 @@ model, e.g. `chain(f, g)` computes `g(f(x))`.
 
 | Argument    | Type           | Description                       |
 | ----------- | -------------- | --------------------------------- |
-| `layer1 `   | <tt>Model</tt> | The first model to compose.       |
+| `layer1`    | <tt>Model</tt> | The first model to compose.       |
 | `layer2`    | <tt>Model</tt> | The second model to compose.      |
 | `*layers`   | <tt>Model</tt> | Any additional models to compose. |
 | **RETURNS** | <tt>Model</tt> | The composed feed-forward model.  |
@@ -1795,6 +1795,16 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/torchscriptwrapper.p
 
 </inline-list>
 
+<infobox variant="warning">
+In Thinc v8.2+, TensorFlow support is not enabled by default. To enable TensorFlow:
+
+```python
+from thinc.api import enable_tensorflow
+enable_tensorflow()
+```
+
+</infobox>
+
 Wrap a [TensorFlow](https://tensorflow.org) model, so that it has the same API
 as Thinc models. To optimize the model, you'll need to create a TensorFlow
 optimizer and call `optimizer.apply_gradients` after each batch. To allow
@@ -1819,6 +1829,16 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/tensorflowwrapper.py
 - **Output:** <tt>Any</tt>
 
 </inline-list>
+
+<infobox variant="warning">
+In Thinc v8.2+, MXNet support is not enabled by default. To enable MXNet:
+
+```python
+from thinc.api import enable_mxnet
+enable_mxnet()
+```
+
+</infobox>
 
 Wrap a [MXNet](https://mxnet.apache.org/) model, so that it has the same API as
 Thinc models. To optimize the model, you'll need to create a MXNet optimizer and

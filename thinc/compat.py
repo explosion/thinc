@@ -1,3 +1,5 @@
+import warnings
+
 from packaging.version import Version
 
 try:  # pragma: no cover
@@ -50,25 +52,45 @@ except ImportError:  # pragma: no cover
     has_torch_amp = False
     torch_version = Version("0.0.0")
 
-try:  # pragma: no cover
+
+def enable_tensorflow():
+    warn_msg = (
+        "Built-in TensorFlow support will be removed in Thinc v9. If you need "
+        "TensorFlow support in the future, you can transition to using a "
+        "custom copy of the current TensorFlowWrapper in your package or "
+        "project."
+    )
+    warnings.warn(warn_msg, DeprecationWarning)
+    global tensorflow, has_tensorflow, has_tensorflow_gpu
     import tensorflow
     import tensorflow.experimental.dlpack
 
     has_tensorflow = True
     has_tensorflow_gpu = len(tensorflow.config.get_visible_devices("GPU")) > 0
-except ImportError:  # pragma: no cover
-    tensorflow = None
-    has_tensorflow = False
-    has_tensorflow_gpu = False
 
 
-try:  # pragma: no cover
+tensorflow = None
+has_tensorflow = False
+has_tensorflow_gpu = False
+
+
+def enable_mxnet():
+    warn_msg = (
+        "Built-in MXNet support will be removed in Thinc v9. If you need "
+        "MXNet support in the future, you can transition to using a "
+        "custom copy of the current MXNetWrapper in your package or "
+        "project."
+    )
+    warnings.warn(warn_msg, DeprecationWarning)
+    global mxnet, has_mxnet
     import mxnet
 
     has_mxnet = True
-except ImportError:  # pragma: no cover
-    mxnet = None
-    has_mxnet = False
+
+
+mxnet = None
+has_mxnet = False
+
 
 try:
     import h5py

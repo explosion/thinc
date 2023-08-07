@@ -151,7 +151,7 @@ def is_torch_mps_array(obj: Any) -> bool:  # pragma: no cover
 def is_tensorflow_array(obj: Any) -> bool:  # pragma: no cover
     if not has_tensorflow:
         return False
-    elif isinstance(obj, tf.Tensor):
+    elif isinstance(obj, tf.Tensor):  # type: ignore
         return True
     else:
         return False
@@ -164,7 +164,7 @@ def is_tensorflow_gpu_array(obj: Any) -> bool:  # pragma: no cover
 def is_mxnet_array(obj: Any) -> bool:  # pragma: no cover
     if not has_mxnet:
         return False
-    elif isinstance(obj, mx.nd.NDArray):
+    elif isinstance(obj, mx.nd.NDArray):  # type: ignore
         return True
     else:
         return False
@@ -316,15 +316,17 @@ def get_width(
 
 def assert_tensorflow_installed() -> None:  # pragma: no cover
     """Raise an ImportError if TensorFlow is not installed."""
-    template = "TensorFlow support requires {pkg}: pip install thinc[tensorflow]"
+    template = "TensorFlow support requires {pkg}: pip install thinc[tensorflow]\n\nEnable TensorFlow support with thinc.api.enable_tensorflow()"
     if not has_tensorflow:
-        raise ImportError(template.format(pkg="tensorflow>=2.0.0"))
+        raise ImportError(template.format(pkg="tensorflow>=2.0.0,<2.6.0"))
 
 
 def assert_mxnet_installed() -> None:  # pragma: no cover
     """Raise an ImportError if MXNet is not installed."""
     if not has_mxnet:
-        raise ImportError("MXNet support requires mxnet: pip install thinc[mxnet]")
+        raise ImportError(
+            "MXNet support requires mxnet: pip install thinc[mxnet]\n\nEnable MXNet support with thinc.api.enable_mxnet()"
+        )
 
 
 def assert_pytorch_installed() -> None:  # pragma: no cover
@@ -429,32 +431,32 @@ def torch2xp(
 
 def xp2tensorflow(
     xp_tensor: ArrayXd, requires_grad: bool = False, as_variable: bool = False
-) -> "tf.Tensor":  # pragma: no cover
+) -> "tf.Tensor":  # type: ignore  # pragma: no cover
     """Convert a numpy or cupy tensor to a TensorFlow Tensor or Variable"""
     assert_tensorflow_installed()
     if hasattr(xp_tensor, "toDlpack"):
         dlpack_tensor = xp_tensor.toDlpack()  # type: ignore
-        tf_tensor = tf.experimental.dlpack.from_dlpack(dlpack_tensor)
+        tf_tensor = tf.experimental.dlpack.from_dlpack(dlpack_tensor)  # type: ignore
     elif hasattr(xp_tensor, "__dlpack__"):
         dlpack_tensor = xp_tensor.__dlpack__()  # type: ignore
-        tf_tensor = tf.experimental.dlpack.from_dlpack(dlpack_tensor)
+        tf_tensor = tf.experimental.dlpack.from_dlpack(dlpack_tensor)  # type: ignore
     else:
-        tf_tensor = tf.convert_to_tensor(xp_tensor)
+        tf_tensor = tf.convert_to_tensor(xp_tensor)  # type: ignore
     if as_variable:
         # tf.Variable() automatically puts in GPU if available.
         # So we need to control it using the context manager
-        with tf.device(tf_tensor.device):
-            tf_tensor = tf.Variable(tf_tensor, trainable=requires_grad)
+        with tf.device(tf_tensor.device):  # type: ignore
+            tf_tensor = tf.Variable(tf_tensor, trainable=requires_grad)  # type: ignore
     if requires_grad is False and as_variable is False:
         # tf.stop_gradient() automatically puts in GPU if available.
         # So we need to control it using the context manager
-        with tf.device(tf_tensor.device):
-            tf_tensor = tf.stop_gradient(tf_tensor)
+        with tf.device(tf_tensor.device):  # type: ignore
+            tf_tensor = tf.stop_gradient(tf_tensor)  # type: ignore
     return tf_tensor
 
 
 def tensorflow2xp(
-    tf_tensor: "tf.Tensor", *, ops: Optional["Ops"] = None
+    tf_tensor: "tf.Tensor", *, ops: Optional["Ops"] = None  # type: ignore
 ) -> ArrayXd:  # pragma: no cover
     """Convert a Tensorflow tensor to numpy or cupy tensor depending on the `ops` parameter.
     If `ops` is `None`, the type of the resultant tensor will be determined by the source tensor's device.
@@ -466,7 +468,7 @@ def tensorflow2xp(
         if isinstance(ops, NumpyOps):
             return tf_tensor.numpy()
         else:
-            dlpack_tensor = tf.experimental.dlpack.to_dlpack(tf_tensor)
+            dlpack_tensor = tf.experimental.dlpack.to_dlpack(tf_tensor)  # type: ignore
             return cupy_from_dlpack(dlpack_tensor)
     else:
         if isinstance(ops, NumpyOps) or ops is None:
@@ -477,21 +479,21 @@ def tensorflow2xp(
 
 def xp2mxnet(
     xp_tensor: ArrayXd, requires_grad: bool = False
-) -> "mx.nd.NDArray":  # pragma: no cover
+) -> "mx.nd.NDArray":  # type: ignore  # pragma: no cover
     """Convert a numpy or cupy tensor to a MXNet tensor."""
     assert_mxnet_installed()
     if hasattr(xp_tensor, "toDlpack"):
         dlpack_tensor = xp_tensor.toDlpack()  # type: ignore
-        mx_tensor = mx.nd.from_dlpack(dlpack_tensor)
+        mx_tensor = mx.nd.from_dlpack(dlpack_tensor)  # type: ignore
     else:
-        mx_tensor = mx.nd.from_numpy(xp_tensor)
+        mx_tensor = mx.nd.from_numpy(xp_tensor)  # type: ignore
     if requires_grad:
         mx_tensor.attach_grad()
     return mx_tensor
 
 
 def mxnet2xp(
-    mx_tensor: "mx.nd.NDArray", *, ops: Optional["Ops"] = None
+    mx_tensor: "mx.nd.NDArray", *, ops: Optional["Ops"] = None  # type: ignore
 ) -> ArrayXd:  # pragma: no cover
     """Convert a MXNet tensor to a numpy or cupy tensor."""
     from .api import NumpyOps
