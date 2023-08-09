@@ -41,6 +41,20 @@ ALL_OPS = XP_OPS + [VANILLA_OPS]
 FLOAT_TYPES = ["float32", "float64"]
 INT_TYPES = ["int32", "int64"]
 
+REDUCTIONS = ["reduce_first", "reduce_last", "reduce_max", "reduce_mean", "reduce_sum"]
+
+REDUCE_ZERO_LENGTH_RAISES = [
+    ("reduce_first", True),
+    ("reduce_last", True),
+    ("reduce_max", True),
+    # From a mathematical perspective we'd want mean reduction to raise for
+    # zero-length sequences, since floating point numbers are not a monoid
+    # under averaging. However, floret relies on reduce_mean to return a
+    # zero-vector in this case.
+    ("reduce_mean", False),
+    ("reduce_sum", False),
+]
+
 
 def create_pytorch_funcs():
     import math
@@ -1075,6 +1089,71 @@ def test_backprop_reduce_mean(ops, dtype):
             ops.xp.arange(1, 7, dtype=dtype).reshape(2, 3),
             ops.xp.array([-1, 2], dtype="int32"),
         )
+
+
+@pytest.mark.parametrize("ops", ALL_OPS)
+@pytest.mark.parametrize("dtype", FLOAT_TYPES)
+@pytest.mark.parametrize("reduction", REDUCTIONS)
+def test_reduce_empty_batch(ops, dtype, reduction):
+    func = getattr(ops, reduction)
+    backprop_func = getattr(ops, f"backprop_{reduction}")
+
+    lengths = ops.asarray1i([])
+    Y = func(ops.alloc((0, 10), dtype=dtype), lengths)
+
+    if reduction == "reduce_max":
+        Y, which = Y
+        dX = backprop_func(Y, which, lengths)
+    elif isinstance(Y, tuple):
+        Y, extra = Y
+        dX = backprop_func(Y, extra)
+    else:
+        dX = backprop_func(Y, lengths)
+
+    assert Y.shape == (0, 10)
+    assert dX.shape == (0, 10)
+
+
+@pytest.mark.parametrize("ops", ALL_OPS)
+@pytest.mark.parametrize("dtype", FLOAT_TYPES)
+@pytest.mark.parametrize("reduction", REDUCTIONS)
+def test_reduce_empty_hidden(ops, dtype, reduction):
+    func = getattr(ops, reduction)
+    backprop_func = getattr(ops, f"backprop_{reduction}")
+
+    lengths = ops.asarray1i([2, 3])
+    Y = func(ops.alloc((5, 0), dtype=dtype), lengths)
+
+    if reduction == "reduce_max":
+        Y, which = Y
+        dX = backprop_func(Y, which, lengths)
+    elif isinstance(Y, tuple):
+        Y, extra = Y
+        dX = backprop_func(Y, extra)
+    else:
+        dX = backprop_func(Y, lengths)
+
+    assert Y.shape == (2, 0)
+    assert dX.shape == (5, 0)
+
+
+@pytest.mark.parametrize("ops", ALL_OPS)
+@pytest.mark.parametrize("dtype", FLOAT_TYPES)
+@pytest.mark.parametrize("reduction_raises", REDUCE_ZERO_LENGTH_RAISES)
+def test_reduce_zero_seq_length(ops, dtype, reduction_raises):
+    reduction_str, raises = reduction_raises
+    reduction = getattr(ops, reduction_str)
+    X = ops.asarray2f(
+        [[1.0, 2.0], [3.0, 4.0], [5.0, 6.0], [1.0, 2.0], [3.0, 4.0]], dtype=dtype
+    )
+    lengths = ops.asarray1i([3, 0, 2])
+
+    if raises:
+        with pytest.raises(ValueError):
+            reduction(X, lengths)
+    else:
+        # All non-raising reductions have zero as their identity element.
+        ops.xp.testing.assert_allclose(reduction(X, lengths)[1], [0.0, 0.0])
 
 
 @pytest.mark.parametrize("ops", ALL_OPS)
