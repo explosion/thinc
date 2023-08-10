@@ -93,10 +93,8 @@ class CupyOps(Ops):
             array = tensorflow2xp(data)
         elif is_mxnet_gpu_array(data):
             array = mxnet2xp(data)
-        elif dtype is not None:
-            array = self.xp.array(data, dtype=dtype)
         else:
-            array = self.xp.array(data)
+            array = self.xp.array(data, dtype=dtype)
 
         if dtype is not None:
             array = array.astype(dtype=dtype, copy=False)
