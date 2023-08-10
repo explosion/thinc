@@ -17,7 +17,9 @@ def strings2arrays() -> Model[InT, OutT]:
 
 
 def forward(model: Model[InT, OutT], Xs: InT, is_train: bool) -> Tuple[OutT, Callable]:
-    hashes = [[hash_unicode(word) for word in X] for X in Xs]
+    hashes = [
+        model.ops.asarray([hash_unicode(word) for word in X], dtype="int32") for X in Xs
+    ]
     hash_arrays = [model.ops.asarray2i(h, dtype="uint64") for h in hashes]
     arrays = [model.ops.reshape2i(array, -1, 1) for array in hash_arrays]
 
