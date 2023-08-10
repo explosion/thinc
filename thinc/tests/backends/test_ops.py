@@ -1597,3 +1597,10 @@ def test_custom_kernel_compilation():
         assert compiled_kernel is not None
 
     assert compile_mmh() is not None
+
+
+@pytest.mark.parametrize("ops", ALL_OPS)
+def test_asarray_from_list_uint64(ops):
+    # list contains int values both above and below int64.max
+    l = [16, 11648197037703959513]
+    assert l == list(ops.asarray(l, dtype="uint64"))

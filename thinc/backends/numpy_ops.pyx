@@ -71,6 +71,8 @@ class NumpyOps(Ops):
             array = data.numpy()
         elif hasattr(data, "get"):
             array = data.get()
+        elif dtype is not None:
+            array = self.xp.array(data, dtype=dtype)
         else:
             array = self.xp.array(data)
 
