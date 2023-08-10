@@ -1602,5 +1602,5 @@ def test_custom_kernel_compilation():
 @pytest.mark.parametrize("ops", ALL_OPS)
 def test_asarray_from_list_uint64(ops):
     # list contains int values both above and below int64.max
-    l = [16, 11648197037703959513]
-    assert l == list(ops.asarray(l, dtype="uint64"))
+    uint64_list = [16, 11648197037703959513]
+    assert uint64_list == list(ops.asarray(uint64_list, dtype="uint64"))
