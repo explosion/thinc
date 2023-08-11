@@ -72,7 +72,7 @@ class NumpyOps(Ops):
         elif hasattr(data, "get"):
             array = data.get()
         else:
-            array = self.xp.array(data)
+            array = self.xp.array(data, dtype=dtype)
 
         if dtype is not None:
             array = array.astype(dtype=dtype, copy=False)
