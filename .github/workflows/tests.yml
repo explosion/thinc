@@ -106,11 +106,18 @@ jobs:
       - name: Test import
         run: python -c "import thinc"
 
-      - name: Run tests without extras
+      - name: Install test requirements
         run: |
           pip install -r requirements.txt
+
+      - name: Install notebook test requirements
+        run: |
           pip install ipykernel pydot graphviz
           python -m ipykernel install --name thinc-notebook-tests --user
+        if: matrix.python_version != '3.12.0-rc.2'
+
+      - name: Run tests without extras
+        run: |
           python -m pytest --pyargs thinc -Werror --cov=thinc --cov-report=term
 
       # Notes on numpy requirements hacks:
