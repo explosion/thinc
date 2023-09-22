@@ -46,7 +46,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        python_version: ["3.11"]
+        python_version: ["3.11", "3.12.0-rc.2"]
         include:
           - os: windows-2019
             python_version: "3.6"
@@ -106,11 +106,18 @@ jobs:
       - name: Test import
         run: python -c "import thinc"
 
-      - name: Run tests without extras
+      - name: Install test requirements
         run: |
           pip install -r requirements.txt
+
+      - name: Install notebook test requirements
+        run: |
           pip install ipykernel pydot graphviz
           python -m ipykernel install --name thinc-notebook-tests --user
+        if: matrix.python_version != '3.12.0-rc.2'
+
+      - name: Run tests without extras
+        run: |
           python -m pytest --pyargs thinc -Werror --cov=thinc --cov-report=term
 
       # Notes on numpy requirements hacks:
@@ -127,7 +134,7 @@ jobs:
       - name: Install extras for testing
         run: |
           pip install "protobuf~=3.20.0" "tensorflow~=2.5.0"
-          pip install "mxnet; sys_platform != 'win32'"
+          pip install "mxnet; sys_platform != 'win32' and python_version < '3.12'"
           pip install "torch!=1.13.0" --extra-index-url https://download.pytorch.org/whl/cpu
           pip install "numpy~=1.23.0; python_version=='3.10' and sys_platform=='win32'"
           pip install "numpy<1.24.0"
