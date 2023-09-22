@@ -1,6 +1,5 @@
 # cython: cdivision=True
 # cython: infer_types=True
-# cython: profile=True
 from collections.abc import Sized
 from typing import Optional
 

@@ -1,3 +1,4 @@
+# cython: profile=False
 from cymem.cymem cimport Pool
 
 from thinc.extra.search cimport Beam
