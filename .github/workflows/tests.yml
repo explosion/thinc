@@ -46,7 +46,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        python_version: ["3.11", "3.12.0-rc.2"]
+        python_version: ["3.12"]
         include:
           - os: windows-2019
             python_version: "3.6"
@@ -58,6 +58,8 @@ jobs:
             python_version: "3.9"
           - os: macos-latest
             python_version: "3.10"
+          - os: ubuntu-latest
+            python_version: "3.11"
 
     runs-on: ${{ matrix.os }}
     env:
@@ -114,7 +116,7 @@ jobs:
         run: |
           pip install ipykernel pydot graphviz
           python -m ipykernel install --name thinc-notebook-tests --user
-        if: matrix.python_version != '3.12.0-rc.2'
+        if: matrix.python_version != '3.12'
 
       - name: Run tests without extras
         run: |
