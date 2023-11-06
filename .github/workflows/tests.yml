@@ -45,7 +45,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest, windows-latest, macos-13]
         python_version: ["3.12"]
         include:
           - os: windows-2019
@@ -56,7 +56,7 @@ jobs:
             python_version: "3.8"
           - os: windows-latest
             python_version: "3.9"
-          - os: macos-latest
+          - os: macos-13
             python_version: "3.10"
           - os: ubuntu-latest
             python_version: "3.11"
@@ -152,8 +152,8 @@ jobs:
           pip uninstall -y tensorflow
           pip install thinc-apple-ops
           python -m pytest --pyargs thinc_apple_ops
-        if: matrix.os == 'macos-latest' && matrix.python_version == '3.10'
+        if: matrix.os == 'macos-13' && matrix.python_version == '3.10'
 
       - name: Run tests with thinc-apple-ops
         run: python -m pytest --pyargs thinc
-        if: matrix.os == 'macos-latest' && matrix.python_version == '3.10'
+        if: matrix.os == 'macos-13' && matrix.python_version == '3.10'
