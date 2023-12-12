@@ -8,6 +8,7 @@ from numpy.testing import assert_almost_equal
 from thinc.api import Dropout, Model, NumpyOps, registry, with_padded
 from thinc.backends import NumpyOps
 from thinc.compat import has_torch
+from thinc.layers.relu import Relu
 from thinc.types import Array2d, Floats2d, FloatsXd, Padded, Ragged, Shape
 from thinc.util import data_validation, get_width
 
@@ -129,6 +130,8 @@ TEST_CASES = [
     ("MultiSoftmax.v1", {"nOs": (1, 3)}, array2d, array2d),
     # ("CauchySimilarity.v1", {}, (array2d, array2d), array1d),
     ("ParametricAttention.v1", {}, ragged, ragged),
+    ("ParametricAttention.v2", {}, ragged, ragged),
+    ("ParametricAttention.v2", {"key_transform": {"@layers": "Gelu.v1"}}, ragged, ragged),
     ("SparseLinear.v1", {}, (numpy.asarray([1, 2, 3], dtype="uint64"), array1d, numpy.asarray([1, 1], dtype="i")), array2d),
     ("SparseLinear.v2", {}, (numpy.asarray([1, 2, 3], dtype="uint64"), array1d, numpy.asarray([1, 1], dtype="i")), array2d),
     ("remap_ids.v1", {"dtype": "f"}, ["a", 1, 5.0], array2dint),

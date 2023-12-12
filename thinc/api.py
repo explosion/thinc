@@ -41,6 +41,7 @@ from .layers import (
     MultiSoftmax,
     MXNetWrapper,
     ParametricAttention,
+    ParametricAttention_v2,
     PyTorchLSTM,
     PyTorchRNNWrapper,
     PyTorchWrapper,
@@ -207,7 +208,7 @@ __all__ = [
     "PyTorchWrapper", "PyTorchRNNWrapper", "PyTorchLSTM",
     "TensorFlowWrapper", "keras_subclass", "MXNetWrapper",
     "PyTorchWrapper_v2", "Softmax_v2", "PyTorchWrapper_v3",
-    "SparseLinear_v2", "TorchScriptWrapper_v1",
+    "SparseLinear_v2", "TorchScriptWrapper_v1", "ParametricAttention_v2",
 
     "add", "bidirectional", "chain", "clone", "concatenate", "noop",
     "residual", "uniqued", "siamese", "list2ragged", "ragged2list",
