@@ -10,6 +10,8 @@ from .noop import noop
 InT = Ragged
 OutT = Ragged
 
+KEY_TRANSFORM_REF: str = "key_transform"
+
 
 @registry.layers("ParametricAttention.v2")
 def ParametricAttention_v2(
@@ -27,14 +29,14 @@ def ParametricAttention_v2(
         init=init,
         params={"Q": None},
         dims={"nO": nO},
-        refs={"key_transform": key_transform},
+        refs={KEY_TRANSFORM_REF: key_transform},
         layers=[key_transform],
     )
 
 
 def forward(model: Model[InT, OutT], Xr: InT, is_train: bool) -> Tuple[OutT, Callable]:
     Q = model.get_param("Q")
-    key_transform = model.get_ref("key_transform")
+    key_transform = model.get_ref(KEY_TRANSFORM_REF)
 
     attention, bp_attention = _get_attention(
         model.ops, Q, key_transform, Xr.dataXd, Xr.lengths, is_train
@@ -54,7 +56,7 @@ def forward(model: Model[InT, OutT], Xr: InT, is_train: bool) -> Tuple[OutT, Cal
 def init(
     model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = None
 ) -> None:
-    key_transform = model.get_ref("key_transform")
+    key_transform = model.get_ref(KEY_TRANSFORM_REF)
     width = get_width(X) if X is not None else None
     if width:
         model.set_dim("nO", width)
