@@ -4,7 +4,6 @@ from ..config import registry
 from ..model import Model
 from ..types import Floats2d, Ragged
 from ..util import get_width
-
 from .noop import noop
 
 InT = Ragged
