@@ -697,7 +697,7 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/parametricattention.
 </inline-list>
 
 A layer that uses the parametric attention scheme described by
-[Yang et al. (2016)](https://www.cs.cmu.edu/~./hovy/papers/16HLT-hierarchical-attention-networks.pdf).
+[Yang et al. (2016)](https://aclanthology.org/N16-1174).
 The layer learns a parameter vector that is used as the keys in a single-headed
 attention mechanism.
 
