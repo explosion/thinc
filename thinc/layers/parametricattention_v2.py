@@ -5,6 +5,8 @@ from ..model import Model
 from ..types import Floats2d, Ragged
 from ..util import get_width
 
+from .noop import noop
+
 InT = Ragged
 OutT = Ragged
 
@@ -16,13 +18,7 @@ def ParametricAttention_v2(
     nO: Optional[int] = None
 ) -> Model[InT, OutT]:
     if key_transform is None:
-        layers = []
-        refs = {}
-    else:
-        layers = [key_transform]
-        refs = {"key_transform": cast(Optional[Model], key_transform)}
-
-    layers = [key_transform] if key_transform is not None else []
+        key_transform = noop()
 
     """Weight inputs by similarity to a learned vector"""
     return Model(
@@ -31,14 +27,14 @@ def ParametricAttention_v2(
         init=init,
         params={"Q": None},
         dims={"nO": nO},
-        layers=layers,
-        refs=refs,
+        refs={"key_transform": key_transform},
+        layers=[key_transform],
     )
 
 
 def forward(model: Model[InT, OutT], Xr: InT, is_train: bool) -> Tuple[OutT, Callable]:
     Q = model.get_param("Q")
-    key_transform = model.maybe_get_ref("key_transform")
+    key_transform = model.get_ref("key_transform")
 
     attention, bp_attention = _get_attention(
         model.ops, Q, key_transform, Xr.dataXd, Xr.lengths, is_train
@@ -58,11 +54,11 @@ def forward(model: Model[InT, OutT], Xr: InT, is_train: bool) -> Tuple[OutT, Cal
 def init(
     model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = None
 ) -> None:
-    key_transform = model.maybe_get_ref("key_transform")
+    key_transform = model.get_ref("key_transform")
     width = get_width(X) if X is not None else None
     if width:
         model.set_dim("nO", width)
-        if key_transform is not None:
+        if key_transform.has_dim("nO"):
             key_transform.set_dim("nO", width)
 
     # Randomly initialize the parameter, as though it were an embedding.
@@ -73,15 +69,11 @@ def init(
     X_array = X.dataXd if X is not None else None
     Y_array = Y.dataXd if Y is not None else None
 
-    if key_transform is not None:
-        key_transform.initialize(X_array, Y_array)
+    key_transform.initialize(X_array, Y_array)
 
 
 def _get_attention(ops, Q, key_transform, X, lengths, is_train):
-    if key_transform is None:
-        K, K_bp = X, lambda dY: dY
-    else:
-        K, K_bp = key_transform(X, is_train=is_train)
+    K, K_bp = key_transform(X, is_train=is_train)
 
     attention = ops.gemm(K, ops.reshape2f(Q, -1, 1))
     attention = ops.softmax_sequences(attention, lengths)
