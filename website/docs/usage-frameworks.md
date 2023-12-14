@@ -81,6 +81,16 @@ Y, backprop = model(X, is_train=True)
 dX = backprop(Y)
 ```
 
+<infobox variant="warning">
+In Thinc v8.2+, TensorFlow support is not enabled by default. To enable TensorFlow:
+
+```python
+from thinc.api import enable_tensorflow
+enable_tensorflow()
+```
+
+</infobox>
+
 ```python
 ### TensorFlow Example {highlight="6"}
 from thinc.api import TensorFlowWrapper, chain, Linear

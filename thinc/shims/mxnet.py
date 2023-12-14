@@ -1,13 +1,20 @@
-from typing import Any, cast
-import srsly
+# mypy: ignore-errors
 import copy
+from typing import Any, cast
 
-from ..util import mxnet2xp, convert_recursive, make_tempfile, xp2mxnet
-from ..util import get_array_module
+import srsly
+
+from ..compat import mxnet as mx
 from ..optimizers import Optimizer
 from ..types import ArgsKwargs, FloatsXd
+from ..util import (
+    convert_recursive,
+    get_array_module,
+    make_tempfile,
+    mxnet2xp,
+    xp2mxnet,
+)
 from .shim import Shim
-from ..compat import mxnet as mx
 
 
 class MXNetShim(Shim):

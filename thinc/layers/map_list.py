@@ -1,6 +1,6 @@
-from typing import Callable, TypeVar, List, Tuple, Optional
-from ..model import Model
+from typing import Callable, List, Optional, Tuple, TypeVar
 
+from ..model import Model
 
 InT = TypeVar("InT")
 OutT = TypeVar("OutT")

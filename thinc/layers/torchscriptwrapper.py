@@ -3,8 +3,11 @@ from typing import Any, Callable, Optional
 from ..compat import torch
 from ..model import Model
 from ..shims import PyTorchGradScaler, PyTorchShim, TorchScriptShim
-from .pytorchwrapper import forward, convert_pytorch_default_inputs
-from .pytorchwrapper import convert_pytorch_default_outputs
+from .pytorchwrapper import (
+    convert_pytorch_default_inputs,
+    convert_pytorch_default_outputs,
+    forward,
+)
 
 
 def TorchScriptWrapper_v1(

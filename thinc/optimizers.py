@@ -1,12 +1,10 @@
 import math
-
-from typing import Dict, Optional, Union, Tuple, List, cast
 from collections import defaultdict
+from typing import Dict, List, Optional, Tuple, Union, cast
 
 from .backends import get_array_ops
-from .types import Generator, FloatsXd
 from .config import registry
-
+from .types import FloatsXd, Generator
 
 KeyT = Tuple[int, str]
 FloatOrSeq = Union[float, List[float], Generator]

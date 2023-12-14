@@ -1,11 +1,28 @@
-from typing import Union, Tuple, Sized, Container, Any, TypeVar, Callable
-from typing import Iterable, Iterator, Sequence, Dict, Generic, cast
-from typing import Optional, List, overload
+import sys
 from abc import abstractmethod
 from dataclasses import dataclass
+from typing import (
+    Any,
+    Callable,
+    Container,
+    Dict,
+    Generic,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Sequence,
+    Sized,
+    Tuple,
+    TypeVar,
+    Union,
+    cast,
+    overload,
+)
+
 import numpy
-import sys
-from .compat import has_cupy, cupy
+
+from .compat import cupy, has_cupy
 
 if has_cupy:
     get_array_module = cupy.get_array_module
@@ -14,9 +31,9 @@ else:
 
 # Use typing_extensions for Python versions < 3.8
 if sys.version_info < (3, 8):
-    from typing_extensions import Protocol, Literal
+    from typing_extensions import Literal, Protocol
 else:
-    from typing import Protocol, Literal  # noqa: F401
+    from typing import Literal, Protocol  # noqa: F401
 
 
 # fmt: off

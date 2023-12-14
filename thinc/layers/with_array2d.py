@@ -1,8 +1,11 @@
-from typing import Tuple, Callable, Optional, TypeVar, cast, List, Union
+from typing import Callable, List, Optional, Tuple, TypeVar, Union, cast
 
-from ..model import Model
+from ..backends import NumpyOps
 from ..config import registry
+from ..model import Model
 from ..types import Array2d, Floats2d, List2d, Padded, Ragged
+
+NUMPY_OPS = NumpyOps()
 
 
 ValT = TypeVar("ValT", bound=Array2d)
@@ -71,7 +74,7 @@ def _list_forward(
 ) -> Tuple[List2d, Callable]:
     layer: Model[Array2d, Array2d] = model.layers[0]
     pad = model.attrs["pad"]
-    lengths = layer.ops.asarray1i([len(seq) for seq in Xs])
+    lengths = NUMPY_OPS.asarray1i([len(seq) for seq in Xs])
     Xf = layer.ops.flatten(Xs, pad=pad)
     Yf, get_dXf = layer(Xf, is_train)
 

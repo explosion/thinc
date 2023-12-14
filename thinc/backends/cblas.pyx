@@ -1,3 +1,4 @@
+# cython: profile=False
 cimport blis.cy
 from cython.operator cimport dereference as deref
 from libcpp.memory cimport make_shared

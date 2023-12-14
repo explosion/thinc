@@ -1,10 +1,11 @@
-import pytest
 import numpy
+import pytest
+from hypothesis import given, settings
+from hypothesis.strategies import composite, integers, lists
+from numpy.testing import assert_allclose
+
 from thinc.layers import Embed
 from thinc.layers.uniqued import uniqued
-from numpy.testing import assert_allclose
-from hypothesis import given, settings
-from hypothesis.strategies import integers, lists, composite
 
 ROWS = 10
 

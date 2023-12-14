@@ -1,5 +1,6 @@
-from typing import Any, Optional
 from io import BytesIO
+from typing import Any, Optional
+
 import srsly
 
 from ..compat import torch
@@ -57,7 +58,10 @@ class TorchScriptShim(PyTorchShim):
         self.cfg = msg["config"]
         filelike = BytesIO(msg["model"])
         filelike.seek(0)
-        self._model = torch.jit.load(filelike, map_location=device)
+        # As of Torch 2.0.0, loading TorchScript models directly to
+        # an MPS device is not supported.
+        map_location = torch.device("cpu") if device.type == "mps" else device
+        self._model = torch.jit.load(filelike, map_location=map_location)
         self._model.to(device)
         self._grad_scaler.to_(device)
         return self

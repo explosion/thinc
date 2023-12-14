@@ -1,27 +1,28 @@
 # cython: cdivision=True
 # cython: infer_types=True
-# cython: profile=True
-from typing import Optional
 from collections.abc import Sized
+from typing import Optional
+
 import numpy
 
-cimport cython
-from libc.string cimport memcpy, memset
-from libc.stdlib cimport calloc, malloc, free
-from libc.stdint cimport uint32_t, uint64_t
-from libc.string cimport memcpy
-from libc.math cimport isnan
-from cymem.cymem cimport Pool
-from preshed.maps cimport PreshMap
-from murmurhash.mrmr cimport hash64
-cimport numpy as np
 cimport blis.cy
+cimport cython
+cimport numpy as np
+from cymem.cymem cimport Pool
+from libc.math cimport isnan
+from libc.stdint cimport uint32_t, uint64_t
+from libc.stdlib cimport calloc, free, malloc
+from libc.string cimport memcpy, memset
+from murmurhash.mrmr cimport hash64
+from preshed.maps cimport PreshMap
 
 from .. import registry
+from ..types import ArrayXd, DeviceTypes, DTypes, Shape
 from ..util import copy_array, get_array_module
-from ..types import DeviceTypes, DTypes, Shape, ArrayXd
+
 from .cblas cimport CBlas, daxpy, saxpy
-from .linalg cimport VecVec, Vec
+from .linalg cimport Vec, VecVec
+
 from .ops import Ops
 
 try:
@@ -70,7 +71,7 @@ class NumpyOps(Ops):
         elif hasattr(data, "get"):
             array = data.get()
         else:
-            array = self.xp.array(data)
+            array = self.xp.array(data, dtype=dtype)
 
         if dtype is not None:
             array = array.astype(dtype=dtype, copy=False)
@@ -315,8 +316,11 @@ class NumpyOps(Ops):
         cdef int O = X.shape[1]
         cdef int T = X.shape[0]
 
-        assert B != 0
-        assert O != 0
+        if B == 0 or O == 0:
+            if reals2d_ft is float2d_t:
+                return numpy.zeros(shape=(B, O), dtype="float32")
+            else:
+                return numpy.zeros(shape=(B, O), dtype="float64")
 
         cdef np.ndarray means
         if reals2d_ft is float2d_t:
@@ -338,8 +342,11 @@ class NumpyOps(Ops):
                 raise ValueError(f"all sequence lengths must be >= 0, got {length}")
             T += length
 
-        assert T != 0
-        assert O != 0
+        if T == 0 or O == 0:
+            if reals2d_ft is float2d_t:
+                return numpy.zeros(shape=(T, O), dtype="float32")
+            else:
+                return numpy.zeros(shape=(T, O), dtype="float64")
 
         cdef np.ndarray dX
         if reals2d_ft is float2d_t:
@@ -356,8 +363,11 @@ class NumpyOps(Ops):
         cdef int O = X.shape[1]
         cdef int T = X.shape[0]
 
-        assert B != 0
-        assert O != 0
+        if B == 0 or O == 0:
+            if reals2d_ft is float2d_t:
+                return numpy.zeros(shape=(B, O), dtype="float32")
+            else:
+                return numpy.zeros(shape=(B, O), dtype="float64")
 
         cdef np.ndarray sums
         if reals2d_ft is float2d_t:
@@ -379,8 +389,11 @@ class NumpyOps(Ops):
                 raise ValueError(f"all sequence lengths must be >= 0, got {length}")
             T += length
 
-        assert T != 0
-        assert O != 0
+        if T == 0 or O == 0:
+            if reals2d_ft is float2d_t:
+                return numpy.zeros(shape=(T, O), dtype="float32")
+            else:
+                return numpy.zeros(shape=(T, O), dtype="float64")
 
         cdef np.ndarray dX
         if reals2d_ft is float2d_t:
@@ -397,12 +410,16 @@ class NumpyOps(Ops):
         cdef int O = X.shape[1]
         cdef int T = X.shape[0]
 
-        assert B != 0
-        assert O != 0
-
-        cdef np.ndarray maxes
         # Needs to be zero-initialized as we start by assuming that the first element is the max value.
         cdef np.ndarray which = self.alloc(shape=(B, O), dtype="i", zeros=True)
+
+        if B == 0 or O == 0:
+            if reals2d_ft is float2d_t:
+                return numpy.zeros(shape=(B, O), dtype="float32"), which
+            else:
+                return numpy.zeros(shape=(B, O), dtype="float64"), which
+
+        cdef np.ndarray maxes
         if reals2d_ft is float2d_t:
             maxes = self.alloc(shape=(B, O), dtype="float32", zeros=False)
             cpu_reduce_max(<float*>maxes.data, <int*>which.data, &X[0, 0], &lengths[0], B, T, O)
@@ -422,8 +439,11 @@ class NumpyOps(Ops):
                 raise ValueError(f"all sequence lengths must be > 0, got {length}")
             T += length
 
-        assert T != 0
-        assert O != 0
+        if T == 0 or O == 0:
+            if reals2d_ft is float2d_t:
+                return numpy.zeros(shape=(T, O), dtype="float32")
+            else:
+                return numpy.zeros(shape=(T, O), dtype="float64")
 
         cdef np.ndarray dX
         if reals2d_ft is float2d_t:

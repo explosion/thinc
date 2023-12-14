@@ -1,9 +1,8 @@
-from typing import Tuple, Callable, Optional, cast, TypeVar, List
+from typing import Callable, List, Optional, Tuple, TypeVar, cast
 
-from ..model import Model
 from ..config import registry
-from ..types import Array3d, Array2d
-
+from ..model import Model
+from ..types import Array2d, Array3d
 
 InT = TypeVar("InT", bound=Array3d)
 OutT = TypeVar("OutT", bound=Array2d)

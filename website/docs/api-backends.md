@@ -937,9 +937,10 @@ Backpropagate the Swish activation
 
 </inline-list>
 
-Dish or "Daniël's Swish-like activation" is an activation function with a non-monotinic shape similar to
-[GELU](#gelu), [Swish](#swish) and [Mish](#mish). However, Dish does not rely on
-elementary functions like `exp` or `erf`, making it much
+Dish or "Daniël's Swish-like activation" is an activation function with a
+non-monotinic shape similar to [GELU](#gelu), [Swish](#swish) and [Mish](#mish).
+However, Dish does not rely on elementary functions like `exp` or `erf`, making
+it much
 [faster to compute](https://twitter.com/danieldekok/status/1484898130441166853)
 in most cases.
 
@@ -1264,9 +1265,12 @@ Backpropagate the hard Swish MobileNet activation.
 
 </inline-list>
 
-Perform sequence-wise first pooling for data in the ragged format. Zero-length
-sequences are not allowed. A `ValueError` is raised if any element in `lengths`
-is zero.
+Perform sequence-wise first pooling for data in the ragged format.
+
+- Zero-length sequences are not allowed. A `ValueError` is raised if any element
+  in `lengths` is zero.
+- Batch and hidden dimensions can have a size of zero. In these cases the
+  corresponding dimensions in the output also have a size of zero.
 
 | Argument    | Type                            | Description                                                           |
 | ----------- | ------------------------------- | --------------------------------------------------------------------- |
@@ -1302,9 +1306,12 @@ Backpropagate the `reduce_first` operation.
 
 </inline-list>
 
-Perform sequence-wise last pooling for data in the ragged format. Zero-length
-sequences are not allowed. A `ValueError` is raised if any element in `lengths`
-is zero.
+Perform sequence-wise last pooling for data in the ragged format.
+
+- Zero-length sequences are not allowed. A `ValueError` is raised if any element
+  in `lengths` is zero.
+- Batch and hidden dimensions can have a size of zero. In these cases the
+  corresponding dimensions in the output also have a size of zero.
 
 | Argument    | Type                            | Description                                                                     |
 | ----------- | ------------------------------- | ------------------------------------------------------------------------------- |
@@ -1340,8 +1347,11 @@ Backpropagate the `reduce_last` operation.
 
 </inline-list>
 
-Perform sequence-wise summation for data in the ragged format. Zero-length
-sequences are reduced to the zero vector.
+Perform sequence-wise summation for data in the ragged format.
+
+- Zero-length sequences are reduced to all-zero vectors.
+- Batch and hidden dimensions can have a size of zero. In these cases the
+  corresponding dimensions in the output also have a size of zero.
 
 | Argument    | Type              | Description                   |
 | ----------- | ----------------- | ----------------------------- |
@@ -1377,8 +1387,11 @@ Backpropagate the `reduce_sum` operation.
 
 </inline-list>
 
-Perform sequence-wise averaging for data in the ragged format. Zero-length
-sequences are reduced to the zero vector.
+Perform sequence-wise averaging for data in the ragged format.
+
+- Zero-length sequences are reduced to all-zero vectors.
+- Batch and hidden dimensions can have a size of zero. In these cases the
+  corresponding dimensions in the output also have a size of zero.
 
 | Argument    | Type              | Description                 |
 | ----------- | ----------------- | --------------------------- |
@@ -1415,8 +1428,12 @@ Backpropagate the `reduce_mean` operation.
 </inline-list>
 
 Perform sequence-wise max pooling for data in the ragged format. Zero-length
-sequences are not allowed. A `ValueError` is raised if any element in `lengths`
-is zero.
+sequences are not allowed.
+
+- Zero-length sequences are not allowed. A `ValueError` is raised if any element
+  in `lengths` is zero.
+- Batch and hidden dimensions can have a size of zero. In these cases the
+  corresponding dimensions in the output also have a size of zero.
 
 | Argument    | Type                             | Description                 |
 | ----------- | -------------------------------- | --------------------------- |
@@ -1434,8 +1451,7 @@ is zero.
 
 </inline-list>
 
-Backpropagate the `reduce_max` operation. A `ValueError` is raised if any
-element in `lengths` is zero.
+Backpropagate the `reduce_max` operation.
 
 | Argument    | Type              | Description                                 |
 | ----------- | ----------------- | ------------------------------------------- |

@@ -1,23 +1,31 @@
+import inspect
+import platform
 from typing import Tuple, cast
 
-import pytest
 import numpy
+import pytest
 from hypothesis import given, settings
 from hypothesis.strategies import composite, integers
 from numpy.testing import assert_allclose
 from packaging.version import Version
-from thinc.api import NumpyOps, CupyOps, Ops, get_ops
-from thinc.api import get_current_ops, use_ops
-from thinc.util import torch2xp, xp2torch
+
+from thinc.api import (
+    LSTM,
+    CupyOps,
+    NumpyOps,
+    Ops,
+    fix_random_seed,
+    get_current_ops,
+    get_ops,
+    use_ops,
+)
+from thinc.backends._custom_kernels import KERNELS, KERNELS_LIST, compile_mmh
 from thinc.compat import has_cupy_gpu, has_torch, torch_version
-from thinc.api import fix_random_seed
-from thinc.api import LSTM
 from thinc.types import Floats2d
-import inspect
+from thinc.util import torch2xp, xp2torch
 
 from .. import strategies
 from ..strategies import arrays_BI, ndarrays_of_shape
-
 
 MAX_EXAMPLES = 10
 
@@ -31,11 +39,27 @@ if has_cupy_gpu:
 ALL_OPS = XP_OPS + [VANILLA_OPS]
 
 FLOAT_TYPES = ["float32", "float64"]
+INT_TYPES = ["int32", "int64"]
+
+REDUCTIONS = ["reduce_first", "reduce_last", "reduce_max", "reduce_mean", "reduce_sum"]
+
+REDUCE_ZERO_LENGTH_RAISES = [
+    ("reduce_first", True),
+    ("reduce_last", True),
+    ("reduce_max", True),
+    # From a mathematical perspective we'd want mean reduction to raise for
+    # zero-length sequences, since floating point numbers are not a monoid
+    # under averaging. However, floret relies on reduce_mean to return a
+    # zero-vector in this case.
+    ("reduce_mean", False),
+    ("reduce_sum", False),
+]
 
 
 def create_pytorch_funcs():
-    import torch
     import math
+
+    import torch
 
     def torch_relu(x):
         return torch.nn.functional.relu(x)
@@ -132,6 +156,7 @@ def test_ops_consistency(op):
 
 
 @pytest.mark.parametrize("ops", ALL_OPS)
+@pytest.mark.filterwarnings("ignore::RuntimeWarning")
 def test_adam_incorrect_inputs(ops):
     one = ops.xp.zeros(1, dtype="f")
     two = ops.xp.zeros(2, dtype="f")
@@ -790,6 +815,39 @@ def test_flatten_unflatten_roundtrip(cpu_ops, X):
 
 
 @pytest.mark.parametrize("ops", ALL_OPS)
+@pytest.mark.parametrize("dtype", FLOAT_TYPES + INT_TYPES)
+def test_pad(ops, dtype):
+    X = [ops.xp.arange(1, 3, dtype=dtype), ops.xp.arange(1, 5, dtype=dtype)]
+    ops.xp.testing.assert_allclose(ops.pad(X), [[1, 2, 0, 0], [1, 2, 3, 4]])
+    ops.xp.testing.assert_allclose(
+        ops.pad(X, round_to=8), [[1, 2, 0, 0, 0, 0, 0, 0], [1, 2, 3, 4, 0, 0, 0, 0]]
+    )
+
+    X = [
+        ops.xp.arange(1, 5, dtype=dtype).reshape(2, 2),
+        ops.xp.arange(1, 9, dtype=dtype).reshape(4, 2),
+    ]
+    ops.xp.testing.assert_allclose(
+        ops.pad(X),
+        [
+            [[1, 2], [3, 4], [0, 0], [0, 0]],
+            [[1, 2], [3, 4], [5, 6], [7, 8]],
+        ],
+    )
+
+    ops.xp.testing.assert_allclose(
+        ops.pad(X, round_to=5),
+        [
+            [[1, 2], [3, 4], [0, 0], [0, 0], [0, 0]],
+            [[1, 2], [3, 4], [5, 6], [7, 8], [0, 0]],
+        ],
+    )
+
+    with pytest.raises(ValueError, match=r"Rounding for padding must at least be 1"):
+        ops.pad(X, round_to=0)
+
+
+@pytest.mark.parametrize("ops", ALL_OPS)
 @pytest.mark.parametrize("dtype", FLOAT_TYPES)
 def test_reduce_sum(ops, dtype):
     X = ops.asarray2f(
@@ -1034,6 +1092,71 @@ def test_backprop_reduce_mean(ops, dtype):
 
 
 @pytest.mark.parametrize("ops", ALL_OPS)
+@pytest.mark.parametrize("dtype", FLOAT_TYPES)
+@pytest.mark.parametrize("reduction", REDUCTIONS)
+def test_reduce_empty_batch(ops, dtype, reduction):
+    func = getattr(ops, reduction)
+    backprop_func = getattr(ops, f"backprop_{reduction}")
+
+    lengths = ops.asarray1i([])
+    Y = func(ops.alloc((0, 10), dtype=dtype), lengths)
+
+    if reduction == "reduce_max":
+        Y, which = Y
+        dX = backprop_func(Y, which, lengths)
+    elif isinstance(Y, tuple):
+        Y, extra = Y
+        dX = backprop_func(Y, extra)
+    else:
+        dX = backprop_func(Y, lengths)
+
+    assert Y.shape == (0, 10)
+    assert dX.shape == (0, 10)
+
+
+@pytest.mark.parametrize("ops", ALL_OPS)
+@pytest.mark.parametrize("dtype", FLOAT_TYPES)
+@pytest.mark.parametrize("reduction", REDUCTIONS)
+def test_reduce_empty_hidden(ops, dtype, reduction):
+    func = getattr(ops, reduction)
+    backprop_func = getattr(ops, f"backprop_{reduction}")
+
+    lengths = ops.asarray1i([2, 3])
+    Y = func(ops.alloc((5, 0), dtype=dtype), lengths)
+
+    if reduction == "reduce_max":
+        Y, which = Y
+        dX = backprop_func(Y, which, lengths)
+    elif isinstance(Y, tuple):
+        Y, extra = Y
+        dX = backprop_func(Y, extra)
+    else:
+        dX = backprop_func(Y, lengths)
+
+    assert Y.shape == (2, 0)
+    assert dX.shape == (5, 0)
+
+
+@pytest.mark.parametrize("ops", ALL_OPS)
+@pytest.mark.parametrize("dtype", FLOAT_TYPES)
+@pytest.mark.parametrize("reduction_raises", REDUCE_ZERO_LENGTH_RAISES)
+def test_reduce_zero_seq_length(ops, dtype, reduction_raises):
+    reduction_str, raises = reduction_raises
+    reduction = getattr(ops, reduction_str)
+    X = ops.asarray2f(
+        [[1.0, 2.0], [3.0, 4.0], [5.0, 6.0], [1.0, 2.0], [3.0, 4.0]], dtype=dtype
+    )
+    lengths = ops.asarray1i([3, 0, 2])
+
+    if raises:
+        with pytest.raises(ValueError):
+            reduction(X, lengths)
+    else:
+        # All non-raising reductions have zero as their identity element.
+        ops.xp.testing.assert_allclose(reduction(X, lengths)[1], [0.0, 0.0])
+
+
+@pytest.mark.parametrize("ops", ALL_OPS)
 @settings(max_examples=MAX_EXAMPLES, deadline=None)
 @given(X=strategies.arrays_BI())
 def test_mish(ops, X):
@@ -1260,6 +1383,7 @@ def test_lstm_forward_training(ops, depth, dirs, nO, batch_size, nI):
     assert_allclose(Y, reference[0], atol=1e-4, rtol=1e-3)
 
 
+@pytest.mark.skipif(platform.machine() == "aarch64", reason="Flaky, skip temporarily")
 @pytest.mark.parametrize("ops", XP_OPS)
 @settings(max_examples=MAX_EXAMPLES, deadline=None)
 @given(args=draw_lstm_args())
@@ -1464,3 +1588,19 @@ def test_to_numpy_byteorder(ops, byte_order, x):
         assert y.dtype.newbyteorder("S").newbyteorder("S").byteorder == byte_order
     else:
         assert x.dtype.byteorder == y.dtype.byteorder
+
+
+@pytest.mark.skipif(not has_cupy_gpu, reason="needs GPU/CuPy")
+def test_custom_kernel_compilation():
+    for kernel_name in KERNELS_LIST:
+        compiled_kernel = KERNELS.get_function(kernel_name)
+        assert compiled_kernel is not None
+
+    assert compile_mmh() is not None
+
+
+@pytest.mark.parametrize("ops", ALL_OPS)
+def test_asarray_from_list_uint64(ops):
+    # list contains int values both above and below int64.max
+    uint64_list = [16, 11648197037703959513]
+    assert uint64_list == list(ops.asarray(uint64_list, dtype="uint64"))

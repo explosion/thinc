@@ -1,9 +1,9 @@
 import ast
+import importlib
 from collections import namedtuple
-from typing import Tuple, List
+from typing import List, Tuple
 
 import pytest
-import importlib
 
 _Import = namedtuple("_Import", ["module", "name", "alias"])
 

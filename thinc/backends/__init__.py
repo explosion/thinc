@@ -1,20 +1,23 @@
 import contextlib
-from typing import Type, Dict, Any, Callable, Optional, cast
-
-from contextvars import ContextVar
 import threading
+from contextvars import ContextVar
+from typing import Any, Callable, Dict, Optional, Type, cast
 
-from .ops import Ops
-from .cupy_ops import CupyOps
-from .numpy_ops import NumpyOps
-from .mps_ops import MPSOps
-from ._cupy_allocators import cupy_tensorflow_allocator, cupy_pytorch_allocator
-from ._param_server import ParamServer
-from ..util import assert_tensorflow_installed, assert_pytorch_installed
-from ..util import get_torch_default_device, is_cupy_array, require_cpu
 from .. import registry
 from ..compat import cupy, has_cupy
-
+from ..util import (
+    assert_pytorch_installed,
+    assert_tensorflow_installed,
+    get_torch_default_device,
+    is_cupy_array,
+    require_cpu,
+)
+from ._cupy_allocators import cupy_pytorch_allocator, cupy_tensorflow_allocator
+from ._param_server import ParamServer
+from .cupy_ops import CupyOps
+from .mps_ops import MPSOps
+from .numpy_ops import NumpyOps
+from .ops import Ops
 
 context_ops: ContextVar[Optional[Ops]] = ContextVar("context_ops", default=None)
 context_pools: ContextVar[dict] = ContextVar("context_pools", default={})

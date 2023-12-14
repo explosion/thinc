@@ -1,11 +1,20 @@
-import pytest
 import numpy
 import numpy.testing
-from thinc.api import NumpyOps, Model, Linear, noop
-from thinc.api import with_array2d, with_array, with_padded, with_list
-from thinc.api import with_ragged, with_getitem
-from thinc.types import Padded, Ragged
+import pytest
 
+from thinc.api import (
+    Linear,
+    Model,
+    NumpyOps,
+    noop,
+    with_array,
+    with_array2d,
+    with_getitem,
+    with_list,
+    with_padded,
+    with_ragged,
+)
+from thinc.types import Padded, Ragged
 
 from ..util import get_data_checker
 

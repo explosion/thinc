@@ -1,10 +1,9 @@
-from typing import Tuple, Callable, Optional, cast
+from typing import Callable, Optional, Tuple, cast
 
-from ..model import Model
 from ..config import registry
+from ..model import Model
 from ..types import Floats1d, Floats2d
 from ..util import get_width
-
 
 InT = Tuple[Floats2d, Floats2d]
 OutT = Floats1d
