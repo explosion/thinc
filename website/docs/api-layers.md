@@ -686,6 +686,44 @@ attention mechanism.
 https://github.com/explosion/thinc/blob/master/thinc/layers/parametricattention.py
 ```
 
+### ParametricAttention_v2 {#parametricattention_v2 tag="function"}
+
+<inline-list>
+
+- **Input:** <ndarray>Ragged</ndarray>
+- **Output:** <ndarray>Ragged</ndarray>
+- **Parameters:** <ndarray shape="nO,">Q</ndarray>
+
+</inline-list>
+
+A layer that uses the parametric attention scheme described by
+[Yang et al. (2016)](https://aclanthology.org/N16-1174).
+The layer learns a parameter vector that is used as the keys in a single-headed
+attention mechanism.
+
+<infobox variant="warning">
+
+The original `ParametricAttention` layer uses the hidden representation as-is
+for the keys in the attention. This differs from the paper that introduces
+parametric attention (Equation 5). `ParametricAttention_v2` adds the option to
+transform the key representation in line with the paper by passing such a 
+transformation through the `key_transform` parameter.
+
+</infobox>
+
+
+| Argument        | Type                                         | Description                                                            |
+|-----------------|----------------------------------------------|------------------------------------------------------------------------|
+| `key_transform` | <tt>Optional[Model[Floats2d, Floats2d]]</tt> | Transformation to apply to the key representations. Defaults to `None` |
+| `nO`            | <tt>Optional[int]</tt>                       | The size of the output vectors.                                        |
+| **RETURNS**     | <tt>Model[Ragged, Ragged]</tt>               | The created attention layer.                                           |
+
+```python
+https://github.com/explosion/thinc/blob/master/thinc/layers/parametricattention_v2.py
+```
+
+
+
 ### Relu {#relu tag="function"}
 
 <inline-list>
