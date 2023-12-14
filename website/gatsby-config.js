@@ -90,6 +90,13 @@ const plugins = [
     `gatsby-plugin-offline`,
 ]
 
+plugins.push({
+    resolve: `gatsby-plugin-sass-resources`,
+    options: {
+        resources: ['./src/styles/base.sass'],
+    },
+})
+
 if (fs.existsSync('./src/fonts')) {
     plugins.push({
         resolve: `gatsby-plugin-sass-resources`,

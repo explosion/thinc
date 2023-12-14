@@ -1,6 +1,15 @@
 import pytest
-from thinc.api import chain, Relu, reduce_max, Softmax, with_ragged
-from thinc.api import ParametricAttention, list2ragged, reduce_sum
+
+from thinc.api import (
+    ParametricAttention,
+    Relu,
+    Softmax,
+    chain,
+    list2ragged,
+    reduce_max,
+    reduce_sum,
+    with_ragged,
+)
 from thinc.util import DataValidationError, data_validation
 
 

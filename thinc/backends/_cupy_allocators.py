@@ -1,8 +1,8 @@
 from typing import cast
 
+from ..compat import cupy, tensorflow, torch
 from ..types import ArrayXd
 from ..util import get_torch_default_device, tensorflow2xp
-from ..compat import torch, cupy, tensorflow
 
 
 def cupy_tensorflow_allocator(size_in_bytes: int):
@@ -12,7 +12,7 @@ def cupy_tensorflow_allocator(size_in_bytes: int):
     sitting in the other library's pool.
     """
     size_in_bytes = max(1024, size_in_bytes)
-    tensor = tensorflow.zeros((size_in_bytes // 4,), dtype=tensorflow.dtypes.float32)
+    tensor = tensorflow.zeros((size_in_bytes // 4,), dtype=tensorflow.dtypes.float32)  # type: ignore
     # We convert to cupy via dlpack, so that we can get a memory pointer.
     cupy_array = cast(ArrayXd, tensorflow2xp(tensor))
     address = int(cupy_array.data)

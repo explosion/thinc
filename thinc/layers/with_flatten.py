@@ -1,7 +1,7 @@
-from typing import Tuple, Callable, Sequence, Any, cast, TypeVar, Optional, List
+from typing import Any, Callable, List, Optional, Sequence, Tuple, TypeVar, cast
 
-from ..model import Model
 from ..config import registry
+from ..model import Model
 from ..types import ArrayXd, ListXd
 
 ItemT = TypeVar("ItemT")

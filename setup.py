@@ -1,8 +1,7 @@
 #!/usr/bin/env python
 import sys
-import distutils.util
-from distutils.command.build_ext import build_ext
-from distutils.sysconfig import get_python_inc
+from setuptools.command.build_ext import build_ext
+from sysconfig import get_path
 from setuptools import Extension, setup, find_packages
 from pathlib import Path
 import numpy
@@ -22,6 +21,7 @@ MOD_NAMES = [
     "thinc.backends.numpy_ops",
     "thinc.extra.search",
     "thinc.layers.sparselinear",
+    "thinc.layers.premap_ids",
 ]
 COMPILE_OPTIONS = {
     "msvc": ["/Ox", "/EHsc"],
@@ -31,32 +31,9 @@ COMPILER_DIRECTIVES = {
     "language_level": 3,
     "embedsignature": True,
     "annotation_typing": False,
+    "profile": sys.version_info < (3, 12),
 }
 LINK_OPTIONS = {"msvc": [], "other": []}
-
-
-def is_new_osx():
-    """Check whether we're on OSX >= 10.10"""
-    name = distutils.util.get_platform()
-    if sys.platform != "darwin":
-        return False
-    elif name.startswith("macosx-10"):
-        minor_version = int(name.split("-")[1].split(".")[1])
-        if minor_version >= 7:
-            return True
-        else:
-            return False
-    else:
-        return False
-
-
-if is_new_osx():
-    # On Mac, use libc++ because Apple deprecated use of libstdc
-    COMPILE_OPTIONS["other"].append("-stdlib=libc++")
-    LINK_OPTIONS["other"].append("-lc++")
-    # g++ (used by unix compiler on mac) links to libstdc++ as a default lib.
-    # See: https://stackoverflow.com/questions/1653047/avoid-linking-to-libstdc
-    LINK_OPTIONS["other"].append("-nodefaultlibs")
 
 
 # By subclassing build_extensions we have the actual compiler that will be used
@@ -99,14 +76,16 @@ def setup_package():
         about = {}
         exec(f.read(), about)
 
-    include_dirs = [numpy.get_include(), get_python_inc(plat_specific=True)]
+    include_dirs = [numpy.get_include(), get_path("include")]
     ext_modules = []
     for name in MOD_NAMES:
         mod_path = name.replace(".", "/") + ".pyx"
         ext = Extension(name, [mod_path], language="c++", include_dirs=include_dirs)
         ext_modules.append(ext)
     print("Cythonizing sources")
-    ext_modules = cythonize(ext_modules, compiler_directives=COMPILER_DIRECTIVES, language_level=2)
+    ext_modules = cythonize(
+        ext_modules, compiler_directives=COMPILER_DIRECTIVES, language_level=2
+    )
 
     setup(
         name="thinc",

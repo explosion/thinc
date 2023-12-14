@@ -1,9 +1,10 @@
-import pytest
-from mock import MagicMock
-from hypothesis import given, settings
 import numpy
+import pytest
+from hypothesis import given, settings
+from mock import MagicMock
 from numpy.testing import assert_allclose
-from thinc.api import Linear, chain, Dropout, SGD
+
+from thinc.api import SGD, Dropout, Linear, chain
 
 from ..strategies import arrays_OI_O_BI
 from ..util import get_model, get_shape

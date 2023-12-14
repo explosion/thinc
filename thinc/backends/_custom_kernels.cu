@@ -122,6 +122,25 @@ __global__ void seq2col(T* output, const T* X, const int* lengths,
 
 
 template <typename T>
+__global__ void pad(T* out, T const **seqs, int const *lengths, int stride, int N, int L)
+{
+    int _loop_start = blockIdx.x * blockDim.x + threadIdx.x;
+    int _loop_stride = blockDim.x * gridDim.x;
+
+    for (int i = _loop_start; i < L * stride; i += _loop_stride) {
+        for (int j = 0; j < N; ++j) {
+            T const *seq = seqs[j];
+            if (i < lengths[j] * stride) {
+                out[j * L * stride + i] = seq[i];
+            } else {
+                out[j * L * stride + i] = T();
+            }
+        }
+    }
+}
+
+
+template <typename T>
 __global__ void maxout(T* best, int* which, const T* cands, int B, int O, int P)
 {
     int _loop_start = blockIdx.x * blockDim.x + threadIdx.x;

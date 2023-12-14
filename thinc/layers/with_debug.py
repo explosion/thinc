@@ -1,4 +1,4 @@
-from typing import Optional, Callable, Any, Tuple, TypeVar
+from typing import Any, Callable, Optional, Tuple, TypeVar
 
 from ..model import Model
 

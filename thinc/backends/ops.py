@@ -1,18 +1,53 @@
-import math
-
-from typing import Optional, List, Tuple, Sequence, Type, Union, cast, TypeVar
-from typing import Iterator, overload, Any
-import numpy
 import itertools
+import math
+from typing import (
+    Any,
+    Iterator,
+    List,
+    Optional,
+    Sequence,
+    Tuple,
+    Type,
+    TypeVar,
+    Union,
+    cast,
+    overload,
+)
 
-from ..types import Xp, Shape, DTypes, DTypesInt, DTypesFloat, List2d, ArrayXd
-from ..types import Floats1d, Floats2d, Floats3d, Floats4d
-from ..types import Array1d, Array2d, Array3d, Array4d, ListXd
-from ..types import FloatsXd, Ints1d, Ints2d, Ints3d, Ints4d, IntsXd, _Floats
-from ..types import FloatsXdT
-from ..types import DeviceTypes, Generator, Padded, Batchable, SizedGenerator
+import numpy
+
+from ..types import (
+    Array1d,
+    Array2d,
+    Array3d,
+    Array4d,
+    ArrayXd,
+    Batchable,
+    DeviceTypes,
+    DTypes,
+    DTypesFloat,
+    DTypesInt,
+    Floats1d,
+    Floats2d,
+    Floats3d,
+    Floats4d,
+    FloatsXd,
+    FloatsXdT,
+    Generator,
+    Ints1d,
+    Ints2d,
+    Ints3d,
+    Ints4d,
+    IntsXd,
+    List2d,
+    ListXd,
+    Padded,
+    Shape,
+    SizedGenerator,
+    Xp,
+    _Floats,
+)
 from ..util import get_array_module, is_xp_array, to_numpy
-
 from .cblas import CBlas
 
 ArrayT = TypeVar("ArrayT", bound=ArrayXd)
@@ -358,6 +393,11 @@ class Ops:
         length, by taking the maximum dimension across each axis. This only
         works on non-empty sequences with the same `ndim` and `dtype`.
         """
+        if round_to < 1:
+            raise ValueError(
+                f"Rounding for padding must at least be 1, was: {round_to}"
+            )
+
         # TODO: This should be generalized to handle different ranks
         if not seqs:
             raise ValueError("Cannot pad empty sequence")
@@ -368,11 +408,11 @@ class Ops:
         if len(set(seq.shape[1:] for seq in seqs)) != 1:
             raise ValueError("Cannot pad sequences that differ on other dimensions")
         # Find the maximum dimension along each axis. That's what we'll pad to.
-        length = max(len(seq) for seq in seqs)
+        max_seq_len = max(len(seq) for seq in seqs)
         # Round the length to nearest bucket -- helps on GPU, to make similar
         # array sizes.
-        length = (length + (round_to - 1)) // round_to * round_to
-        final_shape = (len(seqs), length) + seqs[0].shape[1:]
+        max_seq_len += -max_seq_len % round_to
+        final_shape = (len(seqs), max_seq_len) + seqs[0].shape[1:]
         output: Array3d = cast(Array3d, self.alloc(final_shape, dtype=seqs[0].dtype))
         for i, arr in enumerate(seqs):
             # It's difficult to convince this that the dtypes will match.
@@ -1249,8 +1289,10 @@ class Ops:
     def backprop_reduce_first(
         self, d_firsts: Floats2d, starts_ends: Ints1d
     ) -> Floats2d:
-        if starts_ends.size < 2:
-            raise ValueError(f"starts_ends should least have size 2")
+        if starts_ends.size == 0:
+            return self.alloc2f(0, d_firsts.shape[1], dtype=d_firsts.dtype, zeros=True)
+        elif starts_ends.size == 1:
+            raise ValueError(f"starts_ends must not have size 1")
         dX = self.alloc2f(
             int(starts_ends[-1]), d_firsts.shape[1], dtype=d_firsts.dtype, zeros=True
         )
@@ -1258,8 +1300,8 @@ class Ops:
         return dX
 
     def backprop_reduce_last(self, d_lasts: Floats2d, lasts: Ints1d) -> Floats2d:
-        if lasts.size < 1:
-            raise ValueError(f"lasts should least have size 2")
+        if lasts.size == 0:
+            return self.alloc2f(0, d_lasts.shape[1], dtype=d_lasts.dtype, zeros=True)
         dX = self.alloc2f(
             int(lasts[-1]) + 1, d_lasts.shape[1], dtype=d_lasts.dtype, zeros=True
         )

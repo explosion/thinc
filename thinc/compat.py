@@ -1,3 +1,5 @@
+import warnings
+
 from packaging.version import Version
 
 try:  # pragma: no cover
@@ -27,16 +29,13 @@ except (ImportError, AttributeError):
 
 
 try:  # pragma: no cover
-    import torch.utils.dlpack
     import torch
+    import torch.utils.dlpack
 
     has_torch = True
     has_torch_cuda_gpu = torch.cuda.device_count() != 0
-    has_torch_mps_gpu = (
-        hasattr(torch, "has_mps")
-        and torch.has_mps  # type: ignore[attr-defined]
-        and torch.backends.mps.is_available()  # type: ignore[attr-defined]
-    )
+    has_torch_mps = hasattr(torch.backends, "mps") and torch.backends.mps.is_built()
+    has_torch_mps_gpu = has_torch_mps and torch.backends.mps.is_available()
     has_torch_gpu = has_torch_cuda_gpu
     torch_version = Version(str(torch.__version__))
     has_torch_amp = (
@@ -48,29 +47,50 @@ except ImportError:  # pragma: no cover
     has_torch = False
     has_torch_cuda_gpu = False
     has_torch_gpu = False
+    has_torch_mps = False
     has_torch_mps_gpu = False
     has_torch_amp = False
     torch_version = Version("0.0.0")
 
-try:  # pragma: no cover
-    import tensorflow.experimental.dlpack
+
+def enable_tensorflow():
+    warn_msg = (
+        "Built-in TensorFlow support will be removed in Thinc v9. If you need "
+        "TensorFlow support in the future, you can transition to using a "
+        "custom copy of the current TensorFlowWrapper in your package or "
+        "project."
+    )
+    warnings.warn(warn_msg, DeprecationWarning)
+    global tensorflow, has_tensorflow, has_tensorflow_gpu
     import tensorflow
+    import tensorflow.experimental.dlpack
 
     has_tensorflow = True
     has_tensorflow_gpu = len(tensorflow.config.get_visible_devices("GPU")) > 0
-except ImportError:  # pragma: no cover
-    tensorflow = None
-    has_tensorflow = False
-    has_tensorflow_gpu = False
 
 
-try:  # pragma: no cover
+tensorflow = None
+has_tensorflow = False
+has_tensorflow_gpu = False
+
+
+def enable_mxnet():
+    warn_msg = (
+        "Built-in MXNet support will be removed in Thinc v9. If you need "
+        "MXNet support in the future, you can transition to using a "
+        "custom copy of the current MXNetWrapper in your package or "
+        "project."
+    )
+    warnings.warn(warn_msg, DeprecationWarning)
+    global mxnet, has_mxnet
     import mxnet
 
     has_mxnet = True
-except ImportError:  # pragma: no cover
-    mxnet = None
-    has_mxnet = False
+
+
+mxnet = None
+has_mxnet = False
+
 
 try:
     import h5py

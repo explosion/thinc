@@ -1,0 +1,11 @@
+# Avoid uploading large Docker contexts
+.cache/
+public/
+node_modules
+.npm
+logs
+*.log
+npm-debug.log*
+www/
+_deploy.sh
+*.html

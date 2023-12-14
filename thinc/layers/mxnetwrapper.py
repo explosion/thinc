@@ -1,11 +1,10 @@
-from typing import Callable, Tuple, Optional, Any, Type
+from typing import Any, Callable, Optional, Tuple, Type
 
+from ..config import registry
 from ..model import Model
 from ..shims import MXNetShim
-from ..config import registry
-from ..util import is_xp_array, is_mxnet_array
-from ..util import mxnet2xp, xp2mxnet, convert_recursive
 from ..types import ArgsKwargs
+from ..util import convert_recursive, is_mxnet_array, is_xp_array, mxnet2xp, xp2mxnet
 
 
 @registry.layers("MXNetWrapper.v1")

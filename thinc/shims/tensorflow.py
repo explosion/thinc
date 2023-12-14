@@ -1,17 +1,19 @@
-from typing import Any, Dict, List, Optional
-import catalogue
+# mypy: ignore-errors
 import contextlib
 import copy
 from io import BytesIO
+from typing import Any, Dict, List, Optional
+
+import catalogue
 import numpy
 
 from ..backends import Ops, get_current_ops
+from ..compat import cupy, h5py
+from ..compat import tensorflow as tf
 from ..optimizers import Optimizer
 from ..types import ArgsKwargs, ArrayXd
 from ..util import get_array_module
 from .shim import Shim
-from ..compat import tensorflow as tf
-from ..compat import cupy, h5py
 
 keras_model_fns = catalogue.create("thinc", "keras", entry_points=True)
 

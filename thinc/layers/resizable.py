@@ -1,7 +1,7 @@
 from typing import Callable, Optional, TypeVar
 
-from ..model import Model
 from ..config import registry
+from ..model import Model
 from ..types import Floats2d
 
 InT = TypeVar("InT")
@@ -58,6 +58,9 @@ def resize_linear_weighted(
         layer.set_dim("nO", new_nO)
         return layer
     elif new_nO == layer.get_dim("nO"):
+        return layer
+    elif layer.has_dim("nI") is None:
+        layer.set_dim("nO", new_nO, force=True)
         return layer
 
     dims = {name: layer.maybe_get_dim(name) for name in layer.dim_names}

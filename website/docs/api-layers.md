@@ -686,6 +686,44 @@ attention mechanism.
 https://github.com/explosion/thinc/blob/master/thinc/layers/parametricattention.py
 ```
 
+### ParametricAttention_v2 {#parametricattention_v2 tag="function"}
+
+<inline-list>
+
+- **Input:** <ndarray>Ragged</ndarray>
+- **Output:** <ndarray>Ragged</ndarray>
+- **Parameters:** <ndarray shape="nO,">Q</ndarray>
+
+</inline-list>
+
+A layer that uses the parametric attention scheme described by
+[Yang et al. (2016)](https://aclanthology.org/N16-1174).
+The layer learns a parameter vector that is used as the keys in a single-headed
+attention mechanism.
+
+<infobox variant="warning">
+
+The original `ParametricAttention` layer uses the hidden representation as-is
+for the keys in the attention. This differs from the paper that introduces
+parametric attention (Equation 5). `ParametricAttention_v2` adds the option to
+transform the key representation in line with the paper by passing such a 
+transformation through the `key_transform` parameter.
+
+</infobox>
+
+
+| Argument        | Type                                         | Description                                                            |
+|-----------------|----------------------------------------------|------------------------------------------------------------------------|
+| `key_transform` | <tt>Optional[Model[Floats2d, Floats2d]]</tt> | Transformation to apply to the key representations. Defaults to `None` |
+| `nO`            | <tt>Optional[int]</tt>                       | The size of the output vectors.                                        |
+| **RETURNS**     | <tt>Model[Ragged, Ragged]</tt>               | The created attention layer.                                           |
+
+```python
+https://github.com/explosion/thinc/blob/master/thinc/layers/parametricattention_v2.py
+```
+
+
+
 ### Relu {#relu tag="function"}
 
 <inline-list>
@@ -1003,7 +1041,7 @@ model, e.g. `chain(f, g)` computes `g(f(x))`.
 
 | Argument    | Type           | Description                       |
 | ----------- | -------------- | --------------------------------- |
-| `layer1 `   | <tt>Model</tt> | The first model to compose.       |
+| `layer1`    | <tt>Model</tt> | The first model to compose.       |
 | `layer2`    | <tt>Model</tt> | The second model to compose.      |
 | `*layers`   | <tt>Model</tt> | Any additional models to compose. |
 | **RETURNS** | <tt>Model</tt> | The composed feed-forward model.  |
@@ -1795,6 +1833,16 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/torchscriptwrapper.p
 
 </inline-list>
 
+<infobox variant="warning">
+In Thinc v8.2+, TensorFlow support is not enabled by default. To enable TensorFlow:
+
+```python
+from thinc.api import enable_tensorflow
+enable_tensorflow()
+```
+
+</infobox>
+
 Wrap a [TensorFlow](https://tensorflow.org) model, so that it has the same API
 as Thinc models. To optimize the model, you'll need to create a TensorFlow
 optimizer and call `optimizer.apply_gradients` after each batch. To allow
@@ -1819,6 +1867,16 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/tensorflowwrapper.py
 - **Output:** <tt>Any</tt>
 
 </inline-list>
+
+<infobox variant="warning">
+In Thinc v8.2+, MXNet support is not enabled by default. To enable MXNet:
+
+```python
+from thinc.api import enable_mxnet
+enable_mxnet()
+```
+
+</infobox>
 
 Wrap a [MXNet](https://mxnet.apache.org/) model, so that it has the same API as
 Thinc models. To optimize the model, you'll need to create a MXNet optimizer and

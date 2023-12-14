@@ -1,4 +1,4 @@
-from thinc.api import chain, concatenate, Relu, Softmax
+from thinc.api import Relu, Softmax, chain, concatenate
 from thinc.model import Model
 from thinc.types import Floats2d
 

@@ -1,7 +1,7 @@
-from typing import TypeVar, Tuple, Callable, cast
+from typing import Callable, Tuple, TypeVar, cast
 
-from ..model import Model
 from ..config import registry
+from ..model import Model
 from ..types import FloatsXdT
 
 

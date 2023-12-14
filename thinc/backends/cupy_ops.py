@@ -1,13 +1,20 @@
 import numpy
+
 from .. import registry
-from .ops import Ops
-from .numpy_ops import NumpyOps
-from . import _custom_kernels
-from ..types import DeviceTypes
-from ..util import torch2xp, tensorflow2xp, mxnet2xp
-from ..util import is_cupy_array
-from ..util import is_torch_cuda_array, is_tensorflow_gpu_array, is_mxnet_gpu_array
 from ..compat import cupy, cupyx
+from ..types import DeviceTypes
+from ..util import (
+    is_cupy_array,
+    is_mxnet_gpu_array,
+    is_tensorflow_gpu_array,
+    is_torch_cuda_array,
+    mxnet2xp,
+    tensorflow2xp,
+    torch2xp,
+)
+from . import _custom_kernels
+from .numpy_ops import NumpyOps
+from .ops import Ops
 
 
 @registry.ops("CupyOps")
@@ -87,12 +94,38 @@ class CupyOps(Ops):
         elif is_mxnet_gpu_array(data):
             array = mxnet2xp(data)
         else:
-            array = self.xp.array(data)
+            array = self.xp.array(data, dtype=dtype)
 
         if dtype is not None:
             array = array.astype(dtype=dtype, copy=False)
 
         return array
+
+    def pad(self, seqs, round_to=1):
+        """Perform padding on a list of arrays so that they each have the same
+        length, by taking the maximum dimension across each axis. This only
+        works on non-empty sequences with the same `ndim` and `dtype`.
+        """
+        # TODO: This should be generalized to handle different ranks
+        if not seqs:
+            raise ValueError("Cannot pad empty sequence")
+        if len(set(seq.ndim for seq in seqs)) != 1:
+            raise ValueError("Cannot pad sequences with different ndims")
+        if len(set(seq.dtype for seq in seqs)) != 1:
+            raise ValueError("Cannot pad sequences with different dtypes")
+        if len(set(seq.shape[1:] for seq in seqs)) != 1:
+            raise ValueError("Cannot pad sequences that differ on other dimensions")
+
+        # Our CUDA kernel can currently only handle C contiguous arrays.
+        if not all(seq.flags["C_CONTIGUOUS"] for seq in seqs) or seqs[0].dtype not in (
+            "float32",
+            "float64",
+            "int32",
+            "int64",
+        ):
+            return super().pad(seqs, round_to)
+
+        return _custom_kernels.pad(seqs, round_to)
 
     def maxout(self, X):
         if X.dtype in ("float32", "float64"):
