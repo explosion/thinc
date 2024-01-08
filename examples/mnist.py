@@ -4,7 +4,6 @@ TensorFlow version: https://github.com/tensorflow/tensorflow/blob/master/tensorf
 """
 # pip install thinc ml_datasets typer
 from thinc.api import Model, chain, Relu, Softmax, Adam
-from thinc.api import CategoricalCrossentropy
 import ml_datasets
 from wasabi import msg
 from tqdm import tqdm
@@ -22,7 +21,6 @@ def main(
     )
     # Load the data
     (train_X, train_Y), (dev_X, dev_Y) = ml_datasets.mnist()
-    loss_func = CategoricalCrossentropy()
     # Set any missing shapes for the model.
     model.initialize(X=train_X[:5], Y=train_Y[:5])
     train_data = model.ops.multibatch(batch_size, train_X, train_Y, shuffle=True)
@@ -32,8 +30,7 @@ def main(
     for i in range(n_iter):
         for X, Y in tqdm(train_data, leave=False):
             Yh, backprop = model.begin_update(X)
-            grad, loss = loss_func(Yh, Y)
-            backprop(grad)
+            backprop(Yh - Y)
             model.finish_update(optimizer)
         # Evaluate and print progress
         correct = 0

@@ -1,7 +1,5 @@
 from typing import Any, Union, Sequence, cast, Dict, Optional, Callable, TypeVar
-from typing import List, Mapping
-from typing import TYPE_CHECKING
-
+from typing import List, Mapping, TYPE_CHECKING
 import numpy
 import platform
 import random
@@ -15,16 +13,17 @@ import threading
 import contextlib
 from contextvars import ContextVar
 from dataclasses import dataclass
+
 from .compat import has_cupy, has_mxnet, has_torch, has_tensorflow
 from .compat import has_cupy_gpu, has_torch_cuda_gpu, has_gpu
 from .compat import has_torch_mps
 from .compat import torch, cupy, tensorflow as tf, mxnet as mx, cupy_from_dlpack
-
-from .types import ArrayXd, ArgsKwargs, Ragged, Padded, FloatsXd, IntsXd, Floats2d  # noqa: E402
+from .types import ArrayXd, ArgsKwargs, Ragged, Padded, FloatsXd, IntsXd  # noqa: E402
 from . import types  # noqa: E402
 
 if TYPE_CHECKING:
     from .api import Ops
+
 
 DATA_VALIDATION: ContextVar[bool] = ContextVar("DATA_VALIDATION", default=False)
 
@@ -259,32 +258,6 @@ def to_categorical(
     label_distr = xp.full((n_classes, n_classes), nongold_prob, dtype="float32")
     xp.fill_diagonal(label_distr, 1 - label_smoothing)
     return label_distr[Y]
-
-
-def smooth_one_hot(X: Floats2d, label_smoothing: float) -> Floats2d:
-    """
-    Apply label-smoothing to one-hot array.
-    """
-    n_classes = X.shape[1]
-    max_smooth = (n_classes - 1) / n_classes
-    if label_smoothing < 0.0:
-        raise ValueError(
-            "Label-smoothing parameter has to be greater than or equal to 0"
-        )
-    if not n_classes > 1:
-        raise ValueError(
-            "n_classes should be greater than 1 when label smoothing is enabled,"
-            f"but {n_classes} was provided."
-        )
-    if label_smoothing >= max_smooth:
-        raise ValueError(
-            f"For {n_classes} classes "
-            "label_smoothing parameter has to be less than "
-            f"{max_smooth}, but found {label_smoothing}."
-        )
-    X[X == 1] = 1 - label_smoothing
-    X[X == 0] = label_smoothing / (n_classes - 1)
-    return X
 
 
 def get_width(
@@ -650,7 +623,6 @@ __all__ = [
     "require_gpu",
     "copy_array",
     "to_categorical",
-    "smooth_one_hot",
     "get_width",
     "xp2torch",
     "torch2xp",

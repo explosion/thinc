@@ -101,7 +101,11 @@ jobs:
         run: |
           pip install "protobuf~=3.20.0" "tensorflow~=2.5.0"
           pip install "mxnet; sys_platform != 'win32'"
-          pip install "torch!=1.13.0" --extra-index-url https://download.pytorch.org/whl/cpu
+          pip install "torch!=1.13.0; sys_platform!='darwin'" --extra-index-url https://download.pytorch.org/whl/cpu
+          # there is a bug related to MPS devices in github macos runners that
+          # will be fixed in torch v2.1.1
+          # https://github.com/pytorch/pytorch/pull/111576
+          pip install "torch>=2.1.1; sys_platform=='darwin'" --extra-index-url https://download.pytorch.org/whl/cpu
           pip install "numpy~=1.23.0; python_version=='3.10' and sys_platform=='win32'"
           pip install "numpy<1.24.0"
           pip install -r requirements.txt
