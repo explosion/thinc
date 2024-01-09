@@ -1,8 +1,8 @@
 """Generators that provide different rates, schedules, decays or series."""
-from typing import Any, Callable, Dict, Generator, Generic, Tuple, TypeVar
-from typing import Optional
-from dataclasses import dataclass
 import itertools
+from dataclasses import dataclass
+from typing import Any, Callable, Dict, Generator, Generic, Optional, Tuple, TypeVar
+
 import numpy
 
 from .config import registry

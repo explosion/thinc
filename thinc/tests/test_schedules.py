@@ -1,7 +1,16 @@
 from itertools import islice
+
 import pytest
-from thinc.api import decaying, compounding, slanted_triangular, constant_then
-from thinc.api import constant, warmup_linear, cyclic_triangular
+
+from thinc.api import (
+    compounding,
+    constant,
+    constant_then,
+    cyclic_triangular,
+    decaying,
+    slanted_triangular,
+    warmup_linear,
+)
 from thinc.optimizers import KeyT
 from thinc.schedules import plateau
 

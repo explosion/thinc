@@ -1,14 +1,22 @@
-from typing import Any, List, Tuple, Callable, Optional
-from typing import TypeVar, cast, Dict, Union, Sequence
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Sequence,
+    Tuple,
+    TypeVar,
+    Union,
+    cast,
+)
 
 from ..backends import NumpyOps
-from ..model import Model
 from ..config import registry
-from ..types import Array2d, Ragged
+from ..model import Model
+from ..types import Array2d, Ragged, XY_XY_OutT
 from ..util import get_width
 from .noop import noop
-from ..types import XY_XY_OutT
-
 
 NUMPY_OPS = NumpyOps()
 

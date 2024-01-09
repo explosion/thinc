@@ -1,16 +1,15 @@
 # cython: infer_types=True, cdivision=True, bounds_check=False, wraparound=False
-cimport numpy as np
-from libc.stdint cimport uint64_t, int32_t, uint32_t
 cimport cython
+cimport numpy as np
+from libc.stdint cimport int32_t, uint32_t, uint64_t
 
-from typing import Tuple, Callable, Optional
+from typing import Callable, Optional, Tuple
 
-from ..types import ArrayXd
-from ..model import Model
+from ..backends import CupyOps, NumpyOps
 from ..config import registry
-from ..util import get_width, is_cupy_array, is_numpy_array, get_array_module
-from ..backends import NumpyOps, CupyOps
-
+from ..model import Model
+from ..types import ArrayXd
+from ..util import get_array_module, get_width, is_cupy_array, is_numpy_array
 
 InT = Tuple[ArrayXd, ArrayXd, ArrayXd]
 OutT = ArrayXd

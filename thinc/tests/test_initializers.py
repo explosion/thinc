@@ -1,8 +1,14 @@
-import pytest
-from thinc.api import glorot_uniform_init, zero_init, uniform_init, normal_init
-from thinc.api import NumpyOps
-from thinc import registry
 import numpy
+import pytest
+
+from thinc import registry
+from thinc.api import (
+    NumpyOps,
+    glorot_uniform_init,
+    normal_init,
+    uniform_init,
+    zero_init,
+)
 
 
 @pytest.mark.parametrize(

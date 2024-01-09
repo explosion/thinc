@@ -1,12 +1,18 @@
-from typing import Callable, Dict, Tuple, Optional, Any, cast
+from typing import Any, Callable, Dict, Optional, Tuple, cast
 
 from ..compat import torch
+from ..config import registry
 from ..model import Model
 from ..shims import PyTorchGradScaler, PyTorchShim
-from ..config import registry
-from ..util import is_xp_array, is_torch_array, partial
-from ..util import xp2torch, torch2xp, convert_recursive
-from ..types import Floats3d, ArgsKwargs, Padded
+from ..types import ArgsKwargs, Floats3d, Padded
+from ..util import (
+    convert_recursive,
+    is_torch_array,
+    is_xp_array,
+    partial,
+    torch2xp,
+    xp2torch,
+)
 
 
 @registry.layers("PyTorchRNNWrapper.v1")

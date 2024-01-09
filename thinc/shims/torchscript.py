@@ -1,5 +1,6 @@
-from typing import Any, Optional
 from io import BytesIO
+from typing import Any, Optional
+
 import srsly
 
 from ..compat import torch

@@ -1,6 +1,5 @@
 from libcpp.memory cimport shared_ptr
 
-
 ctypedef void (*sgemm_ptr)(bint transA, bint transB, int M, int N, int K,
                            float alpha, const float* A, int lda, const float* B,
                            int ldb, float beta, float* C, int ldc) nogil

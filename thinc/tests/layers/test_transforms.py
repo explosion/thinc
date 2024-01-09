@@ -1,6 +1,7 @@
-from thinc.api import strings2arrays, NumpyOps, Ragged, registry
 import numpy
 import pytest
+
+from thinc.api import NumpyOps, Ragged, registry, strings2arrays
 
 from ..util import get_data_checker
 

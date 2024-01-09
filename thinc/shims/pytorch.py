@@ -1,16 +1,21 @@
-from typing import Any, Dict, Optional, cast, Callable
 import contextlib
-from io import BytesIO
 import itertools
+from io import BytesIO
+from typing import Any, Callable, Dict, Optional, cast
+
 import srsly
 
-from ..util import torch2xp, xp2torch, convert_recursive, iterate_recursive
-from ..util import get_torch_default_device
+from ..backends import CupyOps, context_pools, get_current_ops, set_gpu_allocator
 from ..compat import torch
-from ..backends import get_current_ops, context_pools, CupyOps
-from ..backends import set_gpu_allocator
 from ..optimizers import Optimizer
 from ..types import ArgsKwargs, FloatsXd
+from ..util import (
+    convert_recursive,
+    get_torch_default_device,
+    iterate_recursive,
+    torch2xp,
+    xp2torch,
+)
 from .pytorch_grad_scaler import PyTorchGradScaler
 from .shim import Shim
 

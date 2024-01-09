@@ -1,8 +1,10 @@
-import pytest
-import numpy
 from functools import partial
+
+import numpy
+import pytest
 from numpy.testing import assert_allclose
-from thinc.api import chain, Linear, Relu, NumpyOps
+
+from thinc.api import Linear, NumpyOps, Relu, chain
 
 
 @pytest.fixture(params=[1, 2, 9])

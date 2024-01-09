@@ -1,25 +1,48 @@
-from typing import Any, Union, Sequence, cast, Dict, Optional, Callable, TypeVar
-from typing import List, Mapping, TYPE_CHECKING
-import numpy
-import platform
-import random
+import contextlib
 import functools
-from wasabi import table
-from pydantic import create_model, ValidationError
 import inspect
 import os
+import platform
+import random
 import tempfile
 import threading
-import contextlib
 from contextvars import ContextVar
 from dataclasses import dataclass
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    List,
+    Mapping,
+    Optional,
+    Sequence,
+    TypeVar,
+    Union,
+    cast,
+)
 
-from .compat import has_cupy, has_mxnet, has_torch, has_tensorflow
-from .compat import has_cupy_gpu, has_torch_cuda_gpu, has_gpu
-from .compat import has_torch_mps
-from .compat import torch, cupy, tensorflow as tf, mxnet as mx, cupy_from_dlpack
-from .types import ArrayXd, ArgsKwargs, Ragged, Padded, FloatsXd, IntsXd  # noqa: E402
+import numpy
+from pydantic import ValidationError, create_model
+from wasabi import table
+
 from . import types  # noqa: E402
+from .compat import (
+    cupy,
+    cupy_from_dlpack,
+    has_cupy,
+    has_cupy_gpu,
+    has_gpu,
+    has_mxnet,
+    has_tensorflow,
+    has_torch,
+    has_torch_cuda_gpu,
+    has_torch_mps,
+)
+from .compat import mxnet as mx
+from .compat import tensorflow as tf
+from .compat import torch
+from .types import ArgsKwargs, ArrayXd, FloatsXd, IntsXd, Padded, Ragged  # noqa: E402
 
 if TYPE_CHECKING:
     from .api import Ops
@@ -173,7 +196,7 @@ def set_active_gpu(gpu_id: int) -> "cupy.cuda.Device":  # pragma: no cover
 
 def require_cpu() -> bool:  # pragma: no cover
     """Use CPU through best available backend."""
-    from .backends import set_current_ops, get_ops
+    from .backends import get_ops, set_current_ops
 
     ops = get_ops("cpu")
     set_current_ops(ops)
@@ -189,7 +212,7 @@ def prefer_gpu(gpu_id: int = 0) -> bool:  # pragma: no cover
 
 
 def require_gpu(gpu_id: int = 0) -> bool:  # pragma: no cover
-    from .backends import set_current_ops, CupyOps, MPSOps
+    from .backends import CupyOps, MPSOps, set_current_ops
 
     if platform.system() == "Darwin" and not has_torch_mps:
         if has_torch:

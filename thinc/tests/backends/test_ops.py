@@ -1,25 +1,31 @@
+import inspect
+import platform
 from typing import Tuple, cast
 
-import pytest
 import numpy
-import platform
+import pytest
 from hypothesis import given, settings
 from hypothesis.strategies import composite, integers
 from numpy.testing import assert_allclose
 from packaging.version import Version
-from thinc.api import NumpyOps, CupyOps, Ops, get_ops
-from thinc.api import get_current_ops, use_ops
-from thinc.util import torch2xp, xp2torch
+
+from thinc.api import (
+    LSTM,
+    CupyOps,
+    NumpyOps,
+    Ops,
+    fix_random_seed,
+    get_current_ops,
+    get_ops,
+    use_ops,
+)
+from thinc.backends._custom_kernels import KERNELS, KERNELS_LIST, compile_mmh
 from thinc.compat import has_cupy_gpu, has_torch, torch_version
-from thinc.api import fix_random_seed
-from thinc.api import LSTM
 from thinc.types import Floats2d
-from thinc.backends._custom_kernels import KERNELS_LIST, KERNELS, compile_mmh
-import inspect
+from thinc.util import torch2xp, xp2torch
 
 from .. import strategies
 from ..strategies import arrays_BI, ndarrays_of_shape
-
 
 MAX_EXAMPLES = 10
 
@@ -37,8 +43,9 @@ INT_TYPES = ["int32", "int64"]
 
 
 def create_pytorch_funcs():
-    import torch
     import math
+
+    import torch
 
     def torch_relu(x):
         return torch.nn.functional.relu(x)

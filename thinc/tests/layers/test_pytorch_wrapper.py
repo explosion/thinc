@@ -1,20 +1,34 @@
-from thinc.api import Linear, SGD, PyTorchWrapper, PyTorchWrapper_v2, PyTorchWrapper_v3
-from thinc.api import xp2torch, torch2xp, ArgsKwargs, use_ops
-from thinc.api import chain, get_current_ops, Relu
-from thinc.api import CupyOps, MPSOps, NumpyOps
-from thinc.backends import context_pools
-from thinc.layers.pytorchwrapper import PyTorchWrapper_v3
-from thinc.shims.pytorch_grad_scaler import PyTorchGradScaler
-from thinc.shims.pytorch import default_deserialize_torch_model
-from thinc.shims.pytorch import default_serialize_torch_model
-from thinc.compat import has_torch, has_torch_amp
-from thinc.compat import has_cupy_gpu, has_torch_mps_gpu
 import numpy
 import pytest
+
+from thinc.api import (
+    SGD,
+    ArgsKwargs,
+    CupyOps,
+    Linear,
+    MPSOps,
+    NumpyOps,
+    PyTorchWrapper,
+    PyTorchWrapper_v2,
+    PyTorchWrapper_v3,
+    Relu,
+    chain,
+    get_current_ops,
+    torch2xp,
+    use_ops,
+    xp2torch,
+)
+from thinc.backends import context_pools
+from thinc.compat import has_cupy_gpu, has_torch, has_torch_amp, has_torch_mps_gpu
+from thinc.layers.pytorchwrapper import PyTorchWrapper_v3
+from thinc.shims.pytorch import (
+    default_deserialize_torch_model,
+    default_serialize_torch_model,
+)
+from thinc.shims.pytorch_grad_scaler import PyTorchGradScaler
 from thinc.util import get_torch_default_device
 
-from ..util import make_tempdir, check_input_converters
-
+from ..util import check_input_converters, make_tempdir
 
 XP_OPS = [NumpyOps()]
 if has_cupy_gpu:

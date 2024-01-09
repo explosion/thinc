@@ -1,19 +1,20 @@
-import pytest
-from typing import Iterable, Union, Optional, List, Callable, Dict, Any
-from types import GeneratorType
-from pydantic import BaseModel, StrictBool, StrictFloat, PositiveInt, constr
-import catalogue
-import thinc.config
-from thinc.config import ConfigValidationError
-from thinc.types import Generator, Ragged
-from thinc.api import Config, RAdam, Model, NumpyOps
-from thinc.util import partial
-import numpy
 import inspect
 import pickle
+from types import GeneratorType
+from typing import Any, Callable, Dict, Iterable, List, Optional, Union
+
+import catalogue
+import numpy
+import pytest
+from pydantic import BaseModel, PositiveInt, StrictBool, StrictFloat, constr
+
+import thinc.config
+from thinc.api import Config, Model, NumpyOps, RAdam
+from thinc.config import ConfigValidationError
+from thinc.types import Generator, Ragged
+from thinc.util import partial
 
 from .util import make_tempdir
-
 
 EXAMPLE_CONFIG = """
 [optimizer]

@@ -1,6 +1,7 @@
 import catalogue
 import confection
-from confection import Config, ConfigValidationError, Promise, VARIABLE_RE
+from confection import VARIABLE_RE, Config, ConfigValidationError, Promise
+
 from .types import Decorator
 
 
