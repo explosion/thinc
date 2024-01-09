@@ -32,7 +32,6 @@ except ImportError:
     from pydantic import ValidationError, create_model  # type: ignore
 
 import numpy
-from pydantic import ValidationError, create_model
 from wasabi import table
 
 from . import types  # noqa: E402

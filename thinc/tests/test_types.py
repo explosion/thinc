@@ -1,6 +1,5 @@
 import numpy
 import pytest
-from pydantic import ValidationError, create_model
 
 from thinc.types import (
     Floats1d,
