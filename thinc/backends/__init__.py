@@ -26,6 +26,9 @@ context_pools: ContextVar[dict] = ContextVar("context_pools", default={})
 # notebook might not have preserved contextvars across cells.
 _GLOBAL_STATE = {"ops": None}
 
+# Thread-local state.
+_LOCAL_STATE = threading.local()
+
 
 def set_gpu_allocator(allocator: str) -> None:  # pragma: no cover
     """Route GPU memory allocation via PyTorch or tensorflow.
@@ -152,22 +155,14 @@ def contextvars_eq_thread_ops() -> bool:
     return False
 
 
-def _get_thread_state():
+def _get_thread_state() -> threading.local:
     """Get a thread-specific state variable that inherits from a global
     state when it's created."""
-    thread: threading.Thread = threading.current_thread()
-    if not hasattr(thread, "__local"):
-        thread.__local = _create_thread_local(_GLOBAL_STATE)
-    return thread.__local
-
-
-def _create_thread_local(
-    attrs: Dict[str, Any], local_class: Type[threading.local] = threading.local
-):
-    obj = local_class()
-    for name, value in attrs.items():
-        setattr(obj, name, value)
-    return obj
+    if not hasattr(_LOCAL_STATE, "initialized") or not _LOCAL_STATE.initialized:
+        for name, value in _GLOBAL_STATE.items():
+            setattr(_LOCAL_STATE, name, value)
+        _LOCAL_STATE.initialized = True
+    return _LOCAL_STATE
 
 
 __all__ = [
