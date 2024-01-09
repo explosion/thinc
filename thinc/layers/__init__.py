@@ -35,6 +35,7 @@ from .mxnetwrapper import MXNetWrapper
 from .noop import noop
 from .padded2list import padded2list
 from .parametricattention import ParametricAttention
+from .parametricattention_v2 import ParametricAttention_v2
 from .premap_ids import premap_ids
 from .pytorchwrapper import (
     PyTorchRNNWrapper,
@@ -94,6 +95,7 @@ __all__ = [
     "Mish",
     "MultiSoftmax",
     "ParametricAttention",
+    "ParametricAttention_v2",
     "PyTorchLSTM",
     "PyTorchWrapper",
     "PyTorchWrapper_v2",

@@ -1,4 +1,4 @@
-# cython: infer_types=True, cdivision=True, bounds_check=False, wraparound=False
+# cython: infer_types=True, cdivision=True, bounds_check=False, wraparound=False, profile=False
 cimport cython
 cimport numpy as np
 from libc.stdint cimport int32_t, uint32_t, uint64_t

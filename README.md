@@ -4,16 +4,17 @@
 
 ### From the makers of [spaCy](https://spacy.io) and [Prodigy](https://prodi.gy)
 
-[Thinc](https://thinc.ai) is a **lightweight deep learning library** that offers an elegant,
-type-checked, functional-programming API for **composing models**, with support
-for layers defined in other frameworks such as **PyTorch, TensorFlow and MXNet**. You
-can use Thinc as an interface layer, a standalone toolkit or a flexible way to
-develop new models. Previous versions of Thinc have been running quietly in
-production in thousands of companies, via both [spaCy](https://spacy.io) and
-[Prodigy](https://prodi.gy). We wrote the new version to let users **compose,
-configure and deploy custom models** built with their favorite framework.
+[Thinc](https://thinc.ai) is a **lightweight deep learning library** that offers
+an elegant, type-checked, functional-programming API for **composing models**,
+with support for layers defined in other frameworks such as **PyTorch,
+TensorFlow and MXNet**. You can use Thinc as an interface layer, a standalone
+toolkit or a flexible way to develop new models. Previous versions of Thinc have
+been running quietly in production in thousands of companies, via both
+[spaCy](https://spacy.io) and [Prodigy](https://prodi.gy). We wrote the new
+version to let users **compose, configure and deploy custom models** built with
+their favorite framework.
 
-[![Azure Pipelines](https://img.shields.io/azure-devops/build/explosion-ai/public/7/master.svg?logo=azure-pipelines&style=flat-square)](https://dev.azure.com/explosion-ai/public/_build?definitionId=7)
+[![tests](https://github.com/explosion/thinc/actions/workflows/tests.yml/badge.svg)](https://github.com/explosion/thinc/actions/workflows/tests.yml)
 [![Current Release Version](https://img.shields.io/github/v/release/explosion/thinc.svg?include_prereleases&sort=semver&style=flat-square&logo=github)](https://github.com/explosion/thinc/releases)
 [![PyPi Version](https://img.shields.io/pypi/v/thinc.svg?include_prereleases&sort=semver&style=flat-square&logo=pypi&logoColor=white)](https://pypi.python.org/pypi/thinc)
 [![conda Version](https://img.shields.io/conda/vn/conda-forge/thinc.svg?style=flat-square&logo=conda-forge&logoColor=white)](https://anaconda.org/conda-forge/thinc)
@@ -23,9 +24,11 @@ configure and deploy custom models** built with their favorite framework.
 
 ## 🔥 Features
 
-- **Type-check** your model definitions with custom types and [`mypy`](https://mypy.readthedocs.io/en/latest/) plugin.
+- **Type-check** your model definitions with custom types and
+  [`mypy`](https://mypy.readthedocs.io/en/latest/) plugin.
 - Wrap **PyTorch**, **TensorFlow** and **MXNet** models for use in your network.
-- Concise **functional-programming** approach to model definition, using composition rather than inheritance.
+- Concise **functional-programming** approach to model definition, using
+  composition rather than inheritance.
 - Optional custom infix notation via **operator overloading**.
 - Integrated **config system** to describe trees of objects and hyperparameters.
 - Choice of **extensible backends**.
@@ -33,8 +36,8 @@ configure and deploy custom models** built with their favorite framework.
 
 ## 🚀 Quickstart
 
-Thinc is compatible with **Python 3.6+** and runs on **Linux**,
-**macOS** and **Windows**. The latest releases with binary wheels are available from
+Thinc is compatible with **Python 3.6+** and runs on **Linux**, **macOS** and
+**Windows**. The latest releases with binary wheels are available from
 [pip](https://pypi.python.org/pypi/thinc). Before you install Thinc and its
 dependencies, make sure that your `pip`, `setuptools` and `wheel` are up to
 date. For the most recent releases, pip 19.3 or newer is recommended.
@@ -44,15 +47,23 @@ pip install -U pip setuptools wheel
 pip install thinc
 ```
 
-See the [extended installation docs](https://thinc.ai/docs/install#extended) for details on optional dependencies for different backends and GPU. You might also want to [set up static type checking](https://thinc.ai/docs/install#type-checking) to take advantage of Thinc's type system.
+See the [extended installation docs](https://thinc.ai/docs/install#extended) for
+details on optional dependencies for different backends and GPU. You might also
+want to
+[set up static type checking](https://thinc.ai/docs/install#type-checking) to
+take advantage of Thinc's type system.
 
 > ⚠️ If you have installed PyTorch and you are using Python 3.7+, uninstall the
-> package `dataclasses` with `pip uninstall dataclasses`, since it may have
-> been installed by PyTorch and is incompatible with Python 3.7+.
+> package `dataclasses` with `pip uninstall dataclasses`, since it may have been
+> installed by PyTorch and is incompatible with Python 3.7+.
 
 ### 📓 Selected examples and notebooks
 
-Also see the [`/examples`](examples) directory and [usage documentation](https://thinc.ai/docs) for more examples. Most examples are Jupyter notebooks – to launch them on [Google Colab](https://colab.research.google.com) (with GPU support!) click on the button next to the notebook name.
+Also see the [`/examples`](examples) directory and
+[usage documentation](https://thinc.ai/docs) for more examples. Most examples
+are Jupyter notebooks – to launch them on
+[Google Colab](https://colab.research.google.com) (with GPU support!) click on
+the button next to the notebook name.
 
 | Notebook                                                                                                              | Description                                                                                                                                                                                       |
 | --------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -63,15 +74,20 @@ Also see the [`/examples`](examples) directory and [usage documentation](https:/
 
 **[View more &rarr;](examples)**
 
-[colab]: https://gistcdn.githack.com/ines/dcf354aa71a7665ae19871d7fd14a4e0/raw/461fc1f61a7bc5860f943cd4b6bcfabb8c8906e7/colab-badge.svg
+[colab]:
+  https://gistcdn.githack.com/ines/dcf354aa71a7665ae19871d7fd14a4e0/raw/461fc1f61a7bc5860f943cd4b6bcfabb8c8906e7/colab-badge.svg
 [intro_to_thinc]: examples/00_intro_to_thinc.ipynb
-[intro_to_thinc_colab]: https://colab.research.google.com/github/explosion/thinc/blob/master/examples/00_intro_to_thinc.ipynb
+[intro_to_thinc_colab]:
+  https://colab.research.google.com/github/explosion/thinc/blob/master/examples/00_intro_to_thinc.ipynb
 [transformers_tagger_bert]: examples/02_transformers_tagger_bert.ipynb
-[transformers_tagger_bert_colab]: https://colab.research.google.com/github/explosion/thinc/blob/master/examples/02_transformers_tagger_bert.ipynb
+[transformers_tagger_bert_colab]:
+  https://colab.research.google.com/github/explosion/thinc/blob/master/examples/02_transformers_tagger_bert.ipynb
 [pos_tagger_basic_cnn]: examples/03_pos_tagger_basic_cnn.ipynb
-[pos_tagger_basic_cnn_colab]: https://colab.research.google.com/github/explosion/thinc/blob/master/examples/03_pos_tagger_basic_cnn.ipynb
+[pos_tagger_basic_cnn_colab]:
+  https://colab.research.google.com/github/explosion/thinc/blob/master/examples/03_pos_tagger_basic_cnn.ipynb
 [parallel_training_ray]: examples/04_parallel_training_ray.ipynb
-[parallel_training_ray_colab]: https://colab.research.google.com/github/explosion/thinc/blob/master/examples/04_parallel_training_ray.ipynb
+[parallel_training_ray_colab]:
+  https://colab.research.google.com/github/explosion/thinc/blob/master/examples/04_parallel_training_ray.ipynb
 
 ### 📖 Documentation & usage guides
 
@@ -103,7 +119,12 @@ Also see the [`/examples`](examples) directory and [usage documentation](https:/
 
 ## 🐍 Development notes
 
-Thinc uses [`black`](https://github.com/psf/black) for auto-formatting, [`flake8`](http://flake8.pycqa.org/en/latest/) for linting and [`mypy`](https://mypy.readthedocs.io/en/latest/) for type checking. All code is written compatible with **Python 3.6+**, with type hints wherever possible. See the [type reference](https://thinc.ai/docs/api-types) for more details on Thinc's custom types.
+Thinc uses [`black`](https://github.com/psf/black) for auto-formatting,
+[`flake8`](http://flake8.pycqa.org/en/latest/) for linting and
+[`mypy`](https://mypy.readthedocs.io/en/latest/) for type checking. All code is
+written compatible with **Python 3.6+**, with type hints wherever possible. See
+the [type reference](https://thinc.ai/docs/api-types) for more details on
+Thinc's custom types.
 
 ### 👷‍♀️ Building Thinc from source
 
@@ -138,7 +159,8 @@ python setup.py build_ext --inplace
 
 ### 🚦 Running tests
 
-Thinc comes with an [extensive test suite](thinc/tests). The following should all pass and not report any warnings or errors:
+Thinc comes with an [extensive test suite](thinc/tests). The following should
+all pass and not report any warnings or errors:
 
 ```bash
 python -m pytest thinc    # test suite
@@ -146,4 +168,7 @@ python -m mypy thinc      # type checks
 python -m flake8 thinc    # linting
 ```
 
-To view test coverage, you can run `python -m pytest thinc --cov=thinc`. We aim for a 100% test coverage. This doesn't mean that we meticulously write tests for every single line – we ignore blocks that are not relevant or difficult to test and make sure that the tests execute all code paths.
+To view test coverage, you can run `python -m pytest thinc --cov=thinc`. We aim
+for a 100% test coverage. This doesn't mean that we meticulously write tests for
+every single line – we ignore blocks that are not relevant or difficult to test
+and make sure that the tests execute all code paths.

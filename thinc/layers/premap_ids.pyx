@@ -1,4 +1,4 @@
-# cython: binding=True, infer_types=True
+# cython: binding=True, infer_types=True, profile=False
 import numpy
 
 from preshed.maps cimport PreshMap

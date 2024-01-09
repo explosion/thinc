@@ -11,7 +11,7 @@ from .backends import (
     use_pytorch_for_gpu_memory,
     use_tensorflow_for_gpu_memory,
 )
-from .compat import has_cupy
+from .compat import enable_mxnet, enable_tensorflow, has_cupy
 from .config import Config, ConfigValidationError, registry
 from .initializers import (
     configure_normal_init,
@@ -41,6 +41,7 @@ from .layers import (
     MultiSoftmax,
     MXNetWrapper,
     ParametricAttention,
+    ParametricAttention_v2,
     PyTorchLSTM,
     PyTorchRNNWrapper,
     PyTorchWrapper,
@@ -192,6 +193,8 @@ __all__ = [
     "torch2xp", "xp2torch", "tensorflow2xp", "xp2tensorflow", "mxnet2xp", "xp2mxnet",
     "get_torch_default_device",
     # .compat
+    "enable_mxnet",
+    "enable_tensorflow",
     "has_cupy",
     # .backends
     "get_ops", "set_current_ops", "get_current_ops", "use_ops",
@@ -207,7 +210,7 @@ __all__ = [
     "PyTorchWrapper", "PyTorchRNNWrapper", "PyTorchLSTM",
     "TensorFlowWrapper", "keras_subclass", "MXNetWrapper",
     "PyTorchWrapper_v2", "Softmax_v2", "PyTorchWrapper_v3",
-    "SparseLinear_v2", "TorchScriptWrapper_v1",
+    "SparseLinear_v2", "TorchScriptWrapper_v1", "ParametricAttention_v2",
 
     "add", "bidirectional", "chain", "clone", "concatenate", "noop",
     "residual", "uniqued", "siamese", "list2ragged", "ragged2list",

@@ -1289,8 +1289,10 @@ class Ops:
     def backprop_reduce_first(
         self, d_firsts: Floats2d, starts_ends: Ints1d
     ) -> Floats2d:
-        if starts_ends.size < 2:
-            raise ValueError(f"starts_ends should least have size 2")
+        if starts_ends.size == 0:
+            return self.alloc2f(0, d_firsts.shape[1], dtype=d_firsts.dtype, zeros=True)
+        elif starts_ends.size == 1:
+            raise ValueError(f"starts_ends must not have size 1")
         dX = self.alloc2f(
             int(starts_ends[-1]), d_firsts.shape[1], dtype=d_firsts.dtype, zeros=True
         )
@@ -1298,8 +1300,8 @@ class Ops:
         return dX
 
     def backprop_reduce_last(self, d_lasts: Floats2d, lasts: Ints1d) -> Floats2d:
-        if lasts.size < 1:
-            raise ValueError(f"lasts should least have size 2")
+        if lasts.size == 0:
+            return self.alloc2f(0, d_lasts.shape[1], dtype=d_lasts.dtype, zeros=True)
         dX = self.alloc2f(
             int(lasts[-1]) + 1, d_lasts.shape[1], dtype=d_lasts.dtype, zeros=True
         )

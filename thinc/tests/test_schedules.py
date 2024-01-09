@@ -11,7 +11,6 @@ from thinc.api import (
     slanted_triangular,
     warmup_linear,
 )
-from thinc.optimizers import KeyT
 from thinc.schedules import plateau
 
 

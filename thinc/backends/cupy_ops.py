@@ -94,7 +94,7 @@ class CupyOps(Ops):
         elif is_mxnet_gpu_array(data):
             array = mxnet2xp(data)
         else:
-            array = self.xp.array(data)
+            array = self.xp.array(data, dtype=dtype)
 
         if dtype is not None:
             array = array.astype(dtype=dtype, copy=False)
