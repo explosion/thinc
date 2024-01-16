@@ -1,10 +1,9 @@
-from typing import Optional, Tuple, Callable, cast
+from typing import Callable, Optional, Tuple, cast
 
 from ..backends import Ops
-from ..model import Model
 from ..config import registry
+from ..model import Model
 from ..types import Padded
-
 
 InT = Padded
 OutT = Padded

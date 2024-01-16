@@ -1,10 +1,11 @@
-from typing import Tuple, Callable, Any
+from typing import Any, Callable, Tuple
 
 import numpy
+
 from thinc.backends import Ops
 
-from ..model import Model
 from ..config import registry
+from ..model import Model
 
 
 @registry.layers("with_cpu.v1")

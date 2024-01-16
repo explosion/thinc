@@ -1,14 +1,13 @@
-from typing import Any, Dict, Optional, Union, Tuple, List, cast
-from collections import defaultdict
 import itertools
 import math
+from collections import defaultdict
 from types import GeneratorType
+from typing import Any, Dict, List, Optional, Tuple, Union, cast
 
 from .backends import get_array_ops
-from .types import Generator, FloatsXd
 from .config import registry
-from .schedules import constant, Schedule
-
+from .schedules import Schedule, constant
+from .types import FloatsXd, Generator
 
 KeyT = Tuple[int, str]
 ScheduleT = Union[float, List[float], Generator, Schedule]

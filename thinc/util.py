@@ -1,25 +1,56 @@
-from typing import Any, Union, Sequence, cast, Dict, Optional, Callable, TypeVar
-from typing import List, Mapping, TYPE_CHECKING
-import numpy
-import platform
-import random
+import contextlib
 import functools
-from wasabi import table
-from pydantic import create_model, ValidationError
 import inspect
 import os
+import platform
+import random
 import tempfile
 import threading
-import contextlib
 from contextvars import ContextVar
 from dataclasses import dataclass
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    List,
+    Mapping,
+    Optional,
+    Sequence,
+    Tuple,
+    TypeVar,
+    Union,
+    cast,
+)
 
-from .compat import has_cupy, has_mxnet, has_torch, has_tensorflow
-from .compat import has_cupy_gpu, has_torch_cuda_gpu, has_gpu
-from .compat import has_torch_mps
-from .compat import torch, cupy, tensorflow as tf, mxnet as mx, cupy_from_dlpack
-from .types import ArrayXd, ArgsKwargs, Ragged, Padded, FloatsXd, IntsXd  # noqa: E402
+import numpy
+from packaging.version import Version
+
+try:
+    from pydantic.v1 import ValidationError, create_model
+except ImportError:
+    from pydantic import ValidationError, create_model  # type: ignore
+
+import numpy
+from wasabi import table
+
 from . import types  # noqa: E402
+from .compat import (
+    cupy,
+    cupy_from_dlpack,
+    has_cupy,
+    has_cupy_gpu,
+    has_gpu,
+    has_mxnet,
+    has_tensorflow,
+    has_torch,
+    has_torch_cuda_gpu,
+    has_torch_mps,
+)
+from .compat import mxnet as mx
+from .compat import tensorflow as tf
+from .compat import torch
+from .types import ArgsKwargs, ArrayXd, FloatsXd, IntsXd, Padded, Ragged  # noqa: E402
 
 if TYPE_CHECKING:
     from .api import Ops
@@ -125,7 +156,7 @@ def is_torch_mps_array(obj: Any) -> bool:  # pragma: no cover
 def is_tensorflow_array(obj: Any) -> bool:  # pragma: no cover
     if not has_tensorflow:
         return False
-    elif isinstance(obj, tf.Tensor):
+    elif isinstance(obj, tf.Tensor):  # type: ignore
         return True
     else:
         return False
@@ -138,7 +169,7 @@ def is_tensorflow_gpu_array(obj: Any) -> bool:  # pragma: no cover
 def is_mxnet_array(obj: Any) -> bool:  # pragma: no cover
     if not has_mxnet:
         return False
-    elif isinstance(obj, mx.nd.NDArray):
+    elif isinstance(obj, mx.nd.NDArray):  # type: ignore
         return True
     else:
         return False
@@ -173,7 +204,7 @@ def set_active_gpu(gpu_id: int) -> "cupy.cuda.Device":  # pragma: no cover
 
 def require_cpu() -> bool:  # pragma: no cover
     """Use CPU through best available backend."""
-    from .backends import set_current_ops, get_ops
+    from .backends import get_ops, set_current_ops
 
     ops = get_ops("cpu")
     set_current_ops(ops)
@@ -189,7 +220,7 @@ def prefer_gpu(gpu_id: int = 0) -> bool:  # pragma: no cover
 
 
 def require_gpu(gpu_id: int = 0) -> bool:  # pragma: no cover
-    from .backends import set_current_ops, CupyOps, MPSOps
+    from .backends import CupyOps, MPSOps, set_current_ops
 
     if platform.system() == "Darwin" and not has_torch_mps:
         if has_torch:
@@ -225,7 +256,6 @@ def to_categorical(
     *,
     label_smoothing: float = 0.0,
 ) -> FloatsXd:
-
     if n_classes is None:
         n_classes = int(numpy.max(Y) + 1)  # type: ignore
 
@@ -290,15 +320,17 @@ def get_width(
 
 def assert_tensorflow_installed() -> None:  # pragma: no cover
     """Raise an ImportError if TensorFlow is not installed."""
-    template = "TensorFlow support requires {pkg}: pip install thinc[tensorflow]"
+    template = "TensorFlow support requires {pkg}: pip install thinc[tensorflow]\n\nEnable TensorFlow support with thinc.api.enable_tensorflow()"
     if not has_tensorflow:
-        raise ImportError(template.format(pkg="tensorflow>=2.0.0"))
+        raise ImportError(template.format(pkg="tensorflow>=2.0.0,<2.6.0"))
 
 
 def assert_mxnet_installed() -> None:  # pragma: no cover
     """Raise an ImportError if MXNet is not installed."""
     if not has_mxnet:
-        raise ImportError("MXNet support requires mxnet: pip install thinc[mxnet]")
+        raise ImportError(
+            "MXNet support requires mxnet: pip install thinc[mxnet]\n\nEnable MXNet support with thinc.api.enable_mxnet()"
+        )
 
 
 def assert_pytorch_installed() -> None:  # pragma: no cover
@@ -403,32 +435,32 @@ def torch2xp(
 
 def xp2tensorflow(
     xp_tensor: ArrayXd, requires_grad: bool = False, as_variable: bool = False
-) -> "tf.Tensor":  # pragma: no cover
+) -> "tf.Tensor":  # type: ignore  # pragma: no cover
     """Convert a numpy or cupy tensor to a TensorFlow Tensor or Variable"""
     assert_tensorflow_installed()
     if hasattr(xp_tensor, "toDlpack"):
         dlpack_tensor = xp_tensor.toDlpack()  # type: ignore
-        tf_tensor = tf.experimental.dlpack.from_dlpack(dlpack_tensor)
+        tf_tensor = tf.experimental.dlpack.from_dlpack(dlpack_tensor)  # type: ignore
     elif hasattr(xp_tensor, "__dlpack__"):
         dlpack_tensor = xp_tensor.__dlpack__()  # type: ignore
-        tf_tensor = tf.experimental.dlpack.from_dlpack(dlpack_tensor)
+        tf_tensor = tf.experimental.dlpack.from_dlpack(dlpack_tensor)  # type: ignore
     else:
-        tf_tensor = tf.convert_to_tensor(xp_tensor)
+        tf_tensor = tf.convert_to_tensor(xp_tensor)  # type: ignore
     if as_variable:
         # tf.Variable() automatically puts in GPU if available.
         # So we need to control it using the context manager
-        with tf.device(tf_tensor.device):
-            tf_tensor = tf.Variable(tf_tensor, trainable=requires_grad)
+        with tf.device(tf_tensor.device):  # type: ignore
+            tf_tensor = tf.Variable(tf_tensor, trainable=requires_grad)  # type: ignore
     if requires_grad is False and as_variable is False:
         # tf.stop_gradient() automatically puts in GPU if available.
         # So we need to control it using the context manager
-        with tf.device(tf_tensor.device):
-            tf_tensor = tf.stop_gradient(tf_tensor)
+        with tf.device(tf_tensor.device):  # type: ignore
+            tf_tensor = tf.stop_gradient(tf_tensor)  # type: ignore
     return tf_tensor
 
 
 def tensorflow2xp(
-    tf_tensor: "tf.Tensor", *, ops: Optional["Ops"] = None
+    tf_tensor: "tf.Tensor", *, ops: Optional["Ops"] = None  # type: ignore
 ) -> ArrayXd:  # pragma: no cover
     """Convert a Tensorflow tensor to numpy or cupy tensor depending on the `ops` parameter.
     If `ops` is `None`, the type of the resultant tensor will be determined by the source tensor's device.
@@ -440,7 +472,7 @@ def tensorflow2xp(
         if isinstance(ops, NumpyOps):
             return tf_tensor.numpy()
         else:
-            dlpack_tensor = tf.experimental.dlpack.to_dlpack(tf_tensor)
+            dlpack_tensor = tf.experimental.dlpack.to_dlpack(tf_tensor)  # type: ignore
             return cupy_from_dlpack(dlpack_tensor)
     else:
         if isinstance(ops, NumpyOps) or ops is None:
@@ -451,21 +483,21 @@ def tensorflow2xp(
 
 def xp2mxnet(
     xp_tensor: ArrayXd, requires_grad: bool = False
-) -> "mx.nd.NDArray":  # pragma: no cover
+) -> "mx.nd.NDArray":  # type: ignore  # pragma: no cover
     """Convert a numpy or cupy tensor to a MXNet tensor."""
     assert_mxnet_installed()
     if hasattr(xp_tensor, "toDlpack"):
         dlpack_tensor = xp_tensor.toDlpack()  # type: ignore
-        mx_tensor = mx.nd.from_dlpack(dlpack_tensor)
+        mx_tensor = mx.nd.from_dlpack(dlpack_tensor)  # type: ignore
     else:
-        mx_tensor = mx.nd.from_numpy(xp_tensor)
+        mx_tensor = mx.nd.from_numpy(xp_tensor)  # type: ignore
     if requires_grad:
         mx_tensor.attach_grad()
     return mx_tensor
 
 
 def mxnet2xp(
-    mx_tensor: "mx.nd.NDArray", *, ops: Optional["Ops"] = None
+    mx_tensor: "mx.nd.NDArray", *, ops: Optional["Ops"] = None  # type: ignore
 ) -> ArrayXd:  # pragma: no cover
     """Convert a MXNet tensor to a numpy or cupy tensor."""
     from .api import NumpyOps

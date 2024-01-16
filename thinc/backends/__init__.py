@@ -1,20 +1,23 @@
 import contextlib
-from typing import Type, Dict, Any, Callable, Optional, cast
-
-from contextvars import ContextVar
 import threading
+from contextvars import ContextVar
+from typing import Any, Callable, Dict, Optional, Type, cast
 
-from .ops import Ops
-from .cupy_ops import CupyOps
-from .numpy_ops import NumpyOps
-from .mps_ops import MPSOps
-from ._cupy_allocators import cupy_tensorflow_allocator, cupy_pytorch_allocator
-from ._param_server import ParamServer
-from ..util import assert_tensorflow_installed, assert_pytorch_installed
-from ..util import get_torch_default_device, is_cupy_array, require_cpu
 from .. import registry
 from ..compat import cupy, has_cupy
-
+from ..util import (
+    assert_pytorch_installed,
+    assert_tensorflow_installed,
+    get_torch_default_device,
+    is_cupy_array,
+    require_cpu,
+)
+from ._cupy_allocators import cupy_pytorch_allocator, cupy_tensorflow_allocator
+from ._param_server import ParamServer
+from .cupy_ops import CupyOps
+from .mps_ops import MPSOps
+from .numpy_ops import NumpyOps
+from .ops import Ops
 
 context_ops: ContextVar[Optional[Ops]] = ContextVar("context_ops", default=None)
 context_pools: ContextVar[dict] = ContextVar("context_pools", default={})
@@ -22,6 +25,9 @@ context_pools: ContextVar[dict] = ContextVar("context_pools", default={})
 # Internal use of thread-local storage only for detecting cases where a Jupyter
 # notebook might not have preserved contextvars across cells.
 _GLOBAL_STATE = {"ops": None}
+
+# Thread-local state.
+_LOCAL_STATE = threading.local()
 
 
 def set_gpu_allocator(allocator: str) -> None:  # pragma: no cover
@@ -149,22 +155,14 @@ def contextvars_eq_thread_ops() -> bool:
     return False
 
 
-def _get_thread_state():
+def _get_thread_state() -> threading.local:
     """Get a thread-specific state variable that inherits from a global
     state when it's created."""
-    thread: threading.Thread = threading.current_thread()
-    if not hasattr(thread, "__local"):
-        thread.__local = _create_thread_local(_GLOBAL_STATE)
-    return thread.__local
-
-
-def _create_thread_local(
-    attrs: Dict[str, Any], local_class: Type[threading.local] = threading.local
-):
-    obj = local_class()
-    for name, value in attrs.items():
-        setattr(obj, name, value)
-    return obj
+    if not hasattr(_LOCAL_STATE, "initialized") or not _LOCAL_STATE.initialized:
+        for name, value in _GLOBAL_STATE.items():
+            setattr(_LOCAL_STATE, name, value)
+        _LOCAL_STATE.initialized = True
+    return _LOCAL_STATE
 
 
 __all__ = [

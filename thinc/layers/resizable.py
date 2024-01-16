@@ -1,7 +1,7 @@
 from typing import Callable, Optional, TypeVar
 
-from ..model import Model
 from ..config import registry
+from ..model import Model
 from ..types import Floats2d
 
 InT = TypeVar("InT")

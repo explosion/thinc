@@ -1,8 +1,8 @@
-import pytest
-from thinc.api import registry, Optimizer
-from thinc.optimizers import KeyT, _wrap_generator
 import numpy
+import pytest
 
+from thinc.api import Optimizer, registry
+from thinc.optimizers import KeyT, _wrap_generator
 
 STUB_KEY: KeyT = (0, "")
 

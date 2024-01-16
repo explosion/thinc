@@ -1,12 +1,13 @@
-from typing import Callable, Optional, Tuple
-from functools import reduce
-import numpy
 import operator
 import re
-from pathlib import Path
 from collections import defaultdict
-from ..compat import cupy, has_cupy_gpu
+from functools import reduce
+from pathlib import Path
+from typing import Callable, Optional, Tuple
 
+import numpy
+
+from ..compat import cupy, has_cupy_gpu
 
 PWD = Path(__file__).parent
 KERNELS_SRC = (PWD / "_custom_kernels.cu").read_text(encoding="utf8")

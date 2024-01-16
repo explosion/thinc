@@ -1,7 +1,18 @@
-import pytest
 import random
-from thinc.api import Model, Relu, Softmax, HashEmbed, expand_window
-from thinc.api import chain, with_array, Adam, strings2arrays
+
+import pytest
+
+from thinc.api import (
+    Adam,
+    HashEmbed,
+    Model,
+    Relu,
+    Softmax,
+    chain,
+    expand_window,
+    strings2arrays,
+    with_array,
+)
 
 
 @pytest.fixture(scope="module")

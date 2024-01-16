@@ -1,8 +1,11 @@
-import pytest
 import numpy
+import pytest
 
-from thinc.api import PyTorchWrapper_v2, TorchScriptWrapper_v1
-from thinc.api import pytorch_to_torchscript_wrapper
+from thinc.api import (
+    PyTorchWrapper_v2,
+    TorchScriptWrapper_v1,
+    pytorch_to_torchscript_wrapper,
+)
 from thinc.compat import has_torch, torch
 
 

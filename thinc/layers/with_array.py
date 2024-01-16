@@ -1,10 +1,9 @@
-from typing import Tuple, Callable, Optional, TypeVar, Union, cast
+from typing import Callable, Optional, Tuple, TypeVar, Union, cast
 
 from ..backends import NumpyOps
-from ..model import Model
 from ..config import registry
-from ..types import Padded, Ragged, ArrayXd, Array3d, ListXd
-
+from ..model import Model
+from ..types import Array3d, ArrayXd, ListXd, Padded, Ragged
 
 NUMPY_OPS = NumpyOps()
 

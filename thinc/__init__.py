@@ -4,7 +4,6 @@ import numpy
 from .about import __version__
 from .config import registry
 
-
 # fmt: off
 __all__ = [
     "registry",

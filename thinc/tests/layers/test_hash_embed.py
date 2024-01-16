@@ -1,4 +1,5 @@
 import numpy
+
 from thinc.api import HashEmbed
 
 

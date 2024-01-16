@@ -1,8 +1,10 @@
 from typing import TYPE_CHECKING
+
 import numpy
 
 from .. import registry
-from . import NumpyOps, Ops
+from .numpy_ops import NumpyOps
+from .ops import Ops
 
 if TYPE_CHECKING:
     # Type checking does not work with dynamic base classes, since MyPy cannot

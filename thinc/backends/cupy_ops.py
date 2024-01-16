@@ -1,13 +1,20 @@
 import numpy
+
 from .. import registry
-from .ops import Ops
-from .numpy_ops import NumpyOps
-from . import _custom_kernels
-from ..types import DeviceTypes
-from ..util import torch2xp, tensorflow2xp, mxnet2xp
-from ..util import is_cupy_array
-from ..util import is_torch_cuda_array, is_tensorflow_gpu_array, is_mxnet_gpu_array
 from ..compat import cupy, cupyx
+from ..types import DeviceTypes
+from ..util import (
+    is_cupy_array,
+    is_mxnet_gpu_array,
+    is_tensorflow_gpu_array,
+    is_torch_cuda_array,
+    mxnet2xp,
+    tensorflow2xp,
+    torch2xp,
+)
+from . import _custom_kernels
+from .numpy_ops import NumpyOps
+from .ops import Ops
 
 
 @registry.ops("CupyOps")
@@ -87,7 +94,7 @@ class CupyOps(Ops):
         elif is_mxnet_gpu_array(data):
             array = mxnet2xp(data)
         else:
-            array = self.xp.array(data)
+            array = self.xp.array(data, dtype=dtype)
 
         if dtype is not None:
             array = array.astype(dtype=dtype, copy=False)

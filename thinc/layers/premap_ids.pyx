@@ -1,12 +1,14 @@
-# cython: binding=True, infer_types=True
+# cython: binding=True, infer_types=True, profile=False
 import numpy
+
 from preshed.maps cimport PreshMap
-from typing import Dict, Union, Optional, cast, Callable, Tuple, Mapping
-from ..types import Ints1d, Ints2d
+
+from typing import Callable, Dict, Mapping, Optional, Tuple, Union, cast
+
 from ..config import registry
 from ..model import Model
+from ..types import Ints1d, Ints2d
 from ..util import to_numpy
-
 
 InT = Union[Ints1d, Ints2d]
 OutT = Ints2d
