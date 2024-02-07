@@ -4,9 +4,11 @@ from packaging.version import Version
 
 try:  # pragma: no cover
     import cupy
+    import cupy.cublas
     import cupyx
 
     has_cupy = True
+    cublas = cupy.cublas
     cupy_version = Version(cupy.__version__)
     try:
         cupy.cuda.runtime.getDeviceCount()
@@ -20,6 +22,7 @@ try:  # pragma: no cover
     else:
         cupy_from_dlpack = cupy.fromDlpack
 except (ImportError, AttributeError):
+    cublas = None
     cupy = None
     cupyx = None
     cupy_version = Version("0.0.0")
