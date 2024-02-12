@@ -1,7 +1,7 @@
 import numpy
 
 from .. import registry
-from ..compat import cupy, cupyx
+from ..compat import cublas, cupy, cupyx
 from ..types import DeviceTypes
 from ..util import (
     is_cupy_array,
@@ -257,7 +257,7 @@ class CupyOps(Ops):
         # implementation.
         def frobenius_norm(X):
             X_vec = X.reshape(-1)
-            return cupy.cublas.nrm2(X_vec)
+            return cublas.nrm2(X_vec)
 
         grad_norm = cupy.maximum(frobenius_norm(gradient), 1e-12)
         gradient *= cupy.minimum(threshold, grad_norm) / grad_norm

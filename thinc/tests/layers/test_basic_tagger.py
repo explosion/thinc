@@ -60,7 +60,6 @@ def get_shuffled_batches(Xs, Ys, batch_size):
         yield list(batch_X), list(batch_Y)
 
 
-@pytest.mark.slow
 @pytest.mark.parametrize(
     ("depth", "width", "vector_width", "nb_epoch"), [(2, 32, 16, 5)]
 )
