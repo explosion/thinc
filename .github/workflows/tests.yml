@@ -87,7 +87,9 @@ jobs:
 
       - name: Run mypy
         run: python -m mypy thinc --no-implicit-reexport
-        if: matrix.python_version != '3.6'
+        if: |
+          matrix.python_version != '3.6' &&
+          matrix.python_version != '3.7'
 
       - name: Delete source directory
         run: rm -rf thinc
