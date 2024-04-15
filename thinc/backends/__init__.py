@@ -19,6 +19,11 @@ from .mps_ops import MPSOps
 from .numpy_ops import NumpyOps
 from .ops import Ops
 
+try:
+    from .apple_ops import AppleOps
+except ImportError:
+    AppleOps = None
+
 context_ops: ContextVar[Optional[Ops]] = ContextVar("context_ops", default=None)
 context_pools: ContextVar[dict] = ContextVar("context_pools", default={})
 
@@ -83,10 +88,6 @@ def use_tensorflow_for_gpu_memory() -> None:  # pragma: no cover
 
 
 def _import_extra_cpu_backends():
-    try:
-        from thinc_apple_ops import AppleOps
-    except ImportError:
-        pass
     try:
         from thinc_bigendian_ops import BigEndianOps
     except ImportError:
@@ -171,6 +172,7 @@ __all__ = [
     "use_ops",
     "ParamServer",
     "Ops",
+    "AppleOps",
     "CupyOps",
     "MPSOps",
     "NumpyOps",
