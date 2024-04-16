@@ -152,14 +152,3 @@ jobs:
 
       - name: Run tests with extras
         run: python -m pytest --pyargs thinc --cov=thinc --cov-report=term -p thinc.tests.enable_tensorflow -p thinc.tests.enable_mxnet
-
-      - name: Run tests for thinc-apple-ops
-        run: |
-          pip uninstall -y tensorflow
-          pip install thinc-apple-ops
-          python -m pytest --pyargs thinc_apple_ops
-        if: matrix.os == 'macos-latest' && matrix.python_version == '3.10'
-
-      - name: Run tests with thinc-apple-ops
-        run: python -m pytest --pyargs thinc
-        if: matrix.os == 'macos-latest' && matrix.python_version == '3.10'

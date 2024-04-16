@@ -1,3 +1,4 @@
+import platform
 import warnings
 
 from packaging.version import Version
@@ -118,6 +119,9 @@ except ImportError:
     blis = None
     has_blis = False
 
+
+# AppleOps is available unconditionally on macOS.
+has_apple_ops = platform.system() == "Darwin"
 
 has_gpu = has_cupy_gpu or has_torch_mps_gpu
 
