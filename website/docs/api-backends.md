@@ -17,16 +17,18 @@ specialized versions can be called for different backends. You can also create
 your own `Ops` subclasses with specialized routines for your layers, and use the
 [`set_current_ops`](#set_current_ops) function to change the default.
 
-| Backend    |        CPU         |        GPU         |        TPU        | Description                                                                                           |
-| ---------- | :----------------: | :----------------: | :---------------: | ----------------------------------------------------------------------------------------------------- |
-| `NumpyOps` | <i name="yes"></i> | <i name="no"></i>  | <i name="no"></i> | Execute via `numpy`, [`blis`](https://github.com/explosion/cython-blis) (optional) and custom Cython. |
-| `CupyOps`  | <i name="no"></i>  | <i name="yes"></i> | <i name="no"></i> | Execute via [`cupy`](https://cupy.chainer.org/) and custom CUDA.                                      |
+| Backend    |        CPU         |        GPU         |        TPU        | Description                                                                                                 |
+| ---------- | :----------------: | :----------------: | :---------------: | ----------------------------------------------------------------------------------------------------------- |
+| `NumpyOps` | <i name="yes"></i> | <i name="no"></i>  | <i name="no"></i> | Execute via `numpy`, [`blis`](https://github.com/explosion/cython-blis) (optional) and custom Cython.       |
+| `AppleOps` | <i name="yes"></i> | <i name="no"></i>  | <i name="no"></i> | Use AMX matrix multiplication units on Apple Silicon Macs.                                                  |
+| `CupyOps`  | <i name="no"></i>  | <i name="yes"></i> | <i name="no"></i> | Execute via [`cupy`](https://cupy.chainer.org/) and custom CUDA.                                            |
+| `MPSOps`   | <i name="yes"></i> | <i name="yes"></i> | <i name="no"></i> | Use the GPU on Apple Silicon Macs for PyTorch models, use AMX matrix multiplication units for Thinc Models. |
 
 ## Ops {#ops tag="class"}
 
-The `Ops` class is typically not used directly but via `NumpyOps` or `CupyOps`,
-which are subclasses of `Ops` and implement a **more efficient subset of the
-methods**. You also have access to the ops via the
+The `Ops` class is typically not used directly but via `NumpyOps`, `AppleOps`,
+`CupyOps` or `MPSOps`, which are subclasses of `Ops` and implement a **more
+efficient subset of the methods**. You also have access to the ops via the
 [`Model.ops`](/docs/api-model#attributes) attribute. The documented methods
 below list which backends provide optimized and more efficient versions
 (indicated by <i name="yes"></i>), and which use the default implementation.
@@ -56,7 +58,7 @@ use_ops(blis_ops)
 
 | Name          | Type         | Description                                                                              |
 | ------------- | ------------ | ---------------------------------------------------------------------------------------- |
-| `name`        | <tt>str</tt> | **Class attribute:** Backend name, `"numpy"` or `"cupy"`.                                |
+| `name`        | <tt>str</tt> | **Class attribute:** Backend name, `"numpy"`, `"apple"` `"cupy"` or `"mps"`.             |
 | `xp`          | <tt>Xp</tt>  | **Class attribute:** `numpy` or `cupy`.                                                  |
 | `device_type` | <tt>str</tt> | The device type to use, if available for the given backend: `"cpu"`, `"gpu"` or `"tpu"`. |
 | `device_id`   | <tt>int</tt> | The device ID to use, if available for the given backend.                                |
@@ -1553,7 +1555,7 @@ numpy_ops = get_ops("numpy")
 
 | Argument    | Type         | Description                                           |
 | ----------- | ------------ | ----------------------------------------------------- |
-| `ops`       | <tt>str</tt> | `"numpy"` or `"cupy"`.                                |
+| `ops`       | <tt>str</tt> | `"numpy"`, `"apple"`, `"cupy"` or `"mps"`.            |
 | `**kwargs`  |              | Optional arguments passed to [`Ops.__init__`](#init). |
 | **RETURNS** | <tt>Ops</tt> | The backend object.                                   |
 
@@ -1572,7 +1574,7 @@ with use_ops("cupy"):
 
 | Argument   | Type         | Description                                           |
 | ---------- | ------------ | ----------------------------------------------------- |
-| `ops`      | <tt>str</tt> | `"numpy"` or `"cupy"`.                                |
+| `ops`      | <tt>str</tt> | `"numpy"`, `"apple"`, `"cupy"` or `"mps"`.            |
 | `**kwargs` |              | Optional arguments passed to [`Ops.__init__`](#init). |
 
 ### get_current_ops {#get_current_ops tag="function"}
