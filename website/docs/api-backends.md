@@ -19,10 +19,10 @@ your own `Ops` subclasses with specialized routines for your layers, and use the
 
 | Backend    |        CPU         |        GPU         |        TPU        | Description                                                                                                 |
 | ---------- | :----------------: | :----------------: | :---------------: | ----------------------------------------------------------------------------------------------------------- |
-| `NumpyOps` | <i name="yes"></i> | <i name="no"></i>  | <i name="no"></i> | Execute via `numpy`, [`blis`](https://github.com/explosion/cython-blis) (optional) and custom Cython.       |
-| `AppleOps` | <i name="yes"></i> | <i name="no"></i>  | <i name="no"></i> | Use AMX matrix multiplication units on Apple Silicon Macs.                                                  |
+| `AppleOps` | <i name="yes"></i> | <i name="no"></i>  | <i name="no"></i> | Use AMX matrix multiplication units on Apple Silicon Macs. Added in Thinc 9.0.                              |
 | `CupyOps`  | <i name="no"></i>  | <i name="yes"></i> | <i name="no"></i> | Execute via [`cupy`](https://cupy.chainer.org/) and custom CUDA.                                            |
 | `MPSOps`   | <i name="yes"></i> | <i name="yes"></i> | <i name="no"></i> | Use the GPU on Apple Silicon Macs for PyTorch models, use AMX matrix multiplication units for Thinc Models. |
+| `NumpyOps` | <i name="yes"></i> | <i name="no"></i>  | <i name="no"></i> | Execute via `numpy`, [`blis`](https://github.com/explosion/cython-blis) (optional) and custom Cython.       |
 
 ## Ops {#ops tag="class"}
 
