@@ -1,6 +1,17 @@
 import numpy
 import pytest
 
+from thinc.types import (
+    Floats1d,
+    Floats2d,
+    Floats3d,
+    Floats4d,
+    Ints1d,
+    Ints2d,
+    Ints3d,
+    Ints4d,
+)
+
 try:
     from pydantic.v1 import ValidationError, create_model
 except ImportError:

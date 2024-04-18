@@ -9,6 +9,7 @@ import threading
 from contextvars import ContextVar
 from dataclasses import dataclass
 from typing import (
+    TYPE_CHECKING,
     Any,
     Callable,
     Dict,
@@ -30,8 +31,10 @@ try:
 except ImportError:
     from pydantic import ValidationError, create_model  # type: ignore
 
+import numpy
 from wasabi import table
 
+from . import types  # noqa: E402
 from .compat import (
     cupy,
     cupy_from_dlpack,
@@ -47,16 +50,13 @@ from .compat import (
 from .compat import mxnet as mx
 from .compat import tensorflow as tf
 from .compat import torch
-
-DATA_VALIDATION: ContextVar[bool] = ContextVar("DATA_VALIDATION", default=False)
-
-from typing import TYPE_CHECKING
-
-from . import types  # noqa: E402
 from .types import ArgsKwargs, ArrayXd, FloatsXd, IntsXd, Padded, Ragged  # noqa: E402
 
 if TYPE_CHECKING:
     from .api import Ops
+
+
+DATA_VALIDATION: ContextVar[bool] = ContextVar("DATA_VALIDATION", default=False)
 
 
 def get_torch_default_device() -> "torch.device":

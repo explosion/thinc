@@ -183,9 +183,8 @@ def test_objects_from_config():
         return repeat * [base_rate]
 
     optimizer = my_registry.resolve(config)["optimizer"]
-    assert optimizer.b1 == 0.2
-    assert "learn_rate" in optimizer.schedules
-    assert optimizer.learn_rate == 0.001
+    assert optimizer.b1(step=optimizer._step, key=(0, "")) == 0.2
+    assert optimizer.learn_rate(step=optimizer._step, key=(0, "")) == 0.001
 
 
 def test_handle_generic_model_type():

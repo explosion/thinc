@@ -30,7 +30,7 @@ class TorchScriptShim(PyTorchShim):
 
     def __init__(
         self,
-        model: Optional["torch.ScriptModule"],
+        model: Optional["torch.jit.ScriptModule"],
         config=None,
         optimizer: Any = None,
         mixed_precision: bool = False,

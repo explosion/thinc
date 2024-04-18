@@ -1,12 +1,15 @@
+import platform
 import warnings
 
 from packaging.version import Version
 
 try:  # pragma: no cover
     import cupy
+    import cupy.cublas
     import cupyx
 
     has_cupy = True
+    cublas = cupy.cublas
     cupy_version = Version(cupy.__version__)
     try:
         cupy.cuda.runtime.getDeviceCount()
@@ -20,6 +23,7 @@ try:  # pragma: no cover
     else:
         cupy_from_dlpack = cupy.fromDlpack
 except (ImportError, AttributeError):
+    cublas = None
     cupy = None
     cupyx = None
     cupy_version = Version("0.0.0")
@@ -106,6 +110,18 @@ except ImportError:
     os_signpost = None
     has_os_signpost = False
 
+
+try:  # pragma: no cover
+    import blis
+
+    has_blis = True
+except ImportError:
+    blis = None
+    has_blis = False
+
+
+# AppleOps is available unconditionally on macOS.
+has_apple_ops = platform.system() == "Darwin"
 
 has_gpu = has_cupy_gpu or has_torch_mps_gpu
 

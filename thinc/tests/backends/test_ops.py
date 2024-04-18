@@ -1403,7 +1403,7 @@ def test_get_ops():
     # If Apple ops are available, "cpu" should return AppleOps or
     # NumpyOps otherwise.
     try:
-        from thinc_apple_ops import AppleOps
+        from thinc.backends.apple_ops import AppleOps
 
         assert isinstance(get_ops("cpu"), AppleOps)
     except ImportError:
