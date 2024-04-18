@@ -23,7 +23,7 @@ jobs:
       - name: Configure Python version
         uses: actions/setup-python@v4
         with:
-          python-version: "3.7"
+          python-version: "3.9"
           architecture: x64
 
       - name: black
@@ -48,12 +48,6 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
         python_version: ["3.12"]
         include:
-          - os: windows-2019
-            python_version: "3.6"
-          - os: macos-latest
-            python_version: "3.7"
-          - os: ubuntu-latest
-            python_version: "3.8"
           - os: windows-latest
             python_version: "3.9"
           - os: macos-latest
@@ -87,9 +81,6 @@ jobs:
 
       - name: Run mypy
         run: python -m mypy thinc --no-implicit-reexport
-        if: |
-          matrix.python_version != '3.6' &&
-          matrix.python_version != '3.7'
 
       - name: Delete source directory
         run: rm -rf thinc
