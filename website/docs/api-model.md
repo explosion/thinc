@@ -84,19 +84,19 @@ model = Model(
 )
 ```
 
-| Argument       | Type                                        | Description                                                                             |
-| -------------- | ------------------------------------------- | --------------------------------------------------------------------------------------- |
-| `name`         | <tt>str</tt>                                | The name of the layer type.                                                             |
-| `forward`      | <tt>Callable</tt>                           | Function to compute the forward result and the backpropagation callback.                |
-| _keyword-only_ |                                             |                                                                                         |
-| `init`         | <tt>Callable</tt>                           | Function to define the initialization logic.                                            |
-| `dims`         | <tt>Dict[str, Optional[int]]</tt>           | Dictionary describing the model's dimensions. Map unknown dimensions to `None`.         |
-| `params`       | <tt>Dict[str, Optional[FloatsXd]]</tt>      | Dictionary with the model's parameters. Set currently unavailable parameters to `None`. |
-| `refs`         | <tt>Dict[str, Optional[Model]]</tt>         | Dictionary mapping specific nodes (sublayers) of the network to a name.                 |
-| `attrs`        | <tt>Dict[str, Any]</tt>                     | Dictionary of non-parameter attributes.                                                 |
-| `layers`       | <tt>List[Model]</tt>                        | List of child layers.                                                                   |
-| `shims`        | <tt>List[Shim]</tt>                         | List of interfaces for external models.                                                 |
-| `ops`          | <tt>Optional[Union[NumpyOps, CupyOps]]</tt> | An `Ops` instance, which provides mathematical and memory operations.                   |
+| Argument       | Type                                                          | Description                                                                             |
+| -------------- | ------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `name`         | <tt>str</tt>                                                  | The name of the layer type.                                                             |
+| `forward`      | <tt>Callable</tt>                                             | Function to compute the forward result and the backpropagation callback.                |
+| _keyword-only_ |                                                               |                                                                                         |
+| `init`         | <tt>Callable</tt>                                             | Function to define the initialization logic.                                            |
+| `dims`         | <tt>Dict[str, Optional[int]]</tt>                             | Dictionary describing the model's dimensions. Map unknown dimensions to `None`.         |
+| `params`       | <tt>Dict[str, Optional[FloatsXd]]</tt>                        | Dictionary with the model's parameters. Set currently unavailable parameters to `None`. |
+| `refs`         | <tt>Dict[str, Optional[Model]]</tt>                           | Dictionary mapping specific nodes (sublayers) of the network to a name.                 |
+| `attrs`        | <tt>Dict[str, Any]</tt>                                       | Dictionary of non-parameter attributes.                                                 |
+| `layers`       | <tt>List[Model]</tt>                                          | List of child layers.                                                                   |
+| `shims`        | <tt>List[Shim]</tt>                                           | List of interfaces for external models.                                                 |
+| `ops`          | <tt>Optional[Union[NumpyOps, AppleOps, CupyOps, MPSOps]]</tt> | An `Ops` instance, which provides mathematical and memory operations.                   |
 
 ### Model.define_operators {#define_operators tag="classmethod,contextmanager"}
 
@@ -260,17 +260,17 @@ for node in model.walk():
 
 The `walk` method supports three iteration orders through the `order` argument:
 
-* `"bfs"`: breadth-first. Iteration order of the example above:
-  *1 - 2 - 4 - 3 - 5*
-* `"dfs_pre"`: depth-first preorder, outputs a node before its children.
-  Iteration order of the example above: *1 - 2 - 3 - 4 - 5*
-* `"dfs_post"`: depth-first postorder, outputs children before a node itself.
-  Iteration order of the example above: *3 - 2 - 5 - 4 - 1*
+- `"bfs"`: breadth-first. Iteration order of the example above: _1 - 2 - 4 - 3 -
+  5_
+- `"dfs_pre"`: depth-first preorder, outputs a node before its children.
+  Iteration order of the example above: _1 - 2 - 3 - 4 - 5_
+- `"dfs_post"`: depth-first postorder, outputs children before a node itself.
+  Iteration order of the example above: _3 - 2 - 5 - 4 - 1_
 
-| Argument    | Type                     | Description                                                                                                                                |
-|-------------|--------------------------|--------------------------------------------------------------------------------------------------------------------------------------------|
+| Argument    | Type                     | Description                                                                                                                               |
+| ----------- | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
 | `order`     | <tt>str</tt>             | Node iteration order. `"bfs"` (breadth-first), `"dfs_pre"` (depth-first preorder), `"dfs_post"` (depth-first postorder) Default: `"bfs"`. |
-| **RETURNS** | <tt>Iterable[Model]</tt> | The layers of the model.                                                                                                                   |
+| **RETURNS** | <tt>Iterable[Model]</tt> | The layers of the model.                                                                                                                  |
 
 ### Model.remove_node {#remove_node tag="method"}
 
@@ -329,9 +329,9 @@ assert model.get_dim("nI") == 16
 Retrieve the value of a dimension of the given name, or `None` if the dimension
 is either unregistered or the value is currently unset.
 
-| Argument    | Type                  | Description                             |
-| ----------- | --------------------- | --------------------------------------- |
-| `name`      | <tt>str</tt>          | The name of the dimension, e.g. `"nO"`. |
+| Argument    | Type                   | Description                             |
+| ----------- | ---------------------- | --------------------------------------- |
+| `name`      | <tt>str</tt>           | The name of the dimension, e.g. `"nO"`. |
 | **RETURNS** | <tt>Optional[int]</tt> | The size of the dimension, or `None`.   |
 
 ### Model.set_dim {#set_dim tag="method"}
