@@ -58,7 +58,7 @@ use_ops(blis_ops)
 
 | Name          | Type         | Description                                                                              |
 | ------------- | ------------ | ---------------------------------------------------------------------------------------- |
-| `name`        | <tt>str</tt> | **Class attribute:** Backend name, `"numpy"`, `"apple"` `"cupy"` or `"mps"`.             |
+| `name`        | <tt>str</tt> | **Class attribute:** Backend name, `"numpy"`, `"apple"`, `"cupy"` or `"mps"`.            |
 | `xp`          | <tt>Xp</tt>  | **Class attribute:** `numpy` or `cupy`.                                                  |
 | `device_type` | <tt>str</tt> | The device type to use, if available for the given backend: `"cpu"`, `"gpu"` or `"tpu"`. |
 | `device_id`   | <tt>int</tt> | The device ID to use, if available for the given backend.                                |
