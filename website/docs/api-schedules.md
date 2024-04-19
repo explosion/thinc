@@ -413,9 +413,9 @@ rate = 1.0
 
 </grid>
 
-| Argument       | Type                     | Description                                                                           |
-| -------------- | ------------------------ | ------------------------------------------------------------------------------------- | ----------------------------------------------- |
-| `max_patience` | <tt>int</tt>             | Number of evaluations without an improvement to consider the model to have plateaued. |
-| `scale`        | <tt>float</tt>           |                                                                                       | Scaling of the inner schedule after plateauing. |
-| `schedule`     | <tt>Schedule[float]</tt> |                                                                                       | The schedule to wrap.                           |
-| **RETURNS**    | <tt>Schedule[float]</tt> |                                                                                       |
+| Argument       | Type                     | Description                                                                                                                                                        |
+| -------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `max_patience` | <tt>int</tt>             | Number of evaluations without an improvement to consider the model to have plateaued.                                                                              |
+| `scale`        | <tt>float</tt>           | Scale to apply to the learning rate when the model has plateaued. This scale is cumulative -- if the model plateaued `n` times, the effective scale is `scale**n`. |
+| `schedule`     | <tt>Schedule[float]</tt> | The schedule to wrap.                                                                                                                                              |
+| **RETURNS**    | <tt>Schedule[float]</tt> |                                                                                                                                                                    |
