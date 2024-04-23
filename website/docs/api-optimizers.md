@@ -207,6 +207,25 @@ and parameter name.
 | _keyword-only_ |                          |                                               |
 | `lr_scale`     | <tt>float</tt>           | Rescale the learning rate. Defaults to `1.0`. |
 
+### Optimizer.last_score {#last_score tag="property", new="9"}
+
+Get or set the last evaluation score. The optimizer passes this score to the
+learning rate schedule, so that the schedule can take training dynamics into
+account (see e.g. the [`plateau`](/docs/api-schedules#plateau) schedule).
+
+```python
+### Example
+from thinc.api import Optimizer, constant, plateau
+
+schedule = plateau(2, 0.5, constant(1.0))
+optimizer = Optimizer(learn_rate=schedule)
+optimizer.last_score = (1000, 88.34)
+```
+
+| Argument    | Type                                 | Description                                |
+| ----------- | ------------------------------------ | ------------------------------------------ |
+| **RETURNS** | <tt>Optional[Tuple[int, float]]</tt> | The step and score of the last evaluation. |
+
 ### Optimizer.step_schedules {#step_schedules tag="method"}
 
 Increase the current step of the optimizer. This step will be used by schedules
