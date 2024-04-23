@@ -209,7 +209,7 @@ and parameter name.
 
 ### Optimizer.last_score {#last_score tag="property", new="9"}
 
-Get or set the last evaluation score. The optimizer passes this score to the 
+Get or set the last evaluation score. The optimizer passes this score to the
 learning rate schedule, so that the schedule can take training dynamics into
 account (see e.g. the [`plateau`](/docs/api-schedules#plateau) schedule).
 
