@@ -2,14 +2,14 @@ import operator
 import re
 from collections import defaultdict
 from functools import reduce
-from pathlib import Path
+from importlib.resources import files
 from typing import Callable, Optional, Tuple
 
 import numpy
 
 from ..compat import cupy, has_cupy_gpu
 
-PWD = Path(__file__).parent
+PWD = files(__package__)
 KERNELS_SRC = (PWD / "_custom_kernels.cu").read_text(encoding="utf8")
 KERNELS_LIST = [
     "backprop_clipped_linear<double>",
