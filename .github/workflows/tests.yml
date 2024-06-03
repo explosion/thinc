@@ -49,7 +49,7 @@ jobs:
         include:
           - os: windows-2019
             python_version: "3.6"
-          - os: macos-latest
+          - os: ubuntu-latest
             python_version: "3.7"
           - os: ubuntu-latest
             python_version: "3.8"
