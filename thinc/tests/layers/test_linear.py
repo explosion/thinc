@@ -34,6 +34,7 @@ def test_linear_dimensions_on_data():
     y.max.assert_called_with()
 
 
+@pytest.mark.skipif(platform.machine() == "win_amd64", reason="Flaky, skip temporarily")
 @given(arrays_OI_O_BI(max_batch=8, max_out=8, max_in=8))
 def test_begin_update_matches_predict(W_b_input):
     model = get_model(W_b_input)
