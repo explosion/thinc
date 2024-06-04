@@ -1,5 +1,6 @@
-import numpy
 import platform
+
+import numpy
 import pytest
 from hypothesis import given, settings
 from mock import MagicMock
