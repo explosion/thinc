@@ -30,7 +30,7 @@ try:
 except ImportError:
     from pydantic import ValidationError, create_model  # type: ignore
 
-from wasabi import table
+from wasabi import table  # type: ignore
 
 from .compat import (
     cupy,
