@@ -24,7 +24,7 @@ mypy>=1.5.0,<1.6.0; platform_machine != "aarch64"
 types-mock>=0.1.1
 # Executing notebook tests
 ipykernel>=5.1.4,<5.2.0
-nbconvert>=5.6.1,<6.2.0
+nbconvert>=5.6.1,<6.5.0
 nbformat>=5.0.4,<5.2.0
 # Test to_disk/from_disk against pathlib.Path subclasses
 pathy>=0.3.5

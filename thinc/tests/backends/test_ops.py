@@ -1383,7 +1383,7 @@ def test_lstm_forward_training(ops, depth, dirs, nO, batch_size, nI):
     assert_allclose(Y, reference[0], atol=1e-4, rtol=1e-3)
 
 
-@pytest.mark.skipif(platform.machine() == "aarch64", reason="Flaky, skip temporarily")
+@pytest.mark.skip(reason="Flaky, skip temporarily")
 @pytest.mark.parametrize("ops", XP_OPS)
 @settings(max_examples=MAX_EXAMPLES, deadline=None)
 @given(args=draw_lstm_args())

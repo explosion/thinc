@@ -47,6 +47,12 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-13]
         python_version: ["3.12"]
         include:
+          - os: windows-2019
+            python_version: "3.6"
+          - os: ubuntu-latest
+            python_version: "3.7"
+          - os: ubuntu-latest
+            python_version: "3.8"
           - os: windows-latest
             python_version: "3.9"
           - os: macos-13
