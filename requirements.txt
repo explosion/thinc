@@ -18,7 +18,6 @@ hypothesis>=3.27.0,<6.72.2
 pytest>=8.2.0
 pytest-cov>=2.7.0,<5.0.0
 coverage>=5.0.0,<8.0.0
-mock>=2.0.0,<3.0.0
 flake8>=3.5.0,<3.6.0
 mypy>=1.5.0,<1.6.0; platform_machine != "aarch64"
 types-mock>=0.1.1
