@@ -6,7 +6,7 @@ import pytest
 
 @pytest.fixture
 def test_files(nb_file):
-    pytest.importorskip("nbconvert")
+    pytest.importorskip("nbconvert", exc_type=ImportError)
     pytest.importorskip("nbformat")
     import nbconvert
     import nbformat
