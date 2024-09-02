@@ -1,5 +1,6 @@
 # cython: binding=True, infer_types=True, profile=False
 import numpy
+from libc.stdint cimport int32_t, int64_t
 
 from preshed.maps cimport PreshMap
 
@@ -14,15 +15,15 @@ InT = Union[Ints1d, Ints2d]
 OutT = Ints2d
 
 
-cdef lookup(PreshMap mapping, long[:] keys, long default):
+cdef lookup(PreshMap mapping, int64_t[:] keys, int64_t default):
     """
     Faster dict.get(keys, default) for the case when
     the "dict" is a Dict[int, int] converted to PreshMap
     and the "keys" is a numpy integer vector.
     """
     cdef int maxi = len(keys)
-    result = numpy.empty(maxi, dtype="int")
-    cdef long[:] result_view = result
+    result = numpy.empty(maxi, dtype="int64")
+    cdef int64_t[:] result_view = result
     for i in range(maxi):
         v = mapping[keys[i]]
         if v is None:
@@ -34,10 +35,10 @@ cdef lookup(PreshMap mapping, long[:] keys, long default):
 
 @registry.layers("premap_ids.v1")
 def premap_ids(
-    mapping_table: Mapping[int, int],
-    default: int = 0,
+    mapping_table: Mapping[int32_t, int32_t],
+    default: int32_t = 0,
     *,
-    column: Optional[int] = None
+    column: Optional[int32_t] = None
 ):
     """Remap integer inputs to integers a mapping table, usually as a
     preprocess before embeddings."""
@@ -73,8 +74,12 @@ def forward(
     result = lookup(table, idx, default)
     arr = model.ops.asarray2i(result)
     output = model.ops.reshape2i(arr, -1, 1)
+    inputs_shape = inputs.shape
 
     def backprop(dY: OutT) -> InT:
-        return model.ops.xp.empty(dY.shape)  # type: ignore
+        if len(inputs_shape) == 1:
+            return model.ops.alloc1i(*inputs_shape)
+        else:
+            return model.ops.alloc2i(*inputs_shape)
 
     return output, backprop
