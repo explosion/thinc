@@ -1,10 +1,10 @@
 # cython: binding=True, infer_types=True, profile=False
-import numpy
 from libc.stdint cimport int32_t, int64_t
-
 from preshed.maps cimport PreshMap
 
 from typing import Callable, Dict, Mapping, Optional, Tuple, Union, cast
+
+import numpy
 
 from ..config import registry
 from ..model import Model
