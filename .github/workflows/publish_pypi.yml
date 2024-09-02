@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: pypi
-      url: https://pypi.org/p/blis
+      url: https://pypi.org/p/thinc
     permissions:
       id-token: write
       contents: read
