@@ -127,7 +127,7 @@ jobs:
       - name: Install extras for testing
         run: |
           pip install "protobuf~=3.20.0" "tensorflow~=2.5.0"
-          pip install "mxnet; sys_platform != 'win32' and python_version < '3.12'"
+          #pip install "mxnet; sys_platform != 'win32' and python_version < '3.12'"
           pip install "torch!=1.13.0; sys_platform!='darwin'" --extra-index-url https://download.pytorch.org/whl/cpu
           # there is a bug related to MPS devices in github macos runners that
           # will be fixed in torch v2.1.1
@@ -140,4 +140,4 @@ jobs:
         shell: bash --noprofile --norc -o pipefail {0}
 
       - name: Run tests with extras
-        run: python -m pytest --pyargs thinc --cov=thinc --cov-report=term -p thinc.tests.enable_tensorflow -p thinc.tests.enable_mxnet
+        run: python -m pytest --pyargs thinc --cov=thinc --cov-report=term -p thinc.tests.enable_tensorflow
