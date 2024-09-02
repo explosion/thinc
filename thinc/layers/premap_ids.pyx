@@ -36,9 +36,9 @@ cdef lookup(PreshMap mapping, int64_t[:] keys, int64_t default):
 @registry.layers("premap_ids.v1")
 def premap_ids(
     mapping_table: Mapping[int, int],
-    default: int32_t = 0,
+    default: int = 0,
     *,
-    column: Optional[int32_t] = None
+    column: Optional[int] = None
 ):
     """Remap integer inputs to integers a mapping table, usually as a
     preprocess before embeddings."""
