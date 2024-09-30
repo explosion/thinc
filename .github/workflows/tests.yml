@@ -2,6 +2,8 @@ name: tests
 
 on:
   push:
+    tags-ignore:
+      - '**'
     paths-ignore:
       - "website/**"
       - "*.md"
