@@ -115,7 +115,7 @@ class PyTorchShim(Shim):
             # for mixed_precision. That doesn't seem to match the docs, and now
             # it raises an error when moving from the deprecated function. So
             # I've removed the argument but I'm not certain it's correct.
-            with torch.autocast(device_type="cuda"):
+            with torch.autocast(device_type="cuda", enabled=self._mixed_precision):
                 outputs = self._model(*inputs.args, **inputs.kwargs)
         self._model.train()
         return outputs
@@ -133,7 +133,7 @@ class PyTorchShim(Shim):
         # for mixed_precision. That doesn't seem to match the docs, and now
         # it raises an error when moving from the deprecated function. So
         # I've removed the argument but I'm not certain it's correct.
-        with torch.autocast("cuda"):
+        with torch.autocast("cuda", enabled=self._mixed_precision):
             output = self._model(*inputs.args, **inputs.kwargs)
 
         def backprop(grads):
