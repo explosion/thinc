@@ -75,6 +75,9 @@ jobs:
 
       - name: Build sdist
         run: |
+          # Remove the '.eggs' directory in case it's not empty
+          # due to setuptools quirks
+          rm -rf thinc/.eggs
           python setup.py build_ext --inplace
           python setup.py sdist --formats=gztar
 
