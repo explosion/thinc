@@ -77,9 +77,9 @@ jobs:
         run: |
           # Remove the '.eggs' directory in case it's not empty
           # due to setuptools quirks
-          rm -rf thinc/.eggs
+          rm -rf .eggs
           python setup.py build_ext --inplace
-          rm -rf thinc/.eggs
+          rm -rf .eggs
           python setup.py sdist --formats=gztar
 
       - name: Run mypy
