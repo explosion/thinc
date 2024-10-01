@@ -1,4 +1,5 @@
 # cython: binding=True, infer_types=True, profile=False
+from libc.stdint cimport int64_t
 import numpy
 
 from preshed.maps cimport PreshMap
@@ -14,7 +15,7 @@ InT = Union[Ints1d, Ints2d]
 OutT = Ints2d
 
 
-cdef lookup(PreshMap mapping, long[:] keys, long default):
+cdef lookup(PreshMap mapping, int64_t[:] keys, int64_t default):
     """
     Faster dict.get(keys, default) for the case when
     the "dict" is a Dict[int, int] converted to PreshMap
@@ -22,7 +23,7 @@ cdef lookup(PreshMap mapping, long[:] keys, long default):
     """
     cdef int maxi = len(keys)
     result = numpy.empty(maxi, dtype="int")
-    cdef long[:] result_view = result
+    cdef int64_t[:] result_view = result
     for i in range(maxi):
         v = mapping[keys[i]]
         if v is None:
