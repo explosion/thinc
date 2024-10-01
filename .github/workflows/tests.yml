@@ -81,6 +81,7 @@ jobs:
           python setup.py build_ext --inplace
           rm -rf .eggs
           python setup.py sdist --formats=gztar
+        shell: bash
 
       - name: Run mypy
         run: python -m mypy thinc --no-implicit-reexport
