@@ -19,7 +19,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build wheels
-        uses: pypa/cibuildwheel@v2.19.1
+        uses: pypa/cibuildwheel@v2.21.3
         env:
           CIBW_SOME_OPTION: value
         with:
