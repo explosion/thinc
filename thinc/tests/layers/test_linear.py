@@ -1,7 +1,8 @@
+from unittest.mock import MagicMock
+
 import numpy
 import pytest
 from hypothesis import given, settings
-from mock import MagicMock
 from numpy.testing import assert_allclose
 
 from thinc.api import SGD, Dropout, Linear, chain
