@@ -2,18 +2,18 @@ from libcpp.memory cimport shared_ptr
 
 ctypedef void (*sgemm_ptr)(bint transA, bint transB, int M, int N, int K,
                            float alpha, const float* A, int lda, const float* B,
-                           int ldb, float beta, float* C, int ldc) nogil
+                           int ldb, float beta, float* C, int ldc) nogil noexcept
 ctypedef void (*dgemm_ptr)(bint transA, bint transB, int M, int N, int K,
                            double alpha, const double* A, int lda, const double* B,
-                           int ldb, double beta, double* C, int ldc) nogil
+                           int ldb, double beta, double* C, int ldc) nogil noexcept
 
 
 ctypedef void (*saxpy_ptr)(int N, float alpha, const float* X, int incX,
-                           float *Y, int incY) nogil
+                           float *Y, int incY) nogil noexcept
 
 
 ctypedef void (*daxpy_ptr)(int N, double alpha, const double* X, int incX,
-                           double *Y, int incY) nogil
+                           double *Y, int incY) nogil noexcept
 
 ctypedef void (*sscal_ptr)(int N, float alpha, float* X, int incX) nogil
 ctypedef void (*dscal_ptr)(int N, double alpha, double* X, int incX) nogil
