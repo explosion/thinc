@@ -111,7 +111,7 @@ class PyTorchShim(Shim):
         """
         self._model.eval()
         with torch.no_grad():
-            with torch.amp.autocast("cuda", self._mixed_precision):
+            with torch.amp.autocast("cuda", enabled=self._mixed_precision):
                 outputs = self._model(*inputs.args, **inputs.kwargs)
         self._model.train()
         return outputs
@@ -125,7 +125,7 @@ class PyTorchShim(Shim):
         self._model.train()
 
         # Note: mixed-precision autocast must not be applied to backprop.
-        with torch.amp.autocast("cuda", self._mixed_precision):
+        with torch.amp.autocast("cuda", enabled=self._mixed_precision):
             output = self._model(*inputs.args, **inputs.kwargs)
 
         def backprop(grads):
