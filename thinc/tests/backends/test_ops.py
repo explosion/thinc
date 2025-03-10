@@ -801,11 +801,11 @@ def test_gemm_out_used(cpu_ops):
 
 
 @pytest.mark.parametrize("cpu_ops", CPU_OPS)
-@settings(max_examples=MAX_EXAMPLES, deadline=None)
-@given(X=strategies.arrays_BI())
-def test_flatten_unflatten_roundtrip(cpu_ops, X):
+@settings(max_examples=MAX_EXAMPLES * 2, deadline=None)
+@given(X=strategies.arrays_BI(dtype="i") | strategies.arrays_BI(dtype="f"))
+def test_flatten_unflatten_roundtrip(cpu_ops: NumpyOps, X: numpy.ndarray):
     flat = cpu_ops.flatten([x for x in X])
-    assert flat.ndim == 1
+    assert flat.ndim == X.ndim - 1
     unflat = cpu_ops.unflatten(flat, [len(x) for x in X])
     assert_allclose(X, unflat)
     flat2 = cpu_ops.flatten([x for x in X], pad=1, dtype="f")
