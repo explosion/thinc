@@ -13,7 +13,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.cibuildwheel]
 build = "*"
-skip = "pp* cp36* cp37* cp38*"
+skip = "pp* cp36* cp37* cp38* cp39-win_arm64 cp310-win_arm64"
 test-skip = ""
 free-threaded-support = false
 
@@ -59,6 +59,10 @@ repair-wheel-command = "auditwheel repair -w {dest_dir} {wheel}"
 repair-wheel-command = "delocate-wheel --require-archs {delocate_archs} -w {dest_dir} -v {wheel}"
 
 [tool.cibuildwheel.windows]
+
+[tool.cibuildwheel.windows.environment]
+CC = "cl.exe"
+CXX = "cl.exe"
 
 [tool.cibuildwheel.pyodide]
 
