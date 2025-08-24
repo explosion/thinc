@@ -5,10 +5,10 @@ from libcpp.memory cimport make_shared
 
 
 # Single- and double-precision wrappers for `blis.cy.scalv`
-cdef void blis_sscal(int N, float alpha, float* X, int incX) nogil:
+cdef void blis_sscal(int N, float alpha, float* X, int incX) noexcept nogil:
     blis.cy.scalv(blis.cy.NO_CONJUGATE, N, alpha, X, incX)
 
-cdef void blis_dscal(int N, double alpha, double* X, int incX) nogil:
+cdef void blis_dscal(int N, double alpha, double* X, int incX) noexcept nogil:
     blis.cy.scalv(blis.cy.NO_CONJUGATE, N, alpha, X, incX)
 
 
@@ -36,38 +36,38 @@ cdef class CBlas:
         funcs.dscal = blis_dscal
         self.ptr = make_shared[BlasFuncs](funcs)
 
-cdef daxpy_ptr daxpy(CBlas cblas) nogil:
+cdef daxpy_ptr daxpy(CBlas cblas) noexcept nogil:
     return deref(cblas.ptr).daxpy
 
-cdef saxpy_ptr saxpy(CBlas cblas) nogil:
+cdef saxpy_ptr saxpy(CBlas cblas) noexcept nogil:
     return deref(cblas.ptr).saxpy
 
-cdef sgemm_ptr sgemm(CBlas cblas) nogil:
+cdef sgemm_ptr sgemm(CBlas cblas) noexcept nogil:
     return deref(cblas.ptr).sgemm
 
-cdef dgemm_ptr dgemm(CBlas cblas) nogil:
+cdef dgemm_ptr dgemm(CBlas cblas) noexcept nogil:
     return deref(cblas.ptr).dgemm
 
-cdef sscal_ptr sscal(CBlas cblas) nogil:
+cdef sscal_ptr sscal(CBlas cblas) noexcept nogil:
     return deref(cblas.ptr).sscal
 
-cdef dscal_ptr dscal(CBlas cblas) nogil:
+cdef dscal_ptr dscal(CBlas cblas) noexcept nogil:
     return deref(cblas.ptr).dscal
 
-cdef void set_daxpy(CBlas cblas, daxpy_ptr daxpy) nogil:
+cdef void set_daxpy(CBlas cblas, daxpy_ptr daxpy) noexcept nogil:
     deref(cblas.ptr).daxpy = daxpy
 
-cdef void set_saxpy(CBlas cblas, saxpy_ptr saxpy) nogil:
+cdef void set_saxpy(CBlas cblas, saxpy_ptr saxpy) noexcept nogil:
     deref(cblas.ptr).saxpy = saxpy
 
-cdef void set_sgemm(CBlas cblas, sgemm_ptr sgemm) nogil:
+cdef void set_sgemm(CBlas cblas, sgemm_ptr sgemm) noexcept nogil:
     deref(cblas.ptr).sgemm = sgemm
 
-cdef void set_dgemm(CBlas cblas, dgemm_ptr dgemm) nogil:
+cdef void set_dgemm(CBlas cblas, dgemm_ptr dgemm) noexcept nogil:
     deref(cblas.ptr).dgemm = dgemm
 
-cdef void set_sscal(CBlas cblas, sscal_ptr sscal) nogil:
+cdef void set_sscal(CBlas cblas, sscal_ptr sscal) noexcept nogil:
     deref(cblas.ptr).sscal = sscal
 
-cdef void set_dscal(CBlas cblas, dscal_ptr dscal) nogil:
+cdef void set_dscal(CBlas cblas, dscal_ptr dscal) noexcept nogil:
     deref(cblas.ptr).dscal = dscal

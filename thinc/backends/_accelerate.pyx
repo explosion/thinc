@@ -6,7 +6,7 @@ import numpy
 
 cpdef np.ndarray gemm(float[:, ::1] A, float[:, ::1] B,
                       bint trans1=False, bint trans2=False,
-                      np.ndarray out=None):
+                      np.ndarray out=None) noexcept:
     cdef int nM = A.shape[0] if not trans1 else A.shape[1]
     cdef int nK = A.shape[1] if not trans1 else A.shape[0]
     cdef int nK_b = B.shape[0] if not trans2 else B.shape[1]
@@ -51,7 +51,7 @@ cpdef np.ndarray gemm(float[:, ::1] A, float[:, ::1] B,
 
 cdef void sgemm(bint TransA, bint TransB, int M, int N, int K,
                     float alpha, const float* A, int lda, const float *B,
-                    int ldb, float beta, float* C, int ldc) nogil:
+                    int ldb, float beta, float* C, int ldc) noexcept nogil:
     cblas_sgemm(
         CblasRowMajor,
         CblasTrans if TransA else CblasNoTrans,
@@ -71,5 +71,5 @@ cdef void sgemm(bint TransA, bint TransB, int M, int N, int K,
 
 
 cdef void saxpy(int N, float alpha, const float* X, int incX,
-                float *Y, int incY) nogil:
+                float *Y, int incY) noexcept nogil:
     cblas_saxpy(N, alpha, X, incX, Y, incY)
