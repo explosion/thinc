@@ -36,8 +36,8 @@ their favorite framework.
 
 ## 🚀 Quickstart
 
-Thinc is compatible with **Python 3.6+** and runs on **Linux**, **macOS** and
-**Windows**. The latest releases with binary wheels are available from
+Thinc runs on **Linux**, **macOS** and **Windows**.
+The latest releases with binary wheels are available from
 [pip](https://pypi.python.org/pypi/thinc). Before you install Thinc and its
 dependencies, make sure that your `pip`, `setuptools` and `wheel` are up to
 date. For the most recent releases, pip 19.3 or newer is recommended.
@@ -121,8 +121,8 @@ the button next to the notebook name.
 
 Thinc uses [`black`](https://github.com/psf/black) for auto-formatting,
 [`flake8`](http://flake8.pycqa.org/en/latest/) for linting and
-[`mypy`](https://mypy.readthedocs.io/en/latest/) for type checking. All code is
-written compatible with **Python 3.6+**, with type hints wherever possible. See
+[`mypy`](https://mypy.readthedocs.io/en/latest/) for type checking. All code
+includes type hints wherever possible. See
 the [type reference](https://thinc.ai/docs/api-types) for more details on
 Thinc's custom types.
 

@@ -63,6 +63,7 @@ def get_shuffled_batches(Xs, Ys, batch_size):
 @pytest.mark.parametrize(
     ("depth", "width", "vector_width", "nb_epoch"), [(2, 32, 16, 5)]
 )
+@pytest.mark.xfail(reason="Flaky live download from the internet", strict=False)
 def test_small_end_to_end(depth, width, vector_width, nb_epoch, create_model, ancora):
     (train_X, train_Y), (dev_X, dev_Y) = ancora
     batch_size = 8

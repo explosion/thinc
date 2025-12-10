@@ -1,2 +1,0 @@
-# build version constraints for use with wheelwright + multibuild
-numpy>=2.0.0,<3.0.0

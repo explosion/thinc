@@ -1,3 +1,4 @@
+import platform
 import threading
 import time
 from collections import Counter
@@ -513,6 +514,11 @@ def test_replace_node_with_indirect_node_ref():
     assert a.layers[1].get_ref("y") == y_debug
 
 
+@pytest.mark.xfail(
+    platform.system() == "Darwin",
+    reason="SSL: CERTIFICATE_VERIFY_FAILED",
+    strict=False,  # Works on macos-15-intel Python 3.10, for some reason
+)
 def test_with_debug():
     pytest.importorskip("ml_datasets")
     import ml_datasets

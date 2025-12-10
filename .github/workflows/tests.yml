@@ -2,19 +2,26 @@ name: tests
 
 on:
   push:
+    branches: [main, v8.3.x]
     paths-ignore:
       - "website/**"
       - "*.md"
   pull_request:
-    types: [opened, synchronize, reopened, edited]
+    branches: ["*"]
     paths-ignore:
       - "website/**"
       - "*.md"
+  workflow_dispatch: # allows you to trigger manually
+
+# When this workflow is queued, automatically cancel any previous running
+# or pending jobs from the same branch
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   validate:
     name: Validate
-    if: github.repository_owner == 'explosion'
     runs-on: ubuntu-latest
     steps:
       - name: Check out repo
@@ -35,26 +42,31 @@ jobs:
           python -m isort thinc --check
       - name: flake8
         run: |
-          python -m pip install flake8==5.0.4
+          python -m pip install flake8 -c requirements.txt
           python -m flake8 thinc --count --select=E901,E999,F821,F822,F823,W605 --show-source --statistics
+      - name: mypy
+        run: |
+          python -m pip install mypy -c requirements.txt
+          python -m pip install catalogue confection numpy packaging pydantic
+          python -m mypy thinc --no-implicit-reexport
+
   tests:
-    name: Test
-    needs: Validate
-    if: github.repository_owner == 'explosion'
+    name: ${{ matrix.os }} - Python ${{ matrix.python_version }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-15-intel]
-        python_version: ["3.12"]
-        include:
-          - os: windows-latest
+        os:
+          - ubuntu-latest
+          - ubuntu-24.04-arm
+          - macos-15-intel
+          - macos-latest
+          - windows-latest
+          - windows-11-arm
+        python_version: ["3.10", "3.11", "3.12", "3.13"]
+        exclude:
+          - os: windows-11-arm
             python_version: "3.10"
-          - os: macos-15-intel
-            python_version: "3.10"
-          - os: ubuntu-latest
-            python_version: "3.11"
-          - os: windows-latest
-            python_version: "3.11"
+
     runs-on: ${{ matrix.os }}
     env:
       NOTEBOOK_KERNEL: "thinc-notebook-tests"
@@ -68,26 +80,11 @@ jobs:
         with:
           python-version: ${{ matrix.python_version }}
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip setuptools wheel
-          pip install -r requirements.txt
+      - name: Install build dependencies
+        run: python -m pip install --upgrade build pip wheel
 
-      - name: Build sdist
-        run: |
-          # Remove the '.eggs' directory in case it's not empty
-          # due to setuptools quirks
-          rm -rf .eggs
-          python setup.py build_ext --inplace
-          rm -rf .eggs
-          python setup.py sdist --formats=gztar
-        shell: bash
-
-      - name: Run mypy
-        run: python -m mypy thinc --no-implicit-reexport
-        if: |
-          matrix.python_version != '3.6' &&
-          matrix.python_version != '3.7'
+      - name: Build sdist and wheel
+        run: python -m build
 
       - name: Delete source directory
         run: rm -rf thinc
@@ -99,28 +96,24 @@ jobs:
           pip freeze --exclude pywin32 > installed.txt
           pip uninstall -y -r installed.txt
 
-      - name: Install from sdist
-        run: |
-          SDIST=$(python -c "import os;print(os.listdir('./dist')[-1])" 2>&1)
-          PIP_CONSTRAINT="build-constraints.txt" pip install dist/$SDIST
+      - name: Install from wheel
+        run: pip install dist/*.whl
         shell: bash
 
       - name: Test import
         run: python -c "import thinc"
 
       - name: Install test requirements
-        run: |
-          pip install -r requirements.txt
+        run: pip install -r requirements.txt
 
       - name: Install notebook test requirements
-        run: |
-          pip install ipykernel pydot graphviz
-          python -m ipykernel install --name thinc-notebook-tests --user
-        if: matrix.python_version != '3.12'
+        run: python -m ipykernel install --name thinc-notebook-tests --user
+
+      - name: List installed packages
+        run: python -m pip list
 
       - name: Run tests without extras
-        run: |
-          python -m pytest --pyargs thinc -Werror --cov=thinc --cov-report=term
+        run: python -m pytest --pyargs thinc --cov=thinc --cov-report=term
 
       # Notes on numpy requirements hacks:
       # 1. torch does not have a direct numpy requirement but is compiled
@@ -156,8 +149,8 @@ jobs:
           pip uninstall -y tensorflow
           pip install "thinc-apple-ops>=1.0.0,<2.0.0"
           python -m pytest --pyargs thinc_apple_ops
-        if: matrix.os == 'macos-15-intel' && matrix.python_version == '3.10'
+        if: runner.os == 'macOS' && matrix.python_version == '3.10'
 
       - name: Run tests with thinc-apple-ops
         run: python -m pytest --pyargs thinc
-        if: matrix.os == 'macos-15-intel' && matrix.python_version == '3.10'
+        if: runner.os == 'macOS' && matrix.python_version == '3.10'

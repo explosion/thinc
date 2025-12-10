@@ -1,3 +1,5 @@
+import platform
+
 import pytest
 
 from thinc.api import (
@@ -79,6 +81,11 @@ def create_model(request):
 
 
 @pytest.mark.slow
+@pytest.mark.xfail(
+    platform.system() == "Darwin",
+    reason="SSL: CERTIFICATE_VERIFY_FAILED",
+    strict=False,  # Works on macos-15-intel Python 3.10, for some reason
+)
 @pytest.mark.parametrize(("width", "nb_epoch", "min_score"), [(32, 20, 0.8)])
 def test_small_end_to_end(width, nb_epoch, min_score, create_model, mnist):
     batch_size = 128
