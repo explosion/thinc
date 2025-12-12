@@ -66,6 +66,7 @@ profile = "black"
 
 [tool.pytest.ini_options]
 addopts = "--strict-markers --strict-config -v -r sxfE --color=yes --durations=10"
+xfail_strict = true
 markers = [
     "slow: test with long runtime",
 ]

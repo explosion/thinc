@@ -19,7 +19,10 @@ from thinc.types import (
 )
 
 
-@pytest.mark.xfail(reason="Validation currently disabled")
+@pytest.mark.xfail(
+    reason="Validation currently disabled",
+    strict=False,  # Some parameters pass, other fail
+)
 @pytest.mark.parametrize(
     "arr,arr_type",
     [
