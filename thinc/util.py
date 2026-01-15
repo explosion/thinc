@@ -95,10 +95,16 @@ def fix_random_seed(seed: int = 0) -> None:  # pragma: no cover
     random.seed(seed)
     numpy.random.seed(seed % 2**32)
     if has_torch:
-        torch.manual_seed(seed)
+        # Must be within the inclusive range [-0x8000_0000_0000_0000, 0xffff_ffff_ffff_ffff]
+        # https://github.com/pytorch/pytorch/blob/d38164a545b4a4e4e0cf73ce67173f70574890b6/torch/random.py#L32-L41
+        torch.manual_seed(seed % 0xffff_ffff_ffff_ffff)
     if has_cupy_gpu:
+        # cupy has no documented range limit on seed as of 2026-01-15
+        # https://docs.cupy.dev/en/latest/reference/generated/cupy.random.seed.html
         cupy.random.seed(seed)
         if has_torch and has_torch_cuda_gpu:
+            # torch.cuda has no documented range limit on seed as of 2026-01-15
+            # https://docs.pytorch.org/docs/stable/generated/torch.cuda.manual_seed_all.html
             torch.cuda.manual_seed_all(seed)
             torch.backends.cudnn.deterministic = True
             torch.backends.cudnn.benchmark = False
