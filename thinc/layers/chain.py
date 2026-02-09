@@ -9,6 +9,7 @@ InT = TypeVar("InT")
 MidT = TypeVar("MidT")
 OutT = TypeVar("OutT")
 
+
 # Keep this function so we can provide variable arguments via the config
 @registry.layers("chain.v1")
 def chain_no_types(*layer: Model) -> Model:

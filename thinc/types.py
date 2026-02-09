@@ -711,9 +711,9 @@ class _Array3d(_Array):
     """3-dimensional array of floats"""
 
     @classmethod
-    def __get_validators__(cls):
+    def __get_pydantic_core_schema__(cls, source_type: Any, handler: GetCoreSchemaHandler):
         """Runtime validation for pydantic."""
-        yield lambda v: validate_array(v, ndim=3)
+        return core_schema.no_info_after_validator_function(lambda v: validate_array(v, ndim=3), handler(source_type))
 
     @property
     @abstractmethod
@@ -765,9 +765,9 @@ class Floats3d(_Array3d, _Floats):
     T: "Floats3d"
 
     @classmethod
-    def __get_validators__(cls):
+    def __get_pydantic_core_schema__(cls, source_type: Any, handler: GetCoreSchemaHandler):
         """Runtime validation for pydantic."""
-        yield lambda v: validate_array(v, ndim=3, dtype="f")
+        return core_schema.no_info_after_validator_function(lambda v: validate_array(v, ndim=3, dtype="f"), handler(source_type))
 
     @abstractmethod
     def __iter__(self) -> Iterator[Floats2d]: ...
@@ -824,9 +824,9 @@ class Ints3d(_Array3d, _Ints):
     T: "Ints3d"
 
     @classmethod
-    def __get_validators__(cls):
+    def __get_pydantic_core_schema__(cls, source_type: Any, handler: GetCoreSchemaHandler):
         """Runtime validation for pydantic."""
-        yield lambda v: validate_array(v, ndim=3, dtype="i")
+        return core_schema.no_info_after_validator_function(lambda v: validate_array(v, ndim=3, dtype="i"), handler(source_type))
 
     @abstractmethod
     def __iter__(self) -> Iterator[Ints2d]: ...
@@ -881,9 +881,9 @@ class _Array4d(_Array):
     """4-dimensional array."""
 
     @classmethod
-    def __get_validators__(cls):
+    def __get_pydantic_core_schema__(cls, source_type: Any, handler: GetCoreSchemaHandler):
         """Runtime validation for pydantic."""
-        yield lambda v: validate_array(v, ndim=4)
+        return core_schema.no_info_after_validator_function(lambda v: validate_array(v, ndim=4), handler(source_type))
 
     @property
     @abstractmethod
@@ -927,9 +927,9 @@ class Floats4d(_Array4d, _Floats):
     T: "Floats4d"
 
     @classmethod
-    def __get_validators__(cls):
+    def __get_pydantic_core_schema__(cls, source_type: Any, handler: GetCoreSchemaHandler):
         """Runtime validation for pydantic."""
-        yield lambda v: validate_array(v, ndim=4, dtype="f")
+        return core_schema.no_info_after_validator_function(lambda v: validate_array(v, ndim=4, dtype="f"), handler(source_type))
 
     @abstractmethod
     def __iter__(self) -> Iterator[Floats3d]: ...
@@ -997,9 +997,9 @@ class Ints4d(_Array4d, _Ints):
     T: "Ints4d"
 
     @classmethod
-    def __get_validators__(cls):
+    def __get_pydantic_core_schema__(cls, source_type: Any, handler: GetCoreSchemaHandler):
         """Runtime validation for pydantic."""
-        yield lambda v: validate_array(v, ndim=4, dtype="i")
+        return core_schema.no_info_after_validator_function(lambda v: validate_array(v, ndim=4, dtype="i"), handler(source_type))
 
     @abstractmethod
     def __iter__(self) -> Iterator[Ints3d]: ...
@@ -1080,8 +1080,12 @@ class Generator(Iterator):
     """
 
     @classmethod
-    def __get_validators__(cls):
-        yield cls.validate
+    def __get_pydantic_core_schema__(
+        cls, source_type: Any, handler: GetCoreSchemaHandler
+    ):
+        return core_schema.no_info_after_validator_function(
+            cls.validate, core_schema.any_schema()
+        )
 
     @classmethod
     def validate(cls, v):
