@@ -13,7 +13,6 @@ from thinc.api import (
 from thinc.util import DataValidationError, data_validation
 
 
-@pytest.mark.xfail(reason="Case 1 raises AttributeError instead of DataValidationError for Floats2d->Ragged mismatch")
 def test_validation():
     model = chain(Relu(10), Relu(10), with_ragged(reduce_max()), Softmax())
     with data_validation(True):
