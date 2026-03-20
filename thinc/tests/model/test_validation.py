@@ -25,7 +25,6 @@ def test_validation():
             model.initialize(X=[model.ops.alloc2f(1, 10)], Y=model.ops.alloc2f(1, 10))
 
 
-@pytest.mark.xfail(reason="Validation currently disabled for Pydantic 2 changes0")
 def test_validation_complex():
     good_model = chain(list2ragged(), reduce_sum(), Relu(12, dropout=0.5), Relu(1))
     X = [good_model.ops.xp.zeros((4, 75), dtype="f")]
