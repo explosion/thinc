@@ -19,3 +19,35 @@ jobs:
     secrets:
       gh-token: ${{ secrets.GITHUB_TOKEN }}
 
+  retag_release:
+    needs: build_wheels
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Retag release from release-v* to v*
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Strip release- or prerelease- prefix to get the v* tag
+          TRIGGER_TAG="${GITHUB_REF_NAME}"
+          if [[ "$TRIGGER_TAG" == release-* ]]; then
+            VERSION_TAG="${TRIGGER_TAG#release-}"
+          elif [[ "$TRIGGER_TAG" == prerelease-* ]]; then
+            VERSION_TAG="${TRIGGER_TAG#prerelease-}"
+          else
+            echo "Unexpected tag format: $TRIGGER_TAG"
+            exit 1
+          fi
+
+          # Create the v* tag on the same commit
+          git tag "$VERSION_TAG" "$GITHUB_SHA"
+          git push origin "$VERSION_TAG"
+
+          # Re-point the draft release to the v* tag
+          gh release edit "$TRIGGER_TAG" --tag "$VERSION_TAG"
+
+          # Delete the trigger tag
+          git push origin --delete "$TRIGGER_TAG"
+
