@@ -24,8 +24,7 @@ from typing import (
 
 import numpy
 from packaging.version import Version
-from confection._validation import Field as _Field
-from confection._validation import ValidationError, create_schema
+from confection.validation import Schema, ValidationError, validate_type
 from wasabi import table  # type: ignore
 
 from .compat import (
@@ -552,38 +551,29 @@ def validate_fwd_input_output(
     annotations, if available. Used in Model.initialize with the input and
     output samples as they pass through the network.
     """
-    sig = inspect.signature(func)
-    empty = inspect.Signature.empty
-    params = list(sig.parameters.values())
-    if len(params) != 3:
-        bad_params = f"{len(params)} ({', '.join([p.name for p in params])})"
-        err = f"Invalid forward function. Expected 3 arguments (model, X , is_train), got {bad_params}"
+    schema = Schema.from_function(func)
+    fields = list(schema.model_fields)
+    if len(fields) != 3:
+        bad_params = f"{len(fields)} ({', '.join(fields)})"
+        err = f"Invalid forward function. Expected 3 arguments (model, X, is_train), got {bad_params}"
         raise DataValidationError(name, X, Y, [{"msg": err}])
-    annot_x = params[1].annotation
-    annot_y = sig.return_annotation
-    fields: Dict[str, Any] = {}
-    args = {}
-    if X is not None and annot_x != empty:
+    x_field = schema.model_fields[fields[1]]
+    y_field = schema.model_fields[fields[2]]  # noqa: F841
+    errors = []
+    if X is not None and x_field.annotation is not Any:
         if isinstance(X, list) and len(X) > 5:
             X = X[:5]
-        fields["X"] = (annot_x, _Field(...))
-        args["X"] = X
-    if Y is not None and annot_y != empty:
-        if isinstance(Y, list) and len(Y) > 5:
-            Y = Y[:5]
-        fields["Y"] = (annot_y, _Field(...))
-        args["Y"] = (Y, lambda x: x)
-    if not fields:
-        return None
-    ArgModel = create_schema(
-        "ArgModel",
-        __config__={"extra": "forbid", "arbitrary_types_allowed": True},
-        **fields,
-    )
-    try:
-        ArgModel.model_validate(args)
-    except ValidationError as e:
-        raise DataValidationError(name, X, Y, e.errors()) from None
+        err = validate_type(X, x_field.annotation)
+        if err:
+            errors.append({"loc": ("X",), "msg": err})
+    if Y is not None:
+        ret = inspect.signature(func).return_annotation
+        if ret is not inspect.Signature.empty:
+            err = validate_type((Y, lambda x: x), ret)
+            if err:
+                errors.append({"loc": ("Y",), "msg": err})
+    if errors:
+        raise DataValidationError(name, X, Y, errors)
 
 
 @contextlib.contextmanager
