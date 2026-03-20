@@ -21,8 +21,6 @@ from typing import (
 )
 
 import numpy
-from pydantic import GetCoreSchemaHandler
-from pydantic_core import core_schema
 
 from .compat import cupy, has_cupy
 
@@ -129,9 +127,9 @@ _4I_ReduceResults = Union[int, "Ints1d", "Ints2d", "Ints3d", "Ints4d"]
 
 class _Array(Sized, Container):
     @classmethod
-    def __get_pydantic_core_schema__(cls, source_type: Any, handler: GetCoreSchemaHandler):
+    def __get_pydantic_core_schema__(cls, source_type: Any, handler: Any):
         """Runtime validation for pydantic."""
-        return core_schema.no_info_after_validator_function(validate_array, handler(source_type))
+        return {"type": "function-plain", "function": {"type": "no-info", "function": validate_array}}
 
     @property
     @abstractmethod
@@ -385,9 +383,9 @@ class _Array1d(_Array):
     """1-dimensional array."""
 
     @classmethod
-    def __get_pydantic_core_schema__(cls, source_type: Any, handler: GetCoreSchemaHandler):
+    def __get_pydantic_core_schema__(cls, source_type: Any, handler: Any):
         """Runtime validation for pydantic."""
-        return core_schema.no_info_after_validator_function(lambda v: validate_array(v, ndim=1), handler(source_type))
+        return {"type": "function-plain", "function": {"type": "no-info", "function": lambda v: validate_array(v, ndim=1)}}
 
     @property
     @abstractmethod
@@ -452,9 +450,9 @@ class Floats1d(_Array1d, _Floats):
     T: "Floats1d"
 
     @classmethod
-    def __get_pydantic_core_schema__(cls, source_type: Any, handler: GetCoreSchemaHandler):
+    def __get_pydantic_core_schema__(cls, source_type: Any, handler: Any):
         """Runtime validation for pydantic."""
-        return core_schema.no_info_after_validator_function(lambda v: validate_array(v, ndim=1, dtype="f"), handler(source_type))
+        return {"type": "function-plain", "function": {"type": "no-info", "function": lambda v: validate_array(v, ndim=1, dtype="f")}}
 
 
     @abstractmethod
@@ -503,9 +501,9 @@ class Ints1d(_Array1d, _Ints):
     T: "Ints1d"
 
     @classmethod
-    def __get_pydantic_core_schema__(cls, source_type: Any, handler: GetCoreSchemaHandler):
+    def __get_pydantic_core_schema__(cls, source_type: Any, handler: Any):
         """Runtime validation for pydantic."""
-        return core_schema.no_info_after_validator_function(lambda v: validate_array(v, ndim=1, dtype="i"), handler(source_type))
+        return {"type": "function-plain", "function": {"type": "no-info", "function": lambda v: validate_array(v, ndim=1, dtype="i")}}
 
 
     @abstractmethod
@@ -551,9 +549,9 @@ class Ints1d(_Array1d, _Ints):
 
 class _Array2d(_Array):
     @classmethod
-    def __get_pydantic_core_schema__(cls, source_type: Any, handler: GetCoreSchemaHandler):
+    def __get_pydantic_core_schema__(cls, source_type: Any, handler: Any):
         """Runtime validation for pydantic."""
-        return core_schema.no_info_after_validator_function(lambda v: validate_array(v, ndim=2), handler(source_type))
+        return {"type": "function-plain", "function": {"type": "no-info", "function": lambda v: validate_array(v, ndim=2)}}
 
 
     @property
@@ -615,9 +613,9 @@ class Floats2d(_Array2d, _Floats):
     T: "Floats2d"
 
     @classmethod
-    def __get_pydantic_core_schema__(cls, source_type: Any, handler: GetCoreSchemaHandler):
+    def __get_pydantic_core_schema__(cls, source_type: Any, handler: Any):
         """Runtime validation for pydantic."""
-        return core_schema.no_info_after_validator_function(lambda v: validate_array(v, ndim=2, dtype="f"), handler(source_type))
+        return {"type": "function-plain", "function": {"type": "no-info", "function": lambda v: validate_array(v, ndim=2, dtype="f")}}
 
     @abstractmethod
     def __iter__(self) -> Iterator[Floats1d]: ...
@@ -666,9 +664,9 @@ class Ints2d(_Array2d, _Ints):
     T: "Ints2d"
 
     @classmethod
-    def __get_pydantic_core_schema__(cls, source_type: Any, handler: GetCoreSchemaHandler):
+    def __get_pydantic_core_schema__(cls, source_type: Any, handler: Any):
         """Runtime validation for pydantic."""
-        return core_schema.no_info_after_validator_function(lambda v: validate_array(v, ndim=2, dtype="i"), handler(source_type))
+        return {"type": "function-plain", "function": {"type": "no-info", "function": lambda v: validate_array(v, ndim=2, dtype="i")}}
 
     @abstractmethod
     def __iter__(self) -> Iterator[Ints1d]: ...
@@ -1306,7 +1304,7 @@ def validate_array(obj, ndim=None, dtype=None):
     """Runtime validator for pydantic to validate array types."""
     xp = get_array_module(obj)
     if not isinstance(obj, xp.ndarray):
-        raise TypeError("not a valid numpy or cupy array")
+        raise ValueError("not a valid numpy or cupy array")
     errors = []
     if ndim is not None and obj.ndim != ndim:
         errors.append(f"wrong array dimensions (expected {ndim}, got {obj.ndim})")
