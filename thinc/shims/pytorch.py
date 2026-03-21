@@ -111,10 +111,6 @@ class PyTorchShim(Shim):
         """
         self._model.eval()
         with torch.no_grad():
-            # NB: Previously this was torch.cuda.amp.autocast, passing a boolean
-            # for mixed_precision. That doesn't seem to match the docs, and now
-            # it raises an error when moving from the deprecated function. So
-            # I've removed the argument but I'm not certain it's correct.
             with torch.autocast(device_type="cuda", enabled=self._mixed_precision):
                 outputs = self._model(*inputs.args, **inputs.kwargs)
         self._model.train()
@@ -129,10 +125,6 @@ class PyTorchShim(Shim):
         self._model.train()
 
         # Note: mixed-precision autocast must not be applied to backprop.
-        # NB: Previously this was torch.cuda.amp.autocast, passing a boolean
-        # for mixed_precision. That doesn't seem to match the docs, and now
-        # it raises an error when moving from the deprecated function. So
-        # I've removed the argument but I'm not certain it's correct.
         with torch.autocast("cuda", enabled=self._mixed_precision):
             output = self._model(*inputs.args, **inputs.kwargs)
 

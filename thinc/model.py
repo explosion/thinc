@@ -640,6 +640,11 @@ class Model(Generic[InT, OutT]):
     def from_disk(self, path: Union[Path, str]) -> "Model":
         """Deserialize the model from disk. Most models will serialize to a single
         file, which should just be the bytes contents of model.to_bytes().
+
+        The model instance must have the same architecture (layers, dimensions)
+        as the model that was serialized. For example, if a chain(Relu(10),
+        Relu(1), Logistic()) model was saved, load it into a model created with
+        the same chain(...) call, not a bare Model().
         """
         path = Path(path) if isinstance(path, str) else path
         with path.open("rb") as file_:

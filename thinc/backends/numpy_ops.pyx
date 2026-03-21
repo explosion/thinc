@@ -95,6 +95,12 @@ class NumpyOps(Ops):
             raise ValueError(f"Provided 'y' array should be 2-dimensional, but found {y.ndim} dimension(s).")
         if not self.use_blis:  # delegate to base Ops
             return super().gemm(x, y, out=out, trans1=trans1, trans2=trans2)
+        if x.dtype != numpy.float32 or y.dtype != numpy.float32:
+            raise ValueError(
+                f"BLIS gemm requires float32 arrays, but got x.dtype={x.dtype} "
+                f"and y.dtype={y.dtype}. Consider casting your input with "
+                f"array.astype('float32')."
+            )
         x = self.as_contig(x)
         y = self.as_contig(y)
         if out is not None:
