@@ -78,4 +78,8 @@ filterwarnings = [
     "ignore:Module thinc was previously imported, but not measured:coverage.exceptions.CoverageWarning",
     # https://github.com/coveragepy/coveragepy/issues/1790
     "ignore:Plugin file tracers:coverage.exceptions.CoverageWarning",
+    # NumPy 2.4 deprecation triggered when unpickling old numpy data (e.g.
+    # ml_datasets MNIST). The align=0 integer comes from the pickled dtype,
+    # not from thinc code.
+    "ignore:dtype\\(\\)\\: align should be passed as Python or NumPy boolean:numpy.exceptions.VisibleDeprecationWarning",
 ]
