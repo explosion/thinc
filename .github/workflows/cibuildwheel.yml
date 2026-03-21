@@ -1,5 +1,9 @@
 name: Build
 
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
 on:
   push:
     tags:
