@@ -1,4 +1,5 @@
 """Generators that provide different rates, schedules, decays or series."""
+
 from typing import Iterable
 
 import numpy

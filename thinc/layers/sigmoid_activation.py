@@ -18,7 +18,7 @@ def forward(
     def backprop(dY: FloatsXdT) -> FloatsXdT:
         return cast(
             FloatsXdT,
-            dY * model.ops.dsigmoid(Y, inplace=False),  # type:ignore[operator]
+            dY * model.ops.dsigmoid(Y, inplace=False),  # type: ignore[operator]
         )
 
     return Y, backprop

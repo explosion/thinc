@@ -29,7 +29,7 @@ from ..strategies import arrays_BI, ndarrays_of_shape
 
 MAX_EXAMPLES = 10
 
-VANILLA_OPS = Ops(numpy)  # type:ignore
+VANILLA_OPS = Ops(numpy)  # type: ignore
 NUMPY_OPS = NumpyOps()
 BLIS_OPS = NumpyOps(use_blis=True)
 CPU_OPS = [NUMPY_OPS, VANILLA_OPS]

@@ -30,13 +30,13 @@ except ImportError:
         (numpy.array(1), 0),
         (numpy.array([1, 2]), 3),
         ([numpy.zeros((1, 2)), numpy.zeros((1))], 2),
-        (Ragged(numpy.zeros((1, 2)), numpy.zeros(1)), 2),  # type:ignore
+        (Ragged(numpy.zeros((1, 2)), numpy.zeros(1)), 2),  # type: ignore
         (
             Padded(
-                numpy.zeros((2, 1, 2)),  # type:ignore
-                numpy.zeros(2),  # type:ignore
-                numpy.array([1, 0]),  # type:ignore
-                numpy.array([0, 1]),  # type:ignore
+                numpy.zeros((2, 1, 2)),  # type: ignore
+                numpy.zeros(2),  # type: ignore
+                numpy.array([1, 0]),  # type: ignore
+                numpy.array([0, 1]),  # type: ignore
             ),
             2,
         ),
