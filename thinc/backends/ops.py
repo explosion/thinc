@@ -271,7 +271,8 @@ class Ops:
         dtype: Optional[DTypes] = None,
         pad: int = 0,
         ndim_if_empty: int = 2,
-    ) -> Floats2d: ...
+    ) -> Floats2d:
+        ...
 
     @overload
     def flatten(
@@ -280,7 +281,8 @@ class Ops:
         dtype: Optional[DTypes] = None,
         pad: int = 0,
         ndim_if_empty: int = 2,
-    ) -> Ints1d: ...
+    ) -> Ints1d:
+        ...
 
     @overload
     def flatten(
@@ -289,7 +291,8 @@ class Ops:
         dtype: Optional[DTypes] = None,
         pad: int = 0,
         ndim_if_empty: int = 2,
-    ) -> Array2d: ...
+    ) -> Array2d:
+        ...
 
     # further specific typed signatures can be added as necessary
 
@@ -300,7 +303,8 @@ class Ops:
         dtype: Optional[DTypes] = None,
         pad: int = 0,
         ndim_if_empty: int = 2,
-    ) -> ArrayXd: ...
+    ) -> ArrayXd:
+        ...
 
     @overload
     def flatten(
@@ -309,7 +313,8 @@ class Ops:
         dtype: Optional[DTypes] = None,
         pad: int = 0,
         ndim_if_empty: int = 2,
-    ) -> ArrayXd: ...
+    ) -> ArrayXd:
+        ...
 
     def flatten(
         self,
@@ -339,20 +344,22 @@ class Ops:
         return result
 
     @overload
-    def unflatten(
-        self, X: Floats2d, lengths: Ints1d, pad: int = 0
-    ) -> List[Floats2d]: ...
+    def unflatten(self, X: Floats2d, lengths: Ints1d, pad: int = 0) -> List[Floats2d]:
+        ...
 
     @overload
-    def unflatten(self, X: Ints1d, lengths: Ints1d, pad: int = 0) -> List[Ints1d]: ...
+    def unflatten(self, X: Ints1d, lengths: Ints1d, pad: int = 0) -> List[Ints1d]:
+        ...
 
     @overload
-    def unflatten(self, X: Array2d, lengths: Ints1d, pad: int = 0) -> List2d: ...
+    def unflatten(self, X: Array2d, lengths: Ints1d, pad: int = 0) -> List2d:
+        ...
 
     # further specific typed signatures can be added as necessary
 
     @overload
-    def unflatten(self, X: ArrayXd, lengths: Ints1d, pad: int = 0) -> ListXd: ...
+    def unflatten(self, X: ArrayXd, lengths: Ints1d, pad: int = 0) -> ListXd:
+        ...
 
     def unflatten(self, X: ArrayXd, lengths: Ints1d, pad: int = 0) -> ListXd:
         """The reverse/backward operation of the `flatten` function: unflatten
@@ -372,10 +379,12 @@ class Ops:
         return unflat
 
     @overload
-    def pad(self, seqs: List[Ints2d], round_to=1) -> Ints3d: ...
+    def pad(self, seqs: List[Ints2d], round_to=1) -> Ints3d:
+        ...
 
     @overload  # noqa: F811
-    def pad(self, seqs: List[Floats2d], round_to=1) -> Floats3d: ...
+    def pad(self, seqs: List[Floats2d], round_to=1) -> Floats3d:
+        ...
 
     def pad(  # noqa: F811
         self, seqs: Union[List[Ints2d], List[Floats2d]], round_to=1

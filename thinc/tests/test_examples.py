@@ -37,7 +37,8 @@ def test_files(nb_file):
         "examples/05_benchmarking_layers.ipynb",
     ),
 )
-def test_ipython_notebooks(test_files: None): ...
+def test_ipython_notebooks(test_files: None):
+    ...
 
 
 @pytest.mark.skip(reason="these notebooks need special software or hardware")
@@ -54,4 +55,5 @@ def test_ipython_notebooks(test_files: None): ...
         "examples/06_predicting_like_terms.ipynb",
     ),
 )
-def test_ipython_notebooks_slow(test_files: None): ...
+def test_ipython_notebooks_slow(test_files: None):
+    ...
