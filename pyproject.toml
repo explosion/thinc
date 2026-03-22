@@ -81,5 +81,5 @@ filterwarnings = [
     # NumPy 2.4 deprecation triggered when unpickling old numpy data (e.g.
     # ml_datasets MNIST). The align=0 integer comes from the pickled dtype,
     # not from thinc code.
-    "ignore:dtype\\(\\)\\: align should be passed as Python or NumPy boolean:numpy.exceptions.VisibleDeprecationWarning",
+    "ignore:dtype.*align should be passed:numpy.exceptions.VisibleDeprecationWarning",
 ]
