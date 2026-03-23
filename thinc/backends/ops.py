@@ -16,6 +16,7 @@ from typing import (
 
 import numpy
 
+from ..compat import torch
 from ..types import (
     Array1d,
     Array2d,
@@ -1389,6 +1390,15 @@ class Ops:
         for i, x in enumerate(Xs):
             output[i, : x.shape[0]] = x
         return output
+
+    def has_gpu_support(self):
+        return False
+
+    def set_active_gpu(self, id: int) -> Any:
+        pass
+
+    def get_default_torch_device(self):
+        return torch.device("cpu")
 
 
 """

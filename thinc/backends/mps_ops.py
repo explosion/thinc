@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING
 import numpy
 
 from .. import registry
+from ..compat import has_torch_mps_gpu, torch
 from .numpy_ops import NumpyOps
 from .ops import Ops
 
@@ -26,3 +27,9 @@ class MPSOps(_Ops):
 
     name = "mps"
     xp = numpy
+
+    def has_gpu_support(self):
+        return has_torch_mps_gpu
+
+    def get_default_torch_device(self):
+        return torch.device('mps')
