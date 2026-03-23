@@ -8,6 +8,8 @@ on:
     types:
       - published
 
+permissions: {}
+
 jobs:
   upload_pypi:
     runs-on: ubuntu-latest
