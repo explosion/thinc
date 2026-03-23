@@ -41,9 +41,7 @@ from .compat import (
 )
 from .compat import mxnet as mx
 from .compat import tensorflow as tf
-from .compat import (
-    torch,
-)
+from .compat import torch
 
 DATA_VALIDATION: ContextVar[bool] = ContextVar("DATA_VALIDATION", default=False)
 
