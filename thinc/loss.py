@@ -31,8 +31,7 @@ class Loss(Generic[GuessT, TruthT, GradT, LossT]):  # pragma: no cover
     also provides a __call__ method that returns a tuple of both.
     """
 
-    def __init__(self, **kwargs: Any) -> None:
-        ...
+    def __init__(self, **kwargs: Any) -> None: ...
 
     def __call__(self, guesses: GuessT, truths: TruthT) -> Tuple[GradT, LossT]:
         return self.get_grad(guesses, truths), self.get_loss(guesses, truths)
@@ -48,8 +47,7 @@ class Loss(Generic[GuessT, TruthT, GradT, LossT]):  # pragma: no cover
         ...
 
     @abstractmethod
-    def get_loss(self, guesses: GuessT, truths: TruthT) -> LossT:
-        ...
+    def get_loss(self, guesses: GuessT, truths: TruthT) -> LossT: ...
 
 
 class CategoricalCrossentropy(Loss):
