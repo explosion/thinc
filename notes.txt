@@ -1,0 +1,23 @@
+Release Notes: thinc v8.3.13
+
+Bug Fixes
+---------
+- Add clear error message for float64 dtype mismatch in BLIS gemm (#461).
+- Document that Model.from_disk requires matching architecture (#751).
+- Document that Loss.get_grad computes gradient w.r.t. logits, not
+  post-softmax probabilities (#901).
+- Remove stale comments about torch.cuda.amp.autocast migration (#967).
+- Fix numpy deprecation warning filter syntax in pyproject.toml.
+- Ignore NumPy 2.4 align deprecation from pickled dtype in test data.
+
+Build & CI
+----------
+- Pin all GitHub Actions and dependencies to commit SHAs for
+  supply-chain security.
+- Cancel in-progress CI builds when a new release tag is pushed.
+- Update black requirement to >=24.0 and reformat codebase.
+
+Housekeeping
+------------
+- Remove test_types.py (pydantic create_model validation tests superseded
+  by confection validate_type).
