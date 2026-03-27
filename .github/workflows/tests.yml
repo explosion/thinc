@@ -13,7 +13,8 @@ on:
       - "*.md"
   workflow_dispatch: # allows you to trigger manually
 
-permissions: {}
+permissions:
+  contents: read
 
 # When this workflow is queued, automatically cancel any previous running
 # or pending jobs from the same branch
