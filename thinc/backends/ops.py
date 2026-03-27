@@ -1394,8 +1394,8 @@ class Ops:
     def has_gpu_support(self):
         return False
 
-    def set_active_gpu(self, id: int) -> Any:
-        pass
+    def set_active_gpu(self, gpu_id: int) -> Any:
+        return None
 
     def get_default_torch_device(self):
         return torch.device("cpu")
