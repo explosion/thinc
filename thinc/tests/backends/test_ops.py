@@ -1534,7 +1534,9 @@ def test_compare_activations_to_torch(ops, dtype, x, dY, torch_func):
         )
         assert dx_thinc_inplace is dY_thinc_inplace
         assert ops.xp.isclose(dx_thinc, dx_thinc_inplace)
-        assert ops.xp.isclose(x_torch.grad.item() * dY, float(dx_thinc), atol=1e-06)
+        assert ops.xp.isclose(
+            x_torch.grad.item() * dY, float(dx_thinc.item()), atol=1e-06
+        )
     elif params == {"Y", "dY"}:
         dx_thinc = backward(dY_thinc, Y=y_thinc)
         assert dx_thinc.dtype == x_thinc.dtype
@@ -1542,7 +1544,9 @@ def test_compare_activations_to_torch(ops, dtype, x, dY, torch_func):
             dx_thinc,
             backward(dY=dY_thinc_inplace, Y=y_thinc, inplace=True),
         )
-        assert ops.xp.isclose(x_torch.grad.item() * dY, float(dx_thinc), atol=1e-06)
+        assert ops.xp.isclose(
+            x_torch.grad.item() * dY, float(dx_thinc.item()), atol=1e-06
+        )
     elif params == {"dY", "X"}:
         dx_thinc = backward(dY_thinc, X=x_thinc)
         assert dx_thinc.dtype == x_thinc.dtype
@@ -1550,7 +1554,9 @@ def test_compare_activations_to_torch(ops, dtype, x, dY, torch_func):
             dx_thinc, backward(dY=dY_thinc_inplace, X=x_thinc, inplace=True)
         )
         assert ops.xp.isclose(
-            x_torch.grad.item() * dY, float(backward(dY_thinc, X=x_thinc)), atol=1e-06
+            x_torch.grad.item() * dY,
+            float(backward(dY_thinc, X=x_thinc).item()),
+            atol=1e-06,
         )
     else:
         raise NotImplementedError(
