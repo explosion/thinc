@@ -47,7 +47,7 @@ from ..types import (
     Xp,
     _Floats,
 )
-from ..util import get_array_module, is_xp_array, to_numpy
+from ..util import ensure_native_byteorder, get_array_module, is_xp_array, to_numpy
 from .cblas import CBlas
 
 ArrayT = TypeVar("ArrayT", bound=ArrayXd)
@@ -738,18 +738,19 @@ class Ops:
         """Ensure a given array is of the correct type."""
         if isinstance(data, self.xp.ndarray):
             if dtype is None:
-                return data
+                array = data
             elif data.dtype == dtype:
-                return data
+                array = data
             else:
-                return self.xp.asarray(data, dtype=dtype)
+                array = self.xp.asarray(data, dtype=dtype)
         elif hasattr(data, "numpy"):
             # Handles PyTorch Tensor
-            return data.numpy()  # type: ignore[union-attr]
+            array = data.numpy()  # type: ignore[union-attr]
         elif dtype is not None:
-            return self.xp.array(data, dtype=dtype)
+            array = self.xp.array(data, dtype=dtype)
         else:
-            return self.xp.array(data)
+            array = self.xp.array(data)
+        return ensure_native_byteorder(array)
 
     def as_contig(self, data: ArrayT, dtype: Optional[DTypes] = None) -> ArrayT:
         """Allow the backend to make a contiguous copy of an array.
