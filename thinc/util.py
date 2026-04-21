@@ -4,6 +4,7 @@ import inspect
 import os
 import platform
 import random
+import sys
 import tempfile
 import threading
 from contextvars import ContextVar
@@ -108,6 +109,25 @@ def fix_random_seed(seed: int = 0) -> None:  # pragma: no cover
             torch.cuda.manual_seed_all(seed)
             torch.backends.cudnn.deterministic = True
             torch.backends.cudnn.benchmark = False
+
+
+_NATIVE_BYTEORDER = "<" if sys.byteorder == "little" else ">"
+
+
+def ensure_native_byteorder(array):
+    """Return ``array`` with native byte order, byteswapping if necessary.
+
+    Arrays deserialized from models trained on a platform with a different
+    endianness (for example, spaCy pipelines shipped as little-endian data
+    loaded on an s390x big-endian host) carry a non-native ``dtype.byteorder``
+    and are rejected by Cython typed memoryviews. Normalising to native byte
+    order here lets the same serialized weights run on either platform.
+    """
+    # "=" means native, "|" means not applicable (e.g. single-byte dtypes).
+    byteorder = array.dtype.byteorder
+    if byteorder in ("=", "|") or byteorder == _NATIVE_BYTEORDER:
+        return array
+    return array.byteswap().view(array.dtype.newbyteorder("="))
 
 
 def is_xp_array(obj: Any) -> bool:

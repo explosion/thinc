@@ -18,7 +18,7 @@ from preshed.maps cimport PreshMap
 
 from .. import registry
 from ..types import ArrayXd, DeviceTypes, DTypes, Shape
-from ..util import copy_array, get_array_module
+from ..util import copy_array, ensure_native_byteorder, get_array_module
 
 from .cblas cimport CBlas, daxpy, saxpy
 from .linalg cimport Vec, VecVec
@@ -76,7 +76,7 @@ class NumpyOps(Ops):
         if dtype is not None:
             array = array.astype(dtype=dtype, copy=False)
 
-        return array
+        return ensure_native_byteorder(array)
 
 
     def alloc(self, shape: Shape, *, dtype: Optional[DTypes] = "float32", zeros: bool = True) -> ArrayXd:
