@@ -172,3 +172,7 @@ To view test coverage, you can run `python -m pytest thinc --cov=thinc`. We aim
 for a 100% test coverage. This doesn't mean that we meticulously write tests for
 every single line – we ignore blocks that are not relevant or difficult to test
 and make sure that the tests execute all code paths.
+
+---
+
+*[Mukller](https://github.com/Mukller)*
