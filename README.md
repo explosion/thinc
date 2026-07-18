@@ -120,7 +120,7 @@ the button next to the notebook name.
 ## 🐍 Development notes
 
 Thinc uses [`black`](https://github.com/psf/black) for auto-formatting,
-[`flake8`](http://flake8.pycqa.org/en/latest/) for linting and
+[`flake8`](https://flake8.pycqa.org/en/latest/) for linting and
 [`mypy`](https://mypy.readthedocs.io/en/latest/) for type checking. All code
 includes type hints wherever possible. See
 the [type reference](https://thinc.ai/docs/api-types) for more details on
