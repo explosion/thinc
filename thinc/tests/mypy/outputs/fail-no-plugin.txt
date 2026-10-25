@@ -1,2 +1,2 @@
-3: error: Cannot infer type argument 2 of "chain"  [misc]
-5: error: Cannot infer type argument 1 of "add"  [misc]
+3: error: Cannot infer value of type parameter "MidT" of "chain"  [misc]
+5: error: Cannot infer value of type parameter "InT" of "add"  [misc]
