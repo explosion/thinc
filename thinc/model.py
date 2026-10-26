@@ -355,19 +355,20 @@ class Model(Generic[InT, OutT]):
         values are arrays of weight values.
         """
         backup = {}
-        for name in self.param_names:
-            key = (self.id, name)
-            if key in params:
-                backup[name] = self.get_param(name)
-                self.set_param(name, params[key])
+        try:
+            for name in self.param_names:
+                key = (self.id, name)
+                if key in params:
+                    backup[name] = self.get_param(name)
+                    self.set_param(name, params[key])
 
-        with contextlib.ExitStack() as stack:
-            for layer in self.layers:
-                stack.enter_context(layer.use_params(params))
-            for shim in self.shims:
-                stack.enter_context(shim.use_params(params))
-            yield
-        if backup:
+            with contextlib.ExitStack() as stack:
+                for layer in self.layers:
+                    stack.enter_context(layer.use_params(params))
+                for shim in self.shims:
+                    stack.enter_context(shim.use_params(params))
+                yield
+        finally:
             for name, param in backup.items():
                 self.set_param(name, param)
 

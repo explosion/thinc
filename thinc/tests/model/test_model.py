@@ -47,6 +47,75 @@ def test_models_get_different_ids(model_with_no_args):
     assert model1.id != model2.id
 
 
+@pytest.mark.parametrize("n_layers", [1, 2])
+def test_use_params_restores_after_exception(n_layers):
+    layers = [Linear(2, 2) for _ in range(n_layers)]
+    model = layers[0] if n_layers == 1 else chain(*layers)
+    model.initialize()
+    X = model.ops.asarray2f([[1.0, 2.0]])
+    prediction = model.predict(X).copy()
+    serialized = model.to_bytes()
+    original = {
+        (node.id, name): node.get_param(name)
+        for node in model.walk()
+        for name in node.param_names
+    }
+    temporary = {key: numpy.full_like(value, 3.0) for key, value in original.items()}
+    error = ValueError("evaluation failed")
+
+    with pytest.raises(ValueError) as exc_info:
+        with model.use_params(temporary):
+            for node in model.walk():
+                for name in node.param_names:
+                    assert node.get_param(name) is temporary[(node.id, name)]
+            raise error
+
+    assert exc_info.value is error
+    for node in model.walk():
+        for name in node.param_names:
+            assert node.get_param(name) is original[(node.id, name)]
+    numpy.testing.assert_array_equal(model.predict(X), prediction)
+    assert model.to_bytes() == serialized
+
+
+def test_use_params_restores_after_setup_exception():
+    model = Model(
+        "test",
+        lambda X: (X, lambda dY: dY),
+        params={"W": numpy.zeros((2, 2), dtype="f"), "b": None},
+    )
+    original = model.get_param("W")
+    temporary = {
+        (model.id, "W"): numpy.ones((2, 2), dtype="f"),
+        (model.id, "b"): numpy.ones((2,), dtype="f"),
+    }
+
+    with pytest.raises(KeyError, match="has not been allocated"):
+        with model.use_params(temporary):
+            pytest.fail("An unset parameter should prevent entering the context")
+
+    assert model.get_param("W") is original
+    assert model.has_param("b") is None
+
+
+def test_use_params_restores_after_child_setup_exception():
+    layer = Linear(2, 2).initialize()
+    unset_layer = Linear(2, 2)
+    model = chain(layer, unset_layer)
+    original = layer.get_param("W")
+    temporary = {
+        (layer.id, "W"): numpy.ones((2, 2), dtype="f"),
+        (unset_layer.id, "W"): numpy.ones((2, 2), dtype="f"),
+    }
+
+    with pytest.raises(KeyError, match="has not been allocated"):
+        with model.use_params(temporary):
+            pytest.fail("An unset child parameter should prevent entering the context")
+
+    assert layer.get_param("W") is original
+    assert unset_layer.has_param("W") is None
+
+
 def test_model_init():
     class MyShim(Shim):
         name = "testshim"
