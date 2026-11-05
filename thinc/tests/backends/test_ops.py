@@ -1534,7 +1534,9 @@ def test_compare_activations_to_torch(ops, dtype, x, dY, torch_func):
         )
         assert dx_thinc_inplace is dY_thinc_inplace
         assert ops.xp.isclose(dx_thinc, dx_thinc_inplace)
-        assert ops.xp.isclose(x_torch.grad.item() * dY, float(dx_thinc), atol=1e-06)
+        assert ops.xp.isclose(
+            x_torch.grad.item() * dY, float(dx_thinc.item()), atol=1e-06
+        )
     elif params == {"Y", "dY"}:
         dx_thinc = backward(dY_thinc, Y=y_thinc)
         assert dx_thinc.dtype == x_thinc.dtype
@@ -1542,7 +1544,9 @@ def test_compare_activations_to_torch(ops, dtype, x, dY, torch_func):
             dx_thinc,
             backward(dY=dY_thinc_inplace, Y=y_thinc, inplace=True),
         )
-        assert ops.xp.isclose(x_torch.grad.item() * dY, float(dx_thinc), atol=1e-06)
+        assert ops.xp.isclose(
+            x_torch.grad.item() * dY, float(dx_thinc.item()), atol=1e-06
+        )
     elif params == {"dY", "X"}:
         dx_thinc = backward(dY_thinc, X=x_thinc)
         assert dx_thinc.dtype == x_thinc.dtype
@@ -1550,7 +1554,9 @@ def test_compare_activations_to_torch(ops, dtype, x, dY, torch_func):
             dx_thinc, backward(dY=dY_thinc_inplace, X=x_thinc, inplace=True)
         )
         assert ops.xp.isclose(
-            x_torch.grad.item() * dY, float(backward(dY_thinc, X=x_thinc)), atol=1e-06
+            x_torch.grad.item() * dY,
+            float(backward(dY_thinc, X=x_thinc).item()),
+            atol=1e-06,
         )
     else:
         raise NotImplementedError(
@@ -1608,3 +1614,40 @@ def test_asarray_from_list_uint64(ops):
     # list contains int values both above and below int64.max
     uint64_list = [16, 11648197037703959513]
     assert uint64_list == list(ops.asarray(uint64_list, dtype="uint64"))
+
+
+@pytest.mark.parametrize("ops", CPU_OPS)
+@pytest.mark.parametrize("byteorder", ["<", ">"])
+def test_asarray_converts_to_native_byteorder(ops, byteorder):
+    # Arrays serialized on a platform with the opposite endianness (e.g. a
+    # spaCy pipeline trained on x86_64 and loaded on s390x) must be normalised
+    # to native byte order — otherwise Cython typed memoryviews reject them.
+    import sys as _sys
+
+    native = "<" if _sys.byteorder == "little" else ">"
+    expected = numpy.array([1.0, 2.0, 3.0], dtype="float32")
+    foreign = expected.astype(numpy.dtype("float32").newbyteorder(byteorder))
+    out = ops.asarray(foreign)
+    assert out.dtype.byteorder in ("=", native)
+    assert_allclose(out, expected)
+
+
+def test_ensure_native_byteorder_helper():
+    import sys as _sys
+
+    from thinc.util import ensure_native_byteorder
+
+    native = "<" if _sys.byteorder == "little" else ">"
+
+    native_arr = numpy.array([1, 2, 3], dtype="int32")
+    assert ensure_native_byteorder(native_arr) is native_arr
+
+    opposite = ">" if native == "<" else "<"
+    swapped = native_arr.astype(native_arr.dtype.newbyteorder(opposite))
+    out = ensure_native_byteorder(swapped)
+    assert out.dtype.byteorder in ("=", native)
+    assert list(out) == [1, 2, 3]
+
+    # Single-byte dtypes report "|" and must be passed through untouched.
+    byte_arr = numpy.array([1, 2, 3], dtype="int8")
+    assert ensure_native_byteorder(byte_arr) is byte_arr
