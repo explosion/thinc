@@ -655,17 +655,22 @@ model.to_disk("/path/to/model")
 
 ### Model.from_disk {#from_disk tag="method"}
 
-Deserialize the model from disk. Most models will serialize to a single file,
-which should just be the bytes contents of [`Model.to_bytes`](#to_bytes).
+Recreate the model with the same layer structure, then load its parameters and
+other serialized state into that instance. If you built the model from a registry
+config, resolve the same config before calling `from_disk`.
 
 ```python
 ### Example
-model = Model().from_disk("/path/to/model")
+from thinc.api import Linear, Relu, chain
+
+model = chain(Relu(nI=3, nO=4), Linear(nI=4, nO=2)).initialize()
+model.to_disk("model.bin")
+restored = chain(Relu(), Linear()).from_disk("model.bin")
 ```
 
 | Argument    | Type                      | Description                       |
 | ----------- | ------------------------- | --------------------------------- |
-|  `path`     | <tt>Union[Path, str]</tt> | Directory to load the model from. |
+|  `path`     | <tt>Union[Path, str]</tt> | Path to the saved model file.     |
 | **RETURNS** | <tt>Model</tt>            | The loaded model.                 |
 
 ### Model.can_from_bytes {#can_from_bytes tag="method"}
@@ -678,7 +683,7 @@ Check whether bytes data is compatible with the model for deserialization.
 |  `strict`     | <tt>bool</tt>  | Whether to require attributes to match. |
 | **RETURNS**   | <tt>bool</tt>  | Whether the data is compatible.         |
 
-### Model.can_from_bytes {#can_from_bytes tag="method"}
+### Model.can_from_disk {#can_from_disk tag="method"}
 
 Check whether a path is compatible with the model for deserialization.
 
@@ -686,7 +691,7 @@ Check whether a path is compatible with the model for deserialization.
 | ----------- | ------------------------- | --------------------------------------- |
 |  `path`     | <tt>Union[Path, str]</tt> | The path to check.                      |
 |  `strict`   | <tt>bool</tt>             | Whether to require attributes to match. |
-| **RETURNS** | <tt>Model</tt>            | Whether the path is compatible.         |
+| **RETURNS** | <tt>bool</tt>             | Whether the path is compatible.         |
 
 ### Model.can_from_dict {#from_dict tag="method"}
 
