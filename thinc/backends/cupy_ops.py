@@ -1,7 +1,8 @@
 import numpy
+from typing import Any
 
 from .. import registry
-from ..compat import cublas, cupy, cupyx
+from ..compat import cublas, cupy, cupyx, has_cupy_gpu, has_torch_cuda_gpu, torch
 from ..types import DeviceTypes
 from ..util import (
     is_cupy_array,
@@ -345,6 +346,24 @@ class CupyOps(Ops):
     def position_encode(self, N, D, period=10000, out=None):
         positions = NumpyOps().position_encode(N, D, period=period, out=out)
         return self.asarray(positions)
+
+    def has_gpu_support(self):
+        return has_cupy_gpu
+
+    def set_active_gpu(self, gpu_id: int) -> Any:
+        if not self.has_gpu_support():
+            raise ValueError("No CUDA GPU devices detected")
+
+        device = cupy.cuda.device.Device(gpu_id)
+        device.use()
+        if has_torch_cuda_gpu:
+            torch.cuda.set_device(gpu_id)
+
+        return device
+
+    def get_default_torch_device(self):
+        device_id = torch.cuda.current_device()
+        return torch.device(f"cuda:{device_id}")
 
 
 if cupy is not None:
